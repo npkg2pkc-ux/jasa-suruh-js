@@ -115,8 +115,28 @@
         setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
     }
 
+    // ── URL Routing ──
+    const ROUTES = {
+        login:  '/login',
+        register: '/daftar',
+        user:   '/home',
+        talent: '/talent',
+        cs:     '/cs-panel',
+        owner:  '/owner-panel'
+    };
+
+    // Reverse lookup: path → pageName
+    function pageFromPath(path) {
+        const clean = path.replace(/\/+$/, '') || '/';
+        for (const [page, route] of Object.entries(ROUTES)) {
+            if (clean === route) return page;
+        }
+        if (clean === '/' || clean === '') return 'login';
+        return null;
+    }
+
     // ── Page Navigation ──
-    function showPage(pageName) {
+    function showPage(pageName, pushState) {
         const pages = document.querySelectorAll('.page');
         pages.forEach(p => p.classList.add('hidden'));
 
@@ -124,6 +144,28 @@
         if (target) {
             target.classList.remove('hidden');
         }
+
+        // Update URL (default: push, skip on popstate/initial load)
+        if (pushState !== false && ROUTES[pageName]) {
+            const newPath = ROUTES[pageName];
+            if (window.location.pathname !== newPath) {
+                history.pushState({ page: pageName }, '', newPath);
+            }
+        }
+
+        // Update page title
+        const titles = {
+            login: 'Login - Jasa Suruh',
+            register: 'Daftar - Jasa Suruh',
+            user: 'Home - Jasa Suruh',
+            talent: 'Talent - Jasa Suruh',
+            cs: 'CS Panel - Jasa Suruh',
+            owner: 'Owner Panel - Jasa Suruh'
+        };
+        document.title = titles[pageName] || 'Jasa Suruh (JS)';
+
+        // Scroll to top
+        window.scrollTo(0, 0);
 
         // If navigating to a role page, update the name display
         const session = getSession();
@@ -133,6 +175,16 @@
     }
     // Expose globally for inline onclick
     window.showPage = showPage;
+
+    // Handle browser back/forward
+    window.addEventListener('popstate', function (e) {
+        if (e.state && e.state.page) {
+            showPage(e.state.page, false);
+        } else {
+            const page = pageFromPath(window.location.pathname);
+            if (page) showPage(page, false);
+        }
+    });
 
     function updateRoleUI(user) {
         const role = user.role;
@@ -518,6 +570,9 @@
             splash.classList.add('fade-out');
             app.classList.remove('hidden');
 
+            // Check URL path first
+            const urlPage = pageFromPath(window.location.pathname);
+
             // Check if user already logged in
             const session = getSession();
             if (session) {
@@ -525,14 +580,24 @@
                 const users = getUsers();
                 const valid = users.find(u => u.id === session.id && u.username === session.username);
                 if (valid) {
-                    showPage(valid.role);
+                    // If URL says login/register but user is logged in, go to their dashboard
+                    if (urlPage && urlPage !== 'login' && urlPage !== 'register') {
+                        showPage(urlPage);
+                    } else {
+                        showPage(valid.role);
+                    }
                     updateRoleUI(valid);
                     return;
                 }
                 clearSession();
             }
-            // Show login page
-            showPage('login');
+
+            // Not logged in
+            if (urlPage === 'register') {
+                showPage('register');
+            } else {
+                showPage('login');
+            }
         }, 1800);
     }
 
