@@ -27,244 +27,311 @@
         </div>
     </div>
 
-    <!-- Main App -->
     <div id="app" class="app hidden">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-top">
-                <div class="header-greeting">
+
+        <!-- ==================== LOGIN PAGE ==================== -->
+        <div id="page-login" class="page page-auth">
+            <div class="auth-container">
+                <div class="auth-header">
+                    <div class="auth-logo">JS</div>
+                    <h1>Jasa Suruh</h1>
+                    <p>Masuk ke akun Anda</p>
+                </div>
+                <form id="loginForm" class="auth-form">
+                    <div class="form-group">
+                        <label>Username / No. HP</label>
+                        <div class="input-wrap">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <input type="text" id="loginUsername" placeholder="Masukkan username" required autocomplete="username">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <div class="input-wrap">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            <input type="password" id="loginPassword" placeholder="Masukkan password" required autocomplete="current-password">
+                            <button type="button" class="btn-eye" onclick="togglePassword('loginPassword', this)">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary">Masuk</button>
+                </form>
+                <div class="auth-footer">
+                    <p>Belum punya akun? <a href="#" onclick="showPage('register'); return false;">Daftar</a></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== REGISTER PAGE ==================== -->
+        <div id="page-register" class="page page-auth hidden">
+            <div class="auth-container">
+                <div class="auth-header">
+                    <div class="auth-logo">JS</div>
+                    <h1>Buat Akun</h1>
+                    <p>Pilih jenis akun Anda</p>
+                </div>
+                <form id="registerForm" class="auth-form">
+                    <div class="role-selector">
+                        <button type="button" class="role-btn active" data-role="user">
+                            <span class="role-icon">👤</span>
+                            <span class="role-label">Pengguna</span>
+                            <span class="role-desc">Cari & pesan jasa</span>
+                        </button>
+                        <button type="button" class="role-btn" data-role="talent">
+                            <span class="role-icon">💼</span>
+                            <span class="role-label">Talent</span>
+                            <span class="role-desc">Tawarkan keahlian</span>
+                        </button>
+                    </div>
+                    <div class="form-group">
+                        <label>Nama Lengkap</label>
+                        <div class="input-wrap">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <input type="text" id="regName" placeholder="Nama lengkap Anda" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>No. HP</label>
+                        <div class="input-wrap">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="20" rx="2" stroke="currentColor" stroke-width="2"/><path d="M12 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            <input type="tel" id="regPhone" placeholder="08xxxxxxxxxx" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Username</label>
+                        <div class="input-wrap">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8.5" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            <input type="text" id="regUsername" placeholder="Buat username" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <div class="input-wrap">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            <input type="password" id="regPassword" placeholder="Min. 6 karakter" required minlength="6">
+                            <button type="button" class="btn-eye" onclick="togglePassword('regPassword', this)">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <input type="hidden" id="regRole" value="user">
+                    <button type="submit" class="btn-primary">Daftar</button>
+                </form>
+                <div class="auth-footer">
+                    <p>Sudah punya akun? <a href="#" onclick="showPage('login'); return false;">Masuk</a></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== USER DASHBOARD ==================== -->
+        <div id="page-user" class="page hidden">
+            <header class="header">
+                <div class="header-top">
                     <div class="greeting-text">
-                        <span class="greeting-hi">Halo! 👋</span>
+                        <span class="greeting-hi">Halo, <span id="userName">User</span>! 👋</span>
                         <span class="greeting-question">Mau dibantu apa hari ini?</span>
                     </div>
-                </div>
-                <div class="header-actions">
-                    <button class="btn-icon" aria-label="Notifikasi">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                            <path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                        <span class="badge">3</span>
-                    </button>
-                    <div class="avatar" aria-label="Profil">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
+                    <div class="header-actions">
+                        <button class="btn-icon" aria-label="Notifikasi">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <span class="badge">3</span>
+                        </button>
+                        <div class="avatar">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <!-- Search Bar -->
-            <div class="search-bar">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
-                    <path d="m21 21-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-                <input type="text" placeholder="Cari layanan atau kebutuhan..." readonly>
-            </div>
-        </header>
+                <div class="search-bar">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <input type="text" placeholder="Cari layanan atau kebutuhan..." readonly>
+                </div>
+            </header>
+            <main class="main-content">
+                <section class="promo-section">
+                    <div class="promo-slider" id="promoSlider">
+                        <div class="promo-track" id="promoTrack">
+                            <div class="promo-card gradient-1"><div class="promo-info"><span class="promo-badge">PROMO</span><h3>Diskon 50% Jasa Antar</h3><p>Untuk pengguna baru</p></div><div class="promo-illustration">🏍️</div></div>
+                            <div class="promo-card gradient-2"><div class="promo-info"><span class="promo-badge">BARU</span><h3>Jasa Belanja Online</h3><p>Kami belanjakan untuk Anda</p></div><div class="promo-illustration">🛒</div></div>
+                            <div class="promo-card gradient-3"><div class="promo-info"><span class="promo-badge">SPESIAL</span><h3>Gratis Ongkir Dokumen</h3><p>Min. transaksi Rp20.000</p></div><div class="promo-illustration">📄</div></div>
+                        </div>
+                        <div class="promo-dots" id="promoDots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span></div>
+                    </div>
+                </section>
+                <section class="services-section">
+                    <div class="section-header"><h2>Layanan Kami</h2><a href="#" class="see-all">Lihat Semua</a></div>
+                    <div class="services-grid">
+                        <button class="service-item"><div class="service-icon si-orange"><span>🏍️</span></div><span class="service-name">JS Antar</span></button>
+                        <button class="service-item"><div class="service-icon si-dark"><span>🛒</span></div><span class="service-name">JS Belanja</span></button>
+                        <button class="service-item"><div class="service-icon si-orange"><span>🍔</span></div><span class="service-name">JS Makan</span></button>
+                        <button class="service-item"><div class="service-icon si-dark"><span>📦</span></div><span class="service-name">JS Kirim</span></button>
+                        <button class="service-item"><div class="service-icon si-dark"><span>🧹</span></div><span class="service-name">JS Bersih</span></button>
+                        <button class="service-item"><div class="service-icon si-orange"><span>🔧</span></div><span class="service-name">JS Servis</span></button>
+                        <button class="service-item"><div class="service-icon si-orange"><span>💊</span></div><span class="service-name">JS Obat</span></button>
+                        <button class="service-item"><div class="service-icon si-dark"><span>📋</span></div><span class="service-name">Lainnya</span></button>
+                    </div>
+                </section>
+                <section class="pay-section">
+                    <div class="pay-card">
+                        <div class="pay-header"><div class="pay-logo"><span class="pay-brand">JS</span>Pay</div><button class="btn-topup">Top Up</button></div>
+                        <div class="pay-balance">
+                            <div class="balance-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M2 10h20" stroke="currentColor" stroke-width="2"/></svg><div><span class="balance-label">Saldo</span><span class="balance-amount">Rp 0</span></div></div>
+                            <div class="balance-divider"></div>
+                            <div class="balance-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><div><span class="balance-label">Poin</span><span class="balance-amount">0</span></div></div>
+                        </div>
+                    </div>
+                </section>
+                <section class="news-section">
+                    <div class="section-header"><h2>Info & Promo</h2><a href="#" class="see-all">Lihat Semua</a></div>
+                    <div class="news-list">
+                        <div class="news-card"><div class="news-img placeholder-img"><span>🎉</span></div><div class="news-info"><h4>Selamat Datang di Jasa Suruh!</h4><p>Platform layanan terlengkap untuk semua kebutuhan Anda.</p><span class="news-date">17 Mar 2026</span></div></div>
+                        <div class="news-card"><div class="news-img placeholder-img"><span>🚀</span></div><div class="news-info"><h4>Fitur Baru Segera Hadir</h4><p>Nantikan berbagai layanan baru yang kami siapkan.</p><span class="news-date">17 Mar 2026</span></div></div>
+                    </div>
+                </section>
+                <div class="bottom-spacer"></div>
+            </main>
+            <nav class="bottom-nav">
+                <button class="nav-item active" data-page="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Home</span></button>
+                <button class="nav-item" data-page="pesanan"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Pesanan</span></button>
+                <button class="nav-item nav-center" data-page="order"><div class="nav-center-btn"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg></div><span>Pesan</span></button>
+                <button class="nav-item" data-page="chat"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Chat</span></button>
+                <button class="nav-item" data-page="akun"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Akun</span></button>
+            </nav>
+        </div>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Promo Banner -->
-            <section class="promo-section">
-                <div class="promo-slider" id="promoSlider">
-                    <div class="promo-track" id="promoTrack">
-                        <div class="promo-card gradient-1">
-                            <div class="promo-info">
-                                <span class="promo-badge">PROMO</span>
-                                <h3>Diskon 50% Jasa Antar</h3>
-                                <p>Untuk pengguna baru</p>
-                            </div>
-                            <div class="promo-illustration">🏍️</div>
-                        </div>
-                        <div class="promo-card gradient-2">
-                            <div class="promo-info">
-                                <span class="promo-badge">BARU</span>
-                                <h3>Jasa Belanja Online</h3>
-                                <p>Kami belanjakan untuk Anda</p>
-                            </div>
-                            <div class="promo-illustration">🛒</div>
-                        </div>
-                        <div class="promo-card gradient-3">
-                            <div class="promo-info">
-                                <span class="promo-badge">SPESIAL</span>
-                                <h3>Gratis Ongkir Dokumen</h3>
-                                <p>Min. transaksi Rp20.000</p>
-                            </div>
-                            <div class="promo-illustration">📄</div>
-                        </div>
+        <!-- ==================== TALENT DASHBOARD ==================== -->
+        <div id="page-talent" class="page hidden">
+            <header class="header header-talent">
+                <div class="header-top">
+                    <div class="greeting-text">
+                        <span class="greeting-hi">Halo, <span id="talentName">Talent</span>! 💼</span>
+                        <span class="greeting-question">Siap menerima pesanan?</span>
                     </div>
-                    <div class="promo-dots" id="promoDots">
-                        <span class="dot active"></span>
-                        <span class="dot"></span>
-                        <span class="dot"></span>
+                    <div class="header-actions">
+                        <button class="btn-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="badge">0</span></button>
+                        <div class="avatar"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                     </div>
                 </div>
-            </section>
+                <div class="talent-status-bar">
+                    <span class="status-label" id="talentStatusLabel">Offline</span>
+                    <label class="switch"><input type="checkbox" id="talentOnlineToggle"><span class="slider-toggle"></span></label>
+                </div>
+            </header>
+            <main class="main-content">
+                <section class="talent-stats">
+                    <div class="stat-card"><div class="stat-icon-circle orange-bg">📊</div><div class="stat-info"><span class="stat-value">0</span><span class="stat-label">Pesanan Hari Ini</span></div></div>
+                    <div class="stat-card"><div class="stat-icon-circle green-bg">💰</div><div class="stat-info"><span class="stat-value">Rp 0</span><span class="stat-label">Pendapatan</span></div></div>
+                    <div class="stat-card"><div class="stat-icon-circle yellow-bg">⭐</div><div class="stat-info"><span class="stat-value">0.0</span><span class="stat-label">Rating</span></div></div>
+                </section>
+                <section class="content-section">
+                    <div class="section-header"><h2>Pesanan Masuk</h2></div>
+                    <div class="empty-state"><div class="empty-icon">📭</div><h3>Belum Ada Pesanan</h3><p>Aktifkan status online untuk mulai menerima pesanan.</p></div>
+                </section>
+                <section class="content-section">
+                    <div class="section-header"><h2>Pesanan Aktif</h2></div>
+                    <div class="empty-state"><div class="empty-icon">📋</div><h3>Tidak Ada Pesanan Aktif</h3><p>Pesanan yang sedang dikerjakan akan muncul di sini.</p></div>
+                </section>
+                <div class="bottom-spacer"></div>
+            </main>
+            <nav class="bottom-nav">
+                <button class="nav-item active" data-page="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Home</span></button>
+                <button class="nav-item" data-page="pesanan"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Pesanan</span></button>
+                <button class="nav-item" data-page="earning"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8M12 5v2m0 10v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Pendapatan</span></button>
+                <button class="nav-item" data-page="chat"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Chat</span></button>
+                <button class="nav-item" data-page="akun"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Akun</span></button>
+            </nav>
+        </div>
 
-            <!-- Quick Actions / Services -->
-            <section class="services-section">
-                <div class="section-header">
-                    <h2>Layanan Kami</h2>
-                    <a href="#" class="see-all">Lihat Semua</a>
-                </div>
-                <div class="services-grid">
-                    <button class="service-item">
-                        <div class="service-icon si-orange">
-                            <span>🏍️</span>
-                        </div>
-                        <span class="service-name">JS Antar</span>
-                    </button>
-                    <button class="service-item">
-                        <div class="service-icon si-dark">
-                            <span>🛒</span>
-                        </div>
-                        <span class="service-name">JS Belanja</span>
-                    </button>
-                    <button class="service-item">
-                        <div class="service-icon si-orange">
-                            <span>🍔</span>
-                        </div>
-                        <span class="service-name">JS Makan</span>
-                    </button>
-                    <button class="service-item">
-                        <div class="service-icon si-dark">
-                            <span>📦</span>
-                        </div>
-                        <span class="service-name">JS Kirim</span>
-                    </button>
-                    <button class="service-item">
-                        <div class="service-icon si-dark">
-                            <span>🧹</span>
-                        </div>
-                        <span class="service-name">JS Bersih</span>
-                    </button>
-                    <button class="service-item">
-                        <div class="service-icon si-orange">
-                            <span>🔧</span>
-                        </div>
-                        <span class="service-name">JS Servis</span>
-                    </button>
-                    <button class="service-item">
-                        <div class="service-icon si-orange">
-                            <span>💊</span>
-                        </div>
-                        <span class="service-name">JS Obat</span>
-                    </button>
-                    <button class="service-item">
-                        <div class="service-icon si-dark">
-                            <span>📋</span>
-                        </div>
-                        <span class="service-name">Lainnya</span>
-                    </button>
-                </div>
-            </section>
-
-            <!-- JS Pay Section -->
-            <section class="pay-section">
-                <div class="pay-card">
-                    <div class="pay-header">
-                        <div class="pay-logo">
-                            <span class="pay-brand">JS</span>Pay
-                        </div>
-                        <button class="btn-topup">Top Up</button>
+        <!-- ==================== CS DASHBOARD ==================== -->
+        <div id="page-cs" class="page hidden">
+            <header class="header header-cs">
+                <div class="header-top">
+                    <div class="greeting-text">
+                        <span class="greeting-hi">CS Panel 🎧</span>
+                        <span class="greeting-question">Halo, <span id="csName">CS</span></span>
                     </div>
-                    <div class="pay-balance">
-                        <div class="balance-item">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
-                                <path d="M2 10h20" stroke="currentColor" stroke-width="2"/>
-                            </svg>
-                            <div>
-                                <span class="balance-label">Saldo</span>
-                                <span class="balance-amount">Rp 0</span>
-                            </div>
-                        </div>
-                        <div class="balance-divider"></div>
-                        <div class="balance-item">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                                <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            </svg>
-                            <div>
-                                <span class="balance-label">Poin</span>
-                                <span class="balance-amount">0</span>
-                            </div>
-                        </div>
+                    <div class="header-actions">
+                        <button class="btn-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                        <div class="avatar avatar-cs"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                     </div>
                 </div>
-            </section>
+            </header>
+            <main class="main-content">
+                <section class="cs-stats">
+                    <div class="stat-card"><div class="stat-icon-circle blue-bg">🎫</div><div class="stat-info"><span class="stat-value">0</span><span class="stat-label">Tiket Aktif</span></div></div>
+                    <div class="stat-card"><div class="stat-icon-circle green-bg">✅</div><div class="stat-info"><span class="stat-value">0</span><span class="stat-label">Selesai Hari Ini</span></div></div>
+                    <div class="stat-card"><div class="stat-icon-circle yellow-bg">⏳</div><div class="stat-info"><span class="stat-value">0</span><span class="stat-label">Menunggu</span></div></div>
+                </section>
+                <section class="content-section">
+                    <div class="section-header"><h2>Tiket Terbaru</h2><a href="#" class="see-all">Semua</a></div>
+                    <div class="empty-state"><div class="empty-icon">🎫</div><h3>Tidak Ada Tiket</h3><p>Semua tiket sudah ditangani. Kerja bagus!</p></div>
+                </section>
+                <section class="content-section">
+                    <div class="section-header"><h2>Laporan User</h2></div>
+                    <div class="empty-state"><div class="empty-icon">📝</div><h3>Tidak Ada Laporan</h3><p>Tidak ada laporan baru saat ini.</p></div>
+                </section>
+                <div class="bottom-spacer"></div>
+            </main>
+            <nav class="bottom-nav">
+                <button class="nav-item active" data-page="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Dashboard</span></button>
+                <button class="nav-item" data-page="tickets"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tiket</span></button>
+                <button class="nav-item" data-page="users"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Users</span></button>
+                <button class="nav-item" data-page="chat"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Chat</span></button>
+                <button class="nav-item" data-page="profil"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Profil</span></button>
+            </nav>
+        </div>
 
-            <!-- Promo & News -->
-            <section class="news-section">
-                <div class="section-header">
-                    <h2>Info & Promo</h2>
-                    <a href="#" class="see-all">Lihat Semua</a>
+        <!-- ==================== OWNER DASHBOARD ==================== -->
+        <div id="page-owner" class="page hidden">
+            <header class="header header-owner">
+                <div class="header-top">
+                    <div class="greeting-text">
+                        <span class="greeting-hi">Owner Panel 👑</span>
+                        <span class="greeting-question">Dashboard Admin</span>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                        <div class="avatar avatar-owner"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                    </div>
                 </div>
-                <div class="news-list">
-                    <div class="news-card">
-                        <div class="news-img placeholder-img">
-                            <span>🎉</span>
-                        </div>
-                        <div class="news-info">
-                            <h4>Selamat Datang di Jasa Suruh!</h4>
-                            <p>Platform layanan terlengkap untuk semua kebutuhan Anda.</p>
-                            <span class="news-date">17 Mar 2026</span>
+            </header>
+            <main class="main-content">
+                <section class="owner-stats">
+                    <div class="stat-card-wide">
+                        <div class="stat-row">
+                            <div class="stat-mini"><span class="stat-mini-value" id="ownerTotalUsers">0</span><span class="stat-mini-label">Users</span></div>
+                            <div class="stat-mini"><span class="stat-mini-value" id="ownerTotalTalents">0</span><span class="stat-mini-label">Talents</span></div>
+                            <div class="stat-mini"><span class="stat-mini-value" id="ownerTotalCS">0</span><span class="stat-mini-label">CS</span></div>
+                            <div class="stat-mini"><span class="stat-mini-value" id="ownerTotalOrders">0</span><span class="stat-mini-label">Orders</span></div>
                         </div>
                     </div>
-                    <div class="news-card">
-                        <div class="news-img placeholder-img">
-                            <span>🚀</span>
-                        </div>
-                        <div class="news-info">
-                            <h4>Fitur Baru Segera Hadir</h4>
-                            <p>Nantikan berbagai layanan baru yang kami siapkan.</p>
-                            <span class="news-date">17 Mar 2026</span>
-                        </div>
+                </section>
+                <section class="content-section">
+                    <div class="section-header"><h2>Buat Akun CS</h2></div>
+                    <div class="card-form">
+                        <form id="createCSForm">
+                            <div class="form-group"><label>Nama CS</label><div class="input-wrap"><input type="text" id="csFormName" placeholder="Nama lengkap CS" required></div></div>
+                            <div class="form-group"><label>Username</label><div class="input-wrap"><input type="text" id="csFormUsername" placeholder="Username untuk login" required></div></div>
+                            <div class="form-group"><label>Password</label><div class="input-wrap"><input type="password" id="csFormPassword" placeholder="Password CS" required minlength="6"></div></div>
+                            <button type="submit" class="btn-primary">Buat Akun CS</button>
+                        </form>
                     </div>
-                </div>
-            </section>
+                </section>
+                <section class="content-section">
+                    <div class="section-header"><h2>Semua Pengguna</h2><button class="btn-refresh" onclick="renderOwnerUsers()">↻</button></div>
+                    <div id="ownerUserList" class="user-list"></div>
+                </section>
+                <div class="bottom-spacer"></div>
+            </main>
+            <nav class="bottom-nav">
+                <button class="nav-item active" data-page="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Dashboard</span></button>
+                <button class="nav-item" data-page="users"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Users</span></button>
+                <button class="nav-item" data-page="reports"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Laporan</span></button>
+                <button class="nav-item" data-page="cs-manage"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12c0 1.6.376 3.112 1.043 4.453L2 22l5.547-1.043A9.96 9.96 0 0 0 12 22z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>CS</span></button>
+                <button class="nav-item" data-page="settings"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Setting</span></button>
+            </nav>
+        </div>
 
-            <!-- Spacer for bottom nav -->
-            <div class="bottom-spacer"></div>
-        </main>
-
-        <!-- Bottom Navigation -->
-        <nav class="bottom-nav">
-            <button class="nav-item active" data-page="home">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M9 22V12h6v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span>Home</span>
-            </button>
-            <button class="nav-item" data-page="pesanan">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span>Pesanan</span>
-            </button>
-            <button class="nav-item nav-center" data-page="order">
-                <div class="nav-center-btn">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-                    </svg>
-                </div>
-                <span>Pesan</span>
-            </button>
-            <button class="nav-item" data-page="chat">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span>Chat</span>
-            </button>
-            <button class="nav-item" data-page="akun">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span>Akun</span>
-            </button>
-        </nav>
     </div>
 
     <script src="app.js"></script>

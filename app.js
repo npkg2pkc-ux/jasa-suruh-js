@@ -1,220 +1,484 @@
 /* ========================================
-   JASA SURUH (JS) - App JavaScript
+   JASA SURUH (JS) - App Logic
+   Auth + Role-based Routing + Interactions
    ======================================== */
 
-// Splash Screen
-document.addEventListener('DOMContentLoaded', () => {
-    const splash = document.getElementById('splash');
-    const app = document.getElementById('app');
+(function () {
+    'use strict';
 
-    setTimeout(() => {
-        splash.classList.add('fade-out');
-        app.classList.remove('hidden');
+    // ── Constants ──
+    const OWNER_USERNAME = '3123159';
+    const OWNER_PASSWORD = '3123159';
+    const STORAGE_USERS = 'js_users';
+    const STORAGE_SESSION = 'js_session';
 
-        setTimeout(() => {
-            splash.style.display = 'none';
-        }, 500);
-    }, 2000);
-
-    initPromoSlider();
-    initBottomNav();
-    initServiceItems();
-    initInstallBanner();
-});
-
-// ========== PROMO SLIDER ==========
-function initPromoSlider() {
-    const track = document.getElementById('promoTrack');
-    const dots = document.querySelectorAll('#promoDots .dot');
-    let currentSlide = 0;
-    const totalSlides = dots.length;
-    let autoSlideInterval;
-    let startX = 0;
-    let isDragging = false;
-
-    function goToSlide(index) {
-        currentSlide = index;
-        track.style.transform = `translateX(-${currentSlide * 100}%)`;
-        dots.forEach((dot, i) => {
-            dot.classList.toggle('active', i === currentSlide);
-        });
+    // ── Initialize owner in user DB ──
+    function initDB() {
+        let users = getUsers();
+        const ownerExists = users.some(u => u.username === OWNER_USERNAME && u.role === 'owner');
+        if (!ownerExists) {
+            users.push({
+                id: generateId(),
+                name: 'Owner',
+                phone: '-',
+                username: OWNER_USERNAME,
+                password: OWNER_PASSWORD,
+                role: 'owner',
+                createdAt: Date.now()
+            });
+            saveUsers(users);
+        }
     }
 
-    function nextSlide() {
-        goToSlide((currentSlide + 1) % totalSlides);
+    function getUsers() {
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_USERS)) || [];
+        } catch { return []; }
     }
 
-    // Auto slide
-    function startAutoSlide() {
-        autoSlideInterval = setInterval(nextSlide, 4000);
+    function saveUsers(users) {
+        localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
     }
 
-    function stopAutoSlide() {
-        clearInterval(autoSlideInterval);
+    function getSession() {
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_SESSION));
+        } catch { return null; }
     }
 
-    startAutoSlide();
+    function setSession(user) {
+        localStorage.setItem(STORAGE_SESSION, JSON.stringify(user));
+    }
 
-    // Touch swipe support
-    const slider = document.getElementById('promoSlider');
+    function clearSession() {
+        localStorage.removeItem(STORAGE_SESSION);
+    }
 
-    slider.addEventListener('touchstart', (e) => {
-        startX = e.touches[0].clientX;
-        isDragging = true;
-        stopAutoSlide();
-    }, { passive: true });
+    function generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
 
-    slider.addEventListener('touchend', (e) => {
-        if (!isDragging) return;
-        const endX = e.changedTouches[0].clientX;
-        const diff = startX - endX;
+    // ── Toast ──
+    function showToast(msg, type) {
+        const existing = document.querySelector('.toast');
+        if (existing) existing.remove();
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        const bg = type === 'error' ? '#EF4444' : type === 'success' ? '#22C55E' : '#FF6B00';
+        toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:' + bg + ';color:#fff;padding:12px 24px;border-radius:12px;font-family:var(--font);font-size:14px;font-weight:600;z-index:10000;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:fadeInUp .3s ease;max-width:90%;text-align:center;';
+        toast.textContent = msg;
+        document.body.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+    }
 
-        if (Math.abs(diff) > 50) {
-            if (diff > 0 && currentSlide < totalSlides - 1) {
-                goToSlide(currentSlide + 1);
-            } else if (diff < 0 && currentSlide > 0) {
-                goToSlide(currentSlide - 1);
-            }
+    // ── Page Navigation ──
+    function showPage(pageName) {
+        const pages = document.querySelectorAll('.page');
+        pages.forEach(p => p.classList.add('hidden'));
+
+        const target = document.getElementById('page-' + pageName);
+        if (target) {
+            target.classList.remove('hidden');
         }
 
-        isDragging = false;
-        startAutoSlide();
-    }, { passive: true });
+        // If navigating to a role page, update the name display
+        const session = getSession();
+        if (session) {
+            updateRoleUI(session);
+        }
+    }
+    // Expose globally for inline onclick
+    window.showPage = showPage;
 
-    // Dot click
-    dots.forEach((dot, i) => {
-        dot.addEventListener('click', () => {
-            stopAutoSlide();
-            goToSlide(i);
-            startAutoSlide();
-        });
-    });
-}
-
-// ========== BOTTOM NAVIGATION ==========
-function initBottomNav() {
-    const navItems = document.querySelectorAll('.nav-item');
-
-    navItems.forEach(item => {
-        item.addEventListener('click', () => {
-            navItems.forEach(n => n.classList.remove('active'));
-            item.classList.add('active');
-
-            // Haptic feedback on supported devices
-            if (navigator.vibrate) {
-                navigator.vibrate(10);
-            }
-        });
-    });
-}
-
-// ========== SERVICE ITEMS ==========
-function initServiceItems() {
-    const items = document.querySelectorAll('.service-item');
-
-    items.forEach(item => {
-        item.addEventListener('click', () => {
-            const name = item.querySelector('.service-name').textContent;
-            showToast(`${name} - Segera hadir!`);
-        });
-    });
-}
-
-// ========== TOAST NOTIFICATION ==========
-function showToast(message) {
-    const existing = document.querySelector('.toast');
-    if (existing) existing.remove();
-
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.textContent = message;
-    toast.style.cssText = `
-        position: fixed;
-        top: 60px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: #FFFFFF;
-        color: #111111;
-        padding: 12px 24px;
-        border-radius: 50px;
-        font-size: 13px;
-        font-weight: 600;
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        z-index: 9999;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        animation: toastIn 0.3s ease;
-        max-width: calc(100% - 40px);
-        text-align: center;
-    `;
-
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-        @keyframes toastOut { from { opacity: 1; transform: translateX(-50%) translateY(0); } to { opacity: 0; transform: translateX(-50%) translateY(-10px); } }
-    `;
-    document.head.appendChild(style);
-    document.body.appendChild(toast);
-
-    setTimeout(() => {
-        toast.style.animation = 'toastOut 0.3s ease forwards';
-        setTimeout(() => toast.remove(), 300);
-    }, 2500);
-}
-
-// ========== PWA INSTALL ==========
-let deferredPrompt;
-
-function initInstallBanner() {
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        showInstallBanner();
-    });
-}
-
-function showInstallBanner() {
-    // Don't show if already installed
-    if (window.matchMedia('(display-mode: standalone)').matches) return;
-
-    const banner = document.createElement('div');
-    banner.className = 'install-banner';
-    banner.innerHTML = `
-        <div class="install-banner-icon">JS</div>
-        <div class="install-banner-text">
-            <strong>Install Jasa Suruh</strong>
-            <span>Akses cepat dari home screen</span>
-        </div>
-        <button class="btn-install" onclick="installApp()">Install</button>
-        <button class="btn-close" onclick="this.parentElement.remove()">&times;</button>
-    `;
-
-    document.body.appendChild(banner);
-}
-
-async function installApp() {
-    if (!deferredPrompt) return;
-
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-
-    if (outcome === 'accepted') {
-        showToast('Terima kasih! Aplikasi sedang diinstal.');
+    function updateRoleUI(user) {
+        const role = user.role;
+        if (role === 'user') {
+            const el = document.getElementById('userName');
+            if (el) el.textContent = user.name || 'User';
+        } else if (role === 'talent') {
+            const el = document.getElementById('talentName');
+            if (el) el.textContent = user.name || 'Talent';
+        } else if (role === 'cs') {
+            const el = document.getElementById('csName');
+            if (el) el.textContent = user.name || 'CS';
+        } else if (role === 'owner') {
+            renderOwnerStats();
+            renderOwnerUsers();
+        }
     }
 
-    deferredPrompt = null;
-    const banner = document.querySelector('.install-banner');
-    if (banner) banner.remove();
-}
+    // ── Auth: Login ──
+    function handleLogin(e) {
+        e.preventDefault();
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value;
 
-// ========== SERVICE WORKER REGISTRATION ==========
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js')
-            .then(reg => {
-                console.log('Service Worker registered:', reg.scope);
-            })
-            .catch(err => {
-                console.log('Service Worker registration failed:', err);
+        if (!username || !password) {
+            showToast('Lengkapi semua data!', 'error');
+            return;
+        }
+
+        const users = getUsers();
+        const found = users.find(u => u.username === username && u.password === password);
+        if (!found) {
+            showToast('Username atau password salah!', 'error');
+            return;
+        }
+
+        setSession(found);
+        showToast('Selamat datang, ' + found.name + '!', 'success');
+        showPage(found.role);
+    }
+
+    // ── Auth: Register ──
+    function handleRegister(e) {
+        e.preventDefault();
+        const name = document.getElementById('regName').value.trim();
+        const phone = document.getElementById('regPhone').value.trim();
+        const username = document.getElementById('regUsername').value.trim();
+        const password = document.getElementById('regPassword').value;
+        const role = document.getElementById('regRole').value;
+
+        if (!name || !phone || !username || !password) {
+            showToast('Lengkapi semua data!', 'error');
+            return;
+        }
+        if (password.length < 6) {
+            showToast('Password minimal 6 karakter!', 'error');
+            return;
+        }
+
+        const users = getUsers();
+        if (users.some(u => u.username === username)) {
+            showToast('Username sudah digunakan!', 'error');
+            return;
+        }
+
+        const newUser = {
+            id: generateId(),
+            name: name,
+            phone: phone,
+            username: username,
+            password: password,
+            role: role,
+            createdAt: Date.now()
+        };
+        users.push(newUser);
+        saveUsers(users);
+
+        setSession(newUser);
+        showToast('Akun berhasil dibuat!', 'success');
+        showPage(role);
+
+        // Reset form
+        document.getElementById('registerForm').reset();
+        document.getElementById('regRole').value = 'user';
+    }
+
+    // ── Role Selector (Register) ──
+    function setupRoleSelector() {
+        const buttons = document.querySelectorAll('.role-btn');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', function () {
+                buttons.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById('regRole').value = this.dataset.role;
             });
+        });
+    }
+
+    // ── Toggle Password Visibility ──
+    function togglePassword(inputId, btn) {
+        const input = document.getElementById(inputId);
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+        } else {
+            input.type = 'password';
+            btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>';
+        }
+    }
+    window.togglePassword = togglePassword;
+
+    // ── Logout ──
+    function handleLogout() {
+        clearSession();
+        showToast('Berhasil keluar', 'success');
+        showPage('login');
+        // Reset forms
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) loginForm.reset();
+    }
+    window.handleLogout = handleLogout;
+
+    // ── Owner: Create CS ──
+    function handleCreateCS(e) {
+        e.preventDefault();
+        const name = document.getElementById('csFormName').value.trim();
+        const username = document.getElementById('csFormUsername').value.trim();
+        const password = document.getElementById('csFormPassword').value;
+
+        if (!name || !username || !password) {
+            showToast('Lengkapi semua data!', 'error');
+            return;
+        }
+        if (password.length < 6) {
+            showToast('Password minimal 6 karakter!', 'error');
+            return;
+        }
+
+        const users = getUsers();
+        if (users.some(u => u.username === username)) {
+            showToast('Username sudah digunakan!', 'error');
+            return;
+        }
+
+        users.push({
+            id: generateId(),
+            name: name,
+            phone: '-',
+            username: username,
+            password: password,
+            role: 'cs',
+            createdAt: Date.now()
+        });
+        saveUsers(users);
+        showToast('Akun CS berhasil dibuat!', 'success');
+
+        document.getElementById('createCSForm').reset();
+        renderOwnerStats();
+        renderOwnerUsers();
+    }
+
+    // ── Owner: Render Stats ──
+    function renderOwnerStats() {
+        const users = getUsers();
+        const el = (id) => document.getElementById(id);
+        const usersCount = users.filter(u => u.role === 'user').length;
+        const talentsCount = users.filter(u => u.role === 'talent').length;
+        const csCount = users.filter(u => u.role === 'cs').length;
+
+        if (el('ownerTotalUsers')) el('ownerTotalUsers').textContent = usersCount;
+        if (el('ownerTotalTalents')) el('ownerTotalTalents').textContent = talentsCount;
+        if (el('ownerTotalCS')) el('ownerTotalCS').textContent = csCount;
+        if (el('ownerTotalOrders')) el('ownerTotalOrders').textContent = '0';
+    }
+
+    // ── Owner: Render User List ──
+    function renderOwnerUsers() {
+        const container = document.getElementById('ownerUserList');
+        if (!container) return;
+        const users = getUsers();
+
+        if (users.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><h3>Belum Ada Pengguna</h3><p>Pengguna yang mendaftar akan muncul di sini.</p></div>';
+            return;
+        }
+
+        const roleColors = { user: '#FF6B00', talent: '#3B82F6', cs: '#22C55E', owner: '#111111' };
+        const roleClasses = { user: 'role-user', talent: 'role-talent', cs: 'role-cs', owner: 'role-owner-tag' };
+        const roleLabels = { user: 'User', talent: 'Talent', cs: 'CS', owner: 'Owner' };
+
+        container.innerHTML = users.map(u => {
+            const initial = (u.name || 'U').charAt(0).toUpperCase();
+            const canDelete = u.role !== 'owner';
+            const deleteBtn = canDelete
+                ? '<button class="btn-delete" data-uid="' + u.id + '" title="Hapus">🗑️</button>'
+                : '';
+            return '<div class="user-list-item">'
+                + '<div class="user-list-avatar" style="background:' + (roleColors[u.role] || '#999') + '">' + initial + '</div>'
+                + '<div class="user-list-info">'
+                + '<div class="user-list-name">' + escapeHtml(u.name) + ' <small style="color:#999">@' + escapeHtml(u.username) + '</small></div>'
+                + '<span class="user-list-role ' + (roleClasses[u.role] || '') + '">' + (roleLabels[u.role] || u.role) + '</span>'
+                + '</div>'
+                + deleteBtn
+                + '</div>';
+        }).join('');
+
+        // Attach delete handlers
+        container.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const uid = this.dataset.uid;
+                let users = getUsers();
+                users = users.filter(u => u.id !== uid);
+                saveUsers(users);
+                showToast('Pengguna dihapus', 'success');
+                renderOwnerStats();
+                renderOwnerUsers();
+            });
+        });
+    }
+    window.renderOwnerUsers = renderOwnerUsers;
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+    }
+
+    // ── Talent Online Toggle ──
+    function setupTalentToggle() {
+        const toggle = document.getElementById('talentOnlineToggle');
+        const label = document.getElementById('talentStatusLabel');
+        if (!toggle || !label) return;
+        toggle.addEventListener('change', function () {
+            if (this.checked) {
+                label.textContent = 'Online';
+                label.classList.add('online');
+                showToast('Anda sekarang Online! ✅', 'success');
+            } else {
+                label.textContent = 'Offline';
+                label.classList.remove('online');
+                showToast('Anda sekarang Offline', 'error');
+            }
+        });
+    }
+
+    // ── Promo Slider (User Dashboard) ──
+    function setupPromoSlider() {
+        const track = document.getElementById('promoTrack');
+        const dots = document.querySelectorAll('#promoDots .dot');
+        if (!track || dots.length === 0) return;
+
+        let current = 0;
+        const total = dots.length;
+        let startX = 0, isDragging = false;
+
+        function goTo(index) {
+            current = ((index % total) + total) % total;
+            track.style.transform = 'translateX(-' + (current * 100) + '%)';
+            dots.forEach((d, i) => d.classList.toggle('active', i === current));
+        }
+
+        // Auto-slide
+        let autoSlide = setInterval(() => goTo(current + 1), 4000);
+
+        // Touch swipe
+        track.addEventListener('touchstart', e => {
+            startX = e.touches[0].clientX;
+            isDragging = true;
+            clearInterval(autoSlide);
+        }, { passive: true });
+
+        track.addEventListener('touchend', e => {
+            if (!isDragging) return;
+            isDragging = false;
+            const diff = startX - e.changedTouches[0].clientX;
+            if (Math.abs(diff) > 50) {
+                goTo(current + (diff > 0 ? 1 : -1));
+            }
+            autoSlide = setInterval(() => goTo(current + 1), 4000);
+        }, { passive: true });
+
+        dots.forEach((d, i) => d.addEventListener('click', () => {
+            clearInterval(autoSlide);
+            goTo(i);
+            autoSlide = setInterval(() => goTo(current + 1), 4000);
+        }));
+    }
+
+    // ── Service Item Clicks (User Dashboard) ──
+    function setupServiceClicks() {
+        document.querySelectorAll('.service-item').forEach(item => {
+            item.addEventListener('click', function () {
+                const name = this.querySelector('.service-name').textContent;
+                showToast('Layanan "' + name + '" segera hadir! 🚀');
+            });
+        });
+    }
+
+    // ── Bottom Nav ──
+    function setupBottomNav() {
+        document.querySelectorAll('.bottom-nav').forEach(nav => {
+            nav.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', function () {
+                    nav.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                    this.classList.add('active');
+                    const page = this.dataset.page;
+                    if (page === 'akun' || page === 'profil' || page === 'settings') {
+                        showToast('Halaman ' + this.querySelector('span').textContent + ' segera hadir!');
+                    }
+                });
+            });
+        });
+    }
+
+    // ── PWA Install ──
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault();
+        deferredPrompt = e;
     });
-}
+
+    // ── Service Worker ──
+    function registerSW() {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+    }
+
+    // ── Splash Screen ──
+    function handleSplash() {
+        const splash = document.getElementById('splash');
+        const app = document.getElementById('app');
+
+        setTimeout(() => {
+            splash.classList.add('fade-out');
+            app.classList.remove('hidden');
+
+            // Check if user already logged in
+            const session = getSession();
+            if (session) {
+                // Verify session still valid
+                const users = getUsers();
+                const valid = users.find(u => u.id === session.id && u.username === session.username);
+                if (valid) {
+                    showPage(valid.role);
+                    updateRoleUI(valid);
+                    return;
+                }
+                clearSession();
+            }
+            // Show login page
+            showPage('login');
+        }, 1800);
+    }
+
+    // ── Init ──
+    function init() {
+        initDB();
+        handleSplash();
+        registerSW();
+
+        // Auth forms
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) loginForm.addEventListener('submit', handleLogin);
+
+        const registerForm = document.getElementById('registerForm');
+        if (registerForm) registerForm.addEventListener('submit', handleRegister);
+
+        const createCSForm = document.getElementById('createCSForm');
+        if (createCSForm) createCSForm.addEventListener('submit', handleCreateCS);
+
+        setupRoleSelector();
+        setupTalentToggle();
+        setupPromoSlider();
+        setupServiceClicks();
+        setupBottomNav();
+
+        // Logout buttons (avatar clicks as logout for now)
+        document.querySelectorAll('.avatar').forEach(av => {
+            av.addEventListener('click', () => {
+                if (confirm('Keluar dari akun?')) {
+                    handleLogout();
+                }
+            });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
