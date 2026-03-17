@@ -12,12 +12,20 @@
     const STORAGE_USERS = 'js_users';
     const STORAGE_SESSION = 'js_session';
 
+    // ── Google Sheets API ──
+    // Ganti URL di bawah dengan URL Web App dari Google Apps Script kamu
+    const SCRIPT_URL = 'PASTE_URL_GOOGLE_APPS_SCRIPT_DISINI';
+
+    function isSheetConnected() {
+        return SCRIPT_URL && SCRIPT_URL !== 'PASTE_URL_GOOGLE_APPS_SCRIPT_DISINI';
+    }
+
     // ── Initialize owner in user DB ──
     function initDB() {
         let users = getUsers();
         const ownerExists = users.some(u => u.username === OWNER_USERNAME && u.role === 'owner');
         if (!ownerExists) {
-            users.push({
+            const ownerData = {
                 id: generateId(),
                 name: 'Owner',
                 phone: '-',
@@ -25,9 +33,45 @@
                 password: OWNER_PASSWORD,
                 role: 'owner',
                 createdAt: Date.now()
-            });
+            };
+            users.push(ownerData);
             saveUsers(users);
+            // Sync owner ke Google Sheet
+            sheetPost({ action: 'register', ...ownerData });
         }
+        // Sync dari Google Sheet ke localStorage saat init
+        syncFromSheet();
+    }
+
+    // ── Sync: Ambil semua data dari Google Sheet ke localStorage ──
+    function syncFromSheet() {
+        if (!isSheetConnected()) return;
+        fetch(SCRIPT_URL + '?action=getAll')
+            .then(r => r.json())
+            .then(res => {
+                if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+                    saveUsers(res.data);
+                    // Refresh UI jika owner sedang buka dashboard
+                    const session = getSession();
+                    if (session && session.role === 'owner') {
+                        renderOwnerStats();
+                        renderOwnerUsers();
+                    }
+                }
+            })
+            .catch(() => {});
+    }
+
+    // ── Helper: POST ke Google Sheet ──
+    function sheetPost(body) {
+        if (!isSheetConnected()) return Promise.resolve(null);
+        return fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify(body)
+        })
+        .then(r => r.json())
+        .catch(() => null);
     }
 
     function getUsers() {
@@ -118,13 +162,41 @@
             return;
         }
 
+        // Coba login via Google Sheet dulu, fallback ke localStorage
+        if (isSheetConnected()) {
+            const btn = e.target.querySelector('.btn-primary');
+            if (btn) { btn.disabled = true; btn.textContent = 'Memuat...'; }
+
+            fetch(SCRIPT_URL + '?action=login&username=' + encodeURIComponent(username) + '&password=' + encodeURIComponent(password))
+                .then(r => r.json())
+                .then(res => {
+                    if (btn) { btn.disabled = false; btn.textContent = 'Masuk'; }
+                    if (res.success && res.data) {
+                        setSession(res.data);
+                        showToast('Selamat datang, ' + res.data.name + '!', 'success');
+                        showPage(res.data.role);
+                        syncFromSheet();
+                    } else {
+                        showToast(res.message || 'Username atau password salah!', 'error');
+                    }
+                })
+                .catch(() => {
+                    if (btn) { btn.disabled = false; btn.textContent = 'Masuk'; }
+                    // Fallback ke localStorage
+                    loginLocal(username, password);
+                });
+        } else {
+            loginLocal(username, password);
+        }
+    }
+
+    function loginLocal(username, password) {
         const users = getUsers();
         const found = users.find(u => u.username === username && u.password === password);
         if (!found) {
             showToast('Username atau password salah!', 'error');
             return;
         }
-
         setSession(found);
         showToast('Selamat datang, ' + found.name + '!', 'success');
         showPage(found.role);
@@ -165,6 +237,13 @@
         };
         users.push(newUser);
         saveUsers(users);
+
+        // Simpan ke Google Sheet
+        sheetPost({ action: 'register', ...newUser }).then(res => {
+            if (res && !res.success) {
+                showToast(res.message || 'Gagal simpan ke server', 'error');
+            }
+        });
 
         setSession(newUser);
         showToast('Akun berhasil dibuat!', 'success');
@@ -233,7 +312,7 @@
             return;
         }
 
-        users.push({
+        const csUser = {
             id: generateId(),
             name: name,
             phone: '-',
@@ -241,8 +320,17 @@
             password: password,
             role: 'cs',
             createdAt: Date.now()
-        });
+        };
+        users.push(csUser);
         saveUsers(users);
+
+        // Simpan ke Google Sheet
+        sheetPost({ action: 'createCS', ...csUser }).then(res => {
+            if (res && !res.success) {
+                showToast(res.message || 'Gagal simpan ke server', 'error');
+            }
+        });
+
         showToast('Akun CS berhasil dibuat!', 'success');
 
         document.getElementById('createCSForm').reset();
@@ -302,6 +390,10 @@
                 let users = getUsers();
                 users = users.filter(u => u.id !== uid);
                 saveUsers(users);
+
+                // Hapus dari Google Sheet juga
+                sheetPost({ action: 'delete', id: uid });
+
                 showToast('Pengguna dihapus', 'success');
                 renderOwnerStats();
                 renderOwnerUsers();
