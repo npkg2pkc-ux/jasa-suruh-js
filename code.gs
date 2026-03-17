@@ -8,18 +8,22 @@
    2. Rename Sheet1 menjadi "Users"
    3. Isi baris pertama (header) dengan kolom:
       A1: id | B1: name | C1: phone | D1: username | E1: password | F1: role | G1: createdAt
-   4. Buka menu Extensions → Apps Script
-   5. Hapus semua isi default, paste seluruh code.gs ini
-   6. Klik Deploy → New deployment
-   7. Pilih type: Web app
-   8. Execute as: Me
-   9. Who has access: Anyone
-   10. Klik Deploy → Salin URL web app
-   11. Paste URL tersebut ke variabel SCRIPT_URL di app.js
+   4. (Opsional) Buat sheet kedua "Skills" dengan header:
+      A1: userId | B1: skills
+      — Sheet ini akan auto-dibuat jika belum ada
+   5. Buka menu Extensions → Apps Script
+   6. Hapus semua isi default, paste seluruh code.gs ini
+   7. Klik Deploy → New deployment
+   8. Pilih type: Web app
+   9. Execute as: Me
+   10. Who has access: Anyone
+   11. Klik Deploy → Salin URL web app
+   12. Paste URL tersebut ke variabel SCRIPT_URL di app.js
    ======================================== */
 
 // Nama sheet untuk data akun
 var SHEET_NAME = 'Users';
+var SKILLS_SHEET_NAME = 'Skills';
 
 /**
  * Mendapatkan sheet Users
@@ -110,6 +114,60 @@ function deleteUserById(id) {
   return false;
 }
 
+// ========== SKILLS SHEET ==========
+
+/**
+ * Mendapatkan atau membuat sheet Skills
+ * Format: A = userId, B = skills (JSON array string)
+ */
+function getSkillsSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SKILLS_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SKILLS_SHEET_NAME);
+    sheet.appendRow(['userId', 'skills']);
+  }
+  return sheet;
+}
+
+/**
+ * Ambil semua skills sebagai object { userId: [skill1, skill2, ...] }
+ */
+function getAllSkillsData() {
+  var sheet = getSkillsSheet();
+  var data = sheet.getDataRange().getValues();
+  var result = {};
+  for (var i = 1; i < data.length; i++) {
+    var uid = String(data[i][0] || '');
+    var skillsStr = String(data[i][1] || '[]');
+    try {
+      result[uid] = JSON.parse(skillsStr);
+    } catch (e) {
+      result[uid] = [];
+    }
+  }
+  return result;
+}
+
+/**
+ * Update skills untuk user tertentu
+ */
+function updateUserSkills(userId, skillsArray) {
+  var sheet = getSkillsSheet();
+  var data = sheet.getDataRange().getValues();
+  var found = false;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(userId)) {
+      sheet.getRange(i + 1, 2).setValue(JSON.stringify(skillsArray));
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    sheet.appendRow([userId, JSON.stringify(skillsArray)]);
+  }
+}
+
 /**
  * Handle GET requests — ambil semua users
  */
@@ -120,6 +178,8 @@ function doGet(e) {
 
   if (action === 'getAll') {
     result = { success: true, data: getAllUsers() };
+  } else if (action === 'getAllSkills') {
+    result = { success: true, data: getAllSkillsData() };
   } else if (action === 'login') {
     var username = e.parameter.username || '';
     var password = e.parameter.password || '';
@@ -184,6 +244,16 @@ function doPost(e) {
         result = deleted
           ? { success: true, message: 'User berhasil dihapus' }
           : { success: false, message: 'User tidak ditemukan' };
+      }
+
+    } else if (action === 'updateSkills') {
+      var userId = body.userId || '';
+      var skills = body.skills || [];
+      if (!userId) {
+        result = { success: false, message: 'userId tidak ditemukan' };
+      } else {
+        updateUserSkills(userId, skills);
+        result = { success: true, message: 'Skills berhasil diupdate' };
       }
 
     } else {

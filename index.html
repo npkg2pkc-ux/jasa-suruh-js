@@ -142,11 +142,20 @@
                         </div>
                     </div>
                 </div>
-                <div class="search-bar">
+                <div class="search-bar" id="userSearchBar">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                    <input type="text" placeholder="Cari layanan atau kebutuhan..." readonly>
+                    <input type="text" id="userSearchInput" placeholder="Cari keahlian talent..." autocomplete="off">
                 </div>
             </header>
+            <div id="searchResultsOverlay" class="search-overlay hidden">
+                <div class="search-results-container">
+                    <div class="search-results-header">
+                        <h3>Hasil Pencarian</h3>
+                        <button class="btn-close-search" id="btnCloseSearch">&times;</button>
+                    </div>
+                    <div id="searchResults" class="search-results-list"></div>
+                </div>
+            </div>
             <main class="main-content">
                 <section class="promo-section">
                     <div class="promo-slider" id="promoSlider">
@@ -226,6 +235,19 @@
                 <section class="content-section">
                     <div class="section-header"><h2>Pesanan Masuk</h2></div>
                     <div class="empty-state"><div class="empty-icon">📭</div><h3>Belum Ada Pesanan</h3><p>Aktifkan status online untuk mulai menerima pesanan.</p></div>
+                </section>
+                <section class="content-section">
+                    <div class="section-header"><h2>Keahlian Saya</h2></div>
+                    <div class="card-form">
+                        <div class="skill-input-row">
+                            <div class="input-wrap" style="flex:1">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                                <input type="text" id="skillInput" placeholder="Tambah keahlian (cth: Design Grafis)" maxlength="50">
+                            </div>
+                            <button type="button" class="btn-primary btn-add-skill" id="btnAddSkill" style="width:auto;margin-top:0;padding:12px 20px;">Tambah</button>
+                        </div>
+                        <div id="talentSkillsList" class="skills-list" style="margin-top:12px;"></div>
+                    </div>
                 </section>
                 <section class="content-section">
                     <div class="section-header"><h2>Pesanan Aktif</h2></div>

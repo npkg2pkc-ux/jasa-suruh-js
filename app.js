@@ -41,6 +41,7 @@
         }
         // Sync dari Google Sheet ke localStorage saat init
         syncFromSheet();
+        syncSkillsFromSheet();
     }
 
     // ── Sync: Ambil semua data dari Google Sheet ke localStorage ──
@@ -194,6 +195,7 @@
         } else if (role === 'talent') {
             const el = document.getElementById('talentName');
             if (el) el.textContent = user.name || 'Talent';
+            renderTalentSkills();
         } else if (role === 'cs') {
             const el = document.getElementById('csName');
             if (el) el.textContent = user.name || 'CS';
@@ -460,6 +462,203 @@
         return div.innerHTML;
     }
 
+    // ── Skills Storage ──
+    const STORAGE_SKILLS = 'js_skills';
+
+    function getSkills() {
+        try { return JSON.parse(localStorage.getItem(STORAGE_SKILLS)) || {}; } catch { return {}; }
+    }
+
+    function saveSkills(skills) {
+        localStorage.setItem(STORAGE_SKILLS, JSON.stringify(skills));
+    }
+
+    // Get skills for a specific user
+    function getUserSkills(userId) {
+        const all = getSkills();
+        return all[userId] || [];
+    }
+
+    // Set skills for a specific user
+    function setUserSkills(userId, skillArr) {
+        const all = getSkills();
+        all[userId] = skillArr;
+        saveSkills(all);
+    }
+
+    // ── Talent: Setup Skills ──
+    function setupTalentSkills() {
+        const input = document.getElementById('skillInput');
+        const btn = document.getElementById('btnAddSkill');
+        if (!input || !btn) return;
+
+        btn.addEventListener('click', addSkill);
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); addSkill(); }
+        });
+
+        renderTalentSkills();
+    }
+
+    function addSkill() {
+        const input = document.getElementById('skillInput');
+        const val = input.value.trim();
+        if (!val) return;
+
+        const session = getSession();
+        if (!session) return;
+
+        const skills = getUserSkills(session.id);
+        // Cek duplikat (case-insensitive)
+        if (skills.some(s => s.toLowerCase() === val.toLowerCase())) {
+            showToast('Keahlian sudah ada!', 'error');
+            return;
+        }
+        if (skills.length >= 15) {
+            showToast('Maksimal 15 keahlian!', 'error');
+            return;
+        }
+
+        skills.push(val);
+        setUserSkills(session.id, skills);
+        input.value = '';
+
+        // Sync ke Google Sheet
+        sheetPost({ action: 'updateSkills', userId: session.id, skills: skills });
+
+        renderTalentSkills();
+        showToast('Keahlian "' + val + '" ditambahkan!', 'success');
+    }
+
+    function removeSkill(index) {
+        const session = getSession();
+        if (!session) return;
+        const skills = getUserSkills(session.id);
+        skills.splice(index, 1);
+        setUserSkills(session.id, skills);
+
+        // Sync ke Google Sheet
+        sheetPost({ action: 'updateSkills', userId: session.id, skills: skills });
+
+        renderTalentSkills();
+    }
+
+    function renderTalentSkills() {
+        const container = document.getElementById('talentSkillsList');
+        if (!container) return;
+        const session = getSession();
+        if (!session) return;
+
+        const skills = getUserSkills(session.id);
+        if (skills.length === 0) {
+            container.innerHTML = '<div class="skills-empty">Belum ada keahlian. Tambahkan keahlian Anda!</div>';
+            return;
+        }
+
+        container.innerHTML = skills.map((s, i) =>
+            '<span class="skill-tag">' + escapeHtml(s) + '<button class="skill-remove" data-idx="' + i + '">&times;</button></span>'
+        ).join('');
+
+        container.querySelectorAll('.skill-remove').forEach(btn => {
+            btn.addEventListener('click', function () {
+                removeSkill(parseInt(this.dataset.idx));
+            });
+        });
+    }
+
+    // ── User: Search Talents by Skill ──
+    function setupUserSearch() {
+        const input = document.getElementById('userSearchInput');
+        const overlay = document.getElementById('searchResultsOverlay');
+        const btnClose = document.getElementById('btnCloseSearch');
+        if (!input) return;
+
+        let debounceTimer;
+        input.addEventListener('input', function () {
+            clearTimeout(debounceTimer);
+            const q = this.value.trim();
+            if (q.length < 2) {
+                if (overlay) overlay.classList.add('hidden');
+                return;
+            }
+            debounceTimer = setTimeout(() => searchTalents(q), 300);
+        });
+
+        input.addEventListener('focus', function () {
+            if (this.value.trim().length >= 2) searchTalents(this.value.trim());
+        });
+
+        if (btnClose) {
+            btnClose.addEventListener('click', () => {
+                overlay.classList.add('hidden');
+                input.value = '';
+            });
+        }
+        if (overlay) {
+            overlay.addEventListener('click', function (e) {
+                if (e.target === overlay) {
+                    overlay.classList.add('hidden');
+                    input.value = '';
+                }
+            });
+        }
+    }
+
+    function searchTalents(query) {
+        const overlay = document.getElementById('searchResultsOverlay');
+        const container = document.getElementById('searchResults');
+        if (!overlay || !container) return;
+
+        const q = query.toLowerCase();
+        const users = getUsers();
+        const allSkills = getSkills();
+
+        // Find talents who have matching skills
+        const results = users
+            .filter(u => u.role === 'talent')
+            .map(u => {
+                const skills = allSkills[u.id] || [];
+                const matched = skills.filter(s => s.toLowerCase().includes(q));
+                return { user: u, skills: skills, matched: matched };
+            })
+            .filter(r => r.matched.length > 0)
+            .sort((a, b) => b.matched.length - a.matched.length);
+
+        overlay.classList.remove('hidden');
+
+        if (results.length === 0) {
+            container.innerHTML = '<div class="search-no-result"><div class="empty-icon">🔍</div><p>Tidak ada talent dengan keahlian "' + escapeHtml(query) + '"</p></div>';
+            return;
+        }
+
+        container.innerHTML = results.map(r => {
+            const initial = (r.user.name || 'T').charAt(0).toUpperCase();
+            const skillTags = r.skills.map(s => {
+                const isMatch = s.toLowerCase().includes(q);
+                return '<span class="search-result-skill' + (isMatch ? ' highlight' : '') + '">' + escapeHtml(s) + '</span>';
+            }).join('');
+            return '<div class="search-result-card">'
+                + '<div class="search-result-avatar">' + initial + '</div>'
+                + '<div class="search-result-info">'
+                + '<div class="search-result-name">' + escapeHtml(r.user.name) + '</div>'
+                + '<div class="search-result-skills">' + skillTags + '</div>'
+                + '</div></div>';
+        }).join('');
+    }
+
+    // Sync skills from Sheet
+    function syncSkillsFromSheet() {
+        if (!isSheetConnected()) return;
+        fetch(SCRIPT_URL + '?action=getAllSkills')
+            .then(r => r.json())
+            .then(res => {
+                if (res.success && res.data) {
+                    saveSkills(res.data);
+                }
+            })
+            .catch(() => {});
+    }
+
     // ── Talent Online Toggle ──
     function setupTalentToggle() {
         const toggle = document.getElementById('talentOnlineToggle');
@@ -619,6 +818,8 @@
 
         setupRoleSelector();
         setupTalentToggle();
+        setupTalentSkills();
+        setupUserSearch();
         setupPromoSlider();
         setupServiceClicks();
         setupBottomNav();
