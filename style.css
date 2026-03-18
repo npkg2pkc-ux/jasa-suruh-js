@@ -82,6 +82,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .greeting-text { display:flex; flex-direction:column; gap:2px; }
 .greeting-hi { font-size:14px; color:var(--gray-600); font-weight:500; }
 .greeting-question { font-size:18px; font-weight:700; color:var(--black); }
+.greeting-address { font-size:12px; color:var(--gray-600); font-weight:400; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
 .header-actions { display:flex; align-items:center; gap:12px; }
 .btn-icon { background:var(--gray-100); border:none; width:42px; height:42px; border-radius:var(--r-md); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--black); position:relative; transition:var(--tr); }
 .btn-icon:active { transform:scale(.92); }
@@ -326,6 +327,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .search-result-avatar { width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg,var(--blue),#60A5FA); display:flex; align-items:center; justify-content:center; color:var(--white); font-size:18px; font-weight:700; flex-shrink:0; }
 .search-result-info { flex:1; }
 .search-result-name { font-size:15px; font-weight:700; color:var(--black); }
+.search-result-distance { font-size:11px; color:var(--gray-600); display:block; margin-top:2px; }
 .search-result-skills { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
 .search-result-skill { font-size:11px; padding:3px 10px; background:var(--orange-subtle); color:var(--orange); border-radius:var(--r-full); font-weight:600; }
 .search-result-skill.highlight { background:var(--orange); color:var(--white); }

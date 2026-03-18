@@ -33,7 +33,7 @@ function getSheet() {
   var sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
-    sheet.appendRow(['id', 'name', 'phone', 'username', 'password', 'role', 'createdAt']);
+    sheet.appendRow(['id', 'name', 'phone', 'username', 'password', 'role', 'createdAt', 'lat', 'lng', 'address']);
   }
   return sheet;
 }
@@ -62,6 +62,9 @@ function getAllUsers() {
     user.password = String(user.password || '');
     user.role = String(user.role || '');
     user.createdAt = user.createdAt ? Number(user.createdAt) : 0;
+    user.lat = user.lat !== undefined && user.lat !== '' ? Number(user.lat) : 0;
+    user.lng = user.lng !== undefined && user.lng !== '' ? Number(user.lng) : 0;
+    user.address = String(user.address || '');
     users.push(user);
   }
   return users;
@@ -104,7 +107,10 @@ function addUser(userData) {
     userData.username || '',
     userData.password || '',
     userData.role || '',
-    userData.createdAt || Date.now()
+    userData.createdAt || Date.now(),
+    userData.lat || 0,
+    userData.lng || 0,
+    userData.address || ''
   ]);
 }
 
@@ -287,6 +293,35 @@ function doPost(e) {
         if (deleted) {
           deleteUserSkills(id); // Hapus skills user juga
           result = { success: true, message: 'User berhasil dihapus' };
+        } else {
+          result = { success: false, message: 'User tidak ditemukan' };
+        }
+      }
+
+    } else if (action === 'updateLocation') {
+      var locUserId = body.userId || '';
+      var lat = body.lat || 0;
+      var lng = body.lng || 0;
+      var address = body.address || '';
+      if (!locUserId) {
+        result = { success: false, message: 'userId tidak ditemukan' };
+      } else {
+        var locRow = findRowById(locUserId);
+        if (locRow > 1) {
+          var locSheet = getSheet();
+          // Ensure columns exist (H=lat, I=lng, J=address)
+          var headers = locSheet.getRange(1, 1, 1, locSheet.getLastColumn()).getValues()[0];
+          var latCol = headers.indexOf('lat') + 1;
+          var lngCol = headers.indexOf('lng') + 1;
+          var addrCol = headers.indexOf('address') + 1;
+          // If columns don't exist, add them
+          if (latCol === 0) { latCol = locSheet.getLastColumn() + 1; locSheet.getRange(1, latCol).setValue('lat'); }
+          if (lngCol === 0) { lngCol = locSheet.getLastColumn() + 1; locSheet.getRange(1, lngCol).setValue('lng'); }
+          if (addrCol === 0) { addrCol = locSheet.getLastColumn() + 1; locSheet.getRange(1, addrCol).setValue('address'); }
+          locSheet.getRange(locRow, latCol).setValue(lat);
+          locSheet.getRange(locRow, lngCol).setValue(lng);
+          locSheet.getRange(locRow, addrCol).setValue(address);
+          result = { success: true, message: 'Lokasi berhasil diupdate' };
         } else {
           result = { success: false, message: 'User tidak ditemukan' };
         }

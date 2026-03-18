@@ -20,6 +20,87 @@
         return SCRIPT_URL && SCRIPT_URL !== 'https://script.google.com/u/0/home/projects/1smH0v_6MSS_l0yBh3jH79Klst4kroO-mPysZbA83SDtelB5kpb3yGmdD/edit';
     }
 
+    // ── Geolocation Helpers ──
+    function getCurrentPosition() {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error('Geolocation tidak didukung'));
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                err => reject(err),
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+            );
+        });
+    }
+
+    function reverseGeocode(lat, lng) {
+        return fetch('https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lng + '&format=json&accept-language=id')
+            .then(r => r.json())
+            .then(data => {
+                if (data && data.display_name) {
+                    // Shorten: take city/suburb level
+                    var addr = data.address || {};
+                    var parts = [addr.suburb || addr.village || addr.neighbourhood || '', addr.city || addr.town || addr.county || '', addr.state || ''].filter(Boolean);
+                    return parts.length > 0 ? parts.join(', ') : data.display_name.split(',').slice(0, 3).join(',');
+                }
+                return 'Lat ' + lat.toFixed(4) + ', Lng ' + lng.toFixed(4);
+            })
+            .catch(() => 'Lat ' + lat.toFixed(4) + ', Lng ' + lng.toFixed(4));
+    }
+
+    function captureLocation(userId) {
+        getCurrentPosition().then(pos => {
+            reverseGeocode(pos.lat, pos.lng).then(address => {
+                // Update session
+                var session = getSession();
+                if (session && session.id === userId) {
+                    session.lat = pos.lat;
+                    session.lng = pos.lng;
+                    session.address = address;
+                    setSession(session);
+                    displayUserAddress(session);
+                }
+                // Update localStorage users
+                var users = getUsers();
+                var idx = users.findIndex(u => u.id === userId);
+                if (idx >= 0) {
+                    users[idx].lat = pos.lat;
+                    users[idx].lng = pos.lng;
+                    users[idx].address = address;
+                    saveUsers(users);
+                }
+                // Update Google Sheet
+                sheetPost({ action: 'updateLocation', userId: userId, lat: pos.lat, lng: pos.lng, address: address });
+            });
+        }).catch(() => {
+            // Geolocation gagal, tampilkan pesan
+            var el = document.getElementById('userAddress') || document.getElementById('talentAddress');
+            if (el) el.textContent = '📍 Lokasi tidak tersedia';
+        });
+    }
+
+    function displayUserAddress(user) {
+        if (user.role === 'user') {
+            var el = document.getElementById('userAddress');
+            if (el) el.textContent = '📍 ' + (user.address || 'Memuat lokasi...');
+        } else if (user.role === 'talent') {
+            var el = document.getElementById('talentAddress');
+            if (el) el.textContent = '📍 ' + (user.address || 'Memuat lokasi...');
+        }
+    }
+
+    function haversineDistance(lat1, lng1, lat2, lng2) {
+        var R = 6371; // km
+        var dLat = (lat2 - lat1) * Math.PI / 180;
+        var dLng = (lng2 - lng1) * Math.PI / 180;
+        var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
     // ── Initialize owner in user DB ──
     function initDB() {
         let users = getUsers();
@@ -197,9 +278,13 @@
         if (role === 'user') {
             const el = document.getElementById('userName');
             if (el) el.textContent = user.name || 'User';
+            displayUserAddress(user);
+            captureLocation(user.id);
         } else if (role === 'talent') {
             const el = document.getElementById('talentName');
             if (el) el.textContent = user.name || 'Talent';
+            displayUserAddress(user);
+            captureLocation(user.id);
             renderTalentSkills();
         } else if (role === 'cs') {
             const el = document.getElementById('csName');
@@ -286,7 +371,10 @@
             username: username,
             password: password,
             role: role,
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            lat: 0,
+            lng: 0,
+            address: ''
         };
 
         // Simpan ke Google Sheet (sumber utama)
@@ -941,6 +1029,9 @@
         const q = query.toLowerCase();
         const users = getUsers();
         const allSkills = getSkills();
+        const session = getSession();
+        var myLat = session ? (session.lat || 0) : 0;
+        var myLng = session ? (session.lng || 0) : 0;
 
         // Find talents who have matching skills (supports both old string[] and new object[] format)
         const results = users
@@ -949,10 +1040,20 @@
                 const rawSkills = allSkills[u.id] || [];
                 const skillNames = rawSkills.map(s => (typeof s === 'string') ? s : (s.name || s.type || ''));
                 const matched = skillNames.filter(s => s.toLowerCase().includes(q));
-                return { user: u, skills: skillNames, matched: matched };
+                var dist = -1;
+                if (myLat && myLng && u.lat && u.lng) {
+                    dist = haversineDistance(myLat, myLng, u.lat, u.lng);
+                }
+                return { user: u, skills: skillNames, matched: matched, distance: dist };
             })
             .filter(r => r.matched.length > 0)
-            .sort((a, b) => b.matched.length - a.matched.length);
+            .sort((a, b) => {
+                // Sort by distance first (if both have location), then by match count
+                if (a.distance >= 0 && b.distance >= 0) return a.distance - b.distance;
+                if (a.distance >= 0) return -1;
+                if (b.distance >= 0) return 1;
+                return b.matched.length - a.matched.length;
+            });
 
         overlay.classList.remove('hidden');
 
@@ -967,10 +1068,17 @@
                 const isMatch = s.toLowerCase().includes(q);
                 return '<span class="search-result-skill' + (isMatch ? ' highlight' : '') + '">' + escapeHtml(s) + '</span>';
             }).join('');
+            var distText = '';
+            if (r.distance >= 0) {
+                distText = '<span class="search-result-distance">📍 ' + (r.distance < 1 ? (r.distance * 1000).toFixed(0) + ' m' : r.distance.toFixed(1) + ' km') + '</span>';
+            } else if (r.user.address) {
+                distText = '<span class="search-result-distance">📍 ' + escapeHtml(r.user.address) + '</span>';
+            }
             return '<div class="search-result-card">'
                 + '<div class="search-result-avatar">' + initial + '</div>'
                 + '<div class="search-result-info">'
                 + '<div class="search-result-name">' + escapeHtml(r.user.name) + '</div>'
+                + distText
                 + '<div class="search-result-skills">' + skillTags + '</div>'
                 + '</div></div>';
         }).join('');
