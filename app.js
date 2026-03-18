@@ -1342,6 +1342,16 @@
         _stpAllTalents = buildTalentList(skillType);
         renderTalentCards(_stpAllTalents);
 
+        // Fetch live ratings and update spans in-place
+        _stpAllTalents.forEach(function (t) {
+            fetchTalentRating(t.user.id, function (r) {
+                t.rating = r;
+                var el = document.getElementById('stcRating-' + t.user.id);
+                if (el) el.innerHTML = '<span class="stc-rating-star">⭐</span> '
+                    + (r.avg > 0 ? r.avg.toFixed(1) + ' <small class="stc-rating-count">(' + r.count + ')</small>' : 'Baru');
+            });
+        });
+
         page.classList.remove('hidden');
 
         // Setup events (only once)
@@ -1464,7 +1474,7 @@
                 + (desc ? '<div class="stc-desc">' + escapeHtml(desc) + '</div>' : '')
                 + '<div class="stc-bottom">'
                 + (priceText ? '<span class="stc-price">' + priceText + '</span>' : '')
-                + '<span class="stc-rating"><span class="stc-rating-star">⭐</span> ' + (t.rating && t.rating.avg > 0 ? t.rating.avg.toFixed(1) : 'Baru') + '</span>'
+                + '<span class="stc-rating" id="stcRating-' + t.user.id + '"><span class="stc-rating-star">⭐</span> ' + (t.rating && t.rating.avg > 0 ? t.rating.avg.toFixed(1) + ' <small class="stc-rating-count">(' + t.rating.count + ')</small>' : 'Baru') + '</span>'
                 + '</div>'
                 + (addr && !distText ? '<div class="stc-addr">📍 ' + escapeHtml(addr) + '</div>' : '')
                 + '</div>'
@@ -2091,9 +2101,6 @@
 
         page.classList.remove('hidden');
 
-        // Hide tracking page
-        document.getElementById('orderTrackingPage').classList.add('hidden');
-
         if (!page._eventsSetup) {
             page._eventsSetup = true;
             document.getElementById('ratingBtnBack').addEventListener('click', function () {
@@ -2128,8 +2135,20 @@
             if (res && res.success) {
                 showToast('Rating berhasil dikirim! Terima kasih 🎉', 'success');
                 document.getElementById('ratingPage').classList.add('hidden');
-                // Invalidate rating cache
+                // Invalidate rating cache so next card render fetches fresh data
                 if (_ratingOrder.talentId) delete _talentRatingsCache[_ratingOrder.talentId];
+                // Update local order state so tracking page buttons refresh
+                if (_currentOrder && _currentOrder.id === _ratingOrder.id) {
+                    _currentOrder.status = 'rated';
+                    _currentOrder.rating = _ratingValue;
+                    _currentOrder.review = review;
+                    var session = getSession();
+                    updateOrderStatusBadge('rated');
+                    renderOrderActions(_currentOrder, session && session.id === _currentOrder.talentId, session && session.id === _currentOrder.userId);
+                }
+                // Refresh orders list if it is currently visible
+                var olp = document.getElementById('ordersListPage');
+                if (olp && !olp.classList.contains('hidden')) openOrdersList();
             } else {
                 showToast('Gagal mengirim rating', 'error');
             }
@@ -2212,6 +2231,17 @@
             var dateText = new Date(Number(o.createdAt)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
             var statusText = STATUS_LABELS[o.status] || o.status;
 
+            // Rating button for user on completed orders
+            var rateRow = '';
+            if (!isTalent && o.status === 'completed') {
+                rateRow = '<button class="olp-rate-btn" data-ridx="' + idx + '">⭐ Beri Rating Sekarang</button>';
+            } else if (o.status === 'rated' && o.rating > 0) {
+                var stars = '';
+                for (var s = 1; s <= 5; s++) stars += (s <= o.rating ? '★' : '☆');
+                var reviewSnip = o.review ? ' · <em>' + escapeHtml(String(o.review).substr(0, 35)) + (o.review.length > 35 ? '…' : '') + '</em>' : '';
+                rateRow = '<div class="olp-rated-badge">' + stars + reviewSnip + '</div>';
+            }
+
             return '<div class="olp-card" data-idx="' + idx + '">'
                 + '<div class="olp-card-top">'
                 + '<div class="olp-card-service">' + escapeHtml(o.serviceType || o.skillType || '') + '</div>'
@@ -2222,6 +2252,7 @@
                 + '<span class="olp-card-price">' + priceText + '</span>'
                 + '<span class="olp-card-date">' + dateText + '</span>'
                 + '</div>'
+                + (rateRow ? '<div class="olp-rate-row">' + rateRow + '</div>' : '')
                 + '</div>';
         }).join('');
 
@@ -2229,6 +2260,15 @@
             card.addEventListener('click', function () {
                 var idx = parseInt(this.dataset.idx, 10);
                 if (orders[idx]) openOrderTracking(orders[idx]);
+            });
+        });
+
+        // Rate buttons — stop propagation so card click doesn't also fire
+        list.querySelectorAll('.olp-rate-btn').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var idx = parseInt(this.dataset.ridx, 10);
+                if (orders[idx]) openRatingPage(orders[idx]);
             });
         });
     }

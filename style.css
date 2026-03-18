@@ -516,6 +516,12 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .olp-card-bottom { display:flex; justify-content:space-between; align-items:center; }
 .olp-card-price { font-size:14px; font-weight:700; color:var(--orange); }
 .olp-card-date { font-size:11px; color:var(--gray-400); }
+.olp-rate-row { margin-top:10px; }
+.olp-rate-btn { width:100%; padding:10px; background:var(--orange); color:#fff; border:none; border-radius:var(--r-lg); font-size:14px; font-weight:700; cursor:pointer; }
+.olp-rate-btn:active { opacity:.85; }
+.olp-rated-badge { margin-top:8px; font-size:13px; color:#F9A825; letter-spacing:1px; }
+.olp-rated-badge em { color:var(--gray-500); font-style:normal; font-size:12px; margin-left:4px; }
+.stc-rating-count { font-size:11px; color:var(--gray-500); font-weight:400; }
 
 /* Status badge colors */
 .otp-status-badge { font-size:11px; font-weight:700; padding:3px 10px; border-radius:var(--r-full); display:inline-block; }
