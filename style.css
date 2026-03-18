@@ -633,3 +633,13 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 
 .jap-note-wrap { margin-top:14px; }
 .jap-note-wrap.hidden { display:none; }
+
+/* Pick-on-map button */
+.jap-pick-map-btn { flex-shrink:0; background:var(--gray-100); border:1.5px solid var(--gray-300); border-radius:var(--r-md); padding:8px 10px; font-size:16px; cursor:pointer; transition:var(--tr); line-height:1; }
+.jap-pick-map-btn:active { background:var(--orange-subtle); border-color:var(--orange); }
+
+/* Map pick hint bar */
+.jap-map-pick-hint { display:flex; align-items:center; justify-content:center; gap:8px; background:#1E293B; color:rgba(255,255,255,.9); font-size:13px; font-weight:600; padding:10px 14px; border-radius:var(--r-md); margin-top:10px; }
+.jap-map-pick-hint.hidden { display:none; }
+.jap-cancel-pick { background:rgba(255,255,255,.15); border:none; color:var(--white); font-size:12px; font-weight:700; padding:4px 10px; border-radius:var(--r-full); cursor:pointer; font-family:var(--font); }
+.jap-cancel-pick:active { background:rgba(255,255,255,.3); }

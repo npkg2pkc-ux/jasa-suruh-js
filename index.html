@@ -141,9 +141,9 @@
                         <span class="greeting-address" id="userAddress"></span>
                     </div>
                     <div class="header-actions">
-                        <button class="btn-icon" aria-label="Notifikasi">
+                        <button class="btn-icon" id="userNotifBtn" aria-label="Notifikasi">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                            <span class="badge">3</span>
+                            <span class="badge" id="userHeaderBadge" style="display:none">0</span>
                         </button>
                         <div class="avatar">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -754,10 +754,15 @@
                 <div class="jap-dot jap-dot-dest"></div>
                 <div class="jap-input-wrap">
                     <label class="jap-input-label">Titik Antar</label>
-                    <input type="text" id="japDestInput" class="jap-dest-input" placeholder="Ketik alamat tujuan..." autocomplete="off">
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input type="text" id="japDestInput" class="jap-dest-input" style="flex:1" placeholder="Ketik alamat tujuan..." autocomplete="off">
+                        <button type="button" id="japBtnPickOnMap" class="jap-pick-map-btn" title="Pilih di peta">🗺️</button>
+                    </div>
                     <div id="japDestSuggestions" class="jap-suggestions hidden"></div>
                 </div>
             </div>
+            <!-- Map pick hint -->
+            <div id="japMapPickHint" class="jap-map-pick-hint hidden">👆 Ketuk peta untuk menentukan titik antar &nbsp;<button type="button" id="japBtnCancelMapPick" class="jap-cancel-pick">Batal</button></div>
 
             <!-- Info row: distance + price -->
             <div class="jap-info-row hidden" id="japInfoRow">

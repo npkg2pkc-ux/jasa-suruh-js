@@ -282,6 +282,7 @@
             if (el) el.textContent = user.name || 'User';
             displayUserAddress(user);
             captureLocation(user.id);
+            setupUserNotifBtn(user.id);
         } else if (role === 'talent') {
             const el = document.getElementById('talentName');
             if (el) el.textContent = user.name || 'Talent';
@@ -1049,6 +1050,39 @@
     }
 
     // ── User: Search Talents by Skill ──
+    // ── User Notification Button ──
+    function setupUserNotifBtn(userId) {
+        var btn = document.getElementById('userNotifBtn');
+        if (!btn) return;
+        // Wire click to open orders list (only once)
+        if (!btn._eventsSetup) {
+            btn._eventsSetup = true;
+            btn.addEventListener('click', function() { openOrdersList(); });
+        }
+        // Update badge with active orders count
+        if (isSheetConnected()) {
+            fetch(SCRIPT_URL + '?action=getOrdersByUser&userId=' + encodeURIComponent(userId))
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    if (res.success && Array.isArray(res.data)) {
+                        var active = res.data.filter(function(o) {
+                            return o.status !== 'completed' && o.status !== 'rated';
+                        }).length;
+                        var badge = document.getElementById('userHeaderBadge');
+                        if (badge) {
+                            if (active > 0) {
+                                badge.textContent = active > 9 ? '9+' : active;
+                                badge.style.display = '';
+                            } else {
+                                badge.style.display = 'none';
+                            }
+                        }
+                    }
+                })
+                .catch(function() {});
+        }
+    }
+
     function setupUserSearch() {
         const input = document.getElementById('userSearchInput');
         const overlay = document.getElementById('searchResultsOverlay');
@@ -3321,6 +3355,7 @@
     var _japPricePerKm = 3000;   // default, updated from settings
     var _japBaseFare = 5000;     // base fare
     var _japEventsSetup = false;
+    var _japPickOnMapMode = false; // true = next map tap sets destination
 
     function openJSAntarPage() {
         var page = document.getElementById('jsAntarPage');
@@ -3330,6 +3365,7 @@
         _japDestCoords = null;
         _japDestAddress = '';
         _japRouteDistKm = 0;
+        _japPickOnMapMode = false;
         document.getElementById('japInfoRow').classList.add('hidden');
         document.getElementById('japNoteWrap').classList.add('hidden');
         document.getElementById('japBtnOrder').disabled = true;
@@ -3338,6 +3374,8 @@
         document.getElementById('japDestSuggestions').classList.add('hidden');
         document.getElementById('japDestSuggestions').innerHTML = '';
         document.getElementById('japPickupText').textContent = '📍 Mendeteksi lokasi...';
+        var hint = document.getElementById('japMapPickHint');
+        if (hint) hint.classList.add('hidden');
 
         // Setup events once
         if (!_japEventsSetup) {
@@ -3348,6 +3386,26 @@
                 if (e.key === 'Enter') { e.preventDefault(); document.getElementById('japDestSuggestions').classList.add('hidden'); }
             });
             document.getElementById('japBtnOrder').addEventListener('click', onJapOrderClick);
+            // "Pilih di Peta" button — enters map-pick mode
+            var btnPickMap = document.getElementById('japBtnPickOnMap');
+            if (btnPickMap) {
+                btnPickMap.addEventListener('click', function() {
+                    _japPickOnMapMode = true;
+                    var h = document.getElementById('japMapPickHint');
+                    if (h) h.classList.remove('hidden');
+                    // Scroll map into view
+                    var mapEl = document.getElementById('japMap');
+                    if (mapEl) mapEl.scrollIntoView({ behavior: 'smooth' });
+                });
+            }
+            var btnCancelPick = document.getElementById('japBtnCancelMapPick');
+            if (btnCancelPick) {
+                btnCancelPick.addEventListener('click', function() {
+                    _japPickOnMapMode = false;
+                    var h = document.getElementById('japMapPickHint');
+                    if (h) h.classList.add('hidden');
+                });
+            }
             document.addEventListener('click', function(e) {
                 var sugg = document.getElementById('japDestSuggestions');
                 var input = document.getElementById('japDestInput');
@@ -3420,10 +3478,20 @@
             });
         }
 
-        // Allow user to drag map to change pickup by clicking
+        // Map click — set pickup (default) or destination (pick-on-map mode)
         _japMap.on('click', function(e) {
-            // Only update pickup if destination is NOT yet set
-            if (!_japDestCoords) {
+            if (_japPickOnMapMode) {
+                // Set destination by tapping map
+                _japPickOnMapMode = false;
+                var hint = document.getElementById('japMapPickHint');
+                if (hint) hint.classList.add('hidden');
+                reverseGeocode(e.latlng.lat, e.latlng.lng).then(function(addr) {
+                    selectJapDestination(e.latlng.lat, e.latlng.lng, addr);
+                    var inp = document.getElementById('japDestInput');
+                    if (inp) inp.value = addr.split(',').slice(0, 2).join(',').trim();
+                });
+            } else if (!_japDestCoords) {
+                // No destination yet — update pickup point
                 _japPickupCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
                 _japPickupMarker.setLatLng(e.latlng);
                 reverseGeocode(e.latlng.lat, e.latlng.lng).then(function(addr) {
