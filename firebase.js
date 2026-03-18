@@ -1,6 +1,6 @@
 /* ========================================
    JASA SURUH - Firebase Backend
-   Menggantikan Google Apps Script + Google Sheets
+    Backend utama aplikasi
    ======================================== */
 
 (function () {
@@ -450,7 +450,7 @@
             return isFirebaseReady;
         },
 
-        // Menggantikan: fetch(SCRIPT_URL + '?action=X&p1=v1')
+        // Wrapper GET backend
         // Mengembalikan fake Response dengan .json() → Promise<result>
         // Sehingga kode .then(r => r.json()).then(res => ...) tidak perlu diubah
         get: function (action, params) {
@@ -464,7 +464,7 @@
                 });
         },
 
-        // Menggantikan: sheetPost(body) → mengembalikan Promise<{success, data, message}>
+        // Wrapper POST backend → Promise<{success, data, message}>
         post: function (body) {
             if (!body || !body.action) return Promise.resolve(null);
             return dispatchPost(body).catch(function (e) {

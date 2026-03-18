@@ -12,8 +12,8 @@
     const STORAGE_USERS = 'js_users';
     const STORAGE_SESSION = 'js_session';
 
-    // ── Backend: Firebase (menggantikan Google Apps Script) ──
-    function isSheetConnected() {
+    // ── Backend: Firebase ──
+    function isBackendConnected() {
         return typeof FB !== 'undefined' && FB.isReady();
     }
 
@@ -68,8 +68,8 @@
                     users[idx].address = address;
                     saveUsers(users);
                 }
-                // Update Google Sheet
-                sheetPost({ action: 'updateLocation', userId: userId, lat: pos.lat, lng: pos.lng, address: address });
+                // Sync ke backend Firebase
+                backendPost({ action: 'updateLocation', userId: userId, lat: pos.lat, lng: pos.lng, address: address });
             });
         }).catch(() => {
             // Geolocation gagal, tampilkan pesan
@@ -114,17 +114,17 @@
             };
             users.push(ownerData);
             saveUsers(users);
-            // Sync owner ke Google Sheet
-            sheetPost({ action: 'register', ...ownerData });
+            // Sync owner ke backend Firebase
+            backendPost({ action: 'register', ...ownerData });
         }
-        // Sync dari Google Sheet ke localStorage saat init
-        syncFromSheet();
-        syncSkillsFromSheet();
+        // Sync dari backend ke localStorage saat init
+        syncFromBackend();
+        syncSkillsFromBackend();
     }
 
-    // ── Sync: Ambil semua data dari Google Sheet ke localStorage ──
-    function syncFromSheet() {
-        if (!isSheetConnected()) return;
+    // ── Sync: Ambil semua data dari backend ke localStorage ──
+    function syncFromBackend() {
+        if (!isBackendConnected()) return;
         FB.get('getAll')
             .then(r => r.json())
             .then(res => {
@@ -141,9 +141,9 @@
             .catch(() => {});
     }
 
-    // ── Helper: POST ke Firebase (menggantikan Google Sheet POST) ──
-    function sheetPost(body) {
-        if (!isSheetConnected()) return Promise.resolve(null);
+    // ── Helper: POST ke backend Firebase ──
+    function backendPost(body) {
+        if (!isBackendConnected()) return Promise.resolve(null);
         return FB.post(body).catch(function (err) {
             console.error('Firebase POST error:', err);
             showToast('Gagal terhubung ke server. Cek koneksi internet.', 'error');
@@ -312,8 +312,8 @@
             return;
         }
 
-        // Coba login via Google Sheet dulu, fallback ke localStorage
-        if (isSheetConnected()) {
+        // Coba login via backend dulu, fallback ke localStorage
+        if (isBackendConnected()) {
             const btn = e.target.querySelector('.btn-primary');
             if (btn) { btn.disabled = true; btn.textContent = 'Memuat...'; }
 
@@ -325,7 +325,7 @@
                         setSession(res.data);
                         showToast('Selamat datang, ' + res.data.name + '!', 'success');
                         showPage(res.data.role);
-                        syncFromSheet();
+                        syncFromBackend();
                     } else {
                         showToast(res.message || 'Username atau password salah!', 'error');
                     }
@@ -394,10 +394,10 @@
             address: ''
         };
 
-        // Simpan ke Google Sheet (sumber utama)
-        sheetPost({ action: 'register', ...newUser }).then(res => {
+        // Simpan ke backend Firebase (sumber utama)
+        backendPost({ action: 'register', ...newUser }).then(res => {
             if (res && res.success) {
-                // Berhasil disimpan di Sheet, update localStorage juga
+            // Berhasil disimpan di backend, update localStorage juga
                 const users = getUsers();
                 const savedUser = res.data || newUser;
                 users.push(savedUser);
@@ -420,7 +420,7 @@
             } else if (res && !res.success) {
                 showToast(res.message || 'Gagal mendaftar', 'error');
             } else {
-                // Fallback: Sheet tidak tersambung, simpan lokal saja
+                // Fallback: backend tidak tersambung, simpan lokal saja
                 const users = getUsers();
                 if (users.some(u => u.username === username)) {
                     showToast('Username sudah digunakan!', 'error');
@@ -549,8 +549,8 @@
         users.push(csUser);
         saveUsers(users);
 
-        // Simpan ke Google Sheet
-        sheetPost({ action: 'createCS', ...csUser }).then(res => {
+        // Simpan ke backend Firebase
+        backendPost({ action: 'createCS', ...csUser }).then(res => {
             if (res && !res.success) {
                 showToast(res.message || 'Gagal simpan ke server', 'error');
             }
@@ -577,8 +577,8 @@
         if (el('ownerTotalPenjual')) el('ownerTotalPenjual').textContent = penjualCount;
         if (el('ownerTotalCS')) el('ownerTotalCS').textContent = csCount;
 
-        // Fetch order count from sheet
-        if (isSheetConnected()) {
+        // Fetch order count from backend
+        if (isBackendConnected()) {
             FB.get('getAllOrders')
                 .then(function(r) { return r.json(); })
                 .then(function(res) {
@@ -628,8 +628,8 @@
                 users = users.filter(u => u.id !== uid);
                 saveUsers(users);
 
-                // Hapus dari Google Sheet juga
-                sheetPost({ action: 'delete', id: uid });
+                // Hapus dari backend juga
+                backendPost({ action: 'delete', id: uid });
 
                 showToast('Pengguna dihapus', 'success');
                 renderOwnerStats();
@@ -647,7 +647,7 @@
 
     // ── Skills Storage ──
     const STORAGE_SKILLS = 'js_skills';
-    const STORAGE_PHOTOS = 'js_skill_photos'; // Photos stored separately (not sent to Sheet)
+    const STORAGE_PHOTOS = 'js_skill_photos'; // Photos stored separately in local storage
     const STORAGE_PROFILE_PHOTOS = 'js_profile_photos'; // Talent selfie / profile photos
 
     function getProfilePhoto(userId) {
@@ -688,7 +688,7 @@
         saveSkills(all);
     }
 
-    // Photo storage (separate from skills, never sent to Google Sheet)
+    // Photo storage untuk cache lokal terpisah dari object skills
     function getSkillPhotos() {
         try { return JSON.parse(localStorage.getItem(STORAGE_PHOTOS)) || {}; } catch { return {}; }
     }
@@ -710,8 +710,8 @@
         }
     }
 
-    // Prepare skills for Google Sheet (keep photo thumbnail)
-    function skillsForSheet(skillArr) {
+    // Prepare skills payload untuk backend
+    function skillsForBackend(skillArr) {
         return skillArr.map(function (s) {
             var copy = {};
             for (var k in s) { copy[k] = s[k]; }
@@ -719,7 +719,7 @@
         });
     }
 
-    // Compress photo to small thumbnail for storage in Google Sheet
+    // Compress photo ke thumbnail kecil untuk efisiensi penyimpanan
     function compressThumbnail(dataUrl, callback) {
         var img = new Image();
         img.onload = function () {
@@ -875,7 +875,7 @@
                     if (photoThumb) skillObj.photo = photoThumb;
                     filtered.push(skillObj);
                     setUserSkills(session.id, filtered);
-                    sheetPost({ action: 'updateSkills', userId: session.id, skills: skillsForSheet(filtered) });
+                    backendPost({ action: 'updateSkills', userId: session.id, skills: skillsForBackend(filtered) });
 
                     formModal.classList.add('hidden');
                     detailForm.reset();
@@ -986,7 +986,7 @@
         if (skills.some(s => s.type === type)) return;
         skills.push({ type: type, name: def ? def.name : type });
         setUserSkills(session.id, skills);
-        sheetPost({ action: 'updateSkills', userId: session.id, skills: skillsForSheet(skills) });
+        backendPost({ action: 'updateSkills', userId: session.id, skills: skillsForBackend(skills) });
         renderTalentSkills();
         showToast('"' + (def ? def.name : type) + '" diaktifkan!', 'success');
     }
@@ -1049,7 +1049,7 @@
         const filtered = skills.filter(s => s.type !== type);
         setUserSkills(session.id, filtered);
         removeSkillPhoto(session.id, type);
-        sheetPost({ action: 'updateSkills', userId: session.id, skills: skillsForSheet(filtered) });
+        backendPost({ action: 'updateSkills', userId: session.id, skills: skillsForBackend(filtered) });
         renderTalentSkills();
         showToast('Keahlian dinonaktifkan', 'success');
     }
@@ -1115,7 +1115,7 @@
             btn.addEventListener('click', function() { openOrdersList(); });
         }
         // Update badge with active orders count
-        if (isSheetConnected()) {
+        if (isBackendConnected()) {
             FB.get('getOrdersByUser', {userId: userId})
                 .then(function(r) { return r.json(); })
                 .then(function(res) {
@@ -1238,9 +1238,9 @@
         }).join('');
     }
 
-    // Sync skills from Sheet
-    function syncSkillsFromSheet() {
-        if (!isSheetConnected()) return;
+    // Sync skills dari backend
+    function syncSkillsFromBackend() {
+        if (!isBackendConnected()) return;
         FB.get('getAllSkills')
             .then(r => r.json())
             .then(res => {
@@ -1643,7 +1643,7 @@
     // ═══ FETCH TALENT RATING ═══
     // ══════════════════════════════════════════
     function fetchTalentRating(talentId, callback) {
-        if (!isSheetConnected()) { callback({ avg: 0, count: 0 }); return; }
+        if (!isBackendConnected()) { callback({ avg: 0, count: 0 }); return; }
         FB.get('getTalentRating', {talentId: talentId})
             .then(function (r) { return r.json(); })
             .then(function (res) {
@@ -1686,7 +1686,7 @@
 
         showToast('Membuat pesanan...', 'success');
 
-        sheetPost(orderData).then(function (res) {
+        backendPost(orderData).then(function (res) {
             if (res && res.success) {
                 var order = res.data || orderData;
                 order.status = 'pending';
@@ -1837,7 +1837,7 @@
     function updateOrderStatus(orderId, newStatus, extraFields) {
         var fields = extraFields || {};
         fields.status = newStatus;
-        sheetPost({ action: 'updateOrder', orderId: orderId, fields: fields }).then(function (res) {
+        backendPost({ action: 'updateOrder', orderId: orderId, fields: fields }).then(function (res) {
             if (res && res.success) {
                 if (_currentOrder && _currentOrder.id === orderId) {
                     _currentOrder.status = newStatus;
@@ -2005,7 +2005,7 @@
     }
 
     function pollOrderUpdate(orderId) {
-        if (!isSheetConnected()) return;
+        if (!isBackendConnected()) return;
         FB.get('getOrdersByUser', {userId: getSession().id})
             .then(function (r) { return r.json(); })
             .then(function (res) {
@@ -2036,7 +2036,7 @@
     function startTalentLocationBroadcast(orderId) {
         function broadcast() {
             getCurrentPosition().then(function (pos) {
-                sheetPost({
+                backendPost({
                     action: 'updateTalentLocation',
                     orderId: orderId,
                     lat: pos.lat,
@@ -2119,7 +2119,7 @@
     }
 
     function fetchChatMessages(orderId) {
-        if (!isSheetConnected()) return;
+        if (!isBackendConnected()) return;
         FB.get('getMessages', {orderId: orderId})
             .then(function (r) { return r.json(); })
             .then(function (res) {
@@ -2183,7 +2183,7 @@
         });
         renderChatMessages();
 
-        sheetPost(msgData).catch(function () { showToast('Gagal mengirim pesan', 'error'); });
+        backendPost(msgData).catch(function () { showToast('Gagal mengirim pesan', 'error'); });
     }
 
     // ══════════════════════════════════════════
@@ -2236,7 +2236,7 @@
         if (!_ratingOrder || _ratingValue < 1) { showToast('Pilih rating terlebih dahulu', 'error'); return; }
         var review = (document.getElementById('ratingReview').value || '').trim();
 
-        sheetPost({
+        backendPost({
             action: 'rateOrder',
             orderId: _ratingOrder.id,
             rating: _ratingValue,
@@ -2538,7 +2538,7 @@
     function loadTalentDashboardOrders() {
         var session = getSession();
         if (!session || session.role !== 'talent') return;
-        if (!isSheetConnected()) return;
+        if (!isBackendConnected()) return;
 
         FB.get('getOrdersByUser', {userId: session.id})
             .then(function (r) { return r.json(); })
@@ -2770,7 +2770,7 @@
         var addrEl = document.getElementById('storeFormAddr');
         if (addrEl && session.address) addrEl.value = session.address;
 
-        if (isSheetConnected()) {
+        if (isBackendConnected()) {
             FB.get('getStoresByUser', {userId: session.id})
                 .then(function(r) { return r.json(); })
                 .then(function(res) {
@@ -2833,7 +2833,7 @@
 
         if (_penjualStore && _penjualStore.id) {
             // Update existing
-            sheetPost({ action: 'updateStore', storeId: _penjualStore.id, fields: storeData })
+            backendPost({ action: 'updateStore', storeId: _penjualStore.id, fields: storeData })
                 .then(function(res) {
                     if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan Toko'; }
                     if (res && res.success) {
@@ -2846,7 +2846,7 @@
         } else {
             // Create new
             var newStore = Object.assign({ action: 'createStore', id: generateId(), userId: session.id, isOpen: true, createdAt: Date.now() }, storeData);
-            sheetPost(newStore)
+            backendPost(newStore)
                 .then(function(res) {
                     if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan Toko'; }
                     if (res && res.success) {
@@ -2870,7 +2870,7 @@
         var isOpen = toggle.checked;
         if (statusLbl) statusLbl.textContent = isOpen ? 'Toko Buka' : 'Toko Tutup';
         _penjualStore.isOpen = isOpen;
-        sheetPost({ action: 'updateStore', storeId: _penjualStore.id, fields: { isOpen: isOpen } })
+        backendPost({ action: 'updateStore', storeId: _penjualStore.id, fields: { isOpen: isOpen } })
             .then(function(res) {
                 showToast(isOpen ? 'Toko sekarang Buka! ✅' : 'Toko sekarang Tutup', isOpen ? 'success' : 'error');
             });
@@ -2881,7 +2881,7 @@
             renderPenjualProducts([]);
             return;
         }
-        if (!isSheetConnected()) { renderPenjualProducts([]); return; }
+        if (!isBackendConnected()) { renderPenjualProducts([]); return; }
         FB.get('getProductsByStore', {storeId: _penjualStore.id})
             .then(function(r) { return r.json(); })
             .then(function(res) {
@@ -2924,7 +2924,7 @@
             btn.addEventListener('click', function() {
                 var pid = this.dataset.pid;
                 if (confirm('Hapus produk ini?')) {
-                    sheetPost({ action: 'deleteProduct', productId: pid }).then(function() {
+                    backendPost({ action: 'deleteProduct', productId: pid }).then(function() {
                         showToast('Produk dihapus', 'success');
                         loadPenjualProducts();
                     });
@@ -2998,7 +2998,7 @@
         function doSave(photo) {
             if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan Produk'; }
             if (productId) {
-                sheetPost({ action: 'updateProduct', productId: productId, fields: { name: name, category: category, description: desc, price: price, stock: stock, photo: photo } })
+                backendPost({ action: 'updateProduct', productId: productId, fields: { name: name, category: category, description: desc, price: price, stock: stock, photo: photo } })
                     .then(function(res) {
                         if (res && res.success) {
                             showToast('Produk diperbarui!', 'success');
@@ -3007,7 +3007,7 @@
                         } else { showToast('Gagal memperbarui produk', 'error'); }
                     });
             } else {
-                sheetPost({ action: 'createProduct', id: generateId(), storeId: _penjualStore.id, name: name, category: category, description: desc, price: price, stock: stock, photo: photo, isActive: true })
+                backendPost({ action: 'createProduct', id: generateId(), storeId: _penjualStore.id, name: name, category: category, description: desc, price: price, stock: stock, photo: photo, isActive: true })
                     .then(function(res) {
                         if (res && res.success) {
                             showToast('Produk berhasil ditambahkan!', 'success');
@@ -3062,7 +3062,7 @@
     function loadPenjualOrders() {
         var session = getSession();
         if (!session || session.role !== 'penjual') return;
-        if (!isSheetConnected()) return;
+        if (!isBackendConnected()) return;
         FB.get('getOrdersByUser', {userId: session.id})
             .then(function(r) { return r.json(); })
             .then(function(res) {
@@ -3149,7 +3149,7 @@
     // ═══ OWNER: COMMISSION SETTINGS & REVENUE ═══
     // ══════════════════════════════════════════
     function loadOwnerCommissionSettings() {
-        if (!isSheetConnected()) return;
+        if (!isBackendConnected()) return;
         FB.get('getSettings')
             .then(function(r) { return r.json(); })
             .then(function(res) {
@@ -3179,7 +3179,7 @@
         };
         var btn = e.target.querySelector('.btn-primary');
         if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
-        sheetPost({ action: 'updateSettings', settings: settings })
+        backendPost({ action: 'updateSettings', settings: settings })
             .then(function(res) {
                 if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan Pengaturan'; }
                 if (res && res.success) {
@@ -3191,7 +3191,7 @@
     }
 
     function loadOwnerRevenue() {
-        if (!isSheetConnected()) return;
+        if (!isBackendConnected()) return;
         FB.get('getAllOrders')
             .then(function(r) { return r.json(); })
             .then(function(res) {
@@ -3244,7 +3244,7 @@
         document.getElementById('slpList').innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">⏳</div><p>Memuat toko...</p></div>';
 
         // Fetch stores
-        if (isSheetConnected()) {
+        if (isBackendConnected()) {
             FB.get('getAllStores')
                 .then(function(r) { return r.json(); })
                 .then(function(res) {
@@ -3355,7 +3355,7 @@
 
         page.classList.remove('hidden');
 
-        if (isSheetConnected()) {
+        if (isBackendConnected()) {
             FB.get('getProductsByStore', {storeId: store.id})
                 .then(function(r) { return r.json(); })
                 .then(function(res) {
@@ -3445,7 +3445,7 @@
         };
 
         showToast('Membuat pesanan...', 'success');
-        sheetPost(orderData).then(function(res) {
+        backendPost(orderData).then(function(res) {
             if (res && res.success) {
                 var order = res.data || orderData;
                 order.status = 'pending';
@@ -3478,7 +3478,7 @@
     function loadCSOrders() {
         var listEl = document.getElementById('csOrdersList');
         if (listEl) listEl.innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">⏳</div><p>Memuat pesanan...</p></div>';
-        if (!isSheetConnected()) return;
+        if (!isBackendConnected()) return;
         FB.get('getAllOrders')
             .then(function(r) { return r.json(); })
             .then(function(res) {
@@ -3665,7 +3665,7 @@
         }
 
         // Fetch pricing settings
-        if (isSheetConnected()) {
+        if (isBackendConnected()) {
             FB.get('getSettings')
                 .then(function(r) { return r.json(); })
                 .then(function(res) {
@@ -3919,7 +3919,7 @@
         }
         var session = getSession();
         if (!session) { showToast('Login dulu ya!', 'error'); return; }
-        if (!isSheetConnected()) {
+        if (!isBackendConnected()) {
             showToast('Tidak ada koneksi ke server', 'error');
             return;
         }
@@ -3957,7 +3957,7 @@
             distanceKm: _japRouteDistKm
         };
 
-        sheetPost(orderData).then(function(res) {
+        backendPost(orderData).then(function(res) {
             if (res && res.success && res.data) {
                 closeJSAntarPage();
                 showToast('Pesanan dibuat! Menunggu driver... 🏍️', 'success');
