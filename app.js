@@ -543,6 +543,41 @@
             });
         }
 
+        // Photo upload
+        const photoInput = document.getElementById('sfPhoto');
+        const btnUpload = document.getElementById('sfBtnUpload');
+        const photoPreview = document.getElementById('sfPhotoPreview');
+        const photoImg = document.getElementById('sfPhotoImg');
+        const removePhoto = document.getElementById('sfRemovePhoto');
+
+        if (btnUpload && photoInput) {
+            btnUpload.addEventListener('click', () => photoInput.click());
+            photoInput.addEventListener('change', function () {
+                const file = this.files[0];
+                if (!file) return;
+                if (file.size > 500 * 1024) {
+                    showToast('Ukuran foto maksimal 500 KB!', 'error');
+                    this.value = '';
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = function (ev) {
+                    photoImg.src = ev.target.result;
+                    photoPreview.style.display = 'block';
+                    btnUpload.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        if (removePhoto) {
+            removePhoto.addEventListener('click', () => {
+                photoInput.value = '';
+                photoImg.src = '';
+                photoPreview.style.display = 'none';
+                btnUpload.style.display = '';
+            });
+        }
+
         // Handle detail form submit (Clean / Service)
         if (detailForm) {
             detailForm.addEventListener('submit', function (e) {
@@ -553,7 +588,8 @@
                 const skillType = document.getElementById('skillFormType').value;
                 const serviceType = document.getElementById('sfServiceType').value.trim();
                 const description = document.getElementById('sfDescription').value.trim();
-                const photo = document.getElementById('sfPhoto').value.trim();
+                const photoData = document.getElementById('sfPhotoImg').src || '';
+                const photo = photoData.startsWith('data:') ? photoData : '';
                 const price = parseInt(document.getElementById('sfPrice').value) || 0;
 
                 if (!serviceType || !description || price < 1000) {
@@ -578,6 +614,9 @@
 
                 formModal.classList.add('hidden');
                 detailForm.reset();
+                document.getElementById('sfPhotoImg').src = '';
+                document.getElementById('sfPhotoPreview').style.display = 'none';
+                document.getElementById('sfBtnUpload').style.display = '';
                 feeInfo.innerHTML = '';
                 renderTalentSkills();
                 showToast('"' + (def ? def.name : skillType) + '" berhasil ditambahkan!', 'success');
@@ -678,11 +717,23 @@
             if (existing) {
                 document.getElementById('sfServiceType').value = existing.serviceType || '';
                 document.getElementById('sfDescription').value = existing.description || '';
-                document.getElementById('sfPhoto').value = existing.photo || '';
+                // Restore photo preview
+                if (existing.photo && existing.photo.startsWith('data:')) {
+                    document.getElementById('sfPhotoImg').src = existing.photo;
+                    document.getElementById('sfPhotoPreview').style.display = 'block';
+                    document.getElementById('sfBtnUpload').style.display = 'none';
+                } else {
+                    document.getElementById('sfPhotoImg').src = '';
+                    document.getElementById('sfPhotoPreview').style.display = 'none';
+                    document.getElementById('sfBtnUpload').style.display = '';
+                }
                 document.getElementById('sfPrice').value = existing.price || '';
                 document.getElementById('sfPrice').dispatchEvent(new Event('input'));
             } else {
                 document.getElementById('skillDetailForm').reset();
+                document.getElementById('sfPhotoImg').src = '';
+                document.getElementById('sfPhotoPreview').style.display = 'none';
+                document.getElementById('sfBtnUpload').style.display = '';
                 document.getElementById('sfFeeInfo').innerHTML = '';
             }
         }
