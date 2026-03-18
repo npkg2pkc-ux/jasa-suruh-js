@@ -261,6 +261,9 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .skill-card-header { display:flex; align-items:center; gap:10px; }
 .skill-card-icon { font-size:24px; flex-shrink:0; }
 .skill-card-name { font-size:14px; font-weight:700; color:var(--black); flex:1; }
+.skill-card-actions { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+.skill-card-edit { background:none; border:none; cursor:pointer; font-size:16px; padding:2px 6px; transition:var(--tr); }
+.skill-card-edit:active { transform:scale(.9); }
 .skill-card-remove { background:none; border:none; color:var(--gray-400); cursor:pointer; font-size:22px; font-weight:700; padding:0 4px; line-height:1; transition:var(--tr); }
 .skill-card-remove:hover { color:var(--red); }
 .skill-card-detail { display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:8px; border-top:1px solid var(--gray-200); }
@@ -290,6 +293,10 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .btn-skill-activate { background:var(--orange); color:var(--white); border:none; padding:8px 14px; border-radius:var(--r-full); font-size:12px; font-weight:600; font-family:var(--font); cursor:pointer; transition:var(--tr); white-space:nowrap; }
 .btn-skill-activate:active { transform:scale(.95); opacity:.9; }
 .btn-skill-activate.btn-form { background:var(--blue); }
+.btn-skill-edit { background:none; border:1.5px solid var(--blue); color:var(--blue); padding:6px 12px; border-radius:var(--r-full); font-size:12px; font-weight:600; font-family:var(--font); cursor:pointer; transition:var(--tr); white-space:nowrap; }
+.btn-skill-edit:active { background:var(--blue); color:var(--white); }
+.btn-skill-delete { background:none; border:none; font-size:16px; cursor:pointer; padding:4px 6px; transition:var(--tr); }
+.btn-skill-delete:active { transform:scale(.9); }
 
 /* Skill Detail Form */
 .form-textarea { width:100%; background:var(--gray-100); border:1.5px solid var(--gray-200); border-radius:var(--r-md); padding:12px 14px; font-family:var(--font); font-size:14px; color:var(--black); resize:vertical; transition:var(--tr); outline:none; }

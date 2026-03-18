@@ -477,6 +477,7 @@
 
     // ── Skills Storage ──
     const STORAGE_SKILLS = 'js_skills';
+    const STORAGE_PHOTOS = 'js_skill_photos'; // Photos stored separately (not sent to Sheet)
 
     // Skill definitions
     const SKILL_DEFS = [
@@ -507,6 +508,37 @@
         const all = getSkills();
         all[userId] = skillArr;
         saveSkills(all);
+    }
+
+    // Photo storage (separate from skills, never sent to Google Sheet)
+    function getSkillPhotos() {
+        try { return JSON.parse(localStorage.getItem(STORAGE_PHOTOS)) || {}; } catch { return {}; }
+    }
+    function saveSkillPhoto(userId, skillType, dataUrl) {
+        const photos = getSkillPhotos();
+        if (!photos[userId]) photos[userId] = {};
+        photos[userId][skillType] = dataUrl;
+        localStorage.setItem(STORAGE_PHOTOS, JSON.stringify(photos));
+    }
+    function getSkillPhoto(userId, skillType) {
+        const photos = getSkillPhotos();
+        return (photos[userId] && photos[userId][skillType]) || '';
+    }
+    function removeSkillPhoto(userId, skillType) {
+        const photos = getSkillPhotos();
+        if (photos[userId]) {
+            delete photos[userId][skillType];
+            localStorage.setItem(STORAGE_PHOTOS, JSON.stringify(photos));
+        }
+    }
+
+    // Strip photo from skills before sending to Google Sheet
+    function skillsForSheet(skillArr) {
+        return skillArr.map(function (s) {
+            var copy = {};
+            for (var k in s) { if (k !== 'photo') copy[k] = s[k]; }
+            return copy;
+        });
     }
 
     // ── Talent: Setup Skills Modal ──
@@ -637,11 +669,19 @@
                     name: def ? def.name : skillType,
                     serviceType: serviceType,
                     description: description,
-                    photo: photo,
                     price: price
                 });
                 setUserSkills(session.id, filtered);
-                sheetPost({ action: 'updateSkills', userId: session.id, skills: filtered });
+
+                // Save photo separately in localStorage (not sent to Sheet)
+                if (photo) {
+                    saveSkillPhoto(session.id, skillType, photo);
+                } else {
+                    removeSkillPhoto(session.id, skillType);
+                }
+
+                // Sync to Sheet without photo data
+                sheetPost({ action: 'updateSkills', userId: session.id, skills: skillsForSheet(filtered) });
 
                 formModal.classList.add('hidden');
                 detailForm.reset();
@@ -670,6 +710,14 @@
 
         body.innerHTML = SKILL_DEFS.map(def => {
             const isActive = activeTypes.includes(def.type);
+            let rightHtml;
+            if (isActive && def.hasForm) {
+                rightHtml = '<button class="btn-skill-edit">✏️ Edit</button><button class="btn-skill-delete">🗑️</button>';
+            } else if (isActive) {
+                rightHtml = '<span class="skill-status-active">Aktif ✅</span><button class="btn-skill-delete" style="margin-left:8px">🗑️</button>';
+            } else {
+                rightHtml = def.hasForm ? '<button class="btn-skill-activate btn-form">Isi & Aktifkan</button>' : '<button class="btn-skill-activate">Aktifkan</button>';
+            }
             return '<div class="skill-option-card ' + (isActive ? 'active' : '') + '" data-type="' + def.type + '" data-hasform="' + def.hasForm + '">'
                 + '<div class="skill-option-left">'
                 + '<span class="skill-option-icon">' + def.icon + '</span>'
@@ -678,11 +726,7 @@
                 + '<span class="skill-option-desc">' + escapeHtml(def.desc) + '</span>'
                 + '</div>'
                 + '</div>'
-                + '<div class="skill-option-right">'
-                + (isActive
-                    ? '<span class="skill-status-active">Aktif ✅</span>'
-                    : (def.hasForm ? '<button class="btn-skill-activate btn-form">Isi & Aktifkan</button>' : '<button class="btn-skill-activate">Aktifkan</button>'))
-                + '</div>'
+                + '<div class="skill-option-right">' + rightHtml + '</div>'
                 + '</div>';
         }).join('');
 
@@ -692,27 +736,35 @@
             const hasForm = card.dataset.hasform === 'true';
             const isActive = activeTypes.includes(type);
 
-            if (isActive) {
-                // Click to deactivate
-                card.addEventListener('click', () => {
-                    if (confirm('Nonaktifkan keahlian ini?')) {
+            const btnDelete = card.querySelector('.btn-skill-delete');
+            const btnEdit = card.querySelector('.btn-skill-edit');
+            const btnActivate = card.querySelector('.btn-skill-activate');
+
+            if (btnDelete) {
+                btnDelete.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm('Hapus keahlian ini?')) {
                         removeSkillByType(type);
-                        openSkillModal(); // refresh modal
+                        openSkillModal();
                     }
                 });
-            } else {
-                const btn = card.querySelector('.btn-skill-activate');
-                if (btn) {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        if (hasForm) {
-                            openSkillForm(type);
-                        } else {
-                            activateSimpleSkill(type);
-                            openSkillModal(); // refresh
-                        }
-                    });
-                }
+            }
+            if (btnEdit) {
+                btnEdit.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openSkillForm(type);
+                });
+            }
+            if (btnActivate) {
+                btnActivate.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (hasForm) {
+                        openSkillForm(type);
+                    } else {
+                        activateSimpleSkill(type);
+                        openSkillModal();
+                    }
+                });
             }
         });
 
@@ -727,7 +779,7 @@
         if (skills.some(s => s.type === type)) return;
         skills.push({ type: type, name: def ? def.name : type });
         setUserSkills(session.id, skills);
-        sheetPost({ action: 'updateSkills', userId: session.id, skills: skills });
+        sheetPost({ action: 'updateSkills', userId: session.id, skills: skillsForSheet(skills) });
         renderTalentSkills();
         showToast('"' + (def ? def.name : type) + '" diaktifkan!', 'success');
     }
@@ -748,9 +800,10 @@
             if (existing) {
                 document.getElementById('sfServiceType').value = existing.serviceType || '';
                 document.getElementById('sfDescription').value = existing.description || '';
-                // Restore photo preview
-                if (existing.photo && existing.photo.startsWith('data:')) {
-                    document.getElementById('sfPhotoImg').src = existing.photo;
+                // Restore photo preview from separate photo storage
+                const existingPhoto = getSkillPhoto(session.id, type);
+                if (existingPhoto) {
+                    document.getElementById('sfPhotoImg').src = existingPhoto;
                     document.getElementById('sfPhotoPreview').style.display = 'block';
                     document.getElementById('sfBtnUpload').style.display = 'none';
                 } else {
@@ -786,7 +839,8 @@
         const skills = getUserSkills(session.id);
         const filtered = skills.filter(s => s.type !== type);
         setUserSkills(session.id, filtered);
-        sheetPost({ action: 'updateSkills', userId: session.id, skills: filtered });
+        removeSkillPhoto(session.id, type);
+        sheetPost({ action: 'updateSkills', userId: session.id, skills: skillsForSheet(filtered) });
         renderTalentSkills();
         showToast('Keahlian dinonaktifkan', 'success');
     }
@@ -807,11 +861,15 @@
             const def = SKILL_DEFS.find(d => d.type === s.type);
             const icon = def ? def.icon : '📌';
             const hasDetail = s.serviceType || s.description;
+            const hasForm = def && def.hasForm;
             let html = '<div class="skill-card">'
                 + '<div class="skill-card-header">'
                 + '<span class="skill-card-icon">' + icon + '</span>'
                 + '<span class="skill-card-name">' + escapeHtml(s.name) + '</span>'
+                + '<div class="skill-card-actions">'
+                + (hasForm ? '<button class="skill-card-edit" data-type="' + escapeHtml(s.type) + '">✏️</button>' : '')
                 + '<button class="skill-card-remove" data-type="' + escapeHtml(s.type) + '">&times;</button>'
+                + '</div>'
                 + '</div>';
             if (hasDetail) {
                 html += '<div class="skill-card-detail">'
@@ -825,9 +883,14 @@
 
         container.querySelectorAll('.skill-card-remove').forEach(btn => {
             btn.addEventListener('click', function () {
-                if (confirm('Nonaktifkan keahlian ini?')) {
+                if (confirm('Hapus keahlian ini?')) {
                     removeSkillByType(this.dataset.type);
                 }
+            });
+        });
+        container.querySelectorAll('.skill-card-edit').forEach(btn => {
+            btn.addEventListener('click', function () {
+                openSkillForm(this.dataset.type);
             });
         });
     }
