@@ -620,12 +620,23 @@
         }
     }
 
-    // Strip photo from skills before sending to Google Sheet
+    // Strip local photo data from skills before sending to Google Sheet (keep photoUrl)
     function skillsForSheet(skillArr) {
         return skillArr.map(function (s) {
             var copy = {};
             for (var k in s) { if (k !== 'photo') copy[k] = s[k]; }
             return copy;
+        });
+    }
+
+    // Upload photo to Google Drive via Apps Script
+    function uploadPhotoToDrive(base64Data, userId, skillType, oldUrl) {
+        var fileName = userId + '_' + skillType + '_' + Date.now() + '.jpg';
+        return sheetPost({
+            action: 'uploadPhoto',
+            photo: base64Data,
+            fileName: fileName,
+            oldUrl: oldUrl || ''
         });
     }
 
@@ -740,7 +751,7 @@
                 const serviceType = document.getElementById('sfServiceType').value.trim();
                 const description = document.getElementById('sfDescription').value.trim();
                 const photoData = document.getElementById('sfPhotoImg').src || '';
-                const photo = photoData.startsWith('data:') ? photoData : '';
+                const isNewPhoto = photoData.startsWith('data:');
                 const price = parseInt(document.getElementById('sfPrice').value) || 0;
 
                 if (!serviceType || !description || price < 1000) {
@@ -750,35 +761,51 @@
 
                 const def = SKILL_DEFS.find(d => d.type === skillType);
                 const skills = getUserSkills(session.id);
-                // Remove existing of same type
-                const filtered = skills.filter(s => s.type !== skillType);
-                filtered.push({
-                    type: skillType,
-                    name: def ? def.name : skillType,
-                    serviceType: serviceType,
-                    description: description,
-                    price: price
-                });
-                setUserSkills(session.id, filtered);
+                const existingSkill = skills.find(s => s.type === skillType);
+                const oldPhotoUrl = existingSkill ? (existingSkill.photoUrl || '') : '';
 
-                // Save photo separately in localStorage (not sent to Sheet)
-                if (photo) {
-                    saveSkillPhoto(session.id, skillType, photo);
-                } else {
-                    removeSkillPhoto(session.id, skillType);
+                function finishSave(photoUrl) {
+                    const filtered = skills.filter(s => s.type !== skillType);
+                    var skillObj = {
+                        type: skillType,
+                        name: def ? def.name : skillType,
+                        serviceType: serviceType,
+                        description: description,
+                        price: price
+                    };
+                    if (photoUrl) skillObj.photoUrl = photoUrl;
+                    filtered.push(skillObj);
+                    setUserSkills(session.id, filtered);
+                    sheetPost({ action: 'updateSkills', userId: session.id, skills: skillsForSheet(filtered) });
+
+                    formModal.classList.add('hidden');
+                    detailForm.reset();
+                    document.getElementById('sfPhotoImg').src = '';
+                    document.getElementById('sfPhotoPreview').style.display = 'none';
+                    document.getElementById('sfBtnUpload').style.display = '';
+                    feeInfo.innerHTML = '';
+                    renderTalentSkills();
+                    showToast('"' + (def ? def.name : skillType) + '" berhasil ditambahkan!', 'success');
                 }
 
-                // Sync to Sheet without photo data
-                sheetPost({ action: 'updateSkills', userId: session.id, skills: skillsForSheet(filtered) });
-
-                formModal.classList.add('hidden');
-                detailForm.reset();
-                document.getElementById('sfPhotoImg').src = '';
-                document.getElementById('sfPhotoPreview').style.display = 'none';
-                document.getElementById('sfBtnUpload').style.display = '';
-                feeInfo.innerHTML = '';
-                renderTalentSkills();
-                showToast('"' + (def ? def.name : skillType) + '" berhasil ditambahkan!', 'success');
+                if (isNewPhoto) {
+                    // Upload new photo to Google Drive
+                    showToast('Mengupload foto...', 'info');
+                    uploadPhotoToDrive(photoData, session.id, skillType, oldPhotoUrl)
+                        .then(function (res) {
+                            if (res && res.success && res.url) {
+                                finishSave(res.url);
+                            } else {
+                                showToast('Gagal upload foto. Coba lagi.', 'error');
+                            }
+                        })
+                        .catch(function () {
+                            showToast('Gagal upload foto. Cek koneksi.', 'error');
+                        });
+                } else {
+                    // Keep existing photo URL or no photo
+                    finishSave(oldPhotoUrl || (photoData.startsWith('http') ? photoData : ''));
+                }
             });
         }
 
@@ -888,8 +915,8 @@
             if (existing) {
                 document.getElementById('sfServiceType').value = existing.serviceType || '';
                 document.getElementById('sfDescription').value = existing.description || '';
-                // Restore photo preview from separate photo storage
-                const existingPhoto = getSkillPhoto(session.id, type);
+                // Restore photo preview from photoUrl (Google Drive) or fallback to localStorage
+                const existingPhoto = existing.photoUrl || getSkillPhoto(session.id, type);
                 if (existingPhoto) {
                     document.getElementById('sfPhotoImg').src = existingPhoto;
                     document.getElementById('sfPhotoPreview').style.display = 'block';
@@ -925,9 +952,14 @@
         const session = getSession();
         if (!session) return;
         const skills = getUserSkills(session.id);
+        const removed = skills.find(s => s.type === type);
         const filtered = skills.filter(s => s.type !== type);
         setUserSkills(session.id, filtered);
         removeSkillPhoto(session.id, type);
+        // Delete photo from Google Drive if exists
+        if (removed && removed.photoUrl) {
+            sheetPost({ action: 'deletePhoto', url: removed.photoUrl });
+        }
         sheetPost({ action: 'updateSkills', userId: session.id, skills: skillsForSheet(filtered) });
         renderTalentSkills();
         showToast('Keahlian dinonaktifkan', 'success');
@@ -1256,8 +1288,8 @@
                 if (myLat && myLng && u.lat && u.lng) {
                     dist = haversineDistance(myLat, myLng, u.lat, u.lng);
                 }
-                // Get photo from localStorage
-                var photo = getSkillPhoto(u.id, skillType);
+                // Get photo from skill data (Google Drive URL) or fallback to localStorage
+                var photo = skill.photoUrl || getSkillPhoto(u.id, skillType);
                 return { user: u, skill: skill, distance: dist, photo: photo };
             })
             .filter(function (r) { return r !== null; });
