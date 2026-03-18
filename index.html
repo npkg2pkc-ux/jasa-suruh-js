@@ -718,6 +718,86 @@
         </div>
     </div>
 
+    <!-- ════════════════════════════════════════ -->
+    <!-- ═══════════  JS ANTAR PAGE  ═══════════ -->
+    <!-- ════════════════════════════════════════ -->
+    <div id="jsAntarPage" class="stp-page hidden">
+        <!-- Header -->
+        <div class="jap-header">
+            <button class="stp-back" id="japBtnBack">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="jap-header-info">
+                <h2>🏍️ JS Antar</h2>
+                <span class="stp-subtitle">Ojek / Antar Barang Motor</span>
+            </div>
+        </div>
+
+        <!-- Map -->
+        <div id="japMap" class="jap-map"></div>
+
+        <!-- Bottom Sheet -->
+        <div class="jap-sheet">
+            <!-- Pickup Point -->
+            <div class="jap-input-group">
+                <div class="jap-dot jap-dot-pickup"></div>
+                <div class="jap-input-wrap">
+                    <label class="jap-input-label">Titik Jemput</label>
+                    <div class="jap-addr-row" id="japPickupRow">
+                        <span id="japPickupText" class="jap-addr-text">📍 Mendeteksi lokasi...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="jap-line"></div>
+            <!-- Destination -->
+            <div class="jap-input-group">
+                <div class="jap-dot jap-dot-dest"></div>
+                <div class="jap-input-wrap">
+                    <label class="jap-input-label">Titik Antar</label>
+                    <input type="text" id="japDestInput" class="jap-dest-input" placeholder="Ketik alamat tujuan..." autocomplete="off">
+                    <div id="japDestSuggestions" class="jap-suggestions hidden"></div>
+                </div>
+            </div>
+
+            <!-- Info row: distance + price -->
+            <div class="jap-info-row hidden" id="japInfoRow">
+                <div class="jap-info-item">
+                    <span class="jap-info-icon">📏</span>
+                    <div>
+                        <span class="jap-info-val" id="japDistance">-</span>
+                        <span class="jap-info-label-sm">Jarak</span>
+                    </div>
+                </div>
+                <div class="jap-info-divider"></div>
+                <div class="jap-info-item">
+                    <span class="jap-info-icon">⏱️</span>
+                    <div>
+                        <span class="jap-info-val" id="japEta">-</span>
+                        <span class="jap-info-label-sm">Estimasi</span>
+                    </div>
+                </div>
+                <div class="jap-info-divider"></div>
+                <div class="jap-info-item">
+                    <span class="jap-info-icon">💰</span>
+                    <div>
+                        <span class="jap-info-val" id="japPrice">-</span>
+                        <span class="jap-info-label-sm">Harga</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Note for driver -->
+            <div class="jap-note-wrap hidden" id="japNoteWrap">
+                <textarea id="japNote" class="form-textarea" rows="2" placeholder="Catatan untuk driver (opsional)... misalnya: barang fragile, minta hubungi dulu"></textarea>
+            </div>
+
+            <!-- CTA Button -->
+            <button class="btn-primary" id="japBtnOrder" style="margin-top:12px;" disabled>
+                🏍️ Temukan Driver
+            </button>
+        </div>
+    </div>
+
     <!-- Notification popup for incoming orders -->
     <div id="orderNotifPopup" class="order-notif-popup hidden">
         <div class="order-notif-content">

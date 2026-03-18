@@ -1249,6 +1249,11 @@
         document.querySelectorAll('.service-item').forEach(item => {
             item.addEventListener('click', function () {
                 var name = this.querySelector('.service-name').textContent;
+                // JS Antar → dedicated ride booking page
+                if (name === 'JS Antar') {
+                    openJSAntarPage();
+                    return;
+                }
                 // Check if it's a store-based service first
                 if (STORE_SERVICES[name]) {
                     openStoreListPage(STORE_SERVICES[name]);
@@ -1657,13 +1662,16 @@
         var priceText = order.price ? 'Rp ' + Number(order.price).toLocaleString('id-ID') : '-';
         var feeText = order.fee ? 'Rp ' + Number(order.fee).toLocaleString('id-ID') : '-';
         var addrText = order.userAddr || 'Tidak tersedia';
+        var isAntar = order.skillType === 'js_antar';
 
         el.innerHTML = ''
-            + '<div class="otp-info-row"><span class="otp-info-label">' + (isTalent ? 'Pelanggan' : 'Talent') + '</span><span class="otp-info-val">' + escapeHtml(otherName) + '</span></div>'
+            + '<div class="otp-info-row"><span class="otp-info-label">' + (isTalent ? 'Pelanggan' : 'Driver') + '</span><span class="otp-info-val">' + escapeHtml(otherName) + '</span></div>'
             + '<div class="otp-info-row"><span class="otp-info-label">Layanan</span><span class="otp-info-val">' + escapeHtml(order.serviceType || '') + '</span></div>'
+            + (isAntar ? '<div class="otp-info-row"><span class="otp-info-label">📍 Jemput</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>' : '<div class="otp-info-row"><span class="otp-info-label">Alamat</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>')
+            + (isAntar && order.destAddr ? '<div class="otp-info-row"><span class="otp-info-label">🏁 Tujuan</span><span class="otp-info-val">' + escapeHtml(String(order.destAddr)) + '</span></div>' : '')
+            + (isAntar && order.distanceKm ? '<div class="otp-info-row"><span class="otp-info-label">Jarak</span><span class="otp-info-val">' + Number(order.distanceKm).toFixed(1) + ' km</span></div>' : '')
             + '<div class="otp-info-row"><span class="otp-info-label">Harga</span><span class="otp-info-val">' + priceText + '</span></div>'
             + '<div class="otp-info-row"><span class="otp-info-label">Biaya Layanan</span><span class="otp-info-val">' + feeText + '</span></div>'
-            + '<div class="otp-info-row"><span class="otp-info-label">Alamat</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>'
             + (order.proofPhoto ? '<div class="otp-proof"><img src="' + order.proofPhoto + '" alt="Bukti"></div>' : '');
     }
 
@@ -1745,6 +1753,9 @@
         var userLng = Number(order.userLng) || 106.8;
         var talentLat = Number(order.talentLat) || userLat;
         var talentLng = Number(order.talentLng) || userLng;
+        var isAntar = order.skillType === 'js_antar';
+        var destLat = isAntar && order.destLat ? Number(order.destLat) : null;
+        var destLng = isAntar && order.destLng ? Number(order.destLng) : null;
 
         // Center between user and talent
         var centerLat = (userLat + talentLat) / 2;
@@ -1756,30 +1767,47 @@
             maxZoom: 19
         }).addTo(_otpMap);
 
-        // User marker (blue)
+        // Pickup/User marker (green for antar, blue otherwise)
         var userIcon = L.divIcon({
-            html: '<div style="background:#2196F3;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)">📍</div>',
+            html: '<div style="background:' + (isAntar ? '#22C55E' : '#2196F3') + ';color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)">' + (isAntar ? '🟢' : '📍') + '</div>',
             iconSize: [32, 32],
             iconAnchor: [16, 16],
             className: ''
         });
-        _otpUserMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(_otpMap).bindPopup('Lokasi Anda');
+        _otpUserMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(_otpMap).bindPopup(isAntar ? 'Titik Jemput' : 'Lokasi Anda');
 
-        // Talent marker (orange)
+        // Talent marker (orange motorbike)
         var talentIcon = L.divIcon({
             html: '<div style="background:#FF6B00;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)">🏍️</div>',
             iconSize: [32, 32],
             iconAnchor: [16, 16],
             className: ''
         });
-        _otpTalentMarker = L.marker([talentLat, talentLng], { icon: talentIcon }).addTo(_otpMap).bindPopup('Talent');
+        _otpTalentMarker = L.marker([talentLat, talentLng], { icon: talentIcon }).addTo(_otpMap).bindPopup('Driver');
 
-        // Fit bounds
-        var bounds = L.latLngBounds([[userLat, userLng], [talentLat, talentLng]]);
+        // Destination marker for JS Antar
+        var points = [[userLat, userLng], [talentLat, talentLng]];
+        if (isAntar && destLat && destLng) {
+            var destIcon = L.divIcon({
+                html: '<div style="background:#EF4444;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)">🏁</div>',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16],
+                className: ''
+            });
+            L.marker([destLat, destLng], { icon: destIcon }).addTo(_otpMap).bindPopup('Tujuan: ' + escapeHtml(String(order.destAddr || '')));
+            points.push([destLat, destLng]);
+        }
+
+        // Fit bounds to all markers
+        var bounds = L.latLngBounds(points);
         _otpMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
 
-        // Draw route
-        fetchAndDrawRoute(talentLat, talentLng, userLat, userLng);
+        // Draw route: for antar draw talent→pickup→destination
+        if (isAntar && destLat && destLng) {
+            fetchAndDrawRoute(talentLat, talentLng, userLat, userLng);
+        } else {
+            fetchAndDrawRoute(talentLat, talentLng, userLat, userLng);
+        }
 
         // Fix map size on display
         setTimeout(function () { if (_otpMap) _otpMap.invalidateSize(); }, 300);
@@ -3278,9 +3306,361 @@
         }
     }
 
+    // ══════════════════════════════════════════
+    // ═══════════  JS ANTAR (OJEK)  ════════════
+    // ══════════════════════════════════════════
+    var _japMap = null;
+    var _japPickupMarker = null;
+    var _japDestMarker = null;
+    var _japRouteLine = null;
+    var _japPickupCoords = null;  // { lat, lng }
+    var _japDestCoords = null;    // { lat, lng }
+    var _japDestAddress = '';
+    var _japSuggestTimer = null;
+    var _japRouteDistKm = 0;
+    var _japPricePerKm = 3000;   // default, updated from settings
+    var _japBaseFare = 5000;     // base fare
+    var _japEventsSetup = false;
+
+    function openJSAntarPage() {
+        var page = document.getElementById('jsAntarPage');
+        if (!page) return;
+        page.classList.remove('hidden');
+        // Reset state
+        _japDestCoords = null;
+        _japDestAddress = '';
+        _japRouteDistKm = 0;
+        document.getElementById('japInfoRow').classList.add('hidden');
+        document.getElementById('japNoteWrap').classList.add('hidden');
+        document.getElementById('japBtnOrder').disabled = true;
+        document.getElementById('japBtnOrder').textContent = '🏍️ Temukan Driver';
+        document.getElementById('japDestInput').value = '';
+        document.getElementById('japDestSuggestions').classList.add('hidden');
+        document.getElementById('japDestSuggestions').innerHTML = '';
+        document.getElementById('japPickupText').textContent = '📍 Mendeteksi lokasi...';
+
+        // Setup events once
+        if (!_japEventsSetup) {
+            _japEventsSetup = true;
+            document.getElementById('japBtnBack').addEventListener('click', closeJSAntarPage);
+            document.getElementById('japDestInput').addEventListener('input', onJapDestInput);
+            document.getElementById('japDestInput').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); document.getElementById('japDestSuggestions').classList.add('hidden'); }
+            });
+            document.getElementById('japBtnOrder').addEventListener('click', onJapOrderClick);
+            document.addEventListener('click', function(e) {
+                var sugg = document.getElementById('japDestSuggestions');
+                var input = document.getElementById('japDestInput');
+                if (sugg && !sugg.contains(e.target) && e.target !== input) {
+                    sugg.classList.add('hidden');
+                }
+            });
+        }
+
+        // Fetch pricing settings
+        if (isSheetConnected()) {
+            fetch(SCRIPT_URL + '?action=getSettings')
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    if (res.success && res.data) {
+                        _japPricePerKm = Number(res.data.delivery_fee_per_km) || 3000;
+                        _japBaseFare = Number(res.data.minimum_fee) || 5000;
+                    }
+                })
+                .catch(function() {});
+        }
+
+        // Init or re-init map after page is visible
+        setTimeout(function() {
+            initJapMap();
+        }, 100);
+    }
+
+    function closeJSAntarPage() {
+        var page = document.getElementById('jsAntarPage');
+        if (page) page.classList.add('hidden');
+        // Clean up map layers to free memory
+        if (_japMap) {
+            if (_japRouteLine) { _japMap.removeLayer(_japRouteLine); _japRouteLine = null; }
+        }
+    }
+
+    function initJapMap() {
+        var session = getSession();
+        var lat = (session && session.lat) ? Number(session.lat) : -6.2088;
+        var lng = (session && session.lng) ? Number(session.lng) : 106.8456;
+
+        if (_japMap) {
+            _japMap.invalidateSize();
+            _japMap.setView([lat, lng], 15);
+            if (_japPickupMarker) _japPickupMarker.setLatLng([lat, lng]);
+            else _japPickupMarker = createJapMarker(lat, lng, 'pickup').addTo(_japMap);
+            _japPickupCoords = { lat: lat, lng: lng };
+            updateJapPickupText(session && session.address ? session.address : null, lat, lng);
+            return;
+        }
+
+        _japMap = L.map('japMap', { zoomControl: false }).setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap',
+            maxZoom: 19
+        }).addTo(_japMap);
+        L.control.zoom({ position: 'topright' }).addTo(_japMap);
+
+        // Pickup marker (green)
+        _japPickupMarker = createJapMarker(lat, lng, 'pickup').addTo(_japMap);
+        _japPickupCoords = { lat: lat, lng: lng };
+
+        // Update pickup text
+        if (session && session.address) {
+            updateJapPickupText(session.address, lat, lng);
+        } else {
+            reverseGeocode(lat, lng).then(function(addr) {
+                updateJapPickupText(addr, lat, lng);
+            });
+        }
+
+        // Allow user to drag map to change pickup by clicking
+        _japMap.on('click', function(e) {
+            // Only update pickup if destination is NOT yet set
+            if (!_japDestCoords) {
+                _japPickupCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
+                _japPickupMarker.setLatLng(e.latlng);
+                reverseGeocode(e.latlng.lat, e.latlng.lng).then(function(addr) {
+                    updateJapPickupText(addr, e.latlng.lat, e.latlng.lng);
+                });
+            }
+        });
+    }
+
+    function createJapMarker(lat, lng, type) {
+        var color = type === 'pickup' ? '#22C55E' : '#FF6B00';
+        var emoji = type === 'pickup' ? '🟢' : '🔴';
+        var label = type === 'pickup' ? 'Jemput' : 'Antar';
+        var icon = L.divIcon({
+            html: '<div style="background:' + color + ';color:#fff;font-size:11px;font-weight:700;padding:4px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.3);">' + emoji + ' ' + label + '</div>',
+            className: '',
+            iconAnchor: [30, 20]
+        });
+        return L.marker([lat, lng], { icon: icon });
+    }
+
+    function updateJapPickupText(addr, lat, lng) {
+        var el = document.getElementById('japPickupText');
+        if (!el) return;
+        if (addr) {
+            el.textContent = addr;
+        } else {
+            reverseGeocode(lat, lng).then(function(a) { el.textContent = a; });
+        }
+    }
+
+    function onJapDestInput() {
+        var val = this.value.trim();
+        if (_japSuggestTimer) clearTimeout(_japSuggestTimer);
+        var sugg = document.getElementById('japDestSuggestions');
+        if (val.length < 3) {
+            sugg.classList.add('hidden');
+            sugg.innerHTML = '';
+            return;
+        }
+        sugg.classList.remove('hidden');
+        sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--gray-400)">Mencari...</div>';
+        _japSuggestTimer = setTimeout(function() {
+            searchPlaces(val);
+        }, 600);
+    }
+
+    function searchPlaces(query) {
+        // Bias results near user location
+        var lat = _japPickupCoords ? _japPickupCoords.lat : -6.2088;
+        var lng = _japPickupCoords ? _japPickupCoords.lng : 106.8456;
+        var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query)
+            + '&format=json&limit=6&accept-language=id&countrycodes=id'
+            + '&viewbox=' + (lng - 0.5) + ',' + (lat + 0.5) + ',' + (lng + 0.5) + ',' + (lat - 0.5)
+            + '&bounded=0';
+        fetch(url)
+            .then(function(r) { return r.json(); })
+            .then(function(results) {
+                renderJapSuggestions(results);
+            })
+            .catch(function() {
+                var sugg = document.getElementById('japDestSuggestions');
+                if (sugg) sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--red)">Gagal mencari lokasi</div>';
+            });
+    }
+
+    function renderJapSuggestions(results) {
+        var sugg = document.getElementById('japDestSuggestions');
+        if (!sugg) return;
+        if (!results || results.length === 0) {
+            sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--gray-400)">Tidak ditemukan</div>';
+            return;
+        }
+        sugg.innerHTML = '';
+        results.forEach(function(r) {
+            var parts = (r.display_name || '').split(',');
+            var name = parts[0].trim();
+            var addr = parts.slice(1, 4).join(',').trim();
+            var item = document.createElement('div');
+            item.className = 'jap-suggestion-item';
+            item.innerHTML = '<div class="jap-suggestion-name">' + escapeHtml(name) + '</div>'
+                + (addr ? '<div class="jap-suggestion-addr">' + escapeHtml(addr) + '</div>' : '');
+            item.addEventListener('click', function() {
+                selectJapDestination(Number(r.lat), Number(r.lon), r.display_name || name);
+            });
+            sugg.appendChild(item);
+        });
+        sugg.classList.remove('hidden');
+    }
+
+    function selectJapDestination(lat, lng, displayName) {
+        _japDestCoords = { lat: lat, lng: lng };
+        _japDestAddress = displayName;
+        document.getElementById('japDestInput').value = displayName.split(',').slice(0, 2).join(',').trim();
+        document.getElementById('japDestSuggestions').classList.add('hidden');
+
+        // Place/update dest marker on map
+        if (_japDestMarker) {
+            _japDestMarker.setLatLng([lat, lng]);
+        } else {
+            _japDestMarker = createJapMarker(lat, lng, 'dest').addTo(_japMap);
+        }
+
+        // Fit both markers in view
+        if (_japPickupCoords && _japMap) {
+            var bounds = L.latLngBounds(
+                [_japPickupCoords.lat, _japPickupCoords.lng],
+                [lat, lng]
+            );
+            _japMap.fitBounds(bounds, { padding: [40, 40] });
+        }
+
+        // Draw route and calculate distance
+        fetchJapRoute(_japPickupCoords.lat, _japPickupCoords.lng, lat, lng);
+    }
+
+    function fetchJapRoute(fromLat, fromLng, toLat, toLng) {
+        var url = 'https://router.project-osrm.org/route/v1/driving/' + fromLng + ',' + fromLat + ';' + toLng + ',' + toLat + '?overview=full&geometries=geojson';
+        fetch(url)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var distKm = 0;
+                var durationMin = 0;
+                if (data.routes && data.routes.length > 0) {
+                    distKm = data.routes[0].distance / 1000;
+                    durationMin = Math.round(data.routes[0].duration / 60);
+                    // Draw polyline
+                    var coords = data.routes[0].geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
+                    if (_japRouteLine) _japMap.removeLayer(_japRouteLine);
+                    _japRouteLine = L.polyline(coords, { color: '#FF6B00', weight: 5, opacity: 0.85 }).addTo(_japMap);
+                } else {
+                    // Fallback straight line
+                    distKm = haversineDistance(fromLat, fromLng, toLat, toLng);
+                    durationMin = Math.round(distKm / 0.4); // ~24 km/h average
+                    if (_japRouteLine) _japMap.removeLayer(_japRouteLine);
+                    _japRouteLine = L.polyline([[fromLat, fromLng], [toLat, toLng]], { color: '#FF6B00', weight: 4, dashArray: '10,10' }).addTo(_japMap);
+                }
+                _japRouteDistKm = distKm;
+                updateJapPriceInfo(distKm, durationMin);
+            })
+            .catch(function() {
+                var distKm = haversineDistance(fromLat, fromLng, toLat, toLng);
+                var durationMin = Math.round(distKm / 0.4);
+                _japRouteDistKm = distKm;
+                updateJapPriceInfo(distKm, durationMin);
+            });
+    }
+
+    function updateJapPriceInfo(distKm, durationMin) {
+        var price = Math.max(_japBaseFare, Math.round(_japPricePerKm * distKm));
+        // Round to nearest 500
+        price = Math.ceil(price / 500) * 500;
+
+        var distText = distKm < 1
+            ? Math.round(distKm * 1000) + ' m'
+            : distKm.toFixed(1) + ' km';
+        var etaText = durationMin < 1 ? '< 1 menit' : durationMin + ' menit';
+        var priceText = 'Rp ' + price.toLocaleString('id-ID');
+
+        document.getElementById('japDistance').textContent = distText;
+        document.getElementById('japEta').textContent = etaText;
+        document.getElementById('japPrice').textContent = priceText;
+        document.getElementById('japInfoRow').classList.remove('hidden');
+        document.getElementById('japNoteWrap').classList.remove('hidden');
+
+        var btn = document.getElementById('japBtnOrder');
+        btn.disabled = false;
+        btn.textContent = '🏍️ Pesan Driver — ' + priceText;
+        btn.dataset.price = price;
+    }
+
+    function onJapOrderClick() {
+        if (!_japPickupCoords || !_japDestCoords) {
+            showToast('Tentukan titik jemput dan tujuan dulu!', 'error');
+            return;
+        }
+        var session = getSession();
+        if (!session) { showToast('Login dulu ya!', 'error'); return; }
+        if (!isSheetConnected()) {
+            showToast('Tidak ada koneksi ke server', 'error');
+            return;
+        }
+        var price = Number(document.getElementById('japBtnOrder').dataset.price) || 0;
+        var note = (document.getElementById('japNote').value || '').trim();
+        var pickupAddr = document.getElementById('japPickupText').textContent || '';
+        var destAddr = document.getElementById('japDestInput').value || _japDestAddress;
+
+        var btn = document.getElementById('japBtnOrder');
+        btn.disabled = true;
+        btn.textContent = '⏳ Mencari driver...';
+
+        // Build service description
+        var desc = 'Antar dari: ' + pickupAddr + '\nTujuan: ' + destAddr + '\nJarak: ' + _japRouteDistKm.toFixed(1) + ' km';
+        if (note) desc += '\nCatatan: ' + note;
+
+        // Calculate fee (platform commission)
+        var fee = Math.round(price * 0.1); // 10% platform
+
+        var orderData = {
+            action: 'createOrder',
+            userId: session.id,
+            talentId: '',  // will be assigned when driver accepts
+            skillType: 'js_antar',
+            serviceType: 'JS Antar Motor',
+            description: desc,
+            price: price,
+            fee: fee,
+            userLat: _japPickupCoords.lat,
+            userLng: _japPickupCoords.lng,
+            userAddr: pickupAddr,
+            destLat: _japDestCoords.lat,
+            destLng: _japDestCoords.lng,
+            destAddr: destAddr,
+            distanceKm: _japRouteDistKm
+        };
+
+        sheetPost(orderData).then(function(res) {
+            if (res && res.success && res.data) {
+                closeJSAntarPage();
+                showToast('Pesanan dibuat! Menunggu driver... 🏍️', 'success');
+                // Open order tracking immediately
+                var order = res.data;
+                openOrderTracking(order);
+            } else {
+                btn.disabled = false;
+                btn.textContent = '🏍️ Pesan Driver — Rp ' + price.toLocaleString('id-ID');
+                showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'coba lagi'), 'error');
+            }
+        }).catch(function() {
+            btn.disabled = false;
+            btn.textContent = '🏍️ Pesan Driver — Rp ' + price.toLocaleString('id-ID');
+            showToast('Koneksi error, coba lagi', 'error');
+        });
+    }
+
     // ── Bottom Nav ──
     function setupBottomNav() {
-        document.querySelectorAll('.bottom-nav').forEach(nav => {
             nav.querySelectorAll('.nav-item').forEach(item => {
                 item.addEventListener('click', function () {
                     nav.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));

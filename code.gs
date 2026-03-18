@@ -220,7 +220,7 @@ function getOrdersSheet() {
   var sheet = ss.getSheetByName(ORDERS_SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(ORDERS_SHEET_NAME);
-    sheet.appendRow(['id','userId','talentId','skillType','serviceType','description','price','fee','status','createdAt','acceptedAt','startedAt','completedAt','proofPhoto','userLat','userLng','userAddr','talentLat','talentLng','rating','review']);
+    sheet.appendRow(['id','userId','talentId','skillType','serviceType','description','price','fee','status','createdAt','acceptedAt','startedAt','completedAt','proofPhoto','userLat','userLng','userAddr','talentLat','talentLng','rating','review','destLat','destLng','destAddr','distanceKm']);
   }
   return sheet;
 }
@@ -248,6 +248,9 @@ function getAllOrders() {
     o.userLng = Number(o.userLng) || 0;
     o.talentLat = Number(o.talentLat) || 0;
     o.talentLng = Number(o.talentLng) || 0;
+    o.destLat = Number(o.destLat) || 0;
+    o.destLng = Number(o.destLng) || 0;
+    o.distanceKm = Number(o.distanceKm) || 0;
     orders.push(o);
   }
   return orders;
@@ -264,7 +267,7 @@ function findOrderRow(orderId) {
 
 function createOrder(o) {
   var sheet = getOrdersSheet();
-  sheet.appendRow([o.id, o.userId, o.talentId, o.skillType||'', o.serviceType||'', o.description||'', o.price||0, o.fee||0, o.status||'pending', o.createdAt||Date.now(), 0,0,0, '', o.userLat||0, o.userLng||0, o.userAddr||'', o.talentLat||0, o.talentLng||0, 0, '']);
+  sheet.appendRow([o.id, o.userId, o.talentId, o.skillType||'', o.serviceType||'', o.description||'', o.price||0, o.fee||0, o.status||'pending', o.createdAt||Date.now(), 0,0,0, '', o.userLat||0, o.userLng||0, o.userAddr||'', o.talentLat||0, o.talentLng||0, 0, '', o.destLat||0, o.destLng||0, o.destAddr||'', o.distanceKm||0]);
 }
 
 function updateOrderField(orderId, field, value) {
@@ -726,11 +729,13 @@ function doPost(e) {
     } else if (action === 'createOrder') {
       var oData = {
         id: body.id || (Date.now().toString(36) + Math.random().toString(36).substr(2,8)),
-        userId: body.userId, talentId: body.talentId, skillType: body.skillType,
+        userId: body.userId, talentId: body.talentId || '', skillType: body.skillType,
         serviceType: body.serviceType, description: body.description,
         price: body.price || 0, fee: body.fee || 0, status: 'pending',
         createdAt: Date.now(), userLat: body.userLat||0, userLng: body.userLng||0,
-        userAddr: body.userAddr||'', talentLat: body.talentLat||0, talentLng: body.talentLng||0
+        userAddr: body.userAddr||'', talentLat: body.talentLat||0, talentLng: body.talentLng||0,
+        destLat: body.destLat||0, destLng: body.destLng||0, destAddr: body.destAddr||'',
+        distanceKm: body.distanceKm||0
       };
       createOrder(oData);
       result = { success: true, data: oData };
