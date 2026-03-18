@@ -478,6 +478,18 @@
     // ── Skills Storage ──
     const STORAGE_SKILLS = 'js_skills';
 
+    // Skill definitions
+    const SKILL_DEFS = [
+        { type: 'js_antar', name: 'JS Antar', icon: '🏍️', desc: 'Jasa antar barang & dokumen', hasForm: false },
+        { type: 'js_shop', name: 'JS Shop', icon: '🛒', desc: 'Jasa belanja kebutuhan', hasForm: false },
+        { type: 'js_food', name: 'JS Food', icon: '🍔', desc: 'Jasa pesan & antar makanan', hasForm: false },
+        { type: 'js_delivery', name: 'JS Delivery', icon: '📦', desc: 'Jasa pengiriman paket', hasForm: false },
+        { type: 'js_clean', name: 'JS Clean', icon: '🧹', desc: 'Jasa kebersihan rumah & lingkungan', hasForm: true },
+        { type: 'js_service', name: 'JS Service', icon: '🔧', desc: 'Jasa perbaikan & servis', hasForm: true },
+        { type: 'js_medicine', name: 'JS Medicine', icon: '💊', desc: 'Jasa beli & antar obat', hasForm: false },
+        { type: 'js_other', name: 'JS Other', icon: '📌', desc: 'Jasa lainnya', hasForm: false }
+    ];
+
     function getSkills() {
         try { return JSON.parse(localStorage.getItem(STORAGE_SKILLS)) || {}; } catch { return {}; }
     }
@@ -486,74 +498,215 @@
         localStorage.setItem(STORAGE_SKILLS, JSON.stringify(skills));
     }
 
-    // Get skills for a specific user
     function getUserSkills(userId) {
         const all = getSkills();
         return all[userId] || [];
     }
 
-    // Set skills for a specific user
     function setUserSkills(userId, skillArr) {
         const all = getSkills();
         all[userId] = skillArr;
         saveSkills(all);
     }
 
-    // ── Talent: Setup Skills ──
+    // ── Talent: Setup Skills Modal ──
     function setupTalentSkills() {
-        const input = document.getElementById('skillInput');
-        const btn = document.getElementById('btnAddSkill');
-        if (!input || !btn) return;
+        const btnOpen = document.getElementById('btnOpenSkillModal');
+        const modal = document.getElementById('skillModal');
+        const btnClose = document.getElementById('btnCloseSkillModal');
+        const formModal = document.getElementById('skillFormModal');
+        const btnCloseForm = document.getElementById('btnCloseSkillForm');
+        const detailForm = document.getElementById('skillDetailForm');
+        const priceInput = document.getElementById('sfPrice');
+        const feeInfo = document.getElementById('sfFeeInfo');
 
-        btn.addEventListener('click', addSkill);
-        input.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') { e.preventDefault(); addSkill(); }
+        if (!btnOpen || !modal) return;
+
+        btnOpen.addEventListener('click', () => openSkillModal());
+        btnClose.addEventListener('click', () => modal.classList.add('hidden'));
+        modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
+
+        if (btnCloseForm) btnCloseForm.addEventListener('click', () => formModal.classList.add('hidden'));
+        if (formModal) formModal.addEventListener('click', e => { if (e.target === formModal) formModal.classList.add('hidden'); });
+
+        // Price → fee calculator
+        if (priceInput && feeInfo) {
+            priceInput.addEventListener('input', function () {
+                const price = parseInt(this.value) || 0;
+                if (price > 0) {
+                    const fee = Math.ceil(price * 0.05);
+                    const talent = price - fee;
+                    feeInfo.innerHTML = 'Biaya pengembang: <strong>Rp ' + fee.toLocaleString('id-ID') + '</strong> — Anda terima: <strong>Rp ' + talent.toLocaleString('id-ID') + '</strong>';
+                } else {
+                    feeInfo.innerHTML = '';
+                }
+            });
+        }
+
+        // Handle detail form submit (Clean / Service)
+        if (detailForm) {
+            detailForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                const session = getSession();
+                if (!session) return;
+
+                const skillType = document.getElementById('skillFormType').value;
+                const serviceType = document.getElementById('sfServiceType').value.trim();
+                const description = document.getElementById('sfDescription').value.trim();
+                const photo = document.getElementById('sfPhoto').value.trim();
+                const price = parseInt(document.getElementById('sfPrice').value) || 0;
+
+                if (!serviceType || !description || price < 1000) {
+                    showToast('Lengkapi semua data! Harga minimal Rp 1.000', 'error');
+                    return;
+                }
+
+                const def = SKILL_DEFS.find(d => d.type === skillType);
+                const skills = getUserSkills(session.id);
+                // Remove existing of same type
+                const filtered = skills.filter(s => s.type !== skillType);
+                filtered.push({
+                    type: skillType,
+                    name: def ? def.name : skillType,
+                    serviceType: serviceType,
+                    description: description,
+                    photo: photo,
+                    price: price
+                });
+                setUserSkills(session.id, filtered);
+                sheetPost({ action: 'updateSkills', userId: session.id, skills: filtered });
+
+                formModal.classList.add('hidden');
+                detailForm.reset();
+                feeInfo.innerHTML = '';
+                renderTalentSkills();
+                showToast('"' + (def ? def.name : skillType) + '" berhasil ditambahkan!', 'success');
+            });
+        }
+
+        renderTalentSkills();
+    }
+
+    function openSkillModal() {
+        const session = getSession();
+        if (!session) return;
+
+        const modal = document.getElementById('skillModal');
+        const body = document.getElementById('skillModalBody');
+        if (!modal || !body) return;
+
+        const skills = getUserSkills(session.id);
+        const activeTypes = skills.map(s => s.type);
+
+        body.innerHTML = SKILL_DEFS.map(def => {
+            const isActive = activeTypes.includes(def.type);
+            return '<div class="skill-option-card ' + (isActive ? 'active' : '') + '" data-type="' + def.type + '" data-hasform="' + def.hasForm + '">'
+                + '<div class="skill-option-left">'
+                + '<span class="skill-option-icon">' + def.icon + '</span>'
+                + '<div class="skill-option-info">'
+                + '<span class="skill-option-name">' + escapeHtml(def.name) + '</span>'
+                + '<span class="skill-option-desc">' + escapeHtml(def.desc) + '</span>'
+                + '</div>'
+                + '</div>'
+                + '<div class="skill-option-right">'
+                + (isActive
+                    ? '<span class="skill-status-active">Aktif ✅</span>'
+                    : (def.hasForm ? '<button class="btn-skill-activate btn-form">Isi & Aktifkan</button>' : '<button class="btn-skill-activate">Aktifkan</button>'))
+                + '</div>'
+                + '</div>';
+        }).join('');
+
+        // Attach click handlers
+        body.querySelectorAll('.skill-option-card').forEach(card => {
+            const type = card.dataset.type;
+            const hasForm = card.dataset.hasform === 'true';
+            const isActive = activeTypes.includes(type);
+
+            if (isActive) {
+                // Click to deactivate
+                card.addEventListener('click', () => {
+                    if (confirm('Nonaktifkan keahlian ini?')) {
+                        removeSkillByType(type);
+                        openSkillModal(); // refresh modal
+                    }
+                });
+            } else {
+                const btn = card.querySelector('.btn-skill-activate');
+                if (btn) {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (hasForm) {
+                            openSkillForm(type);
+                        } else {
+                            activateSimpleSkill(type);
+                            openSkillModal(); // refresh
+                        }
+                    });
+                }
+            }
         });
 
-        renderTalentSkills();
+        modal.classList.remove('hidden');
     }
 
-    function addSkill() {
-        const input = document.getElementById('skillInput');
-        const val = input.value.trim();
-        if (!val) return;
-
+    function activateSimpleSkill(type) {
         const session = getSession();
         if (!session) return;
-
+        const def = SKILL_DEFS.find(d => d.type === type);
         const skills = getUserSkills(session.id);
-        // Cek duplikat (case-insensitive)
-        if (skills.some(s => s.toLowerCase() === val.toLowerCase())) {
-            showToast('Keahlian sudah ada!', 'error');
-            return;
-        }
-        if (skills.length >= 15) {
-            showToast('Maksimal 15 keahlian!', 'error');
-            return;
-        }
-
-        skills.push(val);
+        if (skills.some(s => s.type === type)) return;
+        skills.push({ type: type, name: def ? def.name : type });
         setUserSkills(session.id, skills);
-        input.value = '';
-
-        // Sync ke Google Sheet
         sheetPost({ action: 'updateSkills', userId: session.id, skills: skills });
-
         renderTalentSkills();
-        showToast('Keahlian "' + val + '" ditambahkan!', 'success');
+        showToast('"' + (def ? def.name : type) + '" diaktifkan!', 'success');
     }
 
-    function removeSkill(index) {
+    function openSkillForm(type) {
+        const def = SKILL_DEFS.find(d => d.type === type);
+        const formModal = document.getElementById('skillFormModal');
+        const modal = document.getElementById('skillModal');
+
+        document.getElementById('skillFormTitle').textContent = 'Detail ' + (def ? def.name : type);
+        document.getElementById('skillFormType').value = type;
+
+        // Pre-fill if editing existing
+        const session = getSession();
+        if (session) {
+            const skills = getUserSkills(session.id);
+            const existing = skills.find(s => s.type === type);
+            if (existing) {
+                document.getElementById('sfServiceType').value = existing.serviceType || '';
+                document.getElementById('sfDescription').value = existing.description || '';
+                document.getElementById('sfPhoto').value = existing.photo || '';
+                document.getElementById('sfPrice').value = existing.price || '';
+                document.getElementById('sfPrice').dispatchEvent(new Event('input'));
+            } else {
+                document.getElementById('skillDetailForm').reset();
+                document.getElementById('sfFeeInfo').innerHTML = '';
+            }
+        }
+
+        // Set placeholder based on type
+        if (type === 'js_clean') {
+            document.getElementById('sfServiceType').placeholder = 'cth: Bersihkan Taman, Kamar Mandi, dll';
+        } else if (type === 'js_service') {
+            document.getElementById('sfServiceType').placeholder = 'cth: Service AC, Elektronik, dll';
+        }
+
+        modal.classList.add('hidden');
+        formModal.classList.remove('hidden');
+    }
+
+    function removeSkillByType(type) {
         const session = getSession();
         if (!session) return;
         const skills = getUserSkills(session.id);
-        skills.splice(index, 1);
-        setUserSkills(session.id, skills);
-
-        // Sync ke Google Sheet
-        sheetPost({ action: 'updateSkills', userId: session.id, skills: skills });
-
+        const filtered = skills.filter(s => s.type !== type);
+        setUserSkills(session.id, filtered);
+        sheetPost({ action: 'updateSkills', userId: session.id, skills: filtered });
         renderTalentSkills();
+        showToast('Keahlian dinonaktifkan', 'success');
     }
 
     function renderTalentSkills() {
@@ -564,17 +717,35 @@
 
         const skills = getUserSkills(session.id);
         if (skills.length === 0) {
-            container.innerHTML = '<div class="skills-empty">Belum ada keahlian. Tambahkan keahlian Anda!</div>';
+            container.innerHTML = '<div class="skills-empty">Belum ada keahlian. Klik <strong>+ Tambah</strong> untuk menambahkan!</div>';
             return;
         }
 
-        container.innerHTML = skills.map((s, i) =>
-            '<span class="skill-tag">' + escapeHtml(s) + '<button class="skill-remove" data-idx="' + i + '">&times;</button></span>'
-        ).join('');
+        container.innerHTML = skills.map(s => {
+            const def = SKILL_DEFS.find(d => d.type === s.type);
+            const icon = def ? def.icon : '📌';
+            const hasDetail = s.serviceType || s.description;
+            let html = '<div class="skill-card">'
+                + '<div class="skill-card-header">'
+                + '<span class="skill-card-icon">' + icon + '</span>'
+                + '<span class="skill-card-name">' + escapeHtml(s.name) + '</span>'
+                + '<button class="skill-card-remove" data-type="' + escapeHtml(s.type) + '">&times;</button>'
+                + '</div>';
+            if (hasDetail) {
+                html += '<div class="skill-card-detail">'
+                    + '<span class="skill-detail-type">' + escapeHtml(s.serviceType) + '</span>'
+                    + (s.price ? '<span class="skill-detail-price">Rp ' + s.price.toLocaleString('id-ID') + '</span>' : '')
+                    + '</div>';
+            }
+            html += '</div>';
+            return html;
+        }).join('');
 
-        container.querySelectorAll('.skill-remove').forEach(btn => {
+        container.querySelectorAll('.skill-card-remove').forEach(btn => {
             btn.addEventListener('click', function () {
-                removeSkill(parseInt(this.dataset.idx));
+                if (confirm('Nonaktifkan keahlian ini?')) {
+                    removeSkillByType(this.dataset.type);
+                }
             });
         });
     }
@@ -626,13 +797,14 @@
         const users = getUsers();
         const allSkills = getSkills();
 
-        // Find talents who have matching skills
+        // Find talents who have matching skills (supports both old string[] and new object[] format)
         const results = users
             .filter(u => u.role === 'talent')
             .map(u => {
-                const skills = allSkills[u.id] || [];
-                const matched = skills.filter(s => s.toLowerCase().includes(q));
-                return { user: u, skills: skills, matched: matched };
+                const rawSkills = allSkills[u.id] || [];
+                const skillNames = rawSkills.map(s => (typeof s === 'string') ? s : (s.name || s.type || ''));
+                const matched = skillNames.filter(s => s.toLowerCase().includes(q));
+                return { user: u, skills: skillNames, matched: matched };
             })
             .filter(r => r.matched.length > 0)
             .sort((a, b) => b.matched.length - a.matched.length);

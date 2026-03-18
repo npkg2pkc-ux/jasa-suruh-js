@@ -124,7 +124,10 @@ function deleteUserById(id) {
 
 /**
  * Mendapatkan atau membuat sheet Skills
- * Format: A = userId, B = skills (JSON array string)
+ * Format: A = userId, B = skills (JSON array of objects)
+ * Setiap skill object:
+ *   Skill sederhana: { type: "js_antar", name: "JS Antar" }
+ *   Skill dengan form: { type: "js_clean", name: "JS Clean", serviceType: "...", description: "...", photo: "...", price: 50000 }
  */
 function getSkillsSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -137,7 +140,7 @@ function getSkillsSheet() {
 }
 
 /**
- * Ambil semua skills sebagai object { userId: [skill1, skill2, ...] }
+ * Ambil semua skills sebagai object { userId: [{type, name, ...}, ...] }
  */
 function getAllSkillsData() {
   var sheet = getSkillsSheet();
@@ -147,7 +150,9 @@ function getAllSkillsData() {
     var uid = String(data[i][0] || '');
     var skillsStr = String(data[i][1] || '[]');
     try {
-      result[uid] = JSON.parse(skillsStr);
+      var parsed = JSON.parse(skillsStr);
+      // Pastikan selalu array
+      result[uid] = Array.isArray(parsed) ? parsed : [];
     } catch (e) {
       result[uid] = [];
     }
@@ -156,22 +161,47 @@ function getAllSkillsData() {
 }
 
 /**
+ * Ambil skills untuk satu user
+ */
+function getUserSkillsById(userId) {
+  var all = getAllSkillsData();
+  return all[String(userId)] || [];
+}
+
+/**
  * Update skills untuk user tertentu
+ * skillsArray = array of skill objects
  */
 function updateUserSkills(userId, skillsArray) {
   var sheet = getSkillsSheet();
   var data = sheet.getDataRange().getValues();
+  var jsonStr = JSON.stringify(skillsArray);
   var found = false;
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(userId)) {
-      sheet.getRange(i + 1, 2).setValue(JSON.stringify(skillsArray));
+      sheet.getRange(i + 1, 2).setValue(jsonStr);
       found = true;
       break;
     }
   }
   if (!found) {
-    sheet.appendRow([userId, JSON.stringify(skillsArray)]);
+    sheet.appendRow([userId, jsonStr]);
   }
+}
+
+/**
+ * Hapus skills user (saat user dihapus)
+ */
+function deleteUserSkills(userId) {
+  var sheet = getSkillsSheet();
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(userId)) {
+      sheet.deleteRow(i + 1);
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -186,6 +216,13 @@ function doGet(e) {
     result = { success: true, data: getAllUsers() };
   } else if (action === 'getAllSkills') {
     result = { success: true, data: getAllSkillsData() };
+  } else if (action === 'getUserSkills') {
+    var uid = e.parameter.userId || '';
+    if (!uid) {
+      result = { success: false, message: 'userId tidak ditemukan' };
+    } else {
+      result = { success: true, data: getUserSkillsById(uid) };
+    }
   } else if (action === 'login') {
     var username = e.parameter.username || '';
     var password = e.parameter.password || '';
@@ -247,9 +284,12 @@ function doPost(e) {
         result = { success: false, message: 'ID tidak ditemukan' };
       } else {
         var deleted = deleteUserById(id);
-        result = deleted
-          ? { success: true, message: 'User berhasil dihapus' }
-          : { success: false, message: 'User tidak ditemukan' };
+        if (deleted) {
+          deleteUserSkills(id); // Hapus skills user juga
+          result = { success: true, message: 'User berhasil dihapus' };
+        } else {
+          result = { success: false, message: 'User tidak ditemukan' };
+        }
       }
 
     } else if (action === 'updateSkills') {
