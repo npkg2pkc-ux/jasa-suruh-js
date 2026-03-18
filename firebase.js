@@ -46,13 +46,13 @@
     // PENTING: Isi dengan konfigurasi Firebase project Anda
     // Cara mendapatkan: Firebase Console → Project Settings → Your Apps → Web App Config
     var defaultFirebaseConfig = {
-        apiKey: "YOUR_API_KEY",
-        authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-        databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-        projectId: "YOUR_PROJECT_ID",
-        storageBucket: "YOUR_PROJECT_ID.appspot.com",
-        messagingSenderId: "YOUR_SENDER_ID",
-        appId: "YOUR_APP_ID"
+        apiKey: "AIzaSyBZzoTR7ermSsk-sJMnOP1F7U0mYnDjoTY",
+        authDomain: "jsid-701e3.firebaseapp.com",
+        databaseURL: "https://jsid-701e3-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "jsid-701e3",
+        storageBucket: "jsid-701e3.firebasestorage.app",
+        messagingSenderId: "621847843832",
+        appId: "1:621847843832:web:8e811001cab8c0dc533c0d"
     };
     // Bisa di-override dari script global: window.__FIREBASE_CONFIG__
     var firebaseConfig = window.__FIREBASE_CONFIG__ || defaultFirebaseConfig;
