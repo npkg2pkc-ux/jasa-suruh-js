@@ -50,7 +50,7 @@
         fetch(SCRIPT_URL + '?action=getAll')
             .then(r => r.json())
             .then(res => {
-                if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+                if (res.success && Array.isArray(res.data)) {
                     saveUsers(res.data);
                     // Refresh UI jika owner sedang buka dashboard
                     const session = getSession();
@@ -279,12 +279,6 @@
             return;
         }
 
-        const users = getUsers();
-        if (users.some(u => u.username === username)) {
-            showToast('Username sudah digunakan!', 'error');
-            return;
-        }
-
         const newUser = {
             id: generateId(),
             name: name,
@@ -294,23 +288,37 @@
             role: role,
             createdAt: Date.now()
         };
-        users.push(newUser);
-        saveUsers(users);
 
-        // Simpan ke Google Sheet
+        // Simpan ke Google Sheet (sumber utama)
         sheetPost({ action: 'register', ...newUser }).then(res => {
-            if (res && !res.success) {
-                showToast(res.message || 'Gagal simpan ke server', 'error');
+            if (res && res.success) {
+                // Berhasil disimpan di Sheet, update localStorage juga
+                const users = getUsers();
+                users.push(res.data || newUser);
+                saveUsers(users);
+                setSession(res.data || newUser);
+                showToast('Akun berhasil dibuat!', 'success');
+                showPage(role);
+                document.getElementById('registerForm').reset();
+                document.getElementById('regRole').value = 'user';
+            } else if (res && !res.success) {
+                showToast(res.message || 'Gagal mendaftar', 'error');
+            } else {
+                // Fallback: Sheet tidak tersambung, simpan lokal saja
+                const users = getUsers();
+                if (users.some(u => u.username === username)) {
+                    showToast('Username sudah digunakan!', 'error');
+                    return;
+                }
+                users.push(newUser);
+                saveUsers(users);
+                setSession(newUser);
+                showToast('Akun berhasil dibuat (offline)!', 'success');
+                showPage(role);
+                document.getElementById('registerForm').reset();
+                document.getElementById('regRole').value = 'user';
             }
         });
-
-        setSession(newUser);
-        showToast('Akun berhasil dibuat!', 'success');
-        showPage(role);
-
-        // Reset form
-        document.getElementById('registerForm').reset();
-        document.getElementById('regRole').value = 'user';
     }
 
     // ── Role Selector (Register) ──
