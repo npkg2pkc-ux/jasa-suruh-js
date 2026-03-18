@@ -210,34 +210,6 @@ function deleteUserSkills(userId) {
   return false;
 }
 
-// ── Google Drive Photo Storage ──
-function getOrCreatePhotoFolder() {
-  var folderName = 'JS_App_Photos';
-  var folders = DriveApp.getFoldersByName(folderName);
-  if (folders.hasNext()) return folders.next();
-  return DriveApp.createFolder(folderName);
-}
-
-function uploadPhotoToDrive(base64Data, fileName) {
-  var folder = getOrCreatePhotoFolder();
-  var parts = base64Data.split(',');
-  var decoded = Utilities.base64Decode(parts.length > 1 ? parts[1] : parts[0]);
-  var blob = Utilities.newBlob(decoded, 'image/jpeg', fileName);
-  var file = folder.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  return 'https://drive.google.com/uc?export=view&id=' + file.getId();
-}
-
-function deletePhotoFromDrive(url) {
-  if (!url) return;
-  var match = url.match(/id=([a-zA-Z0-9_-]+)/);
-  if (!match) return;
-  try {
-    var file = DriveApp.getFileById(match[1]);
-    file.setTrashed(true);
-  } catch (e) { /* file may already be deleted */ }
-}
-
 /**
  * Handle GET requests — ambil semua users
  */
@@ -364,24 +336,6 @@ function doPost(e) {
         updateUserSkills(userId, skills);
         result = { success: true, message: 'Skills berhasil diupdate' };
       }
-
-    } else if (action === 'uploadPhoto') {
-      var photoData = body.photo || '';
-      var photoFileName = body.fileName || ('photo_' + Date.now() + '.jpg');
-      var oldUrl = body.oldUrl || '';
-      if (!photoData) {
-        result = { success: false, message: 'Data foto kosong' };
-      } else {
-        // Delete old photo if replacing
-        if (oldUrl) deletePhotoFromDrive(oldUrl);
-        var url = uploadPhotoToDrive(photoData, photoFileName);
-        result = { success: true, url: url };
-      }
-
-    } else if (action === 'deletePhoto') {
-      var delUrl = body.url || '';
-      if (delUrl) deletePhotoFromDrive(delUrl);
-      result = { success: true, message: 'Foto dihapus' };
 
     } else {
       result = { success: false, message: 'Action tidak dikenal' };

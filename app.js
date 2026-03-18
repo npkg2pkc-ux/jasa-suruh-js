@@ -620,24 +620,33 @@
         }
     }
 
-    // Strip local photo data from skills before sending to Google Sheet (keep photoUrl)
+    // Prepare skills for Google Sheet (keep photo thumbnail)
     function skillsForSheet(skillArr) {
         return skillArr.map(function (s) {
             var copy = {};
-            for (var k in s) { if (k !== 'photo') copy[k] = s[k]; }
+            for (var k in s) { copy[k] = s[k]; }
             return copy;
         });
     }
 
-    // Upload photo to Google Drive via Apps Script
-    function uploadPhotoToDrive(base64Data, userId, skillType, oldUrl) {
-        var fileName = userId + '_' + skillType + '_' + Date.now() + '.jpg';
-        return sheetPost({
-            action: 'uploadPhoto',
-            photo: base64Data,
-            fileName: fileName,
-            oldUrl: oldUrl || ''
-        });
+    // Compress photo to small thumbnail for storage in Google Sheet
+    function compressThumbnail(dataUrl, callback) {
+        var img = new Image();
+        img.onload = function () {
+            var canvas = document.createElement('canvas');
+            var maxDim = 200;
+            var w = img.width, h = img.height;
+            if (w > maxDim || h > maxDim) {
+                var ratio = Math.min(maxDim / w, maxDim / h);
+                w = Math.round(w * ratio);
+                h = Math.round(h * ratio);
+            }
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            callback(canvas.toDataURL('image/jpeg', 0.4));
+        };
+        img.src = dataUrl;
     }
 
     // ── Talent: Setup Skills Modal ──
@@ -726,6 +735,7 @@
                 if (!file) return;
                 compressImage(file, 500, function (dataUrl) {
                     photoImg.src = dataUrl;
+                    photoImg.dataset.newUpload = '1';
                     photoPreview.style.display = 'block';
                     btnUpload.style.display = 'none';
                 });
@@ -751,7 +761,7 @@
                 const serviceType = document.getElementById('sfServiceType').value.trim();
                 const description = document.getElementById('sfDescription').value.trim();
                 const photoData = document.getElementById('sfPhotoImg').src || '';
-                const isNewPhoto = photoData.startsWith('data:');
+                const isNewUpload = document.getElementById('sfPhotoImg').dataset.newUpload === '1';
                 const price = parseInt(document.getElementById('sfPrice').value) || 0;
 
                 if (!serviceType || !description || price < 1000) {
@@ -762,9 +772,8 @@
                 const def = SKILL_DEFS.find(d => d.type === skillType);
                 const skills = getUserSkills(session.id);
                 const existingSkill = skills.find(s => s.type === skillType);
-                const oldPhotoUrl = existingSkill ? (existingSkill.photoUrl || '') : '';
 
-                function finishSave(photoUrl) {
+                function finishSave(photoThumb) {
                     const filtered = skills.filter(s => s.type !== skillType);
                     var skillObj = {
                         type: skillType,
@@ -773,7 +782,7 @@
                         description: description,
                         price: price
                     };
-                    if (photoUrl) skillObj.photoUrl = photoUrl;
+                    if (photoThumb) skillObj.photo = photoThumb;
                     filtered.push(skillObj);
                     setUserSkills(session.id, filtered);
                     sheetPost({ action: 'updateSkills', userId: session.id, skills: skillsForSheet(filtered) });
@@ -781,6 +790,7 @@
                     formModal.classList.add('hidden');
                     detailForm.reset();
                     document.getElementById('sfPhotoImg').src = '';
+                    document.getElementById('sfPhotoImg').dataset.newUpload = '';
                     document.getElementById('sfPhotoPreview').style.display = 'none';
                     document.getElementById('sfBtnUpload').style.display = '';
                     feeInfo.innerHTML = '';
@@ -788,23 +798,15 @@
                     showToast('"' + (def ? def.name : skillType) + '" berhasil ditambahkan!', 'success');
                 }
 
-                if (isNewPhoto) {
-                    // Upload new photo to Google Drive
-                    showToast('Mengupload foto...', 'info');
-                    uploadPhotoToDrive(photoData, session.id, skillType, oldPhotoUrl)
-                        .then(function (res) {
-                            if (res && res.success && res.url) {
-                                finishSave(res.url);
-                            } else {
-                                showToast('Gagal upload foto. Coba lagi.', 'error');
-                            }
-                        })
-                        .catch(function () {
-                            showToast('Gagal upload foto. Cek koneksi.', 'error');
-                        });
+                if (isNewUpload && photoData.startsWith('data:')) {
+                    // Compress to small thumbnail and save
+                    compressThumbnail(photoData, function (thumb) {
+                        finishSave(thumb);
+                    });
                 } else {
-                    // Keep existing photo URL or no photo
-                    finishSave(oldPhotoUrl || (photoData.startsWith('http') ? photoData : ''));
+                    // Keep existing photo or no photo
+                    var existingPhoto = existingSkill ? (existingSkill.photo || '') : '';
+                    finishSave(existingPhoto);
                 }
             });
         }
@@ -915,14 +917,16 @@
             if (existing) {
                 document.getElementById('sfServiceType').value = existing.serviceType || '';
                 document.getElementById('sfDescription').value = existing.description || '';
-                // Restore photo preview from photoUrl (Google Drive) or fallback to localStorage
-                const existingPhoto = existing.photoUrl || getSkillPhoto(session.id, type);
+                // Restore photo preview from skill data or fallback to localStorage
+                const existingPhoto = existing.photo || getSkillPhoto(session.id, type);
                 if (existingPhoto) {
                     document.getElementById('sfPhotoImg').src = existingPhoto;
+                    document.getElementById('sfPhotoImg').dataset.newUpload = '';
                     document.getElementById('sfPhotoPreview').style.display = 'block';
                     document.getElementById('sfBtnUpload').style.display = 'none';
                 } else {
                     document.getElementById('sfPhotoImg').src = '';
+                    document.getElementById('sfPhotoImg').dataset.newUpload = '';
                     document.getElementById('sfPhotoPreview').style.display = 'none';
                     document.getElementById('sfBtnUpload').style.display = '';
                 }
@@ -952,14 +956,9 @@
         const session = getSession();
         if (!session) return;
         const skills = getUserSkills(session.id);
-        const removed = skills.find(s => s.type === type);
         const filtered = skills.filter(s => s.type !== type);
         setUserSkills(session.id, filtered);
         removeSkillPhoto(session.id, type);
-        // Delete photo from Google Drive if exists
-        if (removed && removed.photoUrl) {
-            sheetPost({ action: 'deletePhoto', url: removed.photoUrl });
-        }
         sheetPost({ action: 'updateSkills', userId: session.id, skills: skillsForSheet(filtered) });
         renderTalentSkills();
         showToast('Keahlian dinonaktifkan', 'success');
@@ -1288,8 +1287,8 @@
                 if (myLat && myLng && u.lat && u.lng) {
                     dist = haversineDistance(myLat, myLng, u.lat, u.lng);
                 }
-                // Get photo from skill data (Google Drive URL) or fallback to localStorage
-                var photo = skill.photoUrl || getSkillPhoto(u.id, skillType);
+                // Get photo from skill data or fallback to localStorage
+                var photo = skill.photo || getSkillPhoto(u.id, skillType);
                 return { user: u, skill: skill, distance: dist, photo: photo };
             })
             .filter(function (r) { return r !== null; });
