@@ -384,6 +384,8 @@ function doPost(e) {
       result = { success: true, message: 'Foto dihapus' };
 
     } else {
+      result = { success: false, message: 'Action tidak dikenal' };
+    }
 
   } catch (err) {
     result = { success: false, message: 'Error: ' + err.message };
