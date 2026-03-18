@@ -1150,6 +1150,14 @@
                 showToast('Anda sekarang Offline', 'error');
             }
         });
+
+        // Notification bell click → open orders list
+        var notifBtn = document.getElementById('talentNotifBtn');
+        if (notifBtn) {
+            notifBtn.addEventListener('click', function () {
+                openOrdersList();
+            });
+        }
     }
 
     // ── Promo Slider (User Dashboard) ──
@@ -2306,8 +2314,11 @@
         if (badgeEl) badgeEl.textContent = incoming.length > 0 ? incoming.length : '';
 
         // Update header notification badge
-        var headerBadge = document.querySelector('#page-talent .badge');
-        if (headerBadge) headerBadge.textContent = incoming.length > 0 ? incoming.length : '0';
+        var headerBadge = document.getElementById('talentHeaderBadge');
+        if (headerBadge) {
+            headerBadge.textContent = incoming.length > 0 ? incoming.length : '0';
+            headerBadge.style.display = incoming.length > 0 ? '' : 'none';
+        }
     }
 
     function updateTalentStats(orders, session) {

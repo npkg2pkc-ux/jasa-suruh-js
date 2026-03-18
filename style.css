@@ -88,6 +88,8 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .btn-icon { background:var(--gray-100); border:none; width:42px; height:42px; border-radius:var(--r-md); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--black); position:relative; transition:var(--tr); }
 .btn-icon:active { transform:scale(.92); }
 .badge { position:absolute; top:-4px; right:-4px; background:var(--orange); color:var(--white); font-size:10px; font-weight:700; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid var(--white); }
+#talentNotifBtn { cursor:pointer; position:relative; }
+#talentHeaderBadge { display:none; }
 .avatar { width:42px; height:42px; border-radius:var(--r-md); background:linear-gradient(135deg,var(--orange),var(--orange-light)); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--white); transition:var(--tr); }
 .avatar:active { transform:scale(.92); }
 .avatar-cs { background:linear-gradient(135deg,var(--blue),#60A5FA); }
@@ -329,6 +331,9 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 /* ========== SERVICE TALENT PAGE (Shopee Food Style) ========== */
 .stp-page { position:fixed; inset:0; background:#FAFAFA; z-index:400; display:flex; flex-direction:column; animation:stpSlideIn .3s ease; overflow:hidden; }
 .stp-page.hidden { display:none; }
+#orderTrackingPage { z-index:500; }
+#ratingPage { z-index:550; }
+#chatPage { z-index:600; }
 @keyframes stpSlideIn { from{transform:translateX(100%)} to{transform:translateX(0)} }
 .stp-header { display:flex; align-items:center; gap:12px; padding:48px 16px 14px; background:var(--white); box-shadow:0 1px 3px rgba(0,0,0,.06); flex-shrink:0; }
 .stp-back { background:none; border:none; color:var(--black); cursor:pointer; padding:4px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-md); transition:var(--tr); }
