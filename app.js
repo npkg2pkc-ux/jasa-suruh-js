@@ -1175,7 +1175,7 @@
                 var name = this.querySelector('.service-name').textContent;
                 var skillType = SERVICE_TYPE_MAP[name];
                 if (skillType && ACTIVE_SERVICES.indexOf(skillType) >= 0) {
-                    openServiceTalentModal(skillType);
+                    openServiceTalentPage(skillType);
                 } else {
                     showToast('Layanan "' + name + '" segera hadir! 🚀');
                 }
@@ -1183,26 +1183,68 @@
         });
     }
 
-    function openServiceTalentModal(skillType) {
-        var modal = document.getElementById('serviceTalentModal');
-        var body = document.getElementById('serviceTalentBody');
-        var title = document.getElementById('serviceTalentTitle');
-        var btnClose = document.getElementById('btnCloseServiceTalent');
-        if (!modal || !body) return;
+    // ── Service Talent Page (Fullscreen, Shopee Food Style) ──
+    var _stpCurrentType = '';
+    var _stpAllTalents = [];
+    var _stpCurrentSort = 'nearest';
 
+    function openServiceTalentPage(skillType) {
+        var page = document.getElementById('serviceTalentPage');
+        if (!page) return;
+
+        _stpCurrentType = skillType;
+        _stpCurrentSort = 'nearest';
         var def = SKILL_DEFS.find(function (d) { return d.type === skillType; });
-        if (title) title.textContent = (def ? def.icon + ' ' + def.name : 'Talent Tersedia');
 
-        // Get current user for distance calc
+        var titleEl = document.getElementById('stpTitle');
+        var subtitleEl = document.getElementById('stpSubtitle');
+        if (titleEl) titleEl.textContent = def ? def.icon + ' ' + def.name : 'Talent Tersedia';
+        if (subtitleEl) subtitleEl.textContent = def ? def.desc : 'Temukan jasa terdekat';
+
+        // Reset search & sort
+        var searchInput = document.getElementById('stpSearchInput');
+        if (searchInput) searchInput.value = '';
+        page.querySelectorAll('.stp-sort-btn').forEach(function (b) {
+            b.classList.toggle('active', b.dataset.sort === 'nearest');
+        });
+
+        // Build talent data
+        _stpAllTalents = buildTalentList(skillType);
+        renderTalentCards(_stpAllTalents);
+
+        page.classList.remove('hidden');
+
+        // Setup events (only once)
+        if (!page._eventsSetup) {
+            page._eventsSetup = true;
+
+            document.getElementById('stpBtnBack').addEventListener('click', function () {
+                page.classList.add('hidden');
+            });
+
+            searchInput.addEventListener('input', function () {
+                filterAndRender();
+            });
+
+            page.querySelectorAll('.stp-sort-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    page.querySelectorAll('.stp-sort-btn').forEach(function (b) { b.classList.remove('active'); });
+                    btn.classList.add('active');
+                    _stpCurrentSort = btn.dataset.sort;
+                    filterAndRender();
+                });
+            });
+        }
+    }
+
+    function buildTalentList(skillType) {
         var session = getSession();
         var myLat = session ? (session.lat || 0) : 0;
         var myLng = session ? (session.lng || 0) : 0;
-
         var users = getUsers();
         var allSkills = getSkills();
 
-        // Find talents with this skill type
-        var talents = users
+        return users
             .filter(function (u) { return u.role === 'talent'; })
             .map(function (u) {
                 var rawSkills = allSkills[u.id] || [];
@@ -1214,63 +1256,164 @@
                 if (myLat && myLng && u.lat && u.lng) {
                     dist = haversineDistance(myLat, myLng, u.lat, u.lng);
                 }
-                return { user: u, skill: skill, distance: dist };
+                // Get photo from localStorage
+                var photo = getSkillPhoto(u.id, skillType);
+                return { user: u, skill: skill, distance: dist, photo: photo };
             })
-            .filter(function (r) { return r !== null; })
-            .sort(function (a, b) {
+            .filter(function (r) { return r !== null; });
+    }
+
+    function filterAndRender() {
+        var q = (document.getElementById('stpSearchInput').value || '').trim().toLowerCase();
+        var filtered = _stpAllTalents;
+        if (q.length > 0) {
+            filtered = filtered.filter(function (t) {
+                var name = (t.user.name || '').toLowerCase();
+                var svc = (t.skill.serviceType || '').toLowerCase();
+                var desc = (t.skill.description || '').toLowerCase();
+                return name.indexOf(q) >= 0 || svc.indexOf(q) >= 0 || desc.indexOf(q) >= 0;
+            });
+        }
+        // Sort
+        filtered = filtered.slice().sort(function (a, b) {
+            if (_stpCurrentSort === 'nearest') {
                 if (a.distance >= 0 && b.distance >= 0) return a.distance - b.distance;
                 if (a.distance >= 0) return -1;
                 if (b.distance >= 0) return 1;
                 return 0;
-            });
+            } else if (_stpCurrentSort === 'cheapest') {
+                var pa = Number(a.skill.price) || 999999999;
+                var pb = Number(b.skill.price) || 999999999;
+                return pa - pb;
+            } else {
+                return (a.user.name || '').localeCompare(b.user.name || '');
+            }
+        });
+        renderTalentCards(filtered);
+    }
 
-        if (talents.length === 0) {
-            body.innerHTML = '<div class="stm-empty"><div class="empty-icon">😔</div><h3>Belum Ada Talent</h3><p>Belum ada talent yang menawarkan layanan ini.</p></div>';
-        } else {
-            body.innerHTML = talents.map(function (t) {
-                var initial = (t.user.name || 'T').charAt(0).toUpperCase();
-                var distText = '';
-                if (t.distance >= 0) {
-                    distText = t.distance < 1 ? (t.distance * 1000).toFixed(0) + ' m' : t.distance.toFixed(1) + ' km';
-                }
-                var priceText = t.skill.price ? 'Rp ' + Number(t.skill.price).toLocaleString('id-ID') : '';
-                var serviceType = t.skill.serviceType ? escapeHtml(t.skill.serviceType) : '';
-                var desc = t.skill.description ? escapeHtml(t.skill.description) : '';
-                var addressText = t.user.address ? escapeHtml(t.user.address) : '';
+    function renderTalentCards(talents) {
+        var list = document.getElementById('stpList');
+        var countEl = document.getElementById('stpCount');
+        if (!list) return;
 
-                return '<div class="stm-card">'
-                    + '<div class="stm-card-left">'
-                    + '<div class="stm-avatar">' + initial + '</div>'
-                    + '</div>'
-                    + '<div class="stm-card-info">'
-                    + '<div class="stm-name">' + escapeHtml(t.user.name) + '</div>'
-                    + (serviceType ? '<div class="stm-service-type">' + serviceType + '</div>' : '')
-                    + (desc ? '<div class="stm-desc">' + desc + '</div>' : '')
-                    + '<div class="stm-meta">'
-                    + (priceText ? '<span class="stm-price">' + priceText + '</span>' : '')
-                    + (distText ? '<span class="stm-distance">📍 ' + distText + '</span>' : (addressText ? '<span class="stm-distance">📍 ' + addressText + '</span>' : ''))
-                    + '</div>'
-                    + '</div>'
-                    + '<div class="stm-card-action"><button class="btn-order-talent" data-uid="' + escapeHtml(t.user.id) + '">Pesan</button></div>'
-                    + '</div>';
-            }).join('');
-
-            // Order button placeholder
-            body.querySelectorAll('.btn-order-talent').forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    showToast('Fitur pemesanan segera hadir! 🚀');
-                });
-            });
+        if (countEl) {
+            countEl.textContent = talents.length > 0 ? talents.length + ' jasa tersedia' : '';
         }
 
-        modal.classList.remove('hidden');
+        if (talents.length === 0) {
+            list.innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">🔍</div><h3>Tidak Ditemukan</h3><p>Belum ada talent yang menawarkan layanan ini di sekitar Anda.</p></div>';
+            return;
+        }
 
-        // Close handlers
-        function closeModal() { modal.classList.add('hidden'); }
-        if (btnClose) btnClose.onclick = closeModal;
-        modal.addEventListener('click', function (ev) {
-            if (ev.target === modal) closeModal();
+        list.innerHTML = talents.map(function (t, idx) {
+            var distText = '';
+            if (t.distance >= 0) {
+                distText = t.distance < 1 ? (t.distance * 1000).toFixed(0) + ' m' : t.distance.toFixed(1) + ' km';
+            }
+            var priceText = t.skill.price ? 'Rp ' + Number(t.skill.price).toLocaleString('id-ID') : '';
+            var serviceType = t.skill.serviceType || '';
+            var desc = t.skill.description || '';
+            var addr = t.user.address || '';
+            var photo = t.photo;
+
+            var imgHtml = photo
+                ? '<img src="' + photo + '" alt="' + escapeHtml(serviceType) + '">'
+                : '<div class="stc-img-placeholder">🧹</div>';
+
+            return '<div class="stc" data-idx="' + idx + '">'
+                + '<div class="stc-img">'
+                + imgHtml
+                + (distText ? '<span class="stc-dist-badge">📍 ' + distText + '</span>' : '')
+                + '</div>'
+                + '<div class="stc-body">'
+                + '<div class="stc-name">' + escapeHtml(t.user.name) + '</div>'
+                + (serviceType ? '<div class="stc-service">' + escapeHtml(serviceType) + '</div>' : '')
+                + (desc ? '<div class="stc-desc">' + escapeHtml(desc) + '</div>' : '')
+                + '<div class="stc-bottom">'
+                + (priceText ? '<span class="stc-price">' + priceText + '</span>' : '')
+                + '<span class="stc-rating"><span class="stc-rating-star">⭐</span> 5.0</span>'
+                + '</div>'
+                + (addr && !distText ? '<div class="stc-addr">📍 ' + escapeHtml(addr) + '</div>' : '')
+                + '</div>'
+                + '</div>';
+        }).join('');
+
+        // Click to open detail
+        list.querySelectorAll('.stc').forEach(function (card) {
+            card.addEventListener('click', function () {
+                var idx = parseInt(this.dataset.idx, 10);
+                if (talents[idx]) openTalentDetail(talents[idx]);
+            });
         });
+    }
+
+    function openTalentDetail(t) {
+        var page = document.getElementById('talentDetailPage');
+        var content = document.getElementById('tdpContent');
+        var titleEl = document.getElementById('tdpTitle');
+        if (!page || !content) return;
+
+        if (titleEl) titleEl.textContent = t.user.name;
+
+        var photo = t.photo;
+        var heroHtml = photo
+            ? '<img src="' + photo + '" alt="">'
+            : '<div class="tdp-hero-placeholder">🧹</div>';
+
+        var distText = '';
+        if (t.distance >= 0) {
+            distText = t.distance < 1 ? (t.distance * 1000).toFixed(0) + ' m' : t.distance.toFixed(1) + ' km';
+        }
+        var priceText = t.skill.price ? 'Rp ' + Number(t.skill.price).toLocaleString('id-ID') : 'Hubungi untuk harga';
+        var serviceType = t.skill.serviceType || '';
+        var desc = t.skill.description || 'Tidak ada deskripsi.';
+        var addr = t.user.address || 'Lokasi tidak tersedia';
+        var initial = (t.user.name || 'T').charAt(0).toUpperCase();
+
+        content.innerHTML = ''
+            + '<div class="tdp-hero">' + heroHtml + '</div>'
+            + '<div class="tdp-info">'
+            + '<div class="tdp-name">' + escapeHtml(t.user.name) + '</div>'
+            + (serviceType ? '<div class="tdp-service-type">' + escapeHtml(serviceType) + '</div>' : '')
+            + '<div class="tdp-meta-row">'
+            + '<span class="tdp-meta-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="2"/></svg> ' + escapeHtml(addr) + '</span>'
+            + (distText ? '<span class="tdp-meta-item">📍 ' + distText + '</span>' : '')
+            + '<span class="tdp-meta-item">⭐ 5.0</span>'
+            + '</div>'
+            + '<div class="tdp-price-row">'
+            + '<div class="tdp-price-label">Mulai dari</div>'
+            + '<div class="tdp-price-value">' + priceText + '</div>'
+            + '</div>'
+            + '</div>'
+            + '<div class="tdp-section">'
+            + '<div class="tdp-section-title">Deskripsi Layanan</div>'
+            + '<div class="tdp-desc-text">' + escapeHtml(desc) + '</div>'
+            + '</div>'
+            + '<div class="tdp-section">'
+            + '<div class="tdp-section-title">Tentang Talent</div>'
+            + '<div class="tdp-talent-card">'
+            + '<div class="tdp-talent-avatar">' + initial + '</div>'
+            + '<div class="tdp-talent-info">'
+            + '<div class="tdp-talent-name">' + escapeHtml(t.user.name) + '</div>'
+            + '<div class="tdp-talent-addr">📍 ' + escapeHtml(addr) + '</div>'
+            + '</div>'
+            + '</div>'
+            + '</div>'
+            + '<div class="tdp-spacer"></div>';
+
+        page.classList.remove('hidden');
+
+        // Setup events (only once)
+        if (!page._eventsSetup) {
+            page._eventsSetup = true;
+            document.getElementById('tdpBtnBack').addEventListener('click', function () {
+                page.classList.add('hidden');
+            });
+            document.getElementById('tdpBtnOrder').addEventListener('click', function () {
+                showToast('Fitur pemesanan segera hadir! 🚀');
+            });
+        }
     }
 
     // ── Bottom Nav ──
