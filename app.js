@@ -14,7 +14,7 @@
 
     // ── Google Sheets API ──
     // Ganti URL di bawah dengan URL Web App dari Google Apps Script kamu
-    const SCRIPT_URL = 'PASTE_URL_GOOGLE_APPS_SCRIPT_DISINI';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwsaf8pIMlOCrBCQuysrrpyWyDBFsBbXIYR2xOFWsrjsfzk9lmuET5ks4T-f0-kdnBF/exec';
 
     function isSheetConnected() {
         return SCRIPT_URL && SCRIPT_URL !== 'PASTE_URL_GOOGLE_APPS_SCRIPT_DISINI';
