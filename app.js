@@ -1159,12 +1159,117 @@
     }
 
     // ── Service Item Clicks (User Dashboard) ──
+    // Map service button names to skill types
+    var SERVICE_TYPE_MAP = {
+        'JS Antar': 'js_antar', 'JS Shop': 'js_shop', 'JS Food': 'js_food',
+        'JS Delivery': 'js_delivery', 'JS Clean': 'js_clean', 'JS Service': 'js_service',
+        'JS Medicine': 'js_medicine', 'JS Others': 'js_other'
+    };
+
+    // Services that have active talent listing feature
+    var ACTIVE_SERVICES = ['js_clean'];
+
     function setupServiceClicks() {
         document.querySelectorAll('.service-item').forEach(item => {
             item.addEventListener('click', function () {
-                const name = this.querySelector('.service-name').textContent;
-                showToast('Layanan "' + name + '" segera hadir! 🚀');
+                var name = this.querySelector('.service-name').textContent;
+                var skillType = SERVICE_TYPE_MAP[name];
+                if (skillType && ACTIVE_SERVICES.indexOf(skillType) >= 0) {
+                    openServiceTalentModal(skillType);
+                } else {
+                    showToast('Layanan "' + name + '" segera hadir! 🚀');
+                }
             });
+        });
+    }
+
+    function openServiceTalentModal(skillType) {
+        var modal = document.getElementById('serviceTalentModal');
+        var body = document.getElementById('serviceTalentBody');
+        var title = document.getElementById('serviceTalentTitle');
+        var btnClose = document.getElementById('btnCloseServiceTalent');
+        if (!modal || !body) return;
+
+        var def = SKILL_DEFS.find(function (d) { return d.type === skillType; });
+        if (title) title.textContent = (def ? def.icon + ' ' + def.name : 'Talent Tersedia');
+
+        // Get current user for distance calc
+        var session = getSession();
+        var myLat = session ? (session.lat || 0) : 0;
+        var myLng = session ? (session.lng || 0) : 0;
+
+        var users = getUsers();
+        var allSkills = getSkills();
+
+        // Find talents with this skill type
+        var talents = users
+            .filter(function (u) { return u.role === 'talent'; })
+            .map(function (u) {
+                var rawSkills = allSkills[u.id] || [];
+                var skill = rawSkills.find(function (s) {
+                    return (typeof s === 'string') ? false : (s.type === skillType);
+                });
+                if (!skill) return null;
+                var dist = -1;
+                if (myLat && myLng && u.lat && u.lng) {
+                    dist = haversineDistance(myLat, myLng, u.lat, u.lng);
+                }
+                return { user: u, skill: skill, distance: dist };
+            })
+            .filter(function (r) { return r !== null; })
+            .sort(function (a, b) {
+                if (a.distance >= 0 && b.distance >= 0) return a.distance - b.distance;
+                if (a.distance >= 0) return -1;
+                if (b.distance >= 0) return 1;
+                return 0;
+            });
+
+        if (talents.length === 0) {
+            body.innerHTML = '<div class="stm-empty"><div class="empty-icon">😔</div><h3>Belum Ada Talent</h3><p>Belum ada talent yang menawarkan layanan ini.</p></div>';
+        } else {
+            body.innerHTML = talents.map(function (t) {
+                var initial = (t.user.name || 'T').charAt(0).toUpperCase();
+                var distText = '';
+                if (t.distance >= 0) {
+                    distText = t.distance < 1 ? (t.distance * 1000).toFixed(0) + ' m' : t.distance.toFixed(1) + ' km';
+                }
+                var priceText = t.skill.price ? 'Rp ' + Number(t.skill.price).toLocaleString('id-ID') : '';
+                var serviceType = t.skill.serviceType ? escapeHtml(t.skill.serviceType) : '';
+                var desc = t.skill.description ? escapeHtml(t.skill.description) : '';
+                var addressText = t.user.address ? escapeHtml(t.user.address) : '';
+
+                return '<div class="stm-card">'
+                    + '<div class="stm-card-left">'
+                    + '<div class="stm-avatar">' + initial + '</div>'
+                    + '</div>'
+                    + '<div class="stm-card-info">'
+                    + '<div class="stm-name">' + escapeHtml(t.user.name) + '</div>'
+                    + (serviceType ? '<div class="stm-service-type">' + serviceType + '</div>' : '')
+                    + (desc ? '<div class="stm-desc">' + desc + '</div>' : '')
+                    + '<div class="stm-meta">'
+                    + (priceText ? '<span class="stm-price">' + priceText + '</span>' : '')
+                    + (distText ? '<span class="stm-distance">📍 ' + distText + '</span>' : (addressText ? '<span class="stm-distance">📍 ' + addressText + '</span>' : ''))
+                    + '</div>'
+                    + '</div>'
+                    + '<div class="stm-card-action"><button class="btn-order-talent" data-uid="' + escapeHtml(t.user.id) + '">Pesan</button></div>'
+                    + '</div>';
+            }).join('');
+
+            // Order button placeholder
+            body.querySelectorAll('.btn-order-talent').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    showToast('Fitur pemesanan segera hadir! 🚀');
+                });
+            });
+        }
+
+        modal.classList.remove('hidden');
+
+        // Close handlers
+        function closeModal() { modal.classList.add('hidden'); }
+        if (btnClose) btnClose.onclick = closeModal;
+        modal.addEventListener('click', function (ev) {
+            if (ev.target === modal) closeModal();
         });
     }
 
