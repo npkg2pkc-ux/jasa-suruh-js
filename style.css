@@ -16,6 +16,7 @@
     --gray-300: #BBBBBB;
     --gray-200: #E8E8E8;
     --gray-100: #F5F5F5;
+    --gray-50: #FAFAFA;
     --white: #FFFFFF;
     --green: #22C55E;
     --blue: #3B82F6;
@@ -326,7 +327,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .search-result-card { display:flex; align-items:center; gap:14px; padding:14px; background:var(--gray-100); border-radius:var(--r-md); margin-bottom:10px; }
 
 /* ========== SERVICE TALENT PAGE (Shopee Food Style) ========== */
-.stp-page { position:fixed; inset:0; background:var(--gray-50); z-index:400; display:flex; flex-direction:column; animation:stpSlideIn .3s ease; overflow:hidden; }
+.stp-page { position:fixed; inset:0; background:#FAFAFA; z-index:400; display:flex; flex-direction:column; animation:stpSlideIn .3s ease; overflow:hidden; }
 .stp-page.hidden { display:none; }
 @keyframes stpSlideIn { from{transform:translateX(100%)} to{transform:translateX(0)} }
 .stp-header { display:flex; align-items:center; gap:12px; padding:48px 16px 14px; background:var(--white); box-shadow:0 1px 3px rgba(0,0,0,.06); flex-shrink:0; }
