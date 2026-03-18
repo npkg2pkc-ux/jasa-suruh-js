@@ -12,12 +12,9 @@
     const STORAGE_USERS = 'js_users';
     const STORAGE_SESSION = 'js_session';
 
-    // ── Google Sheets API ──
-    // Ganti URL di bawah dengan URL Web App dari Google Apps Script kamu
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwsaf8pIMlOCrBCQuysrrpyWyDBFsBbXIYR2xOFWsrjsfzk9lmuET5ks4T-f0-kdnBF/exec';
-
+    // ── Backend: Firebase (menggantikan Google Apps Script) ──
     function isSheetConnected() {
-        return SCRIPT_URL && SCRIPT_URL !== 'https://script.google.com/u/0/home/projects/1smH0v_6MSS_l0yBh3jH79Klst4kroO-mPysZbA83SDtelB5kpb3yGmdD/edit';
+        return typeof FB !== 'undefined' && FB.isReady();
     }
 
     // ── Geolocation Helpers ──
@@ -128,7 +125,7 @@
     // ── Sync: Ambil semua data dari Google Sheet ke localStorage ──
     function syncFromSheet() {
         if (!isSheetConnected()) return;
-        fetch(SCRIPT_URL + '?action=getAll')
+        FB.get('getAll')
             .then(r => r.json())
             .then(res => {
                 if (res.success && Array.isArray(res.data)) {
@@ -144,18 +141,11 @@
             .catch(() => {});
     }
 
-    // ── Helper: POST ke Google Sheet ──
+    // ── Helper: POST ke Firebase (menggantikan Google Sheet POST) ──
     function sheetPost(body) {
         if (!isSheetConnected()) return Promise.resolve(null);
-        return fetch(SCRIPT_URL, {
-            method: 'POST',
-            redirect: 'follow',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify(body)
-        })
-        .then(r => r.json())
-        .catch(err => {
-            console.error('Google Sheet POST error:', err);
+        return FB.post(body).catch(function (err) {
+            console.error('Firebase POST error:', err);
             showToast('Gagal terhubung ke server. Cek koneksi internet.', 'error');
             return null;
         });
@@ -327,7 +317,7 @@
             const btn = e.target.querySelector('.btn-primary');
             if (btn) { btn.disabled = true; btn.textContent = 'Memuat...'; }
 
-            fetch(SCRIPT_URL + '?action=login&username=' + encodeURIComponent(username) + '&password=' + encodeURIComponent(password))
+            FB.get('login', {username: username, password: password})
                 .then(r => r.json())
                 .then(res => {
                     if (btn) { btn.disabled = false; btn.textContent = 'Masuk'; }
@@ -511,6 +501,8 @@
         // Stop all polling
         if (_talentDashPollTimer) { clearInterval(_talentDashPollTimer); _talentDashPollTimer = null; }
         if (_penjualDashPollTimer) { clearInterval(_penjualDashPollTimer); _penjualDashPollTimer = null; }
+        if (_fbTalentOrdersUnsub) { _fbTalentOrdersUnsub(); _fbTalentOrdersUnsub = null; }
+        if (_fbPenjualOrdersUnsub) { _fbPenjualOrdersUnsub(); _fbPenjualOrdersUnsub = null; }
         stopPolling();
         _talentLastPendingIds = [];
         _penjualStore = null;
@@ -587,7 +579,7 @@
 
         // Fetch order count from sheet
         if (isSheetConnected()) {
-            fetch(SCRIPT_URL + '?action=getAllOrders')
+            FB.get('getAllOrders')
                 .then(function(r) { return r.json(); })
                 .then(function(res) {
                     if (res.success && res.data) {
@@ -1124,7 +1116,7 @@
         }
         // Update badge with active orders count
         if (isSheetConnected()) {
-            fetch(SCRIPT_URL + '?action=getOrdersByUser&userId=' + encodeURIComponent(userId))
+            FB.get('getOrdersByUser', {userId: userId})
                 .then(function(r) { return r.json(); })
                 .then(function(res) {
                     if (res.success && Array.isArray(res.data)) {
@@ -1249,7 +1241,7 @@
     // Sync skills from Sheet
     function syncSkillsFromSheet() {
         if (!isSheetConnected()) return;
-        fetch(SCRIPT_URL + '?action=getAllSkills')
+        FB.get('getAllSkills')
             .then(r => r.json())
             .then(res => {
                 if (res.success && res.data) {
@@ -1380,6 +1372,11 @@
     var _otpRouteLine = null;
     var _talentDashPollTimer = null;
     var _talentLastPendingIds = [];
+    var _fbOrderUnsub = null;
+    var _fbLocUnsub = null;
+    var _fbMsgUnsub = null;
+    var _fbTalentOrdersUnsub = null;
+    var _fbPenjualOrdersUnsub = null;
 
     function openServiceTalentPage(skillType) {
         var page = document.getElementById('serviceTalentPage');
@@ -1647,7 +1644,7 @@
     // ══════════════════════════════════════════
     function fetchTalentRating(talentId, callback) {
         if (!isSheetConnected()) { callback({ avg: 0, count: 0 }); return; }
-        fetch(SCRIPT_URL + '?action=getTalentRating&talentId=' + encodeURIComponent(talentId))
+        FB.get('getTalentRating', {talentId: talentId})
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (res.success && res.data) {
@@ -1968,18 +1965,48 @@
     // ══════════════════════════════════════════
     function startOrderPolling(orderId) {
         stopPolling();
-        pollOrderUpdate(orderId);
-        _locationPollTimer = setInterval(function () { pollOrderUpdate(orderId); }, 8000);
+        if (typeof FB !== 'undefined' && FB.isReady()) {
+            // Gunakan Firebase realtime listener (menggantikan polling)
+            _fbOrderUnsub = FB.onOrder(orderId, function (order) {
+                if (!order || !_currentOrder || _currentOrder.id !== orderId) return;
+                var oldStatus = _currentOrder.status;
+                for (var key in order) { _currentOrder[key] = order[key]; }
+                if (oldStatus !== order.status) {
+                    updateOrderStatusBadge(order.status);
+                    var session = getSession();
+                    renderOrderActions(_currentOrder, session && session.id === _currentOrder.talentId, session && session.id === _currentOrder.userId);
+                    renderOrderInfo(_currentOrder, session && session.id === _currentOrder.talentId);
+                }
+            });
+            // Listener lokasi talent dari RTDB
+            _fbLocUnsub = FB.onTalentLocation(orderId, function (loc) {
+                if (loc && loc.lat && loc.lng) {
+                    updateTalentMarkerPosition(Number(loc.lat), Number(loc.lng));
+                }
+                // Juga cek update talentLat/talentLng dari Firestore
+                if (loc && _currentOrder) {
+                    _currentOrder.talentLat = loc.lat;
+                    _currentOrder.talentLng = loc.lng;
+                }
+            });
+        } else {
+            // Fallback ke polling jika Firebase tidak tersedia
+            pollOrderUpdate(orderId);
+            _locationPollTimer = setInterval(function () { pollOrderUpdate(orderId); }, 8000);
+        }
     }
 
     function stopPolling() {
         if (_locationPollTimer) { clearInterval(_locationPollTimer); _locationPollTimer = null; }
         if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
+        if (_fbOrderUnsub) { _fbOrderUnsub(); _fbOrderUnsub = null; }
+        if (_fbLocUnsub) { _fbLocUnsub(); _fbLocUnsub = null; }
+        if (_fbMsgUnsub) { _fbMsgUnsub(); _fbMsgUnsub = null; }
     }
 
     function pollOrderUpdate(orderId) {
         if (!isSheetConnected()) return;
-        fetch(SCRIPT_URL + '?action=getOrdersByUser&userId=' + encodeURIComponent(getSession().id))
+        FB.get('getOrdersByUser', {userId: getSession().id})
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (res.success && res.data) {
@@ -2046,12 +2073,20 @@
 
         page.classList.remove('hidden');
 
-        // Load existing messages
-        fetchChatMessages(order.id);
-
-        // Start polling
-        if (_chatPollTimer) clearInterval(_chatPollTimer);
-        _chatPollTimer = setInterval(function () { fetchChatMessages(order.id); }, 5000);
+        // Start realtime listener (menggantikan chat polling)
+        if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
+        if (_fbMsgUnsub) { _fbMsgUnsub(); _fbMsgUnsub = null; }
+        if (typeof FB !== 'undefined' && FB.isReady()) {
+            _fbMsgUnsub = FB.onMessages(order.id, function (res) {
+                if (res.success && res.data) {
+                    _chatMessages = res.data;
+                    renderChatMessages();
+                }
+            });
+        } else {
+            fetchChatMessages(order.id);
+            _chatPollTimer = setInterval(function () { fetchChatMessages(order.id); }, 5000);
+        }
 
         // Setup events once
         if (!page._eventsSetup) {
@@ -2059,6 +2094,7 @@
             document.getElementById('chatBtnBack').addEventListener('click', function () {
                 page.classList.add('hidden');
                 if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
+                if (_fbMsgUnsub) { _fbMsgUnsub(); _fbMsgUnsub = null; }
             });
             document.getElementById('chatBtnSend').addEventListener('click', function () { sendChatMessage(); });
             document.getElementById('chatInput').addEventListener('keydown', function (e) {
@@ -2084,7 +2120,7 @@
 
     function fetchChatMessages(orderId) {
         if (!isSheetConnected()) return;
-        fetch(SCRIPT_URL + '?action=getMessages&orderId=' + encodeURIComponent(orderId))
+        FB.get('getMessages', {orderId: orderId})
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (res.success && res.data) {
@@ -2317,7 +2353,7 @@
         // Load orders
         document.getElementById('olpList').innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">⏳</div><p>Memuat pesanan...</p></div>';
 
-        fetch(SCRIPT_URL + '?action=getOrdersByUser&userId=' + encodeURIComponent(session.id))
+        FB.get('getOrdersByUser', {userId: session.id})
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (res.success && res.data) {
@@ -2428,7 +2464,7 @@
 
         document.getElementById('atpList').innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">⏳</div><p>Memuat transaksi...</p></div>';
 
-        fetch(SCRIPT_URL + '?action=getAllOrders')
+        FB.get('getAllOrders')
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (res.success && res.data) {
@@ -2504,7 +2540,7 @@
         if (!session || session.role !== 'talent') return;
         if (!isSheetConnected()) return;
 
-        fetch(SCRIPT_URL + '?action=getOrdersByUser&userId=' + encodeURIComponent(session.id))
+        FB.get('getOrdersByUser', {userId: session.id})
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (res.success && res.data) {
@@ -2682,16 +2718,31 @@
     }
 
     function startTalentDashboardPolling() {
-        if (_talentDashPollTimer) clearInterval(_talentDashPollTimer);
-        _talentDashPollTimer = setInterval(function () {
-            var session = getSession();
-            if (session && session.role === 'talent') {
-                loadTalentDashboardOrders();
-            } else {
-                clearInterval(_talentDashPollTimer);
-                _talentDashPollTimer = null;
-            }
-        }, 10000);
+        if (_talentDashPollTimer) { clearInterval(_talentDashPollTimer); _talentDashPollTimer = null; }
+        if (_fbTalentOrdersUnsub) { _fbTalentOrdersUnsub(); _fbTalentOrdersUnsub = null; }
+        var session = getSession();
+        if (!session) return;
+        if (typeof FB !== 'undefined' && FB.isReady()) {
+            // Gunakan Firebase onSnapshot — lebih cepat dari polling 10 detik
+            _fbTalentOrdersUnsub = FB.onOrdersForUser(session.id, function (res) {
+                var s = getSession();
+                if (s && s.role === 'talent' && res.success && res.data) {
+                    renderTalentDashboardOrders(res.data, s);
+                    updateTalentStats(res.data, s);
+                    checkNewPendingOrders(res.data, s);
+                }
+            });
+        } else {
+            _talentDashPollTimer = setInterval(function () {
+                var s = getSession();
+                if (s && s.role === 'talent') {
+                    loadTalentDashboardOrders();
+                } else {
+                    clearInterval(_talentDashPollTimer);
+                    _talentDashPollTimer = null;
+                }
+            }, 10000);
+        }
     }
 
     function getTimeAgo(timestamp) {
@@ -2720,7 +2771,7 @@
         if (addrEl && session.address) addrEl.value = session.address;
 
         if (isSheetConnected()) {
-            fetch(SCRIPT_URL + '?action=getStoresByUser&userId=' + encodeURIComponent(session.id))
+            FB.get('getStoresByUser', {userId: session.id})
                 .then(function(r) { return r.json(); })
                 .then(function(res) {
                     if (res.success && res.data && res.data.length > 0) {
@@ -2831,7 +2882,7 @@
             return;
         }
         if (!isSheetConnected()) { renderPenjualProducts([]); return; }
-        fetch(SCRIPT_URL + '?action=getProductsByStore&storeId=' + encodeURIComponent(_penjualStore.id))
+        FB.get('getProductsByStore', {storeId: _penjualStore.id})
             .then(function(r) { return r.json(); })
             .then(function(res) {
                 _penjualProducts = (res.success && res.data) ? res.data : [];
@@ -3012,7 +3063,7 @@
         var session = getSession();
         if (!session || session.role !== 'penjual') return;
         if (!isSheetConnected()) return;
-        fetch(SCRIPT_URL + '?action=getOrdersByUser&userId=' + encodeURIComponent(session.id))
+        FB.get('getOrdersByUser', {userId: session.id})
             .then(function(r) { return r.json(); })
             .then(function(res) {
                 if (res.success && res.data) {
@@ -3069,16 +3120,29 @@
     }
 
     function startPenjualDashboardPolling() {
-        if (_penjualDashPollTimer) clearInterval(_penjualDashPollTimer);
-        _penjualDashPollTimer = setInterval(function() {
-            var session = getSession();
-            if (session && session.role === 'penjual') {
-                loadPenjualOrders();
-            } else {
-                clearInterval(_penjualDashPollTimer);
-                _penjualDashPollTimer = null;
-            }
-        }, 10000);
+        if (_penjualDashPollTimer) { clearInterval(_penjualDashPollTimer); _penjualDashPollTimer = null; }
+        if (_fbPenjualOrdersUnsub) { _fbPenjualOrdersUnsub(); _fbPenjualOrdersUnsub = null; }
+        var session = getSession();
+        if (!session) return;
+        if (typeof FB !== 'undefined' && FB.isReady()) {
+            _fbPenjualOrdersUnsub = FB.onOrdersForUser(session.id, function (res) {
+                var s = getSession();
+                if (s && s.role === 'penjual' && res.success && res.data) {
+                    renderPenjualOrders(res.data, s);
+                    updatePenjualStats(res.data, s);
+                }
+            });
+        } else {
+            _penjualDashPollTimer = setInterval(function() {
+                var s = getSession();
+                if (s && s.role === 'penjual') {
+                    loadPenjualOrders();
+                } else {
+                    clearInterval(_penjualDashPollTimer);
+                    _penjualDashPollTimer = null;
+                }
+            }, 10000);
+        }
     }
 
     // ══════════════════════════════════════════
@@ -3086,7 +3150,7 @@
     // ══════════════════════════════════════════
     function loadOwnerCommissionSettings() {
         if (!isSheetConnected()) return;
-        fetch(SCRIPT_URL + '?action=getSettings')
+        FB.get('getSettings')
             .then(function(r) { return r.json(); })
             .then(function(res) {
                 if (res.success && res.data) {
@@ -3128,7 +3192,7 @@
 
     function loadOwnerRevenue() {
         if (!isSheetConnected()) return;
-        fetch(SCRIPT_URL + '?action=getAllOrders')
+        FB.get('getAllOrders')
             .then(function(r) { return r.json(); })
             .then(function(res) {
                 if (!res.success || !res.data) return;
@@ -3181,7 +3245,7 @@
 
         // Fetch stores
         if (isSheetConnected()) {
-            fetch(SCRIPT_URL + '?action=getAllStores')
+            FB.get('getAllStores')
                 .then(function(r) { return r.json(); })
                 .then(function(res) {
                     _slpAllStores = (res.success && res.data) ? res.data.filter(function(s) { return s.isOpen; }) : [];
@@ -3292,7 +3356,7 @@
         page.classList.remove('hidden');
 
         if (isSheetConnected()) {
-            fetch(SCRIPT_URL + '?action=getProductsByStore&storeId=' + encodeURIComponent(store.id))
+            FB.get('getProductsByStore', {storeId: store.id})
                 .then(function(r) { return r.json(); })
                 .then(function(res) {
                     _sdpProducts = (res.success && res.data) ? res.data.filter(function(p) { return p.isActive && p.stock > 0; }) : [];
@@ -3415,7 +3479,7 @@
         var listEl = document.getElementById('csOrdersList');
         if (listEl) listEl.innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">⏳</div><p>Memuat pesanan...</p></div>';
         if (!isSheetConnected()) return;
-        fetch(SCRIPT_URL + '?action=getAllOrders')
+        FB.get('getAllOrders')
             .then(function(r) { return r.json(); })
             .then(function(res) {
                 if (res.success && res.data) {
@@ -3602,7 +3666,7 @@
 
         // Fetch pricing settings
         if (isSheetConnected()) {
-            fetch(SCRIPT_URL + '?action=getSettings')
+            FB.get('getSettings')
                 .then(function(r) { return r.json(); })
                 .then(function(res) {
                     if (res.success && res.data) {
