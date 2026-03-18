@@ -3661,6 +3661,7 @@
 
     // ── Bottom Nav ──
     function setupBottomNav() {
+        document.querySelectorAll('.bottom-nav').forEach(nav => {
             nav.querySelectorAll('.nav-item').forEach(item => {
                 item.addEventListener('click', function () {
                     nav.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
