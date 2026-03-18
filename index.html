@@ -232,13 +232,13 @@
             </header>
             <main class="main-content">
                 <section class="talent-stats">
-                    <div class="stat-card"><div class="stat-icon-circle orange-bg">📊</div><div class="stat-info"><span class="stat-value">0</span><span class="stat-label">Pesanan Hari Ini</span></div></div>
-                    <div class="stat-card"><div class="stat-icon-circle green-bg">💰</div><div class="stat-info"><span class="stat-value">Rp 0</span><span class="stat-label">Pendapatan</span></div></div>
-                    <div class="stat-card"><div class="stat-icon-circle yellow-bg">⭐</div><div class="stat-info"><span class="stat-value">0.0</span><span class="stat-label">Rating</span></div></div>
+                    <div class="stat-card"><div class="stat-icon-circle orange-bg">📊</div><div class="stat-info"><span class="stat-value" id="talentStatOrders">0</span><span class="stat-label">Pesanan Hari Ini</span></div></div>
+                    <div class="stat-card"><div class="stat-icon-circle green-bg">💰</div><div class="stat-info"><span class="stat-value" id="talentStatEarning">Rp 0</span><span class="stat-label">Pendapatan</span></div></div>
+                    <div class="stat-card"><div class="stat-icon-circle yellow-bg">⭐</div><div class="stat-info"><span class="stat-value" id="talentStatRating">0.0</span><span class="stat-label">Rating</span></div></div>
                 </section>
                 <section class="content-section">
-                    <div class="section-header"><h2>Pesanan Masuk</h2></div>
-                    <div class="empty-state"><div class="empty-icon">📭</div><h3>Belum Ada Pesanan</h3><p>Aktifkan status online untuk mulai menerima pesanan.</p></div>
+                    <div class="section-header"><h2>Pesanan Masuk <span class="section-badge" id="talentPendingBadge"></span></h2></div>
+                    <div id="talentIncomingOrders"><div class="empty-state"><div class="empty-icon">📭</div><h3>Belum Ada Pesanan</h3><p>Aktifkan status online untuk mulai menerima pesanan.</p></div></div>
                 </section>
                 <section class="content-section">
                     <div class="section-header"><h2>Keahlian Saya</h2><button type="button" class="btn-primary" id="btnOpenSkillModal" style="width:auto;padding:8px 18px;margin:0;font-size:13px;">+ Tambah</button></div>
@@ -246,7 +246,7 @@
                 </section>
                 <section class="content-section">
                     <div class="section-header"><h2>Pesanan Aktif</h2></div>
-                    <div class="empty-state"><div class="empty-icon">📋</div><h3>Tidak Ada Pesanan Aktif</h3><p>Pesanan yang sedang dikerjakan akan muncul di sini.</p></div>
+                    <div id="talentActiveOrders"><div class="empty-state"><div class="empty-icon">📋</div><h3>Tidak Ada Pesanan Aktif</h3><p>Pesanan yang sedang dikerjakan akan muncul di sini.</p></div></div>
                 </section>
                 <div class="bottom-spacer"></div>
             </main>
@@ -528,6 +528,19 @@
             <div class="stp-header-info"><h2>Semua Transaksi</h2></div>
         </header>
         <div class="stp-list" id="atpList"></div>
+    </div>
+
+    <!-- Notification popup for incoming orders -->
+    <div id="orderNotifPopup" class="order-notif-popup hidden">
+        <div class="order-notif-content">
+            <div class="order-notif-icon">🔔</div>
+            <h3 id="notifTitle">Pesanan Baru!</h3>
+            <p id="notifDesc"></p>
+            <div class="order-notif-actions">
+                <button class="otp-btn otp-btn-accept" id="notifBtnAccept">✅ Lihat Pesanan</button>
+                <button class="otp-btn otp-btn-secondary" id="notifBtnDismiss">Nanti</button>
+            </div>
+        </div>
     </div>
 
     <script src="app.js"></script>

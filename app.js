@@ -286,6 +286,8 @@
             displayUserAddress(user);
             captureLocation(user.id);
             renderTalentSkills();
+            loadTalentDashboardOrders();
+            startTalentDashboardPolling();
         } else if (role === 'cs') {
             const el = document.getElementById('csName');
             if (el) el.textContent = user.name || 'CS';
@@ -437,6 +439,10 @@
     // ── Logout ──
     function handleLogout() {
         clearSession();
+        // Stop all polling
+        if (_talentDashPollTimer) { clearInterval(_talentDashPollTimer); _talentDashPollTimer = null; }
+        stopPolling();
+        _talentLastPendingIds = [];
         showToast('Berhasil keluar', 'success');
         showPage('login');
         // Reset forms
@@ -1198,7 +1204,7 @@
     };
 
     // Services that have active talent listing feature
-    var ACTIVE_SERVICES = ['js_clean'];
+    var ACTIVE_SERVICES = ['js_clean', 'js_antar', 'js_shop', 'js_food', 'js_delivery', 'js_service', 'js_medicine', 'js_other'];
 
     function setupServiceClicks() {
         document.querySelectorAll('.service-item').forEach(item => {
@@ -1226,6 +1232,8 @@
     var _otpTalentMarker = null;
     var _otpUserMarker = null;
     var _otpRouteLine = null;
+    var _talentDashPollTimer = null;
+    var _talentLastPendingIds = [];
 
     function openServiceTalentPage(skillType) {
         var page = document.getElementById('serviceTalentPage');
@@ -2195,6 +2203,212 @@
                 if (orders[idx]) openChat(orders[idx]);
             });
         });
+    }
+
+    // ══════════════════════════════════════════
+    // ═══ TALENT DASHBOARD ORDERS ═══
+    // ══════════════════════════════════════════
+    function loadTalentDashboardOrders() {
+        var session = getSession();
+        if (!session || session.role !== 'talent') return;
+        if (!isSheetConnected()) return;
+
+        fetch(SCRIPT_URL + '?action=getOrdersByUser&userId=' + encodeURIComponent(session.id))
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.success && res.data) {
+                    var orders = res.data;
+                    renderTalentDashboardOrders(orders, session);
+                    updateTalentStats(orders, session);
+                    checkNewPendingOrders(orders, session);
+                }
+            })
+            .catch(function () {});
+    }
+
+    function renderTalentDashboardOrders(orders, session) {
+        var users = getUsers();
+
+        // Incoming = pending orders for this talent
+        var incoming = orders.filter(function (o) { return o.talentId === session.id && o.status === 'pending'; });
+        // Active = accepted/on_the_way/arrived/in_progress
+        var active = orders.filter(function (o) {
+            return o.talentId === session.id && ['accepted', 'on_the_way', 'arrived', 'in_progress'].indexOf(o.status) >= 0;
+        });
+
+        // Render incoming
+        var inEl = document.getElementById('talentIncomingOrders');
+        if (inEl) {
+            if (incoming.length === 0) {
+                inEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><h3>Belum Ada Pesanan</h3><p>Pesanan baru dari pelanggan akan muncul di sini.</p></div>';
+            } else {
+                inEl.innerHTML = incoming.map(function (o, idx) {
+                    var user = users.find(function (u) { return u.id === o.userId; });
+                    var userName = user ? user.name : 'Pelanggan';
+                    var priceText = o.price ? 'Rp ' + Number(o.price).toLocaleString('id-ID') : '-';
+                    var timeAgo = getTimeAgo(o.createdAt);
+                    return '<div class="td-order-card" data-order-id="' + o.id + '" data-src="incoming" data-idx="' + idx + '">'
+                        + '<div class="td-oc-top">'
+                        + '<div class="td-oc-service">' + escapeHtml(o.serviceType || o.skillType || 'Pesanan') + '</div>'
+                        + '<span class="otp-status-badge status-pending">Baru</span>'
+                        + '</div>'
+                        + '<div class="td-oc-user">👤 ' + escapeHtml(userName) + '</div>'
+                        + '<div class="td-oc-bottom">'
+                        + '<span class="td-oc-price">' + priceText + '</span>'
+                        + '<span class="td-oc-time">' + timeAgo + '</span>'
+                        + '</div>'
+                        + '</div>';
+                }).join('');
+
+                inEl.querySelectorAll('.td-order-card').forEach(function (card) {
+                    card.addEventListener('click', function () {
+                        var idx = parseInt(this.dataset.idx, 10);
+                        if (incoming[idx]) openOrderTracking(incoming[idx]);
+                    });
+                });
+            }
+        }
+
+        // Render active
+        var actEl = document.getElementById('talentActiveOrders');
+        if (actEl) {
+            if (active.length === 0) {
+                actEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><h3>Tidak Ada Pesanan Aktif</h3><p>Pesanan yang sedang dikerjakan akan muncul di sini.</p></div>';
+            } else {
+                actEl.innerHTML = active.map(function (o, idx) {
+                    var user = users.find(function (u) { return u.id === o.userId; });
+                    var userName = user ? user.name : 'Pelanggan';
+                    var priceText = o.price ? 'Rp ' + Number(o.price).toLocaleString('id-ID') : '-';
+                    var statusText = STATUS_LABELS[o.status] || o.status;
+                    return '<div class="td-order-card active-card" data-src="active" data-idx="' + idx + '">'
+                        + '<div class="td-oc-top">'
+                        + '<div class="td-oc-service">' + escapeHtml(o.serviceType || o.skillType || 'Pesanan') + '</div>'
+                        + '<span class="otp-status-badge status-' + o.status + '">' + statusText + '</span>'
+                        + '</div>'
+                        + '<div class="td-oc-user">👤 ' + escapeHtml(userName) + '</div>'
+                        + '<div class="td-oc-bottom">'
+                        + '<span class="td-oc-price">' + priceText + '</span>'
+                        + '</div>'
+                        + '</div>';
+                }).join('');
+
+                actEl.querySelectorAll('.td-order-card').forEach(function (card) {
+                    card.addEventListener('click', function () {
+                        var idx = parseInt(this.dataset.idx, 10);
+                        if (active[idx]) openOrderTracking(active[idx]);
+                    });
+                });
+            }
+        }
+
+        // Update pending badge
+        var badgeEl = document.getElementById('talentPendingBadge');
+        if (badgeEl) badgeEl.textContent = incoming.length > 0 ? incoming.length : '';
+
+        // Update header notification badge
+        var headerBadge = document.querySelector('#page-talent .badge');
+        if (headerBadge) headerBadge.textContent = incoming.length > 0 ? incoming.length : '0';
+    }
+
+    function updateTalentStats(orders, session) {
+        var myOrders = orders.filter(function (o) { return o.talentId === session.id; });
+
+        // Today's orders
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        var todayTs = today.getTime();
+        var todayOrders = myOrders.filter(function (o) { return o.createdAt >= todayTs; });
+
+        // Earnings (completed + rated)
+        var earnings = myOrders.filter(function (o) { return o.status === 'completed' || o.status === 'rated'; })
+            .reduce(function (sum, o) { return sum + (o.price || 0); }, 0);
+
+        // Rating
+        var ratedOrders = myOrders.filter(function (o) { return o.rating > 0; });
+        var ratingAvg = ratedOrders.length > 0
+            ? ratedOrders.reduce(function (sum, o) { return sum + o.rating; }, 0) / ratedOrders.length
+            : 0;
+
+        var statOrdersEl = document.getElementById('talentStatOrders');
+        var statEarningEl = document.getElementById('talentStatEarning');
+        var statRatingEl = document.getElementById('talentStatRating');
+        if (statOrdersEl) statOrdersEl.textContent = todayOrders.length;
+        if (statEarningEl) statEarningEl.textContent = 'Rp ' + earnings.toLocaleString('id-ID');
+        if (statRatingEl) statRatingEl.textContent = ratingAvg > 0 ? ratingAvg.toFixed(1) : '0.0';
+    }
+
+    function checkNewPendingOrders(orders, session) {
+        var pending = orders.filter(function (o) { return o.talentId === session.id && o.status === 'pending'; });
+        var pendingIds = pending.map(function (o) { return o.id; });
+
+        // Find new orders that weren't in our last known list
+        var newOrders = pending.filter(function (o) { return _talentLastPendingIds.indexOf(o.id) < 0; });
+
+        // Only show notification if we had a previous list (not first load) and there are new orders
+        if (_talentLastPendingIds.length > 0 || pendingIds.length > 0) {
+            if (newOrders.length > 0 && _talentLastPendingIds.length > 0) {
+                showOrderNotification(newOrders[0]);
+            }
+        }
+
+        _talentLastPendingIds = pendingIds;
+    }
+
+    function showOrderNotification(order) {
+        var popup = document.getElementById('orderNotifPopup');
+        if (!popup) return;
+
+        var users = getUsers();
+        var user = users.find(function (u) { return u.id === order.userId; });
+        var userName = user ? user.name : 'Pelanggan';
+        var priceText = order.price ? 'Rp ' + Number(order.price).toLocaleString('id-ID') : '';
+
+        document.getElementById('notifTitle').textContent = '🔔 Pesanan Baru!';
+        document.getElementById('notifDesc').textContent = userName + ' memesan ' + (order.serviceType || 'layanan') + (priceText ? ' - ' + priceText : '');
+
+        popup.classList.remove('hidden');
+
+        // Try to play notification sound / vibrate
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
+        // Dismiss button
+        var dismissBtn = document.getElementById('notifBtnDismiss');
+        var acceptBtn = document.getElementById('notifBtnAccept');
+
+        var newDismiss = dismissBtn.cloneNode(true);
+        dismissBtn.parentNode.replaceChild(newDismiss, dismissBtn);
+        newDismiss.addEventListener('click', function () { popup.classList.add('hidden'); });
+
+        var newAccept = acceptBtn.cloneNode(true);
+        acceptBtn.parentNode.replaceChild(newAccept, acceptBtn);
+        newAccept.addEventListener('click', function () {
+            popup.classList.add('hidden');
+            openOrderTracking(order);
+        });
+    }
+
+    function startTalentDashboardPolling() {
+        if (_talentDashPollTimer) clearInterval(_talentDashPollTimer);
+        _talentDashPollTimer = setInterval(function () {
+            var session = getSession();
+            if (session && session.role === 'talent') {
+                loadTalentDashboardOrders();
+            } else {
+                clearInterval(_talentDashPollTimer);
+                _talentDashPollTimer = null;
+            }
+        }, 10000);
+    }
+
+    function getTimeAgo(timestamp) {
+        var diff = Date.now() - Number(timestamp);
+        var mins = Math.floor(diff / 60000);
+        if (mins < 1) return 'Baru saja';
+        if (mins < 60) return mins + ' menit lalu';
+        var hours = Math.floor(mins / 60);
+        if (hours < 24) return hours + ' jam lalu';
+        var days = Math.floor(hours / 24);
+        return days + ' hari lalu';
     }
 
     // ── Bottom Nav ──
