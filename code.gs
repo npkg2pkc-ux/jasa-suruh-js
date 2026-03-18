@@ -26,10 +26,16 @@ var SHEET_NAME = 'Users';
 var SKILLS_SHEET_NAME = 'Skills';
 
 /**
- * Mendapatkan sheet Users
+ * Mendapatkan atau membuat sheet Users
  */
 function getSheet() {
-  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME);
+    sheet.appendRow(['id', 'name', 'phone', 'username', 'password', 'role', 'createdAt']);
+  }
+  return sheet;
 }
 
 /**

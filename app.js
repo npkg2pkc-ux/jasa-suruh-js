@@ -17,7 +17,7 @@
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwsaf8pIMlOCrBCQuysrrpyWyDBFsBbXIYR2xOFWsrjsfzk9lmuET5ks4T-f0-kdnBF/exec';
 
     function isSheetConnected() {
-        return SCRIPT_URL && SCRIPT_URL !== 'PASTE_URL_GOOGLE_APPS_SCRIPT_DISINI';
+        return SCRIPT_URL && SCRIPT_URL !== 'https://script.google.com/u/0/home/projects/1smH0v_6MSS_l0yBh3jH79Klst4kroO-mPysZbA83SDtelB5kpb3yGmdD/edit';
     }
 
     // ── Initialize owner in user DB ──
@@ -68,11 +68,16 @@
         if (!isSheetConnected()) return Promise.resolve(null);
         return fetch(SCRIPT_URL, {
             method: 'POST',
+            redirect: 'follow',
             headers: { 'Content-Type': 'text/plain' },
             body: JSON.stringify(body)
         })
         .then(r => r.json())
-        .catch(() => null);
+        .catch(err => {
+            console.error('Google Sheet POST error:', err);
+            showToast('Gagal terhubung ke server. Cek koneksi internet.', 'error');
+            return null;
+        });
     }
 
     function getUsers() {
