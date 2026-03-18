@@ -210,12 +210,147 @@ function deleteUserSkills(userId) {
   return false;
 }
 
+// ========== ORDERS SHEET ==========
+var ORDERS_SHEET_NAME = 'Orders';
+function getOrdersSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(ORDERS_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(ORDERS_SHEET_NAME);
+    sheet.appendRow(['id','userId','talentId','skillType','serviceType','description','price','fee','status','createdAt','acceptedAt','startedAt','completedAt','proofPhoto','userLat','userLng','userAddr','talentLat','talentLng','rating','review']);
+  }
+  return sheet;
+}
+
+function getAllOrders() {
+  var sheet = getOrdersSheet();
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+  var headers = data[0];
+  var orders = [];
+  for (var i = 1; i < data.length; i++) {
+    var o = {};
+    for (var j = 0; j < headers.length; j++) o[headers[j]] = data[i][j];
+    o.id = String(o.id || '');
+    o.userId = String(o.userId || '');
+    o.talentId = String(o.talentId || '');
+    o.price = Number(o.price) || 0;
+    o.fee = Number(o.fee) || 0;
+    o.rating = o.rating !== '' && o.rating !== undefined ? Number(o.rating) : 0;
+    o.createdAt = Number(o.createdAt) || 0;
+    o.acceptedAt = Number(o.acceptedAt) || 0;
+    o.startedAt = Number(o.startedAt) || 0;
+    o.completedAt = Number(o.completedAt) || 0;
+    o.userLat = Number(o.userLat) || 0;
+    o.userLng = Number(o.userLng) || 0;
+    o.talentLat = Number(o.talentLat) || 0;
+    o.talentLng = Number(o.talentLng) || 0;
+    orders.push(o);
+  }
+  return orders;
+}
+
+function findOrderRow(orderId) {
+  var sheet = getOrdersSheet();
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(orderId)) return i + 1;
+  }
+  return -1;
+}
+
+function createOrder(o) {
+  var sheet = getOrdersSheet();
+  sheet.appendRow([o.id, o.userId, o.talentId, o.skillType||'', o.serviceType||'', o.description||'', o.price||0, o.fee||0, o.status||'pending', o.createdAt||Date.now(), 0,0,0, '', o.userLat||0, o.userLng||0, o.userAddr||'', o.talentLat||0, o.talentLng||0, 0, '']);
+}
+
+function updateOrderField(orderId, field, value) {
+  var sheet = getOrdersSheet();
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var col = headers.indexOf(field);
+  if (col < 0) return false;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(orderId)) {
+      sheet.getRange(i + 1, col + 1).setValue(value);
+      return true;
+    }
+  }
+  return false;
+}
+
+function updateOrderFields(orderId, fields) {
+  var sheet = getOrdersSheet();
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(orderId)) {
+      for (var key in fields) {
+        var col = headers.indexOf(key);
+        if (col >= 0) sheet.getRange(i + 1, col + 1).setValue(fields[key]);
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+function getOrdersByUser(userId) {
+  return getAllOrders().filter(function(o) { return o.userId === String(userId) || o.talentId === String(userId); });
+}
+
+// ========== MESSAGES SHEET ==========
+var MESSAGES_SHEET_NAME = 'Messages';
+function getMessagesSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(MESSAGES_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(MESSAGES_SHEET_NAME);
+    sheet.appendRow(['id','orderId','senderId','senderName','text','photo','createdAt']);
+  }
+  return sheet;
+}
+
+function getMessagesByOrder(orderId) {
+  var sheet = getMessagesSheet();
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+  var headers = data[0];
+  var msgs = [];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][1]) === String(orderId)) {
+      var m = {};
+      for (var j = 0; j < headers.length; j++) m[headers[j]] = data[i][j];
+      m.createdAt = Number(m.createdAt) || 0;
+      msgs.push(m);
+    }
+  }
+  return msgs;
+}
+
+function addMessage(msg) {
+  var sheet = getMessagesSheet();
+  sheet.appendRow([msg.id||'', msg.orderId||'', msg.senderId||'', msg.senderName||'', msg.text||'', msg.photo||'', msg.createdAt||Date.now()]);
+}
+
+// ========== RATING HELPERS ==========
+function getTalentRating(talentId) {
+  var orders = getAllOrders();
+  var total = 0, count = 0;
+  for (var i = 0; i < orders.length; i++) {
+    if (orders[i].talentId === String(talentId) && orders[i].rating > 0) {
+      total += orders[i].rating;
+      count++;
+    }
+  }
+  return count > 0 ? { avg: Math.round(total / count * 10) / 10, count: count } : { avg: 0, count: 0 };
+}
+
 /**
  * Handle GET requests — ambil semua users
  */
 function doGet(e) {
   var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : 'getAll';
-
   var result = {};
 
   if (action === 'getAll') {
@@ -224,34 +359,32 @@ function doGet(e) {
     result = { success: true, data: getAllSkillsData() };
   } else if (action === 'getUserSkills') {
     var uid = e.parameter.userId || '';
-    if (!uid) {
-      result = { success: false, message: 'userId tidak ditemukan' };
-    } else {
-      result = { success: true, data: getUserSkillsById(uid) };
-    }
+    result = uid ? { success: true, data: getUserSkillsById(uid) } : { success: false, message: 'userId tidak ditemukan' };
+  } else if (action === 'getAllOrders') {
+    result = { success: true, data: getAllOrders() };
+  } else if (action === 'getOrdersByUser') {
+    var ouid = e.parameter.userId || '';
+    result = ouid ? { success: true, data: getOrdersByUser(ouid) } : { success: false, message: 'userId tidak ditemukan' };
+  } else if (action === 'getMessages') {
+    var oid = e.parameter.orderId || '';
+    result = oid ? { success: true, data: getMessagesByOrder(oid) } : { success: false, message: 'orderId tidak ditemukan' };
+  } else if (action === 'getTalentRating') {
+    var tid = e.parameter.talentId || '';
+    result = tid ? { success: true, data: getTalentRating(tid) } : { success: false, message: 'talentId tidak ditemukan' };
   } else if (action === 'login') {
     var username = e.parameter.username || '';
     var password = e.parameter.password || '';
     var users = getAllUsers();
     var found = null;
     for (var i = 0; i < users.length; i++) {
-      if (users[i].username === username && users[i].password === password) {
-        found = users[i];
-        break;
-      }
+      if (users[i].username === username && users[i].password === password) { found = users[i]; break; }
     }
-    if (found) {
-      result = { success: true, data: found };
-    } else {
-      result = { success: false, message: 'Username atau password salah' };
-    }
+    result = found ? { success: true, data: found } : { success: false, message: 'Username atau password salah' };
   } else {
     result = { success: false, message: 'Action tidak dikenal' };
   }
 
-  return ContentService
-    .createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
 }
 
 /**
@@ -336,6 +469,55 @@ function doPost(e) {
         updateUserSkills(userId, skills);
         result = { success: true, message: 'Skills berhasil diupdate' };
       }
+
+    } else if (action === 'createOrder') {
+      var oData = {
+        id: body.id || (Date.now().toString(36) + Math.random().toString(36).substr(2,8)),
+        userId: body.userId, talentId: body.talentId, skillType: body.skillType,
+        serviceType: body.serviceType, description: body.description,
+        price: body.price || 0, fee: body.fee || 0, status: 'pending',
+        createdAt: Date.now(), userLat: body.userLat||0, userLng: body.userLng||0,
+        userAddr: body.userAddr||'', talentLat: body.talentLat||0, talentLng: body.talentLng||0
+      };
+      createOrder(oData);
+      result = { success: true, data: oData };
+
+    } else if (action === 'updateOrder') {
+      var oId = body.orderId || '';
+      var fields = body.fields || {};
+      if (!oId) { result = { success: false, message: 'orderId tidak ditemukan' }; }
+      else {
+        updateOrderFields(oId, fields);
+        result = { success: true, message: 'Order diupdate' };
+      }
+
+    } else if (action === 'sendMessage') {
+      var msgData = {
+        id: body.id || (Date.now().toString(36) + Math.random().toString(36).substr(2,8)),
+        orderId: body.orderId, senderId: body.senderId, senderName: body.senderName,
+        text: body.text || '', photo: body.photo || '', createdAt: Date.now()
+      };
+      addMessage(msgData);
+      result = { success: true, data: msgData };
+
+    } else if (action === 'rateOrder') {
+      var rOid = body.orderId || '';
+      var rating = Number(body.rating) || 0;
+      var review = body.review || '';
+      if (!rOid || rating < 1 || rating > 5) { result = { success: false, message: 'Data rating tidak valid' }; }
+      else {
+        updateOrderFields(rOid, { rating: rating, review: review, status: 'rated' });
+        result = { success: true, message: 'Rating berhasil' };
+      }
+
+    } else if (action === 'updateTalentLocation') {
+      var tlOid = body.orderId || '';
+      var tlat = body.lat || 0;
+      var tlng = body.lng || 0;
+      if (tlOid) {
+        updateOrderFields(tlOid, { talentLat: tlat, talentLng: tlng });
+        result = { success: true };
+      } else { result = { success: false, message: 'orderId tidak ditemukan' }; }
 
     } else {
       result = { success: false, message: 'Action tidak dikenal' };

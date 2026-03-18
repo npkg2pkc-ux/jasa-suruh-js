@@ -411,6 +411,117 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .search-no-result .empty-icon { font-size:40px; margin-bottom:8px; }
 .search-no-result p { font-size:14px; color:var(--gray-600); }
 
+/* ========== ORDER TRACKING PAGE ========== */
+.otp-map { width:100%; height:45vh; min-height:200px; z-index:1; }
+.otp-info-panel { flex:1; overflow-y:auto; background:var(--white); border-radius:20px 20px 0 0; margin-top:-16px; position:relative; z-index:2; padding:20px 16px; box-shadow:0 -4px 16px rgba(0,0,0,.08); }
+.otp-status-badge { font-size:11px; font-weight:700; padding:3px 10px; border-radius:var(--r-full); background:var(--orange-subtle); color:var(--orange); }
+.otp-status-badge.accepted { background:#DBEAFE; color:var(--blue); }
+.otp-status-badge.on_the_way { background:#FEF3C7; color:#D97706; }
+.otp-status-badge.arrived { background:#D1FAE5; color:#059669; }
+.otp-status-badge.in_progress { background:#EDE9FE; color:#7C3AED; }
+.otp-status-badge.completed { background:#D1FAE5; color:#059669; }
+.otp-status-badge.rated { background:var(--gray-100); color:var(--gray-600); }
+.otp-info-card { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--gray-100); }
+.otp-info-avatar { width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg,var(--orange),var(--orange-light)); display:flex; align-items:center; justify-content:center; color:var(--white); font-size:18px; font-weight:700; flex-shrink:0; }
+.otp-info-detail { flex:1; }
+.otp-info-name { font-size:15px; font-weight:700; color:var(--black); }
+.otp-info-svc { font-size:12px; color:var(--gray-600); margin-top:2px; }
+.otp-info-price { font-size:18px; font-weight:800; color:var(--orange); }
+.otp-step-list { padding:16px 0; }
+.otp-step { display:flex; align-items:flex-start; gap:12px; padding:8px 0; }
+.otp-step-dot { width:10px; height:10px; border-radius:50%; background:var(--gray-200); margin-top:4px; flex-shrink:0; }
+.otp-step-dot.active { background:var(--orange); }
+.otp-step-dot.done { background:var(--green); }
+.otp-step-text { font-size:13px; color:var(--gray-600); }
+.otp-step-text.active { color:var(--black); font-weight:600; }
+.otp-actions { display:flex; gap:10px; padding-top:12px; }
+.otp-actions .btn-primary { flex:1; margin:0; }
+.otp-btn-secondary { flex:1; padding:12px; background:var(--gray-100); color:var(--black); border:none; border-radius:var(--r-lg); font-size:14px; font-weight:700; font-family:var(--font); cursor:pointer; }
+.otp-chat-fab { position:fixed; bottom:24px; right:16px; width:56px; height:56px; border-radius:50%; background:var(--orange); border:none; font-size:24px; box-shadow:0 4px 16px rgba(255,107,0,.4); z-index:450; cursor:pointer; }
+.otp-proof-section { padding:12px 0; }
+.otp-proof-img { width:100%; max-height:200px; object-fit:cover; border-radius:var(--r-lg); margin-top:8px; }
+.otp-info-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--gray-100); font-size:13px; }
+.otp-info-label { color:var(--gray-600); }
+.otp-info-val { font-weight:600; color:var(--black); text-align:right; max-width:60%; }
+.otp-proof { padding:12px 0; }
+.otp-proof img { width:100%; max-height:200px; object-fit:cover; border-radius:var(--r-lg); }
+.otp-btn { width:100%; padding:14px; border:none; border-radius:var(--r-lg); font-size:15px; font-weight:700; font-family:var(--font); cursor:pointer; text-align:center; }
+.otp-btn-accept { background:#4CAF50; color:#fff; }
+.otp-btn-otw { background:var(--orange); color:#fff; }
+.otp-btn-arrive { background:#2196F3; color:#fff; }
+.otp-btn-start { background:#9C27B0; color:#fff; }
+.otp-btn-complete { background:#4CAF50; color:#fff; }
+.otp-btn-rate { background:var(--orange); color:#fff; }
+
+/* ========== CHAT PAGE ========== */
+.chat-header { background:var(--white); box-shadow:0 2px 8px rgba(0,0,0,.06); }
+.chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:8px; background:var(--gray-50); -webkit-overflow-scrolling:touch; min-height:0; }
+.chat-msg { max-width:80%; padding:10px 14px; border-radius:16px; font-size:14px; line-height:1.5; word-break:break-word; }
+.chat-msg.sent { align-self:flex-end; background:var(--orange); color:var(--white); border-bottom-right-radius:4px; }
+.chat-msg.received { align-self:flex-start; background:var(--white); color:var(--black); border-bottom-left-radius:4px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.chat-msg .chat-photo { max-width:100%; border-radius:8px; margin-bottom:4px; display:block; }
+.chat-msg .chat-time { font-size:10px; opacity:.7; margin-top:4px; display:block; text-align:right; }
+.chat-msg.received .chat-time { text-align:left; }
+.chat-msg .chat-sender { font-size:11px; font-weight:700; margin-bottom:2px; color:var(--orange); }
+.chat-msg.sent .chat-sender { color:rgba(255,255,255,.8); }
+.chat-msg .chat-text { }
+.chat-system { align-self:center; background:var(--gray-100); color:var(--gray-600); font-size:12px; padding:6px 14px; border-radius:var(--r-full); }
+.chat-input-bar { display:flex; align-items:center; gap:8px; padding:10px 12px 28px; background:var(--white); box-shadow:0 -2px 8px rgba(0,0,0,.06); flex-shrink:0; }
+.chat-input-bar input[type="text"] { flex:1; padding:10px 14px; border:1.5px solid var(--gray-200); border-radius:var(--r-full); font-size:14px; font-family:var(--font); outline:none; transition:var(--tr); }
+.chat-input-bar input[type="text"]:focus { border-color:var(--orange); }
+.chat-btn-photo { width:40px; height:40px; border:none; background:var(--gray-100); border-radius:50%; font-size:18px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.chat-btn-send { width:40px; height:40px; border:none; background:var(--orange); border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; color:var(--white); }
+.chat-btn-send:active { opacity:.8; }
+.chat-date-divider { align-self:center; font-size:11px; color:var(--gray-400); padding:8px 0; }
+
+/* ========== RATING PAGE ========== */
+.rating-content { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 24px; flex:1; text-align:center; }
+.rating-emoji { font-size:80px; margin-bottom:16px; }
+.rating-content h3 { font-size:20px; font-weight:800; color:var(--black); margin-bottom:4px; }
+.rating-desc { font-size:14px; color:var(--gray-600); margin-bottom:24px; }
+.rating-stars { display:flex; gap:8px; margin-bottom:12px; }
+.rating-stars .star { font-size:40px; color:var(--gray-200); cursor:pointer; transition:var(--tr); }
+.rating-stars .star.active { color:#FBBF24; }
+.rating-label { font-size:13px; color:var(--gray-400); margin-bottom:20px; }
+.rating-review { width:100%; padding:12px; border:1.5px solid var(--gray-200); border-radius:var(--r-lg); font-size:14px; font-family:var(--font); resize:none; margin-bottom:16px; }
+.rating-review:focus { outline:none; border-color:var(--orange); }
+.rating-content .btn-primary { width:100%; margin:0; }
+
+/* ========== ORDERS LIST PAGE ========== */
+.olp-tabs { display:flex; padding:0 16px; gap:8px; background:var(--white); border-bottom:1px solid var(--gray-100); flex-shrink:0; }
+.olp-tab { padding:10px 16px; border:none; background:none; font-size:13px; font-weight:600; font-family:var(--font); color:var(--gray-400); cursor:pointer; border-bottom:2px solid transparent; }
+.olp-tab.active { color:var(--orange); border-bottom-color:var(--orange); }
+.olp-order-card { padding:16px; background:var(--white); border-radius:var(--r-lg); margin:8px 16px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.olp-order-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.olp-order-id { font-size:11px; color:var(--gray-400); font-weight:600; }
+.olp-order-status { font-size:11px; font-weight:700; padding:3px 10px; border-radius:var(--r-full); }
+.olp-order-body { display:flex; gap:12px; align-items:center; }
+.olp-order-icon { width:44px; height:44px; border-radius:12px; background:var(--orange-subtle); display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+.olp-order-info { flex:1; }
+.olp-order-name { font-size:14px; font-weight:700; color:var(--black); }
+.olp-order-svc { font-size:12px; color:var(--gray-600); margin-top:2px; }
+.olp-order-price { font-size:15px; font-weight:800; color:var(--orange); }
+.olp-order-date { font-size:11px; color:var(--gray-400); margin-top:6px; }
+.olp-order-rating { display:flex; align-items:center; gap:4px; margin-top:6px; font-size:13px; color:#FBBF24; }
+.olp-card { padding:14px 16px; background:var(--white); border-radius:var(--r-lg); margin:8px 16px; box-shadow:0 1px 4px rgba(0,0,0,.06); cursor:pointer; }
+.olp-card:active { background:var(--gray-50); }
+.olp-card-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.olp-card-service { font-size:14px; font-weight:700; color:var(--black); }
+.olp-card-name { font-size:13px; color:var(--gray-600); margin-bottom:6px; }
+.olp-card-bottom { display:flex; justify-content:space-between; align-items:center; }
+.olp-card-price { font-size:14px; font-weight:700; color:var(--orange); }
+.olp-card-date { font-size:11px; color:var(--gray-400); }
+
+/* Status badge colors */
+.otp-status-badge { font-size:11px; font-weight:700; padding:3px 10px; border-radius:var(--r-full); display:inline-block; }
+.status-pending { background:#FFF3E0; color:#E65100; }
+.status-accepted { background:#E3F2FD; color:#1565C0; }
+.status-on_the_way { background:#FFF8E1; color:#F9A825; }
+.status-arrived { background:#E8F5E9; color:#2E7D32; }
+.status-in_progress { background:#F3E5F5; color:#7B1FA2; }
+.status-completed { background:#E8F5E9; color:#2E7D32; }
+.status-rated { background:var(--gray-100); color:var(--gray-600); }
+
 /* ========== RESPONSIVE ========== */
 @media (max-width:360px) {
     .services-grid { gap:8px; padding:16px 8px; }

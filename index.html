@@ -13,6 +13,8 @@
     <link rel="apple-touch-icon" href="icons/icon-192.svg">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -453,6 +455,79 @@
                 </form>
             </div>
         </div>
+    </div>
+
+    <!-- ===== ORDER TRACKING PAGE ===== -->
+    <div id="orderTrackingPage" class="stp-page hidden">
+        <header class="stp-header">
+            <button class="stp-back" id="otpBtnBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div class="stp-header-info"><h2 id="otpTitle">Pesanan</h2><span id="otpStatus" class="otp-status-badge">Menunggu</span></div>
+        </header>
+        <div id="otpMapContainer" class="otp-map"></div>
+        <div id="otpInfoPanel" class="otp-info-panel">
+            <div id="otpInfoContent"></div>
+            <div class="otp-actions" id="otpActions"></div>
+        </div>
+        <button class="otp-chat-fab" id="otpChatFab">💬</button>
+    </div>
+
+    <!-- ===== CHAT PAGE ===== -->
+    <div id="chatPage" class="stp-page hidden">
+        <header class="stp-header chat-header">
+            <button class="stp-back" id="chatBtnBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div class="stp-header-info"><h2 id="chatTitle">Chat</h2><span id="chatSubtitle" class="stp-subtitle"></span></div>
+        </header>
+        <div id="chatMessages" class="chat-messages"></div>
+        <div class="chat-input-bar">
+            <input type="file" id="chatPhotoInput" accept="image/*" capture="environment" style="display:none">
+            <button class="chat-btn-photo" id="chatBtnPhoto">📷</button>
+            <input type="text" id="chatInput" placeholder="Ketik pesan..." autocomplete="off">
+            <button class="chat-btn-send" id="chatBtnSend">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== RATING PAGE ===== -->
+    <div id="ratingPage" class="stp-page hidden">
+        <header class="stp-header">
+            <button class="stp-back" id="ratingBtnBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div class="stp-header-info"><h2>Beri Rating</h2></div>
+        </header>
+        <div class="rating-content">
+            <div class="rating-emoji" id="ratingEmoji">⭐</div>
+            <h3 id="ratingTalentName">Talent</h3>
+            <p id="ratingServiceDesc" class="rating-desc"></p>
+            <div class="rating-stars" id="ratingStars">
+                <span class="star" data-val="1">★</span><span class="star" data-val="2">★</span><span class="star" data-val="3">★</span><span class="star" data-val="4">★</span><span class="star" data-val="5">★</span>
+            </div>
+            <p class="rating-label" id="ratingLabel">Ketuk bintang untuk menilai</p>
+            <textarea id="ratingReview" class="rating-review" rows="3" placeholder="Tulis ulasan (opsional)..."></textarea>
+            <button class="btn-primary" id="ratingSubmitBtn">Kirim Rating</button>
+        </div>
+    </div>
+
+    <!-- ===== ORDERS LIST PAGE ===== -->
+    <div id="ordersListPage" class="stp-page hidden">
+        <header class="stp-header">
+            <button class="stp-back" id="olpBtnBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div class="stp-header-info"><h2 id="olpTitle">Pesanan Saya</h2></div>
+        </header>
+        <div class="olp-tabs" id="olpTabs">
+            <button class="olp-tab active" data-filter="active">Aktif</button>
+            <button class="olp-tab" data-filter="completed">Selesai</button>
+            <button class="olp-tab" data-filter="all">Semua</button>
+        </div>
+        <div class="stp-list" id="olpList"></div>
+    </div>
+
+    <!-- ===== ADMIN TRANSACTIONS PAGE ===== -->
+    <div id="adminTransPage" class="stp-page hidden">
+        <header class="stp-header">
+            <button class="stp-back" id="atpBtnBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div class="stp-header-info"><h2>Semua Transaksi</h2></div>
+        </header>
+        <div class="stp-list" id="atpList"></div>
     </div>
 
     <script src="app.js"></script>

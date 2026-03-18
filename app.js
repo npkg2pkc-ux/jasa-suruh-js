@@ -1218,6 +1218,14 @@
     var _stpCurrentType = '';
     var _stpAllTalents = [];
     var _stpCurrentSort = 'nearest';
+    var _talentRatingsCache = {};
+    var _currentOrder = null;
+    var _chatPollTimer = null;
+    var _locationPollTimer = null;
+    var _otpMap = null;
+    var _otpTalentMarker = null;
+    var _otpUserMarker = null;
+    var _otpRouteLine = null;
 
     function openServiceTalentPage(skillType) {
         var page = document.getElementById('serviceTalentPage');
@@ -1274,6 +1282,7 @@
         var myLng = session ? (session.lng || 0) : 0;
         var users = getUsers();
         var allSkills = getSkills();
+        var cachedRatings = _talentRatingsCache || {};
 
         return users
             .filter(function (u) { return u.role === 'talent'; })
@@ -1289,7 +1298,8 @@
                 }
                 // Get photo from skill data or fallback to localStorage
                 var photo = skill.photo || getSkillPhoto(u.id, skillType);
-                return { user: u, skill: skill, distance: dist, photo: photo };
+                var rating = cachedRatings[u.id] || { avg: 0, count: 0 };
+                return { user: u, skill: skill, distance: dist, photo: photo, rating: rating };
             })
             .filter(function (r) { return r !== null; });
     }
@@ -1363,7 +1373,7 @@
                 + (desc ? '<div class="stc-desc">' + escapeHtml(desc) + '</div>' : '')
                 + '<div class="stc-bottom">'
                 + (priceText ? '<span class="stc-price">' + priceText + '</span>' : '')
-                + '<span class="stc-rating"><span class="stc-rating-star">⭐</span> 5.0</span>'
+                + '<span class="stc-rating"><span class="stc-rating-star">⭐</span> ' + (t.rating && t.rating.avg > 0 ? t.rating.avg.toFixed(1) : 'Baru') + '</span>'
                 + '</div>'
                 + (addr && !distText ? '<div class="stc-addr">📍 ' + escapeHtml(addr) + '</div>' : '')
                 + '</div>'
@@ -1410,7 +1420,7 @@
             + '<div class="tdp-meta-row">'
             + '<span class="tdp-meta-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="2"/></svg> ' + escapeHtml(addr) + '</span>'
             + (distText ? '<span class="tdp-meta-item">📍 ' + distText + '</span>' : '')
-            + '<span class="tdp-meta-item">⭐ 5.0</span>'
+            + '<span class="tdp-meta-item">⭐ <span id="tdpRating">-</span></span>'
             + '</div>'
             + '<div class="tdp-price-row">'
             + '<div class="tdp-price-label">Mulai dari</div>'
@@ -1435,16 +1445,756 @@
 
         page.classList.remove('hidden');
 
+        // Fetch real rating
+        fetchTalentRating(t.user.id, function(r) {
+            var el = document.getElementById('tdpRating');
+            if (el) el.textContent = r.avg > 0 ? r.avg.toFixed(1) + ' (' + r.count + ')' : 'Belum ada rating';
+        });
+
         // Setup events (only once)
         if (!page._eventsSetup) {
             page._eventsSetup = true;
             document.getElementById('tdpBtnBack').addEventListener('click', function () {
                 page.classList.add('hidden');
             });
-            document.getElementById('tdpBtnOrder').addEventListener('click', function () {
-                showToast('Fitur pemesanan segera hadir! 🚀');
+        }
+        // Order button - always rebind with current talent data
+        var orderBtn = document.getElementById('tdpBtnOrder');
+        var newBtn = orderBtn.cloneNode(true);
+        orderBtn.parentNode.replaceChild(newBtn, orderBtn);
+        newBtn.addEventListener('click', function () {
+            createNewOrder(t);
+        });
+    }
+
+    // ══════════════════════════════════════════
+    // ═══ FETCH TALENT RATING ═══
+    // ══════════════════════════════════════════
+    function fetchTalentRating(talentId, callback) {
+        if (!isSheetConnected()) { callback({ avg: 0, count: 0 }); return; }
+        fetch(SCRIPT_URL + '?action=getTalentRating&talentId=' + encodeURIComponent(talentId))
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.success && res.data) {
+                    _talentRatingsCache[talentId] = res.data;
+                    callback(res.data);
+                } else { callback({ avg: 0, count: 0 }); }
+            })
+            .catch(function () { callback({ avg: 0, count: 0 }); });
+    }
+
+    // ══════════════════════════════════════════
+    // ═══ CREATE NEW ORDER ═══
+    // ══════════════════════════════════════════
+    function createNewOrder(t) {
+        var session = getSession();
+        if (!session) { showToast('Silakan login terlebih dahulu', 'error'); return; }
+        if (session.role !== 'user') { showToast('Hanya user yang bisa memesan', 'error'); return; }
+
+        var price = Number(t.skill.price) || 0;
+        var fee = Math.round(price * 0.1);
+        var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+
+        var orderData = {
+            action: 'createOrder',
+            id: orderId,
+            userId: session.id,
+            talentId: t.user.id,
+            skillType: t.skill.type || '',
+            serviceType: t.skill.serviceType || t.skill.name || '',
+            description: t.skill.description || '',
+            price: price,
+            fee: fee,
+            userLat: session.lat || 0,
+            userLng: session.lng || 0,
+            userAddr: session.address || '',
+            talentLat: t.user.lat || 0,
+            talentLng: t.user.lng || 0
+        };
+
+        showToast('Membuat pesanan...', 'success');
+
+        sheetPost(orderData).then(function (res) {
+            if (res && res.success) {
+                var order = res.data || orderData;
+                order.status = 'pending';
+                order.createdAt = Date.now();
+                order.talentName = t.user.name;
+                order.userName = session.name;
+                showToast('Pesanan berhasil dibuat!', 'success');
+                // Close detail page and open tracking
+                document.getElementById('talentDetailPage').classList.add('hidden');
+                document.getElementById('serviceTalentPage').classList.add('hidden');
+                openOrderTracking(order);
+            } else {
+                showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
+            }
+        }).catch(function () {
+            showToast('Gagal membuat pesanan', 'error');
+        });
+    }
+
+    // ══════════════════════════════════════════
+    // ═══ ORDER TRACKING PAGE ═══
+    // ══════════════════════════════════════════
+    var STATUS_LABELS = {
+        pending: 'Menunggu Konfirmasi',
+        accepted: 'Diterima',
+        on_the_way: 'Dalam Perjalanan',
+        arrived: 'Sudah Tiba',
+        in_progress: 'Sedang Dikerjakan',
+        completed: 'Selesai',
+        rated: 'Sudah Dinilai'
+    };
+
+    function openOrderTracking(order) {
+        _currentOrder = order;
+        var page = document.getElementById('orderTrackingPage');
+        if (!page) return;
+
+        var session = getSession();
+        var isTalent = session && session.id === order.talentId;
+        var isUser = session && session.id === order.userId;
+
+        // Title & status
+        document.getElementById('otpTitle').textContent = order.serviceType || 'Pesanan';
+        updateOrderStatusBadge(order.status);
+
+        // Info panel
+        renderOrderInfo(order, isTalent);
+
+        // Actions
+        renderOrderActions(order, isTalent, isUser);
+
+        // Initialize map
+        initTrackingMap(order);
+
+        page.classList.remove('hidden');
+
+        // Setup events once
+        if (!page._eventsSetup) {
+            page._eventsSetup = true;
+            document.getElementById('otpBtnBack').addEventListener('click', function () {
+                page.classList.add('hidden');
+                stopPolling();
+            });
+            document.getElementById('otpChatFab').addEventListener('click', function () {
+                if (_currentOrder) openChat(_currentOrder);
             });
         }
+
+        // Start polling for order updates and talent location
+        startOrderPolling(order.id);
+    }
+
+    function updateOrderStatusBadge(status) {
+        var badge = document.getElementById('otpStatus');
+        if (!badge) return;
+        badge.textContent = STATUS_LABELS[status] || status;
+        badge.className = 'otp-status-badge status-' + status;
+    }
+
+    function renderOrderInfo(order, isTalent) {
+        var el = document.getElementById('otpInfoContent');
+        if (!el) return;
+        var users = getUsers();
+        var other = users.find(function (u) {
+            return u.id === (isTalent ? order.userId : order.talentId);
+        });
+        var otherName = other ? other.name : 'Unknown';
+        var priceText = order.price ? 'Rp ' + Number(order.price).toLocaleString('id-ID') : '-';
+        var feeText = order.fee ? 'Rp ' + Number(order.fee).toLocaleString('id-ID') : '-';
+        var addrText = order.userAddr || 'Tidak tersedia';
+
+        el.innerHTML = ''
+            + '<div class="otp-info-row"><span class="otp-info-label">' + (isTalent ? 'Pelanggan' : 'Talent') + '</span><span class="otp-info-val">' + escapeHtml(otherName) + '</span></div>'
+            + '<div class="otp-info-row"><span class="otp-info-label">Layanan</span><span class="otp-info-val">' + escapeHtml(order.serviceType || '') + '</span></div>'
+            + '<div class="otp-info-row"><span class="otp-info-label">Harga</span><span class="otp-info-val">' + priceText + '</span></div>'
+            + '<div class="otp-info-row"><span class="otp-info-label">Biaya Layanan</span><span class="otp-info-val">' + feeText + '</span></div>'
+            + '<div class="otp-info-row"><span class="otp-info-label">Alamat</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>'
+            + (order.proofPhoto ? '<div class="otp-proof"><img src="' + order.proofPhoto + '" alt="Bukti"></div>' : '');
+    }
+
+    function renderOrderActions(order, isTalent, isUser) {
+        var el = document.getElementById('otpActions');
+        if (!el) return;
+        el.innerHTML = '';
+
+        if (isTalent) {
+            if (order.status === 'pending') {
+                el.innerHTML = '<button class="otp-btn otp-btn-accept" id="otpBtnAccept">✅ Terima Pesanan</button>';
+                document.getElementById('otpBtnAccept').addEventListener('click', function () { updateOrderStatus(order.id, 'accepted', { acceptedAt: Date.now() }); });
+            } else if (order.status === 'accepted') {
+                el.innerHTML = '<button class="otp-btn otp-btn-otw" id="otpBtnOtw">🏍️ Menuju Lokasi</button>';
+                document.getElementById('otpBtnOtw').addEventListener('click', function () { updateOrderStatus(order.id, 'on_the_way', {}); startTalentLocationBroadcast(order.id); });
+            } else if (order.status === 'on_the_way') {
+                el.innerHTML = '<button class="otp-btn otp-btn-arrive" id="otpBtnArrive">📍 Sudah Tiba</button>';
+                document.getElementById('otpBtnArrive').addEventListener('click', function () { updateOrderStatus(order.id, 'arrived', {}); });
+            } else if (order.status === 'arrived') {
+                el.innerHTML = '<button class="otp-btn otp-btn-start" id="otpBtnStart">🔨 Mulai Mengerjakan</button>';
+                document.getElementById('otpBtnStart').addEventListener('click', function () { updateOrderStatus(order.id, 'in_progress', { startedAt: Date.now() }); });
+            } else if (order.status === 'in_progress') {
+                el.innerHTML = '<button class="otp-btn otp-btn-complete" id="otpBtnComplete">✅ Selesai + Upload Bukti</button><input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">';
+                document.getElementById('otpBtnComplete').addEventListener('click', function () {
+                    document.getElementById('otpProofInput').click();
+                });
+                document.getElementById('otpProofInput').addEventListener('change', function () {
+                    var file = this.files[0];
+                    if (!file) return;
+                    var reader = new FileReader();
+                    reader.onload = function () {
+                        compressThumbnail(reader.result, function (proofThumb) {
+                            updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb });
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                    this.value = '';
+                });
+            }
+        }
+
+        if (isUser && order.status === 'completed') {
+            el.innerHTML = '<button class="otp-btn otp-btn-rate" id="otpBtnRate">⭐ Beri Rating</button>';
+            document.getElementById('otpBtnRate').addEventListener('click', function () { openRatingPage(order); });
+        }
+    }
+
+    function updateOrderStatus(orderId, newStatus, extraFields) {
+        var fields = extraFields || {};
+        fields.status = newStatus;
+        sheetPost({ action: 'updateOrder', orderId: orderId, fields: fields }).then(function (res) {
+            if (res && res.success) {
+                if (_currentOrder && _currentOrder.id === orderId) {
+                    _currentOrder.status = newStatus;
+                    for (var k in extraFields) _currentOrder[k] = extraFields[k];
+                    updateOrderStatusBadge(newStatus);
+                    var session = getSession();
+                    renderOrderActions(_currentOrder, session && session.id === _currentOrder.talentId, session && session.id === _currentOrder.userId);
+                    renderOrderInfo(_currentOrder, session && session.id === _currentOrder.talentId);
+                }
+                showToast('Status diperbarui!', 'success');
+            } else {
+                showToast('Gagal update status', 'error');
+            }
+        });
+    }
+
+    // ══════════════════════════════════════════
+    // ═══ MAP TRACKING (Leaflet + OSRM) ═══
+    // ══════════════════════════════════════════
+    function initTrackingMap(order) {
+        var container = document.getElementById('otpMapContainer');
+        if (!container) return;
+
+        // Destroy previous map
+        if (_otpMap) { _otpMap.remove(); _otpMap = null; }
+
+        var userLat = Number(order.userLat) || -6.2;
+        var userLng = Number(order.userLng) || 106.8;
+        var talentLat = Number(order.talentLat) || userLat;
+        var talentLng = Number(order.talentLng) || userLng;
+
+        // Center between user and talent
+        var centerLat = (userLat + talentLat) / 2;
+        var centerLng = (userLng + talentLng) / 2;
+
+        _otpMap = L.map(container).setView([centerLat, centerLng], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(_otpMap);
+
+        // User marker (blue)
+        var userIcon = L.divIcon({
+            html: '<div style="background:#2196F3;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)">📍</div>',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+            className: ''
+        });
+        _otpUserMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(_otpMap).bindPopup('Lokasi Anda');
+
+        // Talent marker (orange)
+        var talentIcon = L.divIcon({
+            html: '<div style="background:#FF6B00;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)">🏍️</div>',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+            className: ''
+        });
+        _otpTalentMarker = L.marker([talentLat, talentLng], { icon: talentIcon }).addTo(_otpMap).bindPopup('Talent');
+
+        // Fit bounds
+        var bounds = L.latLngBounds([[userLat, userLng], [talentLat, talentLng]]);
+        _otpMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+
+        // Draw route
+        fetchAndDrawRoute(talentLat, talentLng, userLat, userLng);
+
+        // Fix map size on display
+        setTimeout(function () { if (_otpMap) _otpMap.invalidateSize(); }, 300);
+    }
+
+    function fetchAndDrawRoute(fromLat, fromLng, toLat, toLng) {
+        if (!_otpMap) return;
+        var url = 'https://router.project-osrm.org/route/v1/driving/' + fromLng + ',' + fromLat + ';' + toLng + ',' + toLat + '?overview=full&geometries=geojson';
+
+        fetch(url)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.routes && data.routes.length > 0) {
+                    var coords = data.routes[0].geometry.coordinates.map(function (c) {
+                        return [c[1], c[0]]; // GeoJSON is [lng, lat], Leaflet needs [lat, lng]
+                    });
+                    if (_otpRouteLine) _otpMap.removeLayer(_otpRouteLine);
+                    _otpRouteLine = L.polyline(coords, { color: '#FF6B00', weight: 4, opacity: 0.8 }).addTo(_otpMap);
+                }
+            })
+            .catch(function () {
+                // Fallback: draw straight line
+                if (_otpRouteLine) _otpMap.removeLayer(_otpRouteLine);
+                _otpRouteLine = L.polyline([[fromLat, fromLng], [toLat, toLng]], { color: '#FF6B00', weight: 3, dashArray: '10,10' }).addTo(_otpMap);
+            });
+    }
+
+    function updateTalentMarkerPosition(lat, lng) {
+        if (_otpTalentMarker) {
+            _otpTalentMarker.setLatLng([lat, lng]);
+        }
+        // Redraw route from new talent position to user
+        if (_currentOrder) {
+            fetchAndDrawRoute(lat, lng, Number(_currentOrder.userLat), Number(_currentOrder.userLng));
+        }
+    }
+
+    // ══════════════════════════════════════════
+    // ═══ POLLING (Order status + Location) ═══
+    // ══════════════════════════════════════════
+    function startOrderPolling(orderId) {
+        stopPolling();
+        pollOrderUpdate(orderId);
+        _locationPollTimer = setInterval(function () { pollOrderUpdate(orderId); }, 8000);
+    }
+
+    function stopPolling() {
+        if (_locationPollTimer) { clearInterval(_locationPollTimer); _locationPollTimer = null; }
+        if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
+    }
+
+    function pollOrderUpdate(orderId) {
+        if (!isSheetConnected()) return;
+        fetch(SCRIPT_URL + '?action=getOrdersByUser&userId=' + encodeURIComponent(getSession().id))
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.success && res.data) {
+                    var order = res.data.find(function (o) { return o.id === orderId; });
+                    if (order && _currentOrder && _currentOrder.id === orderId) {
+                        var oldStatus = _currentOrder.status;
+                        // Update current order with latest data
+                        for (var key in order) _currentOrder[key] = order[key];
+
+                        if (oldStatus !== order.status) {
+                            updateOrderStatusBadge(order.status);
+                            var session = getSession();
+                            renderOrderActions(_currentOrder, session && session.id === _currentOrder.talentId, session && session.id === _currentOrder.userId);
+                            renderOrderInfo(_currentOrder, session && session.id === _currentOrder.talentId);
+                        }
+
+                        // Update talent marker
+                        if (order.talentLat && order.talentLng) {
+                            updateTalentMarkerPosition(Number(order.talentLat), Number(order.talentLng));
+                        }
+                    }
+                }
+            })
+            .catch(function () {});
+    }
+
+    function startTalentLocationBroadcast(orderId) {
+        function broadcast() {
+            getCurrentPosition().then(function (pos) {
+                sheetPost({
+                    action: 'updateTalentLocation',
+                    orderId: orderId,
+                    lat: pos.lat,
+                    lng: pos.lng
+                });
+            }).catch(function () {});
+        }
+        broadcast();
+        if (!_locationPollTimer) {
+            _locationPollTimer = setInterval(broadcast, 10000);
+        }
+    }
+
+    // ══════════════════════════════════════════
+    // ═══ CHAT SYSTEM ═══
+    // ══════════════════════════════════════════
+    var _chatOrderId = null;
+    var _chatMessages = [];
+
+    function openChat(order) {
+        _chatOrderId = order.id;
+        _chatMessages = [];
+        var page = document.getElementById('chatPage');
+        if (!page) return;
+
+        var session = getSession();
+        var users = getUsers();
+        var isTalent = session && session.id === order.talentId;
+        var other = users.find(function (u) { return u.id === (isTalent ? order.userId : order.talentId); });
+        document.getElementById('chatTitle').textContent = other ? other.name : 'Chat';
+        document.getElementById('chatSubtitle').textContent = order.serviceType || '';
+        document.getElementById('chatMessages').innerHTML = '<div class="chat-system">Chat pesanan #' + order.id.substr(0, 8) + '</div>';
+        document.getElementById('chatInput').value = '';
+
+        page.classList.remove('hidden');
+
+        // Load existing messages
+        fetchChatMessages(order.id);
+
+        // Start polling
+        if (_chatPollTimer) clearInterval(_chatPollTimer);
+        _chatPollTimer = setInterval(function () { fetchChatMessages(order.id); }, 5000);
+
+        // Setup events once
+        if (!page._eventsSetup) {
+            page._eventsSetup = true;
+            document.getElementById('chatBtnBack').addEventListener('click', function () {
+                page.classList.add('hidden');
+                if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
+            });
+            document.getElementById('chatBtnSend').addEventListener('click', function () { sendChatMessage(); });
+            document.getElementById('chatInput').addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+            });
+            document.getElementById('chatBtnPhoto').addEventListener('click', function () {
+                document.getElementById('chatPhotoInput').click();
+            });
+            document.getElementById('chatPhotoInput').addEventListener('change', function () {
+                var file = this.files[0];
+                if (!file) return;
+                var reader = new FileReader();
+                reader.onload = function () {
+                    compressThumbnail(reader.result, function (thumb) {
+                        sendChatMessage(thumb);
+                    });
+                };
+                reader.readAsDataURL(file);
+                this.value = '';
+            });
+        }
+    }
+
+    function fetchChatMessages(orderId) {
+        if (!isSheetConnected()) return;
+        fetch(SCRIPT_URL + '?action=getMessages&orderId=' + encodeURIComponent(orderId))
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.success && res.data) {
+                    _chatMessages = res.data;
+                    renderChatMessages();
+                }
+            })
+            .catch(function () {});
+    }
+
+    function renderChatMessages() {
+        var container = document.getElementById('chatMessages');
+        if (!container) return;
+        var session = getSession();
+        if (!session) return;
+
+        var html = '<div class="chat-system">Chat pesanan dimulai</div>';
+        _chatMessages.forEach(function (m) {
+            var isMine = String(m.senderId) === String(session.id);
+            var cls = isMine ? 'chat-msg sent' : 'chat-msg received';
+            var time = new Date(Number(m.createdAt));
+            var timeStr = time.getHours().toString().padStart(2, '0') + ':' + time.getMinutes().toString().padStart(2, '0');
+
+            html += '<div class="' + cls + '">';
+            if (!isMine) html += '<div class="chat-sender">' + escapeHtml(String(m.senderName || '')) + '</div>';
+            if (m.photo) html += '<img class="chat-photo" src="' + m.photo + '" alt="Foto">';
+            if (m.text) html += '<div class="chat-text">' + escapeHtml(String(m.text)) + '</div>';
+            html += '<div class="chat-time">' + timeStr + '</div>';
+            html += '</div>';
+        });
+        container.innerHTML = html;
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function sendChatMessage(photo) {
+        var session = getSession();
+        if (!session || !_chatOrderId) return;
+        var input = document.getElementById('chatInput');
+        var text = (input.value || '').trim();
+        if (!text && !photo) return;
+
+        var msgData = {
+            action: 'sendMessage',
+            orderId: _chatOrderId,
+            senderId: session.id,
+            senderName: session.name,
+            text: text,
+            photo: photo || ''
+        };
+
+        input.value = '';
+
+        // Optimistic add
+        _chatMessages.push({
+            senderId: session.id,
+            senderName: session.name,
+            text: text,
+            photo: photo || '',
+            createdAt: Date.now()
+        });
+        renderChatMessages();
+
+        sheetPost(msgData).catch(function () { showToast('Gagal mengirim pesan', 'error'); });
+    }
+
+    // ══════════════════════════════════════════
+    // ═══ RATING PAGE ═══
+    // ══════════════════════════════════════════
+    var _ratingOrder = null;
+    var _ratingValue = 0;
+
+    function openRatingPage(order) {
+        _ratingOrder = order;
+        _ratingValue = 0;
+        var page = document.getElementById('ratingPage');
+        if (!page) return;
+
+        var users = getUsers();
+        var talent = users.find(function (u) { return u.id === order.talentId; });
+        document.getElementById('ratingTalentName').textContent = talent ? talent.name : 'Talent';
+        document.getElementById('ratingServiceDesc').textContent = order.serviceType || '';
+        document.getElementById('ratingEmoji').textContent = '⭐';
+        document.getElementById('ratingLabel').textContent = 'Ketuk bintang untuk menilai';
+        document.getElementById('ratingReview').value = '';
+
+        // Reset stars
+        document.querySelectorAll('#ratingStars .star').forEach(function (s) { s.classList.remove('active'); });
+
+        page.classList.remove('hidden');
+
+        // Hide tracking page
+        document.getElementById('orderTrackingPage').classList.add('hidden');
+
+        if (!page._eventsSetup) {
+            page._eventsSetup = true;
+            document.getElementById('ratingBtnBack').addEventListener('click', function () {
+                page.classList.add('hidden');
+            });
+            document.querySelectorAll('#ratingStars .star').forEach(function (star) {
+                star.addEventListener('click', function () {
+                    _ratingValue = parseInt(this.dataset.val, 10);
+                    var emojis = ['', '😞', '😐', '🙂', '😊', '🤩'];
+                    var labels = ['', 'Sangat Buruk', 'Kurang Baik', 'Cukup Baik', 'Baik', 'Sangat Baik!'];
+                    document.getElementById('ratingEmoji').textContent = emojis[_ratingValue] || '⭐';
+                    document.getElementById('ratingLabel').textContent = labels[_ratingValue] || '';
+                    document.querySelectorAll('#ratingStars .star').forEach(function (s) {
+                        s.classList.toggle('active', parseInt(s.dataset.val, 10) <= _ratingValue);
+                    });
+                });
+            });
+            document.getElementById('ratingSubmitBtn').addEventListener('click', function () { submitRating(); });
+        }
+    }
+
+    function submitRating() {
+        if (!_ratingOrder || _ratingValue < 1) { showToast('Pilih rating terlebih dahulu', 'error'); return; }
+        var review = (document.getElementById('ratingReview').value || '').trim();
+
+        sheetPost({
+            action: 'rateOrder',
+            orderId: _ratingOrder.id,
+            rating: _ratingValue,
+            review: review
+        }).then(function (res) {
+            if (res && res.success) {
+                showToast('Rating berhasil dikirim! Terima kasih 🎉', 'success');
+                document.getElementById('ratingPage').classList.add('hidden');
+                // Invalidate rating cache
+                if (_ratingOrder.talentId) delete _talentRatingsCache[_ratingOrder.talentId];
+            } else {
+                showToast('Gagal mengirim rating', 'error');
+            }
+        });
+    }
+
+    // ══════════════════════════════════════════
+    // ═══ ORDERS LIST PAGE ═══
+    // ══════════════════════════════════════════
+    var _ordersListData = [];
+
+    function openOrdersList() {
+        var page = document.getElementById('ordersListPage');
+        if (!page) return;
+        var session = getSession();
+        if (!session) return;
+
+        document.getElementById('olpTitle').textContent = session.role === 'talent' ? 'Pesanan Masuk' : 'Pesanan Saya';
+        page.classList.remove('hidden');
+
+        // Load orders
+        document.getElementById('olpList').innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">⏳</div><p>Memuat pesanan...</p></div>';
+
+        fetch(SCRIPT_URL + '?action=getOrdersByUser&userId=' + encodeURIComponent(session.id))
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.success && res.data) {
+                    _ordersListData = res.data;
+                    filterOrdersList('active');
+                } else {
+                    document.getElementById('olpList').innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">📭</div><p>Belum ada pesanan</p></div>';
+                }
+            })
+            .catch(function () {
+                document.getElementById('olpList').innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">❌</div><p>Gagal memuat pesanan</p></div>';
+            });
+
+        // Setup tabs (once)
+        if (!page._eventsSetup) {
+            page._eventsSetup = true;
+            document.getElementById('olpBtnBack').addEventListener('click', function () {
+                page.classList.add('hidden');
+            });
+            document.querySelectorAll('#olpTabs .olp-tab').forEach(function (tab) {
+                tab.addEventListener('click', function () {
+                    document.querySelectorAll('#olpTabs .olp-tab').forEach(function (t) { t.classList.remove('active'); });
+                    tab.classList.add('active');
+                    filterOrdersList(tab.dataset.filter);
+                });
+            });
+        }
+    }
+
+    function filterOrdersList(filter) {
+        var filtered = _ordersListData;
+        if (filter === 'active') {
+            filtered = filtered.filter(function (o) { return ['pending', 'accepted', 'on_the_way', 'arrived', 'in_progress'].indexOf(o.status) >= 0; });
+        } else if (filter === 'completed') {
+            filtered = filtered.filter(function (o) { return o.status === 'completed' || o.status === 'rated'; });
+        }
+        renderOrderCards(filtered);
+    }
+
+    function renderOrderCards(orders) {
+        var list = document.getElementById('olpList');
+        if (!list) return;
+        var session = getSession();
+        var users = getUsers();
+
+        if (orders.length === 0) {
+            list.innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">📭</div><p>Tidak ada pesanan</p></div>';
+            return;
+        }
+
+        list.innerHTML = orders.map(function (o, idx) {
+            var isTalent = session && session.id === o.talentId;
+            var other = users.find(function (u) { return u.id === (isTalent ? o.userId : o.talentId); });
+            var otherName = other ? other.name : 'Unknown';
+            var priceText = o.price ? 'Rp ' + Number(o.price).toLocaleString('id-ID') : '-';
+            var dateText = new Date(Number(o.createdAt)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+            var statusText = STATUS_LABELS[o.status] || o.status;
+
+            return '<div class="olp-card" data-idx="' + idx + '">'
+                + '<div class="olp-card-top">'
+                + '<div class="olp-card-service">' + escapeHtml(o.serviceType || o.skillType || '') + '</div>'
+                + '<span class="otp-status-badge status-' + o.status + '">' + statusText + '</span>'
+                + '</div>'
+                + '<div class="olp-card-name">👤 ' + escapeHtml(otherName) + '</div>'
+                + '<div class="olp-card-bottom">'
+                + '<span class="olp-card-price">' + priceText + '</span>'
+                + '<span class="olp-card-date">' + dateText + '</span>'
+                + '</div>'
+                + '</div>';
+        }).join('');
+
+        list.querySelectorAll('.olp-card').forEach(function (card) {
+            card.addEventListener('click', function () {
+                var idx = parseInt(this.dataset.idx, 10);
+                if (orders[idx]) openOrderTracking(orders[idx]);
+            });
+        });
+    }
+
+    // ══════════════════════════════════════════
+    // ═══ ADMIN TRANSACTIONS PAGE ═══
+    // ══════════════════════════════════════════
+    function openAdminTransactions() {
+        var page = document.getElementById('adminTransPage');
+        if (!page) return;
+        page.classList.remove('hidden');
+
+        document.getElementById('atpList').innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">⏳</div><p>Memuat transaksi...</p></div>';
+
+        fetch(SCRIPT_URL + '?action=getAllOrders')
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.success && res.data) {
+                    renderAdminTransactions(res.data);
+                } else {
+                    document.getElementById('atpList').innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">📭</div><p>Belum ada transaksi</p></div>';
+                }
+            })
+            .catch(function () {
+                document.getElementById('atpList').innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">❌</div><p>Gagal memuat</p></div>';
+            });
+
+        if (!page._eventsSetup) {
+            page._eventsSetup = true;
+            document.getElementById('atpBtnBack').addEventListener('click', function () {
+                page.classList.add('hidden');
+            });
+        }
+    }
+
+    function renderAdminTransactions(orders) {
+        var list = document.getElementById('atpList');
+        if (!list) return;
+        var users = getUsers();
+
+        if (orders.length === 0) {
+            list.innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">📭</div><p>Belum ada transaksi</p></div>';
+            return;
+        }
+
+        // Sort by newest first
+        orders.sort(function (a, b) { return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0); });
+
+        list.innerHTML = orders.map(function (o, idx) {
+            var user = users.find(function (u) { return u.id === o.userId; });
+            var talent = users.find(function (u) { return u.id === o.talentId; });
+            var userName = user ? user.name : o.userId;
+            var talentName = talent ? talent.name : o.talentId;
+            var priceText = o.price ? 'Rp ' + Number(o.price).toLocaleString('id-ID') : '-';
+            var feeText = o.fee ? 'Rp ' + Number(o.fee).toLocaleString('id-ID') : '-';
+            var dateText = new Date(Number(o.createdAt)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            var statusText = STATUS_LABELS[o.status] || o.status;
+            var ratingText = o.rating > 0 ? '⭐ ' + o.rating + '/5' : '-';
+
+            return '<div class="olp-card" data-idx="' + idx + '">'
+                + '<div class="olp-card-top">'
+                + '<div class="olp-card-service">#' + o.id.substr(0, 8) + ' · ' + escapeHtml(o.serviceType || o.skillType || '') + '</div>'
+                + '<span class="otp-status-badge status-' + o.status + '">' + statusText + '</span>'
+                + '</div>'
+                + '<div class="olp-card-name">👤 ' + escapeHtml(userName) + ' → 🏍️ ' + escapeHtml(talentName) + '</div>'
+                + '<div class="olp-card-bottom">'
+                + '<span class="olp-card-price">' + priceText + ' (fee: ' + feeText + ')</span>'
+                + '<span class="olp-card-date">' + dateText + '</span>'
+                + '</div>'
+                + '<div class="olp-card-bottom"><span>Rating: ' + ratingText + '</span></div>'
+                + '</div>';
+        }).join('');
+
+        // Click to view chat
+        list.querySelectorAll('.olp-card').forEach(function (card) {
+            card.addEventListener('click', function () {
+                var idx = parseInt(this.dataset.idx, 10);
+                if (orders[idx]) openChat(orders[idx]);
+            });
+        });
     }
 
     // ── Bottom Nav ──
@@ -1455,7 +2205,15 @@
                     nav.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
                     this.classList.add('active');
                     const page = this.dataset.page;
-                    if (page === 'akun' || page === 'profil' || page === 'settings') {
+                    if (page === 'pesanan') {
+                        openOrdersList();
+                    } else if (page === 'chat') {
+                        // Open orders list filtered to active for quick chat access
+                        openOrdersList();
+                    } else if (page === 'tickets' || page === 'reports') {
+                        // CS/Owner: open admin transactions
+                        openAdminTransactions();
+                    } else if (page === 'akun' || page === 'profil' || page === 'settings') {
                         showToast('Halaman ' + this.querySelector('span').textContent + ' segera hadir!');
                     }
                 });
