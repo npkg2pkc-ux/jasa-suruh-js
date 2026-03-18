@@ -380,6 +380,17 @@
             return;
         }
 
+        // Validate selfie for talent
+        var selfieDataUrl = '';
+        if (role === 'talent') {
+            var selfieImg = document.getElementById('regSelfieImg');
+            selfieDataUrl = selfieImg ? selfieImg.src : '';
+            if (!selfieDataUrl || !selfieDataUrl.startsWith('data:')) {
+                showToast('Foto selfie wajib untuk akun Talent!', 'error');
+                return;
+            }
+        }
+
         const newUser = {
             id: generateId(),
             name: name,
@@ -398,13 +409,24 @@
             if (res && res.success) {
                 // Berhasil disimpan di Sheet, update localStorage juga
                 const users = getUsers();
-                users.push(res.data || newUser);
+                const savedUser = res.data || newUser;
+                users.push(savedUser);
                 saveUsers(users);
-                setSession(res.data || newUser);
+                setSession(savedUser);
+                if (selfieDataUrl) saveProfilePhoto(savedUser.id, selfieDataUrl);
                 showToast('Akun berhasil dibuat!', 'success');
                 showPage(role);
                 document.getElementById('registerForm').reset();
                 document.getElementById('regRole').value = 'user';
+                // Reset selfie UI
+                var selfieImg = document.getElementById('regSelfieImg');
+                if (selfieImg) { selfieImg.src = ''; }
+                var prev = document.getElementById('regSelfiePreview');
+                if (prev) prev.style.display = 'none';
+                var btn = document.getElementById('regBtnSelfie');
+                if (btn) btn.style.display = '';
+                var sec = document.getElementById('regSelfieSection');
+                if (sec) sec.style.display = 'none';
             } else if (res && !res.success) {
                 showToast(res.message || 'Gagal mendaftar', 'error');
             } else {
@@ -417,10 +439,13 @@
                 users.push(newUser);
                 saveUsers(users);
                 setSession(newUser);
+                if (selfieDataUrl) saveProfilePhoto(newUser.id, selfieDataUrl);
                 showToast('Akun berhasil dibuat (offline)!', 'success');
                 showPage(role);
                 document.getElementById('registerForm').reset();
                 document.getElementById('regRole').value = 'user';
+                var sec = document.getElementById('regSelfieSection');
+                if (sec) sec.style.display = 'none';
             }
         });
     }
@@ -433,8 +458,38 @@
                 buttons.forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 document.getElementById('regRole').value = this.dataset.role;
+                // Show selfie section only for talent
+                var selfieSection = document.getElementById('regSelfieSection');
+                if (selfieSection) selfieSection.style.display = this.dataset.role === 'talent' ? '' : 'none';
             });
         });
+
+        // Wire selfie input buttons
+        var regBtnSelfie = document.getElementById('regBtnSelfie');
+        var regSelfieInput = document.getElementById('regSelfieInput');
+        var regRemoveSelfie = document.getElementById('regRemoveSelfie');
+        if (regBtnSelfie) regBtnSelfie.addEventListener('click', function () { regSelfieInput.click(); });
+        if (regSelfieInput) {
+            regSelfieInput.addEventListener('change', function () {
+                var file = this.files[0];
+                if (!file) return;
+                var reader = new FileReader();
+                reader.onload = function () {
+                    document.getElementById('regSelfieImg').src = reader.result;
+                    document.getElementById('regSelfiePreview').style.display = '';
+                    document.getElementById('regBtnSelfie').style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+                this.value = '';
+            });
+        }
+        if (regRemoveSelfie) {
+            regRemoveSelfie.addEventListener('click', function () {
+                document.getElementById('regSelfieImg').src = '';
+                document.getElementById('regSelfiePreview').style.display = 'none';
+                document.getElementById('regBtnSelfie').style.display = '';
+            });
+        }
     }
 
     // ── Toggle Password Visibility ──
@@ -601,6 +656,14 @@
     // ── Skills Storage ──
     const STORAGE_SKILLS = 'js_skills';
     const STORAGE_PHOTOS = 'js_skill_photos'; // Photos stored separately (not sent to Sheet)
+    const STORAGE_PROFILE_PHOTOS = 'js_profile_photos'; // Talent selfie / profile photos
+
+    function getProfilePhoto(userId) {
+        try { var p = JSON.parse(localStorage.getItem(STORAGE_PROFILE_PHOTOS)) || {}; return p[userId] || ''; } catch { return ''; }
+    }
+    function saveProfilePhoto(userId, dataUrl) {
+        try { var p = JSON.parse(localStorage.getItem(STORAGE_PROFILE_PHOTOS)) || {}; p[userId] = dataUrl; localStorage.setItem(STORAGE_PROFILE_PHOTOS, JSON.stringify(p)); } catch {}
+    }
 
     // Skill definitions
     const SKILL_DEFS = [
@@ -1458,15 +1521,21 @@
             var desc = t.skill.description || '';
             var addr = t.user.address || '';
             var photo = t.photo;
+            var profilePhoto = getProfilePhoto(t.user.id);
 
             var imgHtml = photo
                 ? '<img src="' + photo + '" alt="' + escapeHtml(serviceType) + '">'
                 : '<div class="stc-img-placeholder">🧹</div>';
 
+            var talentAvatarHtml = profilePhoto
+                ? '<div class="stc-talent-badge"><img src="' + profilePhoto + '" alt="' + escapeHtml(t.user.name) + '"><span class="stc-verified-dot">✓</span></div>'
+                : '';
+
             return '<div class="stc" data-idx="' + idx + '">'
                 + '<div class="stc-img">'
                 + imgHtml
                 + (distText ? '<span class="stc-dist-badge">📍 ' + distText + '</span>' : '')
+                + talentAvatarHtml
                 + '</div>'
                 + '<div class="stc-body">'
                 + '<div class="stc-name">' + escapeHtml(t.user.name) + '</div>'
@@ -1499,6 +1568,7 @@
         if (titleEl) titleEl.textContent = t.user.name;
 
         var photo = t.photo;
+        var profilePhoto = getProfilePhoto(t.user.id);
         var heroHtml = photo
             ? '<img src="' + photo + '" alt="">'
             : '<div class="tdp-hero-placeholder">🧹</div>';
@@ -1512,6 +1582,10 @@
         var desc = t.skill.description || 'Tidak ada deskripsi.';
         var addr = t.user.address || 'Lokasi tidak tersedia';
         var initial = (t.user.name || 'T').charAt(0).toUpperCase();
+
+        var talentAvatarHtml = profilePhoto
+            ? '<div class="tdp-talent-avatar has-photo"><img src="' + profilePhoto + '" alt="' + escapeHtml(t.user.name) + '"><span class="tdp-verified-badge">✓ Terverifikasi</span></div>'
+            : '<div class="tdp-talent-avatar">' + initial + '</div>';
 
         content.innerHTML = ''
             + '<div class="tdp-hero">' + heroHtml + '</div>'
@@ -1535,7 +1609,7 @@
             + '<div class="tdp-section">'
             + '<div class="tdp-section-title">Tentang Talent</div>'
             + '<div class="tdp-talent-card">'
-            + '<div class="tdp-talent-avatar">' + initial + '</div>'
+            + talentAvatarHtml
             + '<div class="tdp-talent-info">'
             + '<div class="tdp-talent-name">' + escapeHtml(t.user.name) + '</div>'
             + '<div class="tdp-talent-addr">📍 ' + escapeHtml(addr) + '</div>'
@@ -2153,6 +2227,77 @@
                 showToast('Gagal mengirim rating', 'error');
             }
         });
+    }
+
+    // ══════════════════════════════════════════
+    // ═══ SETTINGS / AKUN PAGE ═══
+    // ══════════════════════════════════════════
+    function openSettingsPage() {
+        var page = document.getElementById('settingsPage');
+        if (!page) return;
+        var session = getSession();
+        if (!session) return;
+
+        var ROLE_LABELS = { user: 'Pengguna', talent: 'Talent', penjual: 'Penjual', cs: 'CS', owner: 'Owner' };
+        var roleLabel = ROLE_LABELS[session.role] || session.role;
+
+        document.getElementById('settingsProfileName').textContent = session.name || '-';
+        document.getElementById('settingsInfoName').textContent = session.name || '-';
+        document.getElementById('settingsInfoUsername').textContent = session.username || '-';
+        document.getElementById('settingsInfoPhone').textContent = session.phone || '-';
+        document.getElementById('settingsInfoRole').textContent = roleLabel;
+
+        var badge = document.getElementById('settingsRoleBadge');
+        if (badge) { badge.textContent = roleLabel; badge.className = 'settings-role-badge role-' + session.role; }
+
+        // Profile photo
+        var photo = getProfilePhoto(session.id);
+        var avatarImg = document.getElementById('settingsAvatarImg');
+        var avatarIcon = document.getElementById('settingsAvatarIcon');
+        if (photo) {
+            avatarImg.src = photo; avatarImg.style.display = 'block'; avatarIcon.style.display = 'none';
+        } else {
+            avatarImg.style.display = 'none'; avatarIcon.style.display = '';
+        }
+
+        // Show photo change only for talent
+        document.getElementById('settingsPhotoChangeBtn').style.display = session.role === 'talent' ? '' : 'none';
+
+        page.classList.remove('hidden');
+
+        if (!page._eventsSetup) {
+            page._eventsSetup = true;
+
+            document.getElementById('settingsBtnBack').addEventListener('click', function () {
+                page.classList.add('hidden');
+            });
+
+            document.getElementById('settingsBtnLogout').addEventListener('click', function () {
+                page.classList.add('hidden');
+                handleLogout();
+            });
+
+            document.getElementById('settingsBtnChangePhoto').addEventListener('click', function () {
+                document.getElementById('settingsPhotoInput').click();
+            });
+
+            document.getElementById('settingsPhotoInput').addEventListener('change', function () {
+                var file = this.files[0];
+                if (!file) return;
+                var reader = new FileReader();
+                reader.onload = function () {
+                    compressThumbnail(reader.result, function (thumb) {
+                        var s = getSession();
+                        if (!s) return;
+                        saveProfilePhoto(s.id, thumb);
+                        avatarImg.src = thumb; avatarImg.style.display = 'block'; avatarIcon.style.display = 'none';
+                        showToast('Foto profil berhasil diperbarui! 📸', 'success');
+                    });
+                };
+                reader.readAsDataURL(file);
+                this.value = '';
+            });
+        }
     }
 
     // ══════════════════════════════════════════
@@ -3790,7 +3935,7 @@
                     } else if (page === 'home') {
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                     } else if (page === 'akun' || page === 'profil' || page === 'settings') {
-                        if (confirm('Keluar dari akun?')) handleLogout();
+                        openSettingsPage();
                     } else if (page === 'users') {
                         // Owner/CS: scroll to user list
                         var userListSec = document.getElementById('ownerUserList') || document.getElementById('csUserList');
