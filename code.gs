@@ -24,6 +24,9 @@
 // Nama sheet untuk data akun
 var SHEET_NAME = 'Users';
 var SKILLS_SHEET_NAME = 'Skills';
+var SETTINGS_SHEET_NAME = 'Settings';
+var STORES_SHEET_NAME = 'Stores';
+var PRODUCTS_SHEET_NAME = 'Products';
 
 /**
  * Mendapatkan atau membuat sheet Users
@@ -346,6 +349,236 @@ function getTalentRating(talentId) {
   return count > 0 ? { avg: Math.round(total / count * 10) / 10, count: count } : { avg: 0, count: 0 };
 }
 
+// ========== SETTINGS SHEET ==========
+function getSettingsSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SETTINGS_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SETTINGS_SHEET_NAME);
+    sheet.appendRow(['key', 'value']);
+    // Default commission settings
+    var defaults = [
+      ['platform_fee', '2000'],
+      ['delivery_fee_per_km', '3000'],
+      ['service_fee_percent', '10'],
+      ['commission_talent_percent', '15'],
+      ['commission_penjual_percent', '10'],
+      ['minimum_fee', '5000']
+    ];
+    for (var i = 0; i < defaults.length; i++) {
+      sheet.appendRow(defaults[i]);
+    }
+  }
+  return sheet;
+}
+
+function getSettings() {
+  var sheet = getSettingsSheet();
+  var data = sheet.getDataRange().getValues();
+  var settings = {};
+  for (var i = 1; i < data.length; i++) {
+    settings[String(data[i][0])] = String(data[i][1]);
+  }
+  return settings;
+}
+
+function updateSetting(key, value) {
+  var sheet = getSettingsSheet();
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(key)) {
+      sheet.getRange(i + 1, 2).setValue(value);
+      return true;
+    }
+  }
+  // Key doesn't exist, add new row
+  sheet.appendRow([key, value]);
+  return true;
+}
+
+function updateMultipleSettings(settingsObj) {
+  for (var key in settingsObj) {
+    updateSetting(key, settingsObj[key]);
+  }
+  return true;
+}
+
+// ========== STORES SHEET ==========
+function getStoresSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(STORES_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(STORES_SHEET_NAME);
+    sheet.appendRow(['id','userId','name','category','description','address','lat','lng','photo','isOpen','createdAt']);
+  }
+  return sheet;
+}
+
+function getAllStores() {
+  var sheet = getStoresSheet();
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+  var headers = data[0];
+  var stores = [];
+  for (var i = 1; i < data.length; i++) {
+    var s = {};
+    for (var j = 0; j < headers.length; j++) s[headers[j]] = data[i][j];
+    s.id = String(s.id || '');
+    s.userId = String(s.userId || '');
+    s.name = String(s.name || '');
+    s.category = String(s.category || '');
+    s.description = String(s.description || '');
+    s.address = String(s.address || '');
+    s.lat = Number(s.lat) || 0;
+    s.lng = Number(s.lng) || 0;
+    s.photo = String(s.photo || '');
+    s.isOpen = String(s.isOpen) === 'true' || s.isOpen === true;
+    s.createdAt = Number(s.createdAt) || 0;
+    stores.push(s);
+  }
+  return stores;
+}
+
+function getStoresByUser(userId) {
+  return getAllStores().filter(function(s) { return s.userId === String(userId); });
+}
+
+function getStoreById(storeId) {
+  var stores = getAllStores();
+  for (var i = 0; i < stores.length; i++) {
+    if (stores[i].id === String(storeId)) return stores[i];
+  }
+  return null;
+}
+
+function createStore(s) {
+  var sheet = getStoresSheet();
+  sheet.appendRow([s.id||'', s.userId||'', s.name||'', s.category||'', s.description||'', s.address||'', s.lat||0, s.lng||0, s.photo||'', s.isOpen !== undefined ? s.isOpen : true, s.createdAt||Date.now()]);
+}
+
+function updateStoreFields(storeId, fields) {
+  var sheet = getStoresSheet();
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(storeId)) {
+      for (var key in fields) {
+        var col = headers.indexOf(key);
+        if (col >= 0) sheet.getRange(i + 1, col + 1).setValue(fields[key]);
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+// ========== PRODUCTS SHEET ==========
+function getProductsSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(PRODUCTS_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(PRODUCTS_SHEET_NAME);
+    sheet.appendRow(['id','storeId','name','category','description','price','stock','photo','isActive','createdAt']);
+  }
+  return sheet;
+}
+
+function getAllProducts() {
+  var sheet = getProductsSheet();
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+  var headers = data[0];
+  var products = [];
+  for (var i = 1; i < data.length; i++) {
+    var p = {};
+    for (var j = 0; j < headers.length; j++) p[headers[j]] = data[i][j];
+    p.id = String(p.id || '');
+    p.storeId = String(p.storeId || '');
+    p.name = String(p.name || '');
+    p.category = String(p.category || '');
+    p.description = String(p.description || '');
+    p.price = Number(p.price) || 0;
+    p.stock = Number(p.stock) || 0;
+    p.photo = String(p.photo || '');
+    p.isActive = String(p.isActive) === 'true' || p.isActive === true;
+    p.createdAt = Number(p.createdAt) || 0;
+    products.push(p);
+  }
+  return products;
+}
+
+function getProductsByStore(storeId) {
+  return getAllProducts().filter(function(p) { return p.storeId === String(storeId); });
+}
+
+function createProduct(p) {
+  var sheet = getProductsSheet();
+  sheet.appendRow([p.id||'', p.storeId||'', p.name||'', p.category||'', p.description||'', p.price||0, p.stock||0, p.photo||'', p.isActive !== undefined ? p.isActive : true, p.createdAt||Date.now()]);
+}
+
+function updateProductFields(productId, fields) {
+  var sheet = getProductsSheet();
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(productId)) {
+      for (var key in fields) {
+        var col = headers.indexOf(key);
+        if (col >= 0) sheet.getRange(i + 1, col + 1).setValue(fields[key]);
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+function deleteProduct(productId) {
+  var sheet = getProductsSheet();
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(productId)) {
+      sheet.deleteRow(i + 1);
+      return true;
+    }
+  }
+  return false;
+}
+
+// ========== COMMISSION CALCULATOR ==========
+function calculateCommission(orderType, price, distanceKm) {
+  var settings = getSettings();
+  var platformFee = Number(settings.platform_fee) || 2000;
+  var deliveryPerKm = Number(settings.delivery_fee_per_km) || 3000;
+  var servicePercent = Number(settings.service_fee_percent) || 10;
+  var commTalent = Number(settings.commission_talent_percent) || 15;
+  var commPenjual = Number(settings.commission_penjual_percent) || 10;
+  var minFee = Number(settings.minimum_fee) || 5000;
+
+  var deliveryFee = Math.round(deliveryPerKm * (distanceKm || 0));
+  var serviceFee = Math.round(price * servicePercent / 100);
+  var totalFee = Math.max(platformFee + serviceFee, minFee);
+
+  var result = {
+    price: price,
+    platformFee: platformFee,
+    deliveryFee: deliveryFee,
+    serviceFee: serviceFee,
+    totalFee: totalFee,
+    totalPrice: price + totalFee + deliveryFee
+  };
+
+  if (orderType === 'product') {
+    result.penjualEarning = Math.round(price * (100 - commPenjual) / 100);
+    result.talentEarning = Math.round(deliveryFee * (100 - commTalent) / 100);
+    result.ownerEarning = price - result.penjualEarning + deliveryFee - result.talentEarning + platformFee + serviceFee;
+  } else {
+    result.talentEarning = Math.round(price * (100 - commTalent) / 100);
+    result.ownerEarning = price - result.talentEarning + platformFee + serviceFee;
+  }
+
+  return result;
+}
+
 /**
  * Handle GET requests — ambil semua users
  */
@@ -371,6 +604,26 @@ function doGet(e) {
   } else if (action === 'getTalentRating') {
     var tid = e.parameter.talentId || '';
     result = tid ? { success: true, data: getTalentRating(tid) } : { success: false, message: 'talentId tidak ditemukan' };
+  } else if (action === 'getSettings') {
+    result = { success: true, data: getSettings() };
+  } else if (action === 'getAllStores') {
+    result = { success: true, data: getAllStores() };
+  } else if (action === 'getStoresByUser') {
+    var suid = e.parameter.userId || '';
+    result = suid ? { success: true, data: getStoresByUser(suid) } : { success: false, message: 'userId tidak ditemukan' };
+  } else if (action === 'getStoreById') {
+    var sid = e.parameter.storeId || '';
+    result = sid ? { success: true, data: getStoreById(sid) } : { success: false, message: 'storeId tidak ditemukan' };
+  } else if (action === 'getAllProducts') {
+    result = { success: true, data: getAllProducts() };
+  } else if (action === 'getProductsByStore') {
+    var psid = e.parameter.storeId || '';
+    result = psid ? { success: true, data: getProductsByStore(psid) } : { success: false, message: 'storeId tidak ditemukan' };
+  } else if (action === 'calculateCommission') {
+    var cType = e.parameter.orderType || 'service';
+    var cPrice = Number(e.parameter.price) || 0;
+    var cDist = Number(e.parameter.distance) || 0;
+    result = { success: true, data: calculateCommission(cType, cPrice, cDist) };
   } else if (action === 'login') {
     var username = e.parameter.username || '';
     var password = e.parameter.password || '';
@@ -518,6 +771,78 @@ function doPost(e) {
         updateOrderFields(tlOid, { talentLat: tlat, talentLng: tlng });
         result = { success: true };
       } else { result = { success: false, message: 'orderId tidak ditemukan' }; }
+
+    } else if (action === 'updateSettings') {
+      var settingsData = body.settings || {};
+      updateMultipleSettings(settingsData);
+      result = { success: true, message: 'Settings berhasil diupdate' };
+
+    } else if (action === 'createStore') {
+      var storeData = {
+        id: body.id || (Date.now().toString(36) + Math.random().toString(36).substr(2,8)),
+        userId: body.userId || '',
+        name: body.name || '',
+        category: body.category || '',
+        description: body.description || '',
+        address: body.address || '',
+        lat: body.lat || 0,
+        lng: body.lng || 0,
+        photo: body.photo || '',
+        isOpen: body.isOpen !== undefined ? body.isOpen : true,
+        createdAt: Date.now()
+      };
+      if (!storeData.name || !storeData.userId) {
+        result = { success: false, message: 'Nama toko dan userId wajib diisi' };
+      } else {
+        createStore(storeData);
+        result = { success: true, data: storeData, message: 'Toko berhasil dibuat' };
+      }
+
+    } else if (action === 'updateStore') {
+      var usId = body.storeId || '';
+      var usFields = body.fields || {};
+      if (!usId) { result = { success: false, message: 'storeId tidak ditemukan' }; }
+      else {
+        updateStoreFields(usId, usFields);
+        result = { success: true, message: 'Toko diupdate' };
+      }
+
+    } else if (action === 'createProduct') {
+      var prodData = {
+        id: body.id || (Date.now().toString(36) + Math.random().toString(36).substr(2,8)),
+        storeId: body.storeId || '',
+        name: body.name || '',
+        category: body.category || '',
+        description: body.description || '',
+        price: body.price || 0,
+        stock: body.stock || 0,
+        photo: body.photo || '',
+        isActive: body.isActive !== undefined ? body.isActive : true,
+        createdAt: Date.now()
+      };
+      if (!prodData.name || !prodData.storeId) {
+        result = { success: false, message: 'Nama produk dan storeId wajib diisi' };
+      } else {
+        createProduct(prodData);
+        result = { success: true, data: prodData, message: 'Produk berhasil ditambahkan' };
+      }
+
+    } else if (action === 'updateProduct') {
+      var upId = body.productId || '';
+      var upFields = body.fields || {};
+      if (!upId) { result = { success: false, message: 'productId tidak ditemukan' }; }
+      else {
+        updateProductFields(upId, upFields);
+        result = { success: true, message: 'Produk diupdate' };
+      }
+
+    } else if (action === 'deleteProduct') {
+      var dpId = body.productId || '';
+      if (!dpId) { result = { success: false, message: 'productId tidak ditemukan' }; }
+      else {
+        var deleted = deleteProduct(dpId);
+        result = deleted ? { success: true, message: 'Produk dihapus' } : { success: false, message: 'Produk tidak ditemukan' };
+      }
 
     } else {
       result = { success: false, message: 'Action tidak dikenal' };

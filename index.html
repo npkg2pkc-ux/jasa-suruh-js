@@ -85,6 +85,11 @@
                             <span class="role-label">Talent</span>
                             <span class="role-desc">Tawarkan keahlian</span>
                         </button>
+                        <button type="button" class="role-btn" data-role="penjual">
+                            <span class="role-icon">🏪</span>
+                            <span class="role-label">Penjual</span>
+                            <span class="role-desc">Jual produk & makanan</span>
+                        </button>
                     </div>
                     <div class="form-group">
                         <label>Nama Lengkap</label>
@@ -275,23 +280,29 @@
             </header>
             <main class="main-content">
                 <section class="cs-stats">
-                    <div class="stat-card"><div class="stat-icon-circle blue-bg">🎫</div><div class="stat-info"><span class="stat-value">0</span><span class="stat-label">Tiket Aktif</span></div></div>
-                    <div class="stat-card"><div class="stat-icon-circle green-bg">✅</div><div class="stat-info"><span class="stat-value">0</span><span class="stat-label">Selesai Hari Ini</span></div></div>
-                    <div class="stat-card"><div class="stat-icon-circle yellow-bg">⏳</div><div class="stat-info"><span class="stat-value">0</span><span class="stat-label">Menunggu</span></div></div>
+                    <div class="stat-card"><div class="stat-icon-circle blue-bg">📦</div><div class="stat-info"><span class="stat-value" id="csStatActive">0</span><span class="stat-label">Aktif</span></div></div>
+                    <div class="stat-card"><div class="stat-icon-circle green-bg">✅</div><div class="stat-info"><span class="stat-value" id="csStatCompleted">0</span><span class="stat-label">Selesai</span></div></div>
+                    <div class="stat-card"><div class="stat-icon-circle yellow-bg">⏳</div><div class="stat-info"><span class="stat-value" id="csStatPending">0</span><span class="stat-label">Menunggu</span></div></div>
                 </section>
                 <section class="content-section">
-                    <div class="section-header"><h2>Tiket Terbaru</h2><a href="#" class="see-all">Semua</a></div>
-                    <div class="empty-state"><div class="empty-icon">🎫</div><h3>Tidak Ada Tiket</h3><p>Semua tiket sudah ditangani. Kerja bagus!</p></div>
+                    <div class="section-header"><h2>Semua Pesanan</h2><button class="btn-refresh" id="csRefreshOrders">↻</button></div>
+                    <div class="olp-tabs" id="csOrderTabs">
+                        <button class="olp-tab active" data-filter="active">Aktif</button>
+                        <button class="olp-tab" data-filter="pending">Menunggu</button>
+                        <button class="olp-tab" data-filter="completed">Selesai</button>
+                        <button class="olp-tab" data-filter="all">Semua</button>
+                    </div>
+                    <div id="csOrdersList"></div>
                 </section>
                 <section class="content-section">
-                    <div class="section-header"><h2>Laporan User</h2></div>
-                    <div class="empty-state"><div class="empty-icon">📝</div><h3>Tidak Ada Laporan</h3><p>Tidak ada laporan baru saat ini.</p></div>
+                    <div class="section-header"><h2>Semua Pengguna</h2><button class="btn-refresh" id="csRefreshUsers">↻</button></div>
+                    <div id="csUserList" class="user-list"></div>
                 </section>
                 <div class="bottom-spacer"></div>
             </main>
             <nav class="bottom-nav">
                 <button class="nav-item active" data-page="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Dashboard</span></button>
-                <button class="nav-item" data-page="tickets"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tiket</span></button>
+                <button class="nav-item" data-page="tickets"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Pesanan</span></button>
                 <button class="nav-item" data-page="users"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Users</span></button>
                 <button class="nav-item" data-page="chat"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Chat</span></button>
                 <button class="nav-item" data-page="profil"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Profil</span></button>
@@ -318,9 +329,33 @@
                         <div class="stat-row">
                             <div class="stat-mini"><span class="stat-mini-value" id="ownerTotalUsers">0</span><span class="stat-mini-label">Users</span></div>
                             <div class="stat-mini"><span class="stat-mini-value" id="ownerTotalTalents">0</span><span class="stat-mini-label">Talents</span></div>
+                            <div class="stat-mini"><span class="stat-mini-value" id="ownerTotalPenjual">0</span><span class="stat-mini-label">Penjual</span></div>
                             <div class="stat-mini"><span class="stat-mini-value" id="ownerTotalCS">0</span><span class="stat-mini-label">CS</span></div>
                             <div class="stat-mini"><span class="stat-mini-value" id="ownerTotalOrders">0</span><span class="stat-mini-label">Orders</span></div>
                         </div>
+                    </div>
+                </section>
+                <section class="content-section">
+                    <div class="section-header"><h2>💰 Pendapatan Platform</h2></div>
+                    <div class="stat-card-wide">
+                        <div class="stat-row">
+                            <div class="stat-mini"><span class="stat-mini-value" id="ownerRevenue">Rp 0</span><span class="stat-mini-label">Total Revenue</span></div>
+                            <div class="stat-mini"><span class="stat-mini-value" id="ownerTodayRevenue">Rp 0</span><span class="stat-mini-label">Hari Ini</span></div>
+                        </div>
+                    </div>
+                </section>
+                <section class="content-section">
+                    <div class="section-header"><h2>⚙️ Pengaturan Komisi</h2></div>
+                    <div class="card-form" id="commissionSettingsCard">
+                        <form id="commissionForm">
+                            <div class="form-group"><label>Biaya Platform (Rp)</label><div class="input-wrap"><input type="number" id="setPlatformFee" placeholder="2000" min="0"></div></div>
+                            <div class="form-group"><label>Ongkir per KM (Rp)</label><div class="input-wrap"><input type="number" id="setDeliveryFeePerKm" placeholder="3000" min="0"></div></div>
+                            <div class="form-group"><label>Biaya Layanan (%)</label><div class="input-wrap"><input type="number" id="setServiceFeePercent" placeholder="10" min="0" max="100"></div></div>
+                            <div class="form-group"><label>Komisi Talent (%)</label><div class="input-wrap"><input type="number" id="setCommTalent" placeholder="15" min="0" max="100"></div></div>
+                            <div class="form-group"><label>Komisi Penjual (%)</label><div class="input-wrap"><input type="number" id="setCommPenjual" placeholder="10" min="0" max="100"></div></div>
+                            <div class="form-group"><label>Minimum Fee (Rp)</label><div class="input-wrap"><input type="number" id="setMinFee" placeholder="5000" min="0"></div></div>
+                            <button type="submit" class="btn-primary">💾 Simpan Pengaturan</button>
+                        </form>
                     </div>
                 </section>
                 <section class="content-section">
@@ -335,6 +370,9 @@
                     </div>
                 </section>
                 <section class="content-section">
+                    <div class="section-header"><h2>📊 Semua Transaksi</h2><button class="btn-refresh" id="ownerBtnTransactions">📋</button></div>
+                </section>
+                <section class="content-section">
                     <div class="section-header"><h2>Semua Pengguna</h2><button class="btn-refresh" onclick="renderOwnerUsers()">↻</button></div>
                     <div id="ownerUserList" class="user-list"></div>
                 </section>
@@ -346,6 +384,75 @@
                 <button class="nav-item" data-page="reports"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Laporan</span></button>
                 <button class="nav-item" data-page="cs-manage"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12c0 1.6.376 3.112 1.043 4.453L2 22l5.547-1.043A9.96 9.96 0 0 0 12 22z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>CS</span></button>
                 <button class="nav-item" data-page="settings"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Setting</span></button>
+            </nav>
+        </div>
+
+        <!-- ==================== PENJUAL DASHBOARD ==================== -->
+        <div id="page-penjual" class="page hidden">
+            <header class="header header-penjual">
+                <div class="header-top">
+                    <div class="greeting-text">
+                        <span class="greeting-hi">Halo, <span id="penjualName">Penjual</span>! 🏪</span>
+                        <span class="greeting-question">Kelola toko Anda</span>
+                        <span class="greeting-address" id="penjualAddress"></span>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn-icon" id="penjualNotifBtn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="badge" id="penjualHeaderBadge" style="display:none">0</span></button>
+                        <div class="avatar" style="background:linear-gradient(135deg,#22C55E,#16A34A)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                    </div>
+                </div>
+                <div class="talent-status-bar">
+                    <span class="status-label" id="penjualStoreStatus">Toko Tutup</span>
+                    <label class="switch"><input type="checkbox" id="penjualStoreToggle"><span class="slider-toggle"></span></label>
+                </div>
+            </header>
+            <main class="main-content">
+                <section class="talent-stats">
+                    <div class="stat-card"><div class="stat-icon-circle orange-bg">📦</div><div class="stat-info"><span class="stat-value" id="penjualStatOrders">0</span><span class="stat-label">Pesanan Hari Ini</span></div></div>
+                    <div class="stat-card"><div class="stat-icon-circle green-bg">💰</div><div class="stat-info"><span class="stat-value" id="penjualStatEarning">Rp 0</span><span class="stat-label">Pendapatan</span></div></div>
+                    <div class="stat-card"><div class="stat-icon-circle yellow-bg">🛍️</div><div class="stat-info"><span class="stat-value" id="penjualStatProducts">0</span><span class="stat-label">Produk</span></div></div>
+                </section>
+                <!-- Store Setup Section - shown if no store yet -->
+                <section class="content-section" id="penjualStoreSetup">
+                    <div class="section-header"><h2>🏪 Toko Saya</h2></div>
+                    <div class="card-form" id="storeSetupCard">
+                        <form id="storeForm">
+                            <div class="form-group"><label>Nama Toko</label><div class="input-wrap"><input type="text" id="storeFormName" placeholder="Nama toko Anda" required></div></div>
+                            <div class="form-group">
+                                <label>Kategori Toko</label>
+                                <div class="input-wrap">
+                                    <select id="storeFormCategory" style="background:none;border:none;outline:none;font-family:var(--font);font-size:14px;color:var(--black);width:100%;">
+                                        <option value="food">🍔 Makanan & Minuman</option>
+                                        <option value="shop">🛒 Toko / Retail</option>
+                                        <option value="medicine">💊 Apotek / Obat</option>
+                                        <option value="other">📦 Lainnya</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group"><label>Deskripsi</label><textarea id="storeFormDesc" class="form-textarea" rows="2" placeholder="Deskripsi toko Anda..."></textarea></div>
+                            <div class="form-group"><label>Alamat</label><div class="input-wrap"><input type="text" id="storeFormAddr" placeholder="Alamat toko (otomatis dari GPS)" readonly></div></div>
+                            <button type="submit" class="btn-primary">💾 Simpan Toko</button>
+                        </form>
+                    </div>
+                </section>
+                <!-- Products Section -->
+                <section class="content-section" id="penjualProductsSection">
+                    <div class="section-header"><h2>📦 Produk Saya</h2><button type="button" class="btn-primary" id="btnAddProduct" style="width:auto;padding:8px 18px;margin:0;font-size:13px;">+ Tambah</button></div>
+                    <div id="penjualProductList" class="skills-grid"></div>
+                </section>
+                <!-- Incoming Orders -->
+                <section class="content-section">
+                    <div class="section-header"><h2>Pesanan Masuk <span class="section-badge" id="penjualPendingBadge"></span></h2></div>
+                    <div id="penjualIncomingOrders"><div class="empty-state"><div class="empty-icon">📭</div><h3>Belum Ada Pesanan</h3><p>Pesanan produk dari pelanggan akan muncul di sini.</p></div></div>
+                </section>
+                <div class="bottom-spacer"></div>
+            </main>
+            <nav class="bottom-nav">
+                <button class="nav-item active" data-page="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Home</span></button>
+                <button class="nav-item" data-page="pesanan"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Pesanan</span></button>
+                <button class="nav-item" data-page="products"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Produk</span></button>
+                <button class="nav-item" data-page="earning"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8M12 5v2m0 10v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Pendapatan</span></button>
+                <button class="nav-item" data-page="akun"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Akun</span></button>
             </nav>
         </div>
 
@@ -528,6 +635,87 @@
             <div class="stp-header-info"><h2>Semua Transaksi</h2></div>
         </header>
         <div class="stp-list" id="atpList"></div>
+    </div>
+
+    <!-- ===== STORE LISTING PAGE (for users) ===== -->
+    <div id="storeListPage" class="stp-page hidden">
+        <header class="stp-header">
+            <button class="stp-back" id="slpBtnBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div class="stp-header-info"><h2 id="slpTitle">Toko & Produk</h2><span id="slpSubtitle" class="stp-subtitle">Pesan makanan, belanja, dan lainnya</span></div>
+        </header>
+        <div class="stp-search">
+            <div class="stp-search-bar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                <input type="text" id="slpSearchInput" placeholder="Cari toko atau produk..." autocomplete="off">
+            </div>
+            <div class="stp-sort-row">
+                <button class="stp-sort-btn active" data-cat="all">Semua</button>
+                <button class="stp-sort-btn" data-cat="food">🍔 Makanan</button>
+                <button class="stp-sort-btn" data-cat="shop">🛒 Belanja</button>
+                <button class="stp-sort-btn" data-cat="medicine">💊 Obat</button>
+            </div>
+        </div>
+        <div class="stp-count" id="slpCount"></div>
+        <div class="stp-list" id="slpList"></div>
+    </div>
+
+    <!-- ===== STORE DETAIL PAGE (products view) ===== -->
+    <div id="storeDetailPage" class="stp-page hidden">
+        <header class="stp-header">
+            <button class="stp-back" id="sdpBtnBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div class="stp-header-info"><h2 id="sdpTitle">Detail Toko</h2><span id="sdpSubtitle" class="stp-subtitle"></span></div>
+        </header>
+        <div class="stp-list" id="sdpProductList" style="padding-top:12px;"></div>
+        <div class="tdp-footer" id="sdpFooter" style="display:none;">
+            <button class="tdp-btn-order" id="sdpBtnOrder">🛒 Pesan Sekarang</button>
+        </div>
+    </div>
+
+    <!-- ===== ADD PRODUCT MODAL ===== -->
+    <div id="addProductModal" class="modal-overlay hidden">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 id="addProductTitle">Tambah Produk</h3>
+                <button type="button" class="btn-close-modal" id="btnCloseProductModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addProductForm">
+                    <input type="hidden" id="editProductId" value="">
+                    <div class="form-group"><label>Nama Produk</label><div class="input-wrap"><input type="text" id="prodFormName" placeholder="cth: Nasi Goreng Spesial" required></div></div>
+                    <div class="form-group">
+                        <label>Kategori</label>
+                        <div class="input-wrap">
+                            <select id="prodFormCategory" style="background:none;border:none;outline:none;font-family:var(--font);font-size:14px;color:var(--black);width:100%;">
+                                <option value="food">🍔 Makanan</option>
+                                <option value="drink">🥤 Minuman</option>
+                                <option value="snack">🍟 Snack</option>
+                                <option value="grocery">🛒 Groceries</option>
+                                <option value="medicine">💊 Obat</option>
+                                <option value="other">📦 Lainnya</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group"><label>Deskripsi</label><textarea id="prodFormDesc" class="form-textarea" rows="2" placeholder="Deskripsi produk..."></textarea></div>
+                    <div class="form-group"><label>Harga (Rp)</label><div class="input-wrap"><input type="number" id="prodFormPrice" placeholder="25000" min="500" required></div></div>
+                    <div class="form-group"><label>Stok</label><div class="input-wrap"><input type="number" id="prodFormStock" placeholder="100" min="0" required></div></div>
+                    <div class="form-group">
+                        <label>Foto Produk</label>
+                        <div class="photo-upload-area" id="prodPhotoArea">
+                            <input type="file" id="prodPhoto" accept="image/*" capture="environment" style="display:none">
+                            <div class="photo-preview" id="prodPhotoPreview" style="display:none">
+                                <img id="prodPhotoImg" src="" alt="Preview">
+                                <button type="button" class="btn-remove-photo" id="prodRemovePhoto">&times;</button>
+                            </div>
+                            <button type="button" class="btn-upload-photo" id="prodBtnUpload">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/></svg>
+                                <span>Ambil Foto / Pilih dari Galeri</span>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary">💾 Simpan Produk</button>
+                </form>
+            </div>
+        </div>
     </div>
 
     <!-- Notification popup for incoming orders -->

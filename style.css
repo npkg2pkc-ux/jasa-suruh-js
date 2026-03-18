@@ -218,7 +218,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .user-list-role { font-size:11px; font-weight:600; padding:2px 8px; border-radius:var(--r-full); display:inline-block; margin-top:2px; }
 .role-user { background:var(--orange-subtle); color:var(--orange); }
 .role-talent { background:#DBEAFE; color:var(--blue); }
-.role-cs { background:#DCFCE7; color:var(--green); }
+.role-cs { background:#EDE9FE; color:#7C3AED; }
 .role-owner-tag { background:#F3F4F6; color:var(--gray-700); }
 .btn-refresh { background:none; border:none; font-size:20px; cursor:pointer; color:var(--orange); padding:4px; transition:var(--tr); }
 .btn-refresh:active { transform:rotate(180deg); }
@@ -569,3 +569,23 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     .app { box-shadow:0 0 40px rgba(0,0,0,.08); }
     body { background:var(--gray-100); }
 }
+
+/* ========== PENJUAL ROLE ========== */
+.role-penjual { background:#DCFCE7; color:#16A34A; }
+.header-penjual { background:linear-gradient(135deg,#16A34A,#22C55E); }
+.header-penjual .header-greeting { color:rgba(255,255,255,.85); }
+.header-penjual .header-name { color:var(--white); }
+.header-penjual .header-location { color:rgba(255,255,255,.75); }
+.header-penjual .header-avatar { background:rgba(255,255,255,.25); color:var(--white); }
+.header-penjual .header-notif { background:rgba(255,255,255,.2); }
+.header-penjual .header-notif svg { stroke:var(--white); }
+.header-penjual .talent-status-bar { background:rgba(0,0,0,.15); }
+
+/* Store toggle switch */
+.store-toggle-wrap { display:flex; align-items:center; justify-content:space-between; padding:12px 0; }
+.store-toggle-label { font-size:14px; font-weight:600; color:var(--black); }
+.store-status-text { font-size:12px; color:var(--gray-500); margin-top:2px; }
+input[type="checkbox"].toggle-checkbox { appearance:none; -webkit-appearance:none; width:48px; height:26px; background:var(--gray-300); border-radius:var(--r-full); position:relative; cursor:pointer; transition:background .2s; flex-shrink:0; }
+input[type="checkbox"].toggle-checkbox:checked { background:var(--green); }
+input[type="checkbox"].toggle-checkbox::after { content:''; position:absolute; width:20px; height:20px; background:var(--white); border-radius:50%; top:3px; left:3px; transition:left .2s; box-shadow:0 1px 4px rgba(0,0,0,.2); }
+input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
