@@ -543,30 +543,61 @@
             });
         }
 
-        // Photo upload
+        // Photo upload with auto-compress to ~500KB
         const photoInput = document.getElementById('sfPhoto');
         const btnUpload = document.getElementById('sfBtnUpload');
         const photoPreview = document.getElementById('sfPhotoPreview');
         const photoImg = document.getElementById('sfPhotoImg');
         const removePhoto = document.getElementById('sfRemovePhoto');
 
+        function compressImage(file, maxSizeKB, callback) {
+            const maxBytes = maxSizeKB * 1024;
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = function () {
+                URL.revokeObjectURL(url);
+                const canvas = document.createElement('canvas');
+                let w = img.width, h = img.height;
+                // Scale down if very large
+                const maxDim = 1200;
+                if (w > maxDim || h > maxDim) {
+                    const ratio = Math.min(maxDim / w, maxDim / h);
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                }
+                canvas.width = w;
+                canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                // Try decreasing quality until under maxBytes
+                let quality = 0.9;
+                let result = canvas.toDataURL('image/jpeg', quality);
+                while (result.length > maxBytes * 1.37 && quality > 0.1) {
+                    quality -= 0.1;
+                    result = canvas.toDataURL('image/jpeg', quality);
+                }
+                // If still too big, scale down more
+                if (result.length > maxBytes * 1.37) {
+                    const scale = Math.sqrt((maxBytes * 1.37) / result.length);
+                    canvas.width = Math.round(w * scale);
+                    canvas.height = Math.round(h * scale);
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    result = canvas.toDataURL('image/jpeg', 0.7);
+                }
+                callback(result);
+            };
+            img.src = url;
+        }
+
         if (btnUpload && photoInput) {
             btnUpload.addEventListener('click', () => photoInput.click());
             photoInput.addEventListener('change', function () {
                 const file = this.files[0];
                 if (!file) return;
-                if (file.size > 500 * 1024) {
-                    showToast('Ukuran foto maksimal 500 KB!', 'error');
-                    this.value = '';
-                    return;
-                }
-                const reader = new FileReader();
-                reader.onload = function (ev) {
-                    photoImg.src = ev.target.result;
+                compressImage(file, 500, function (dataUrl) {
+                    photoImg.src = dataUrl;
                     photoPreview.style.display = 'block';
                     btnUpload.style.display = 'none';
-                };
-                reader.readAsDataURL(file);
+                });
             });
         }
         if (removePhoto) {
