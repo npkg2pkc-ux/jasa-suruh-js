@@ -4,6 +4,17 @@
    ======================================== */
 
 // ══════════════════════════════════════════
+// ═══ CS: NOTIFICATION BUTTON ═══
+// ══════════════════════════════════════════
+(function () {
+    var btn = document.getElementById('csNotifBtn');
+    if (btn && !btn._eventsSetup) {
+        btn._eventsSetup = true;
+        btn.addEventListener('click', function () { openNotifPopup(); });
+    }
+})();
+
+// ══════════════════════════════════════════
 // ═══ CS DASHBOARD ═══
 // ══════════════════════════════════════════
 function loadCSDashboard() {

@@ -4,6 +4,17 @@
    ======================================== */
 
 // ══════════════════════════════════════════
+// ═══ OWNER: NOTIFICATION BUTTON ═══
+// ══════════════════════════════════════════
+(function () {
+    var btn = document.getElementById('ownerNotifBtn');
+    if (btn && !btn._eventsSetup) {
+        btn._eventsSetup = true;
+        btn.addEventListener('click', function () { openNotifPopup(); });
+    }
+})();
+
+// ══════════════════════════════════════════
 // ═══ OWNER: CREATE CS ═══
 // ══════════════════════════════════════════
 function handleCreateCS(e) {

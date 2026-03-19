@@ -549,7 +549,7 @@ window.addNotifItem = addNotifItem;
 
 function updateNotifBadges() {
     var count = _notifItems.filter(function (n) { return n.unread; }).length;
-    ['userHeaderBadge', 'talentHeaderBadge', 'penjualHeaderBadge'].forEach(function (id) {
+    ['userHeaderBadge', 'talentHeaderBadge', 'penjualHeaderBadge', 'ownerHeaderBadge', 'csHeaderBadge'].forEach(function (id) {
         var badge = document.getElementById(id);
         if (badge) {
             if (count > 0) {

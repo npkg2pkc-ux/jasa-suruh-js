@@ -477,11 +477,13 @@ function updateRoleUI(user) {
         var el4 = document.getElementById('csName');
         if (el4) el4.textContent = user.name || 'CS';
         loadCSDashboard();
+        initNotifications();
     } else if (role === 'owner') {
         renderOwnerStats();
         renderOwnerUsers();
         loadOwnerCommissionSettings();
         loadOwnerRevenue();
+        initNotifications();
     }
 }
 
