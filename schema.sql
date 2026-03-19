@@ -94,44 +94,66 @@ CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(user_id, cre
 -- ============================================================
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_all_users" ON users;
 CREATE POLICY "anon_all_users" ON users FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE skills ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_all_skills" ON skills;
 CREATE POLICY "anon_all_skills" ON skills FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_all_orders" ON orders;
 CREATE POLICY "anon_all_orders" ON orders FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_all_messages" ON messages;
 CREATE POLICY "anon_all_messages" ON messages FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_all_settings" ON settings;
 CREATE POLICY "anon_all_settings" ON settings FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE stores ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_all_stores" ON stores;
 CREATE POLICY "anon_all_stores" ON stores FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_all_products" ON products;
 CREATE POLICY "anon_all_products" ON products FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_all_locations" ON locations;
 CREATE POLICY "anon_all_locations" ON locations FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE wallets ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_all_wallets" ON wallets;
 CREATE POLICY "anon_all_wallets" ON wallets FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_all_transactions" ON transactions;
 CREATE POLICY "anon_all_transactions" ON transactions FOR ALL TO anon USING (true) WITH CHECK (true);
 
 -- ============================================================
 -- Aktifkan Supabase Realtime untuk tabel yang butuh listener
 -- ============================================================
 
-ALTER PUBLICATION supabase_realtime ADD TABLE orders;
-ALTER PUBLICATION supabase_realtime ADD TABLE messages;
-ALTER PUBLICATION supabase_realtime ADD TABLE locations;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND tablename='orders') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE orders;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND tablename='messages') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND tablename='locations') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE locations;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND tablename='wallets') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE wallets;
+  END IF;
+END $$;
 
 -- Set REPLICA IDENTITY agar realtime bisa kirim data lengkap
 ALTER TABLE orders REPLICA IDENTITY FULL;
 ALTER TABLE messages REPLICA IDENTITY FULL;
 ALTER TABLE locations REPLICA IDENTITY FULL;
+ALTER TABLE wallets REPLICA IDENTITY FULL;
