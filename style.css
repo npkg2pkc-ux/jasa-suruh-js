@@ -240,6 +240,9 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .nav-center:active .nav-center-btn { transform:scale(.9); }
 .nav-center span { color:var(--orange); font-weight:700; }
 
+/* Chat badge on bottom nav */
+.chat-badge { position:absolute; top:-2px; right:2px; background:var(--orange); color:var(--white); font-size:9px; font-weight:700; min-width:16px; height:16px; padding:0 4px; border-radius:8px; display:flex; align-items:center; justify-content:center; border:2px solid var(--white); line-height:1; z-index:1; }
+
 /* ========== LOGOUT BUTTON ========== */
 .btn-logout { width:100%; padding:14px; background:var(--white); color:var(--red); border:1.5px solid var(--red); border-radius:var(--r-md); font-family:var(--font); font-size:14px; font-weight:600; cursor:pointer; transition:var(--tr); margin-top:16px; }
 .btn-logout:active { background:var(--red); color:var(--white); }

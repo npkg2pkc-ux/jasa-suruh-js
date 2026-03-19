@@ -5,6 +5,164 @@
    ======================================== */
 
 // ══════════════════════════════════════════
+// ═══ NOTIFICATION SOUNDS ═══
+// ══════════════════════════════════════════
+var _audioCtx = null;
+function _getAudioCtx() {
+    if (!_audioCtx) {
+        _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    return _audioCtx;
+}
+
+function playBellSound() {
+    try {
+        var ctx = _getAudioCtx();
+        // Bell-like tone: two sine oscillators with decay
+        var t = ctx.currentTime;
+        [880, 1175].forEach(function (freq, i) {
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.3, t + i * 0.15);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.15 + 0.6);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t + i * 0.15);
+            osc.stop(t + i * 0.15 + 0.7);
+        });
+        // Second ring
+        setTimeout(function () {
+            var t2 = ctx.currentTime;
+            [880, 1175].forEach(function (freq, i) {
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.25, t2 + i * 0.15);
+                gain.gain.exponentialRampToValueAtTime(0.001, t2 + i * 0.15 + 0.6);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(t2 + i * 0.15);
+                osc.stop(t2 + i * 0.15 + 0.7);
+            });
+        }, 400);
+    } catch (e) {}
+}
+window.playBellSound = playBellSound;
+
+function playMessageSound() {
+    try {
+        var ctx = _getAudioCtx();
+        var t = ctx.currentTime;
+        // Short two-tone "ding" for messages
+        var freqs = [660, 880];
+        freqs.forEach(function (freq, i) {
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.2, t + i * 0.12);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.12 + 0.3);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t + i * 0.12);
+            osc.stop(t + i * 0.12 + 0.35);
+        });
+    } catch (e) {}
+}
+window.playMessageSound = playMessageSound;
+
+// ══════════════════════════════════════════
+// ═══ CHAT BADGE (unread messages) ═══
+// ══════════════════════════════════════════
+var _unreadChatCount = 0;
+var _globalMsgUnsub = null;
+var _lastKnownMsgIds = {};
+var _chatPageOpen = false;
+
+function updateChatBadges() {
+    document.querySelectorAll('.bottom-nav .nav-item[data-page="chat"]').forEach(function (btn) {
+        var badge = btn.querySelector('.chat-badge');
+        if (_unreadChatCount > 0) {
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'chat-badge';
+                btn.style.position = 'relative';
+                btn.appendChild(badge);
+            }
+            badge.textContent = _unreadChatCount > 9 ? '9+' : _unreadChatCount;
+            badge.style.display = '';
+        } else {
+            if (badge) badge.style.display = 'none';
+        }
+    });
+}
+window.updateChatBadges = updateChatBadges;
+
+function startGlobalMessageListener() {
+    var session = getSession();
+    if (!session || !isBackendConnected()) return;
+    if (_globalMsgUnsub) { _globalMsgUnsub(); _globalMsgUnsub = null; }
+
+    // Listen for order changes which may have new messages
+    _globalMsgUnsub = FB.onOrdersForUser(session.id, function (res) {
+        if (!res.success || !res.data) return;
+        var activeOrders = res.data.filter(function (o) {
+            return ['pending', 'accepted', 'on_the_way', 'arrived', 'in_progress'].indexOf(o.status) >= 0;
+        });
+        activeOrders.forEach(function (order) {
+            subscribeToOrderMessages(order, session);
+        });
+    });
+}
+window.startGlobalMessageListener = startGlobalMessageListener;
+
+var _orderMsgSubs = {};
+function subscribeToOrderMessages(order, session) {
+    if (_orderMsgSubs[order.id]) return; // Already subscribed
+    _orderMsgSubs[order.id] = FB.onMessages(order.id, function (res) {
+        if (!res.success || !res.data || res.data.length === 0) return;
+        var lastMsg = res.data[res.data.length - 1];
+        var knownId = _lastKnownMsgIds[order.id];
+        var msgKey = lastMsg.senderId + '-' + lastMsg.createdAt;
+
+        if (knownId && knownId !== msgKey && String(lastMsg.senderId) !== String(session.id)) {
+            // New message from someone else
+            if (!_chatPageOpen) {
+                _unreadChatCount++;
+                updateChatBadges();
+                playMessageSound();
+                if (navigator.vibrate) navigator.vibrate(100);
+
+                // Add to notification popup
+                var users = getUsers();
+                var sender = users.find(function (u) { return u.id === lastMsg.senderId; });
+                var senderName = sender ? sender.name : (lastMsg.senderName || 'Seseorang');
+                addNotifItem({
+                    id: 'msg-' + order.id + '-' + lastMsg.createdAt,
+                    icon: '💬',
+                    title: 'Pesan dari ' + senderName,
+                    desc: lastMsg.text || '📷 Foto',
+                    time: 'Baru saja',
+                    unread: true,
+                    onClick: function () { openChat(order); }
+                });
+            }
+        }
+        _lastKnownMsgIds[order.id] = msgKey;
+    });
+}
+
+function clearChatBadge() {
+    _unreadChatCount = 0;
+    updateChatBadges();
+}
+window.clearChatBadge = clearChatBadge;
+
+// ══════════════════════════════════════════
 // ═══ NOTIFICATION POPUP ═══
 // ══════════════════════════════════════════
 var _notifItems = [];
@@ -400,6 +558,8 @@ function startTalentLocationBroadcast(orderId) {
 function openChat(order) {
     _chatOrderId = order.id;
     _chatMessages = [];
+    _chatPageOpen = true;
+    clearChatBadge();
     var page = document.getElementById('chatPage');
     if (!page) return;
 
@@ -432,6 +592,7 @@ function openChat(order) {
         page._eventsSetup = true;
         document.getElementById('chatBtnBack').addEventListener('click', function () {
             page.classList.add('hidden');
+            _chatPageOpen = false;
             if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
             if (_fbMsgUnsub) { _fbMsgUnsub(); _fbMsgUnsub = null; }
         });
@@ -806,6 +967,7 @@ function setupBottomNav() {
                 if (page === 'pesanan') {
                     openOrdersList();
                 } else if (page === 'chat') {
+                    clearChatBadge();
                     openOrdersList();
                 } else if (page === 'tickets' || page === 'reports') {
                     openAdminTransactions();

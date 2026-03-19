@@ -267,6 +267,8 @@
 
     function updateRoleUI(user) {
         const role = user.role;
+        // Start global message listener for chat notifications (all roles)
+        startGlobalMessageListener();
         if (role === 'user') {
             const el = document.getElementById('userName');
             if (el) el.textContent = user.name || 'User';
@@ -2059,6 +2061,8 @@
     function openChat(order) {
         _chatOrderId = order.id;
         _chatMessages = [];
+        _chatPageOpen = true;
+        clearChatBadge();
         var page = document.getElementById('chatPage');
         if (!page) return;
 
@@ -2093,6 +2097,7 @@
             page._eventsSetup = true;
             document.getElementById('chatBtnBack').addEventListener('click', function () {
                 page.classList.add('hidden');
+                _chatPageOpen = false;
                 if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
                 if (_fbMsgUnsub) { _fbMsgUnsub(); _fbMsgUnsub = null; }
             });
@@ -2701,7 +2706,8 @@
 
         popup.classList.remove('hidden');
 
-        // Try to play notification sound / vibrate
+        // Play bell sound + vibrate
+        playBellSound();
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
 
         // Dismiss button
@@ -3990,6 +3996,7 @@
                     if (page === 'pesanan') {
                         openOrdersList();
                     } else if (page === 'chat') {
+                        clearChatBadge();
                         openOrdersList();
                     } else if (page === 'tickets' || page === 'reports') {
                         openAdminTransactions();

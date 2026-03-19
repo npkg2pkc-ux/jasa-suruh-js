@@ -445,6 +445,8 @@ window.addEventListener('popstate', function (e) {
 
 function updateRoleUI(user) {
     var role = user.role;
+    // Start global message listener for chat notifications (all roles)
+    startGlobalMessageListener();
     if (role === 'user') {
         var el = document.getElementById('userName');
         if (el) el.textContent = user.name || 'User';
