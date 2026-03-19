@@ -789,7 +789,7 @@ function renderOrderInfo(order, isTalent) {
         + (isAntar ? '<div class="otp-info-row"><span class="otp-info-label">📍 Jemput</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>' : '<div class="otp-info-row"><span class="otp-info-label">Alamat</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>')
         + (isAntar && order.destAddr ? '<div class="otp-info-row"><span class="otp-info-label">🏁 Tujuan</span><span class="otp-info-val">' + escapeHtml(String(order.destAddr)) + '</span></div>' : '')
         + (isAntar && order.distanceKm ? '<div class="otp-info-row"><span class="otp-info-label">Jarak</span><span class="otp-info-val">' + Number(order.distanceKm).toFixed(1) + ' km</span></div>' : '')
-        + '<div class="otp-info-row"><span class="otp-info-label">' + (isAntar ? 'Ongkos kirim' : 'Harga') + '</span><span class="otp-info-val">' + priceText + '</span></div>'
+        + '<div class="otp-info-row"><span class="otp-info-label">' + (isAntar ? 'Ongkos' : 'Harga') + '</span><span class="otp-info-val">' + priceText + '</span></div>'
         + '<div class="otp-info-row"><span class="otp-info-label">Biaya layanan</span><span class="otp-info-val">' + feeText + '</span></div>'
         + '<div class="otp-info-row otp-info-total"><span class="otp-info-label">Total Bayar</span><span class="otp-info-val">' + totalText + '</span></div>'
         + '<div class="otp-info-row"><span class="otp-info-label">Pembayaran</span><span class="otp-info-val">' + pmLabel + '</span></div>'

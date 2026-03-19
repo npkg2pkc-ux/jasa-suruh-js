@@ -479,62 +479,69 @@ function createNewOrder(t) {
     if (session.role !== 'user') { showToast('Hanya user yang bisa memesan', 'error'); return; }
 
     var price = Number(t.skill.price) || 0;
-    var fee = Math.round(price * 0.1);
-    var totalCost = price + fee;
-
-    // Check wallet balance
-    if (getWalletBalance() < totalCost) {
-        showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Silakan top up dulu.', 'error');
-        openTopUpModal();
-        return;
-    }
-
-    var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
-
-    var orderData = {
-        action: 'createOrder',
-        id: orderId,
-        userId: session.id,
-        talentId: t.user.id,
-        skillType: t.skill.type || '',
-        serviceType: t.skill.serviceType || t.skill.name || '',
-        description: t.skill.description || '',
-        price: price,
-        fee: fee,
-        userLat: session.lat || 0,
-        userLng: session.lng || 0,
-        userAddr: session.address || '',
-        talentLat: t.user.lat || 0,
-        talentLng: t.user.lng || 0
-    };
 
     showToast('Memproses pembayaran...', 'success');
 
-    // Deduct wallet first
-    backendPost({ action: 'walletPay', userId: session.id, amount: totalCost, orderId: orderId, description: 'Pembayaran pesanan ' + (t.skill.serviceType || t.skill.name || '') })
-        .then(function (payRes) {
-            if (!payRes || !payRes.success) {
-                showToast((payRes && payRes.message) || 'Saldo tidak cukup!', 'error');
+    // Fetch settings for dynamic fee
+    FB.get('getSettings')
+        .then(function (r) { return r.json(); })
+        .then(function (sRes) {
+            var feePercent = 10, platformFee = 0;
+            if (sRes.success && sRes.data) {
+                feePercent = Number(sRes.data.service_fee_percent) || 10;
+                platformFee = Number(sRes.data.platform_fee) || 0;
+            }
+            var fee = Math.round(price * feePercent / 100) + platformFee;
+            var totalCost = price + fee;
+
+            if (getWalletBalance() < totalCost) {
+                showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Silakan top up dulu.', 'error');
+                openTopUpModal();
                 return;
             }
-            // Create order after payment
-            return backendPost(orderData).then(function (res) {
-                if (res && res.success) {
-                    var order = res.data || orderData;
-                    order.status = 'pending';
-                    order.createdAt = Date.now();
-                    order.talentName = t.user.name;
-                    order.userName = session.name;
-                    showToast('Pesanan berhasil dibuat! Saldo dipotong ' + formatRupiah(totalCost), 'success');
-                    document.getElementById('talentDetailPage').classList.add('hidden');
-                    document.getElementById('serviceTalentPage').classList.add('hidden');
-                    openOrderTracking(order);
-                } else {
-                    // Refund if order creation fails
-                    backendPost({ action: 'walletCredit', userId: session.id, amount: totalCost, orderId: orderId, type: 'refund', description: 'Refund - gagal buat pesanan' });
-                    showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
-                }
-            });
+
+            var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+
+            var orderData = {
+                action: 'createOrder',
+                id: orderId,
+                userId: session.id,
+                talentId: t.user.id,
+                skillType: t.skill.type || '',
+                serviceType: t.skill.serviceType || t.skill.name || '',
+                description: t.skill.description || '',
+                price: price,
+                fee: fee,
+                userLat: session.lat || 0,
+                userLng: session.lng || 0,
+                userAddr: session.address || '',
+                talentLat: t.user.lat || 0,
+                talentLng: t.user.lng || 0
+            };
+
+            return backendPost({ action: 'walletPay', userId: session.id, amount: totalCost, orderId: orderId, description: 'Pembayaran pesanan ' + (t.skill.serviceType || t.skill.name || '') })
+                .then(function (payRes) {
+                    if (!payRes || !payRes.success) {
+                        showToast((payRes && payRes.message) || 'Saldo tidak cukup!', 'error');
+                        return;
+                    }
+                    return backendPost(orderData).then(function (res) {
+                        if (res && res.success) {
+                            var order = res.data || orderData;
+                            order.status = 'pending';
+                            order.createdAt = Date.now();
+                            order.talentName = t.user.name;
+                            order.userName = session.name;
+                            showToast('Pesanan berhasil dibuat! Saldo dipotong ' + formatRupiah(totalCost), 'success');
+                            document.getElementById('talentDetailPage').classList.add('hidden');
+                            document.getElementById('serviceTalentPage').classList.add('hidden');
+                            openOrderTracking(order);
+                        } else {
+                            backendPost({ action: 'walletCredit', userId: session.id, amount: totalCost, orderId: orderId, type: 'refund', description: 'Refund - gagal buat pesanan' });
+                            showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
+                        }
+                    });
+                });
         }).catch(function () {
             showToast('Gagal memproses pembayaran', 'error');
         });
@@ -739,60 +746,70 @@ function createProductOrder(product, store) {
     if (!store) { showToast('Data toko tidak ditemukan', 'error'); return; }
 
     var price = Number(product.price) || 0;
-    var deliveryFee = 3000;
-    var fee = Math.round(price * 0.1);
-    var totalCost = price + deliveryFee + fee;
-
-    // Check wallet balance
-    if (getWalletBalance() < totalCost) {
-        showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Silakan top up dulu.', 'error');
-        openTopUpModal();
-        return;
-    }
-
-    var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
-
-    var orderData = {
-        action: 'createOrder',
-        id: orderId,
-        userId: session.id,
-        talentId: store.userId,
-        skillType: 'js_food',
-        serviceType: product.name,
-        description: 'Produk dari ' + store.name,
-        price: price + deliveryFee,
-        fee: fee,
-        userLat: session.lat || 0,
-        userLng: session.lng || 0,
-        userAddr: session.address || '',
-        talentLat: store.lat || 0,
-        talentLng: store.lng || 0
-    };
 
     showToast('Memproses pembayaran...', 'success');
 
-    backendPost({ action: 'walletPay', userId: session.id, amount: totalCost, orderId: orderId, description: 'Pembayaran produk ' + product.name })
-        .then(function (payRes) {
-            if (!payRes || !payRes.success) {
-                showToast((payRes && payRes.message) || 'Saldo tidak cukup!', 'error');
+    // Fetch settings for dynamic fee
+    FB.get('getSettings')
+        .then(function (r) { return r.json(); })
+        .then(function (sRes) {
+            var feePercent = 10, platformFee = 0, deliveryFee = 3000;
+            if (sRes.success && sRes.data) {
+                feePercent = Number(sRes.data.service_fee_percent) || 10;
+                platformFee = Number(sRes.data.platform_fee) || 0;
+                deliveryFee = Number(sRes.data.delivery_fee_per_km) || 3000;
+            }
+            var fee = Math.round(price * feePercent / 100) + platformFee;
+            var totalCost = price + deliveryFee + fee;
+
+            if (getWalletBalance() < totalCost) {
+                showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Silakan top up dulu.', 'error');
+                openTopUpModal();
                 return;
             }
-            return backendPost(orderData).then(function (res) {
-                if (res && res.success) {
-                    var order = res.data || orderData;
-                    order.status = 'pending';
-                    order.createdAt = Date.now();
-                    order.talentName = store.name;
-                    order.userName = session.name;
-                    showToast('Pesanan berhasil! Saldo dipotong ' + formatRupiah(totalCost), 'success');
-                    document.getElementById('storeDetailPage').classList.add('hidden');
-                    document.getElementById('storeListPage').classList.add('hidden');
-                    openOrderTracking(order);
-                } else {
-                    backendPost({ action: 'walletCredit', userId: session.id, amount: totalCost, orderId: orderId, type: 'refund', description: 'Refund - gagal buat pesanan' });
-                    showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
-                }
-            });
+
+            var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+
+            var orderData = {
+                action: 'createOrder',
+                id: orderId,
+                userId: session.id,
+                talentId: store.userId,
+                skillType: 'js_food',
+                serviceType: product.name,
+                description: 'Produk dari ' + store.name,
+                price: price + deliveryFee,
+                fee: fee,
+                userLat: session.lat || 0,
+                userLng: session.lng || 0,
+                userAddr: session.address || '',
+                talentLat: store.lat || 0,
+                talentLng: store.lng || 0
+            };
+
+            return backendPost({ action: 'walletPay', userId: session.id, amount: totalCost, orderId: orderId, description: 'Pembayaran produk ' + product.name })
+                .then(function (payRes) {
+                    if (!payRes || !payRes.success) {
+                        showToast((payRes && payRes.message) || 'Saldo tidak cukup!', 'error');
+                        return;
+                    }
+                    return backendPost(orderData).then(function (res) {
+                        if (res && res.success) {
+                            var order = res.data || orderData;
+                            order.status = 'pending';
+                            order.createdAt = Date.now();
+                            order.talentName = store.name;
+                            order.userName = session.name;
+                            showToast('Pesanan berhasil! Saldo dipotong ' + formatRupiah(totalCost), 'success');
+                            document.getElementById('storeDetailPage').classList.add('hidden');
+                            document.getElementById('storeListPage').classList.add('hidden');
+                            openOrderTracking(order);
+                        } else {
+                            backendPost({ action: 'walletCredit', userId: session.id, amount: totalCost, orderId: orderId, type: 'refund', description: 'Refund - gagal buat pesanan' });
+                            showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
+                        }
+                    });
+                });
         }).catch(function () {
             showToast('Gagal memproses pembayaran', 'error');
         });
@@ -862,6 +879,8 @@ function openJSAntarPage() {
                 if (res.success && res.data) {
                     _japPricePerKm = Number(res.data.delivery_fee_per_km) || 3000;
                     _japBaseFare = Number(res.data.minimum_fee) || 5000;
+                    _japServiceFeePercent = Number(res.data.service_fee_percent) || 10;
+                    _japPlatformFee = Number(res.data.platform_fee) || 0;
                 }
             })
             .catch(function () {});
@@ -1068,11 +1087,16 @@ function fetchJapRoute(fromLat, fromLng, toLat, toLng) {
 }
 
 var _japSelectedPayment = 'jspay'; // 'jspay' or 'cod'
+var _japServiceFeePercent = 10;
+var _japPlatformFee = 0;
 
 function updateJapPriceInfo(distKm, durationMin) {
     var price = Math.max(_japBaseFare, Math.round(_japPricePerKm * distKm));
     price = Math.ceil(price / 500) * 500;
-    var fee = Math.round(price * 0.1);
+    var feePercent = _japServiceFeePercent || 10;
+    var platformFee = _japPlatformFee || 0;
+    var serviceFee = Math.round(price * feePercent / 100);
+    var fee = serviceFee + platformFee;
     var totalCost = price + fee;
 
     var distText = distKm < 1
@@ -1090,7 +1114,17 @@ function updateJapPriceInfo(distKm, durationMin) {
     if (bd) {
         bd.classList.remove('hidden');
         document.getElementById('japPbBase').textContent = formatRupiah(price);
-        document.getElementById('japPbFee').textContent = formatRupiah(fee);
+        var feeLabel = document.getElementById('japPbFeeLabel');
+        if (feeLabel) feeLabel.textContent = 'Biaya layanan (' + feePercent + '%)';
+        document.getElementById('japPbFee').textContent = formatRupiah(serviceFee);
+        var pfRow = document.getElementById('japPbPlatformRow');
+        var pfVal = document.getElementById('japPbPlatform');
+        if (pfRow && pfVal && platformFee > 0) {
+            pfRow.style.display = '';
+            pfVal.textContent = formatRupiah(platformFee);
+        } else if (pfRow) {
+            pfRow.style.display = 'none';
+        }
         document.getElementById('japPbTotal').textContent = formatRupiah(totalCost);
     }
 
@@ -1139,7 +1173,7 @@ function onJapOrderClick() {
     }
     var btn = document.getElementById('japBtnOrder');
     var price = Number(btn.dataset.price) || 0;
-    var fee = Number(btn.dataset.fee) || Math.round(price * 0.1);
+    var fee = Number(btn.dataset.fee) || (Math.round(price * (_japServiceFeePercent || 10) / 100) + (_japPlatformFee || 0));
     var totalCost = Number(btn.dataset.total) || (price + fee);
     var paymentMethod = _japSelectedPayment || 'jspay';
     var note = (document.getElementById('japNote').value || '').trim();
