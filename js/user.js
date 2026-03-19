@@ -894,11 +894,12 @@ function initJapMap() {
     }
 
     _japMap = L.map('japMap', { zoomControl: false }).setView([lat, lng], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap',
-        maxZoom: 19
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+        maxZoom: 20,
+        subdomains: 'abcd'
     }).addTo(_japMap);
-    L.control.zoom({ position: 'topright' }).addTo(_japMap);
+    L.control.zoom({ position: 'bottomright' }).addTo(_japMap);
 
     _japPickupMarker = createJapMarker(lat, lng, 'pickup').addTo(_japMap);
     _japPickupCoords = { lat: lat, lng: lng };
@@ -932,13 +933,15 @@ function initJapMap() {
 }
 
 function createJapMarker(lat, lng, type) {
-    var color = type === 'pickup' ? '#22C55E' : '#FF6B00';
-    var emoji = type === 'pickup' ? '🟢' : '🔴';
-    var label = type === 'pickup' ? 'Jemput' : 'Antar';
+    var pinClass = type === 'pickup' ? 'gm-pin-green' : 'gm-pin-red';
+    var emoji = type === 'pickup' ? '📍' : '🏁';
+    var label = type === 'pickup' ? 'Jemput' : 'Tujuan';
     var icon = L.divIcon({
-        html: '<div style="background:' + color + ';color:#fff;font-size:11px;font-weight:700;padding:4px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.3);">' + emoji + ' ' + label + '</div>',
-        className: '',
-        iconAnchor: [30, 20]
+        html: '<div class="gm-pin ' + pinClass + '"><div class="gm-pin-head">' + emoji + '</div><div class="gm-pin-tail"></div></div><div class="gm-pin-label">' + label + '</div>',
+        className: 'gm-pin-wrapper',
+        iconSize: [36, 58],
+        iconAnchor: [18, 46],
+        popupAnchor: [0, -46]
     });
     return L.marker([lat, lng], { icon: icon });
 }
@@ -1046,12 +1049,12 @@ function fetchJapRoute(fromLat, fromLng, toLat, toLng) {
                 durationMin = Math.round(data.routes[0].duration / 60);
                 var coords = data.routes[0].geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
                 if (_japRouteLine) _japMap.removeLayer(_japRouteLine);
-                _japRouteLine = L.polyline(coords, { color: '#FF6B00', weight: 5, opacity: 0.85 }).addTo(_japMap);
+                _japRouteLine = L.polyline(coords, { color: '#4285F4', weight: 5, opacity: 0.85, lineJoin: 'round', lineCap: 'round' }).addTo(_japMap);
             } else {
                 distKm = haversineDistance(fromLat, fromLng, toLat, toLng);
                 durationMin = Math.round(distKm / 0.4);
                 if (_japRouteLine) _japMap.removeLayer(_japRouteLine);
-                _japRouteLine = L.polyline([[fromLat, fromLng], [toLat, toLng]], { color: '#FF6B00', weight: 4, dashArray: '10,10' }).addTo(_japMap);
+                _japRouteLine = L.polyline([[fromLat, fromLng], [toLat, toLng]], { color: '#4285F4', weight: 4, dashArray: '8,12', opacity: 0.6, lineJoin: 'round', lineCap: 'round' }).addTo(_japMap);
             }
             _japRouteDistKm = distKm;
             updateJapPriceInfo(distKm, durationMin);

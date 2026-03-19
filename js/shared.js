@@ -925,35 +925,40 @@ function initTrackingMap(order) {
     var centerLat = (userLat + talentLat) / 2;
     var centerLng = (userLng + talentLng) / 2;
 
-    _otpMap = L.map(container).setView([centerLat, centerLng], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 19
+    _otpMap = L.map(container, { zoomControl: false }).setView([centerLat, centerLng], 14);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+        maxZoom: 20,
+        subdomains: 'abcd'
     }).addTo(_otpMap);
+    L.control.zoom({ position: 'bottomright' }).addTo(_otpMap);
 
     var userIcon = L.divIcon({
-        html: '<div style="background:' + (isAntar ? '#22C55E' : '#2196F3') + ';color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)">' + (isAntar ? '🟢' : '📍') + '</div>',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-        className: ''
+        html: '<div class="gm-pin gm-pin-green"><div class="gm-pin-head">' + (isAntar ? '📍' : '📍') + '</div><div class="gm-pin-tail"></div></div>',
+        iconSize: [36, 46],
+        iconAnchor: [18, 46],
+        popupAnchor: [0, -46],
+        className: 'gm-pin-wrapper'
     });
     _otpUserMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(_otpMap).bindPopup(isAntar ? 'Titik Jemput' : 'Lokasi Anda');
 
     var talentIcon = L.divIcon({
-        html: '<div style="background:#FF6B00;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)">🏍️</div>',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-        className: ''
+        html: '<div class="gm-pin gm-pin-orange"><div class="gm-pin-head">🏍️</div><div class="gm-pin-tail"></div></div>',
+        iconSize: [36, 46],
+        iconAnchor: [18, 46],
+        popupAnchor: [0, -46],
+        className: 'gm-pin-wrapper'
     });
     _otpTalentMarker = L.marker([talentLat, talentLng], { icon: talentIcon }).addTo(_otpMap).bindPopup('Driver');
 
     var points = [[userLat, userLng], [talentLat, talentLng]];
     if (isAntar && destLat && destLng) {
         var destIcon = L.divIcon({
-            html: '<div style="background:#EF4444;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)">🏁</div>',
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
-            className: ''
+            html: '<div class="gm-pin gm-pin-red"><div class="gm-pin-head">🏁</div><div class="gm-pin-tail"></div></div>',
+            iconSize: [36, 46],
+            iconAnchor: [18, 46],
+            popupAnchor: [0, -46],
+            className: 'gm-pin-wrapper'
         });
         L.marker([destLat, destLng], { icon: destIcon }).addTo(_otpMap).bindPopup('Tujuan: ' + escapeHtml(String(order.destAddr || '')));
         points.push([destLat, destLng]);
@@ -979,12 +984,12 @@ function fetchAndDrawRoute(fromLat, fromLng, toLat, toLng) {
                     return [c[1], c[0]];
                 });
                 if (_otpRouteLine) _otpMap.removeLayer(_otpRouteLine);
-                _otpRouteLine = L.polyline(coords, { color: '#FF6B00', weight: 4, opacity: 0.8 }).addTo(_otpMap);
+                _otpRouteLine = L.polyline(coords, { color: '#4285F4', weight: 5, opacity: 0.85, lineJoin: 'round', lineCap: 'round' }).addTo(_otpMap);
             }
         })
         .catch(function () {
             if (_otpRouteLine) _otpMap.removeLayer(_otpRouteLine);
-            _otpRouteLine = L.polyline([[fromLat, fromLng], [toLat, toLng]], { color: '#FF6B00', weight: 3, dashArray: '10,10' }).addTo(_otpMap);
+            _otpRouteLine = L.polyline([[fromLat, fromLng], [toLat, toLng]], { color: '#4285F4', weight: 4, dashArray: '8,12', opacity: 0.6, lineJoin: 'round', lineCap: 'round' }).addTo(_otpMap);
         });
 }
 
