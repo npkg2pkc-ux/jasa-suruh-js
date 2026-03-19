@@ -122,7 +122,7 @@ function getWalletBalance() {
 }
 window.getWalletBalance = getWalletBalance;
 
-// ── Top Up Modal ──
+// ── Top Up Modal (Xendit) ──
 function openTopUpModal() {
     var existing = document.getElementById('topupModal');
     if (existing) existing.remove();
@@ -137,6 +137,7 @@ function openTopUpModal() {
         + '<div class="wallet-modal-header"><h3>💰 Top Up Saldo</h3><button class="wallet-modal-close" id="topupClose">&times;</button></div>'
         + '<div class="wallet-modal-body">'
         + '<p class="wallet-modal-balance">Saldo saat ini: <strong>' + formatRupiah(_walletBalance) + '</strong></p>'
+        + '<div class="xendit-badge"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d8/Xendit_logo.svg/120px-Xendit_logo.svg.png" alt="Xendit" style="height:18px;vertical-align:middle"> Pembayaran aman via Xendit</div>'
         + '<div class="topup-amounts">'
         + '<button class="topup-chip" data-amt="10000">Rp 10.000</button>'
         + '<button class="topup-chip" data-amt="20000">Rp 20.000</button>'
@@ -145,8 +146,9 @@ function openTopUpModal() {
         + '<button class="topup-chip" data-amt="200000">Rp 200.000</button>'
         + '<button class="topup-chip" data-amt="500000">Rp 500.000</button>'
         + '</div>'
-        + '<div class="form-group" style="margin-top:12px"><label>Atau masukkan jumlah:</label><div class="input-wrap"><input type="number" id="topupCustomAmount" placeholder="Jumlah top up" min="1000" step="1000"></div></div>'
-        + '<button class="btn-primary" id="topupSubmitBtn" style="margin-top:12px">💳 Top Up Sekarang</button>'
+        + '<div class="form-group" style="margin-top:12px"><label>Atau masukkan jumlah:</label><div class="input-wrap"><input type="number" id="topupCustomAmount" placeholder="Minimal Rp 10.000" min="10000" step="1000"></div></div>'
+        + '<p class="xendit-info">Anda akan diarahkan ke halaman pembayaran Xendit. Saldo otomatis bertambah setelah pembayaran berhasil.</p>'
+        + '<button class="btn-primary" id="topupSubmitBtn" style="margin-top:12px">💳 Bayar via Xendit</button>'
         + '</div>'
         + '</div>';
 
@@ -176,36 +178,79 @@ function openTopUpModal() {
     overlay.querySelector('#topupSubmitBtn').addEventListener('click', function () {
         var custom = document.getElementById('topupCustomAmount').value;
         var amount = custom ? Number(custom) : selectedAmount;
-        if (!amount || amount < 1000) {
-            showToast('Minimal top up Rp 1.000', 'error');
+        if (!amount || amount < 10000) {
+            showToast('Minimal top up Rp 10.000', 'error');
             return;
         }
         var btn = this;
         btn.disabled = true;
-        btn.textContent = '⏳ Memproses...';
+        btn.textContent = '⏳ Membuat Invoice...';
 
-        backendPost({ action: 'topUp', userId: session.id, amount: amount })
-            .then(function (res) {
-                btn.disabled = false;
-                btn.textContent = '💳 Top Up Sekarang';
-                if (res && res.success) {
-                    showToast('Top up ' + formatRupiah(amount) + ' berhasil! ✅', 'success');
-                    overlay.remove();
-                } else {
-                    showToast((res && res.message) || 'Gagal top up', 'error');
-                }
-            });
+        fetch('/api/xendit/create-invoice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: session.id,
+                amount: amount,
+                userName: session.name || session.username || ''
+            })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            btn.disabled = false;
+            btn.textContent = '💳 Bayar via Xendit';
+            if (res && res.success && res.invoiceUrl) {
+                showToast('Mengarahkan ke halaman pembayaran...', 'success');
+                overlay.remove();
+                window.open(res.invoiceUrl, '_blank');
+            } else {
+                showToast(res.error || 'Gagal membuat invoice', 'error');
+            }
+        })
+        .catch(function (err) {
+            btn.disabled = false;
+            btn.textContent = '💳 Bayar via Xendit';
+            showToast('Gagal terhubung ke server pembayaran', 'error');
+        });
     });
 }
 window.openTopUpModal = openTopUpModal;
 
-// ── Withdraw Modal ──
+// ── Withdraw Modal (Xendit) ──
+var _bankList = [
+    { code: 'BCA', name: 'BCA' },
+    { code: 'BNI', name: 'BNI' },
+    { code: 'BRI', name: 'BRI' },
+    { code: 'MANDIRI', name: 'Mandiri' },
+    { code: 'BSI', name: 'BSI (Bank Syariah Indonesia)' },
+    { code: 'CIMB', name: 'CIMB Niaga' },
+    { code: 'PERMATA', name: 'Permata' },
+    { code: 'DANAMON', name: 'Danamon' },
+    { code: 'BTN', name: 'BTN' },
+    { code: 'MUAMALAT', name: 'Muamalat' },
+    { code: 'BTPN', name: 'BTPN / Jenius' },
+    { code: 'MAYBANK', name: 'Maybank' },
+    { code: 'MEGA', name: 'Mega' },
+    { code: 'PANIN', name: 'Panin' },
+    { code: 'OCBC', name: 'OCBC NISP' }
+];
+
+function _getSavedBank() {
+    try { return JSON.parse(localStorage.getItem('js_savedBank') || 'null'); } catch (e) { return null; }
+}
+
 function openWithdrawModal() {
     var existing = document.getElementById('withdrawModal');
     if (existing) existing.remove();
 
     var session = getSession();
     if (!session) return;
+
+    var saved = _getSavedBank();
+    var bankOptions = _bankList.map(function (b) {
+        var sel = (saved && saved.bankCode === b.code) ? ' selected' : '';
+        return '<option value="' + b.code + '"' + sel + '>' + b.name + '</option>';
+    }).join('');
 
     var overlay = document.createElement('div');
     overlay.id = 'withdrawModal';
@@ -214,8 +259,15 @@ function openWithdrawModal() {
         + '<div class="wallet-modal-header"><h3>🏧 Tarik Saldo</h3><button class="wallet-modal-close" id="withdrawClose">&times;</button></div>'
         + '<div class="wallet-modal-body">'
         + '<p class="wallet-modal-balance">Saldo saat ini: <strong>' + formatRupiah(_walletBalance) + '</strong></p>'
-        + '<div class="form-group"><label>Jumlah Penarikan</label><div class="input-wrap"><input type="number" id="withdrawAmount" placeholder="Masukkan jumlah" min="10000" step="1000"></div></div>'
-        + '<button class="btn-primary" id="withdrawSubmitBtn" style="margin-top:12px">🏧 Tarik Sekarang</button>'
+        + '<div class="xendit-badge"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d8/Xendit_logo.svg/120px-Xendit_logo.svg.png" alt="Xendit" style="height:18px;vertical-align:middle"> Pencairan via Xendit</div>'
+        + '<div class="form-group"><label>Bank Tujuan</label><div class="input-wrap"><select id="wdBankCode" class="form-select"><option value="">-- Pilih Bank --</option>' + bankOptions + '</select></div></div>'
+        + '<div class="form-group"><label>Nomor Rekening</label><div class="input-wrap"><input type="text" id="wdAccountNumber" placeholder="Contoh: 1234567890" value="' + (saved ? saved.accountNumber : '') + '"></div></div>'
+        + '<div class="form-group"><label>Nama Pemilik Rekening</label><div class="input-wrap"><input type="text" id="wdAccountName" placeholder="Sesuai buku tabungan" value="' + (saved ? saved.accountName : '') + '"></div></div>'
+        + '<label class="wd-save-check"><input type="checkbox" id="wdSaveBank"' + (saved ? ' checked' : '') + '> Simpan data rekening</label>'
+        + '<hr style="margin:12px 0;border-color:rgba(0,0,0,0.08)">'
+        + '<div class="form-group"><label>Jumlah Penarikan</label><div class="input-wrap"><input type="number" id="withdrawAmount" placeholder="Minimal Rp 10.000" min="10000" step="1000"></div></div>'
+        + '<p class="xendit-info">Dana akan ditransfer ke rekening bank Anda. Proses 1-3 hari kerja.</p>'
+        + '<button class="btn-primary" id="withdrawSubmitBtn" style="margin-top:12px">🏧 Tarik ke Rekening</button>'
         + '</div>'
         + '</div>';
 
@@ -225,30 +277,55 @@ function openWithdrawModal() {
     overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
 
     overlay.querySelector('#withdrawSubmitBtn').addEventListener('click', function () {
+        var bankCode = document.getElementById('wdBankCode').value;
+        var accountNumber = document.getElementById('wdAccountNumber').value.trim();
+        var accountName = document.getElementById('wdAccountName').value.trim();
         var amount = Number(document.getElementById('withdrawAmount').value);
-        if (!amount || amount < 10000) {
-            showToast('Minimal penarikan Rp 10.000', 'error');
-            return;
+
+        if (!bankCode) { showToast('Pilih bank tujuan', 'error'); return; }
+        if (!accountNumber) { showToast('Masukkan nomor rekening', 'error'); return; }
+        if (!accountName) { showToast('Masukkan nama pemilik rekening', 'error'); return; }
+        if (!amount || amount < 10000) { showToast('Minimal penarikan Rp 10.000', 'error'); return; }
+        if (amount > _walletBalance) { showToast('Saldo tidak cukup!', 'error'); return; }
+
+        // Save bank details if checked
+        if (document.getElementById('wdSaveBank').checked) {
+            localStorage.setItem('js_savedBank', JSON.stringify({ bankCode: bankCode, accountNumber: accountNumber, accountName: accountName }));
+        } else {
+            localStorage.removeItem('js_savedBank');
         }
-        if (amount > _walletBalance) {
-            showToast('Saldo tidak cukup!', 'error');
-            return;
-        }
+
         var btn = this;
         btn.disabled = true;
         btn.textContent = '⏳ Memproses...';
 
-        backendPost({ action: 'withdraw', userId: session.id, amount: amount })
-            .then(function (res) {
-                btn.disabled = false;
-                btn.textContent = '🏧 Tarik Sekarang';
-                if (res && res.success) {
-                    showToast('Penarikan ' + formatRupiah(amount) + ' berhasil! ✅', 'success');
-                    overlay.remove();
-                } else {
-                    showToast((res && res.message) || 'Gagal menarik saldo', 'error');
-                }
-            });
+        fetch('/api/xendit/withdraw', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: session.id,
+                amount: amount,
+                bankCode: bankCode,
+                accountNumber: accountNumber,
+                accountName: accountName
+            })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            btn.disabled = false;
+            btn.textContent = '🏧 Tarik ke Rekening';
+            if (res && res.success) {
+                showToast('Penarikan ' + formatRupiah(amount) + ' sedang diproses! 🏧', 'success');
+                overlay.remove();
+            } else {
+                showToast(res.error || 'Gagal menarik saldo', 'error');
+            }
+        })
+        .catch(function (err) {
+            btn.disabled = false;
+            btn.textContent = '🏧 Tarik ke Rekening';
+            showToast('Gagal terhubung ke server', 'error');
+        });
     });
 }
 window.openWithdrawModal = openWithdrawModal;
@@ -283,20 +360,38 @@ function openTransactionHistory() {
             var txs = res.data;
             var typeLabels = { topup: '💰 Top Up', payment: '🛒 Pembayaran', earning: '💵 Pendapatan', commission: '📊 Komisi', withdraw: '🏧 Penarikan' };
             var typeColors = { topup: '#22C55E', payment: '#EF4444', earning: '#22C55E', commission: '#FF6B00', withdraw: '#EF4444' };
+            var statusBadges = { pending: '<span class="tx-status tx-pending">Menunggu</span>', processing: '<span class="tx-status tx-processing">Diproses</span>', expired: '<span class="tx-status tx-expired">Expired</span>', refunded: '<span class="tx-status tx-refunded">Refund</span>' };
 
             list.innerHTML = txs.map(function (tx) {
                 var label = typeLabels[tx.type] || tx.type;
                 var color = typeColors[tx.type] || '#666';
                 var amountStr = tx.amount >= 0 ? '+' + formatRupiah(tx.amount) : '-' + formatRupiah(Math.abs(tx.amount));
                 var date = new Date(Number(tx.createdAt)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                var badge = (tx.status && statusBadges[tx.status]) ? ' ' + statusBadges[tx.status] : '';
                 return '<div class="tx-item">'
-                    + '<div class="tx-item-left"><span class="tx-item-label">' + label + '</span><span class="tx-item-desc">' + (tx.description || '') + '</span><span class="tx-item-date">' + date + '</span></div>'
+                    + '<div class="tx-item-left"><span class="tx-item-label">' + label + badge + '</span><span class="tx-item-desc">' + (tx.description || '') + '</span><span class="tx-item-date">' + date + '</span></div>'
                     + '<div class="tx-item-amount" style="color:' + color + '">' + amountStr + '</div>'
                     + '</div>';
             }).join('');
         });
 }
 window.openTransactionHistory = openTransactionHistory;
+
+// ── Xendit Payment Redirect Handler ──
+(function () {
+    var params = new URLSearchParams(window.location.search);
+    var xenditStatus = params.get('xendit');
+    if (xenditStatus) {
+        window.history.replaceState({}, '', window.location.pathname);
+        setTimeout(function () {
+            if (xenditStatus === 'success') {
+                if (typeof showToast === 'function') showToast('Pembayaran berhasil! Saldo akan segera diperbarui ✅', 'success');
+            } else if (xenditStatus === 'failed') {
+                if (typeof showToast === 'function') showToast('Pembayaran dibatalkan atau gagal ❌', 'error');
+            }
+        }, 1500);
+    }
+})();
 
 // ══════════════════════════════════════════
 // ═══ CHAT BADGE (unread messages) ═══

@@ -197,6 +197,20 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .topup-chip:active { transform:scale(.95); }
 .topup-chip.active { border-color:var(--orange); background:var(--orange-light); color:var(--orange); }
 
+/* ========== XENDIT BADGE & INFO ========== */
+.xendit-badge { display:flex; align-items:center; justify-content:center; gap:6px; background:#f0f6ff; color:#1a56db; font-size:12px; font-weight:600; padding:8px 12px; border-radius:var(--r-sm); margin-bottom:14px; }
+.xendit-info { font-size:11px; color:var(--gray-400); margin-top:8px; text-align:center; line-height:1.4; }
+.form-select { width:100%; padding:10px 12px; border:1px solid var(--gray-200); border-radius:var(--r-sm); font-size:14px; font-family:var(--font); color:var(--black); background:var(--white); appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; }
+.wd-save-check { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--gray-600); margin-top:10px; cursor:pointer; }
+.wd-save-check input[type="checkbox"] { width:16px; height:16px; accent-color:var(--orange); }
+
+/* Transaction Status Badges */
+.tx-status { display:inline-block; font-size:10px; font-weight:600; padding:2px 6px; border-radius:10px; margin-left:6px; vertical-align:middle; }
+.tx-pending { background:#FEF3C7; color:#D97706; }
+.tx-processing { background:#DBEAFE; color:#2563EB; }
+.tx-expired { background:#FEE2E2; color:#DC2626; }
+.tx-refunded { background:#FEE2E2; color:#DC2626; }
+
 /* ========== TRANSACTION HISTORY ========== */
 .fullpage-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:var(--white); z-index:9998; display:flex; flex-direction:column; animation:slideRight .3s ease-out; }
 .fullpage-header { display:flex; align-items:center; gap:12px; padding:16px 20px; background:var(--white); border-bottom:1px solid var(--gray-100); }
