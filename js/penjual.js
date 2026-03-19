@@ -360,11 +360,8 @@ function renderPenjualOrders(orders, session) {
     });
     var badgeEl = document.getElementById('penjualPendingBadge');
     if (badgeEl) badgeEl.textContent = incoming.length > 0 ? incoming.length : '';
-    var headerBadge = document.getElementById('penjualHeaderBadge');
-    if (headerBadge) {
-        headerBadge.textContent = incoming.length > 0 ? incoming.length : '0';
-        headerBadge.style.display = incoming.length > 0 ? '' : 'none';
-    }
+    // Note: penjualHeaderBadge is managed by updateNotifBadges() for notification count
+    // Use penjualPendingBadge for order count instead
 }
 
 function updatePenjualStats(orders, session) {

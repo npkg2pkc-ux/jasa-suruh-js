@@ -91,7 +91,6 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .btn-icon:active { transform:scale(.92); }
 .badge { position:absolute; top:-4px; right:-4px; background:var(--white); color:var(--orange); font-size:10px; font-weight:700; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid var(--orange); }
 #talentNotifBtn { cursor:pointer; position:relative; }
-#talentHeaderBadge { display:none; }
 .avatar { width:42px; height:42px; border-radius:var(--r-md); background:rgba(255,255,255,.2); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--white); transition:var(--tr); }
 .avatar:active { transform:scale(.92); }
 .avatar-cs { background:rgba(255,255,255,.25); }
@@ -298,7 +297,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 /* ========== BOTTOM NAV ========== */
 .bottom-spacer { height:100px; }
 .bottom-nav { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; background:var(--white); display:flex; align-items:flex-end; justify-content:space-around; padding:8px 4px 12px; box-shadow:0 -2px 12px rgba(0,0,0,.06); z-index:100; }
-.nav-item { display:flex; flex-direction:column; align-items:center; gap:2px; background:none; border:none; cursor:pointer; color:var(--gray-400); font-family:var(--font); font-size:10px; font-weight:600; padding:4px 8px; transition:var(--tr); }
+.nav-item { display:flex; flex-direction:column; align-items:center; gap:2px; background:none; border:none; cursor:pointer; color:var(--gray-400); font-family:var(--font); font-size:10px; font-weight:600; padding:4px 8px; transition:var(--tr); position:relative; }
 .nav-item:active { transform:scale(.9); }
 .nav-item.active { color:var(--orange); }
 .nav-item.active svg { stroke:var(--orange); }

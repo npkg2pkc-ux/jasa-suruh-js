@@ -501,11 +501,8 @@ function renderTalentDashboardOrders(orders, session) {
     var badgeEl = document.getElementById('talentPendingBadge');
     if (badgeEl) badgeEl.textContent = incoming.length > 0 ? incoming.length : '';
 
-    var headerBadge = document.getElementById('talentHeaderBadge');
-    if (headerBadge) {
-        headerBadge.textContent = incoming.length > 0 ? incoming.length : '0';
-        headerBadge.style.display = incoming.length > 0 ? '' : 'none';
-    }
+    // Note: talentHeaderBadge is managed by updateNotifBadges() for notification count
+    // Use talentPendingBadge for order count instead
 }
 
 function updateTalentStats(orders, session) {

@@ -455,6 +455,7 @@ function updateRoleUI(user) {
         displayUserAddress(user);
         captureLocation(user.id);
         setupUserNotifBtn(user.id);
+        initNotifications();
     } else if (role === 'talent') {
         var el2 = document.getElementById('talentName');
         if (el2) el2.textContent = user.name || 'Talent';

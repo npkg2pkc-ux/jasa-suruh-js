@@ -1097,7 +1097,7 @@
             });
             var channel = sb.channel('notifs-' + userId)
                 .on('postgres_changes', {
-                    event: 'INSERT',
+                    event: '*',
                     schema: 'public',
                     table: 'notifications',
                     filter: 'user_id=eq.' + userId

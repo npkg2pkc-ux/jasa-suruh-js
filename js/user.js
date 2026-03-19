@@ -14,8 +14,7 @@ function setupUserNotifBtn(userId) {
         btn._eventsSetup = true;
         btn.addEventListener('click', function () { openNotifPopup(); });
     }
-    // Init DB-backed notifications (shared across all roles)
-    initNotifications();
+    // initNotifications() is called from core.js updateRoleUI() for all roles
 }
 
 // ══════════════════════════════════════════

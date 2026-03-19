@@ -8,6 +8,7 @@
 // ═══ NOTIFICATION SOUNDS ═══
 // ══════════════════════════════════════════
 var _audioCtx = null;
+var _audioUnlocked = false;
 function _getAudioCtx() {
     if (!_audioCtx) {
         _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -15,6 +16,23 @@ function _getAudioCtx() {
     if (_audioCtx.state === 'suspended') _audioCtx.resume();
     return _audioCtx;
 }
+
+// Unlock AudioContext on first user interaction (required by browsers)
+function _unlockAudio() {
+    if (_audioUnlocked) return;
+    _audioUnlocked = true;
+    try {
+        var ctx = _getAudioCtx();
+        // Create a silent buffer to unlock
+        var buf = ctx.createBuffer(1, 1, 22050);
+        var src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start(0);
+    } catch (e) {}
+}
+document.addEventListener('click', _unlockAudio, { once: true });
+document.addEventListener('touchstart', _unlockAudio, { once: true });
 
 function playBellSound() {
     try {
@@ -464,13 +482,11 @@ function subscribeToOrderMessages(order, session) {
                 var sender = users.find(function (u) { return u.id === lastMsg.senderId; });
                 var senderName = sender ? sender.name : (lastMsg.senderName || 'Seseorang');
                 addNotifItem({
-                    id: 'msg-' + order.id + '-' + lastMsg.createdAt,
                     icon: '💬',
                     title: 'Pesan dari ' + senderName,
                     desc: lastMsg.text || '📷 Foto',
-                    time: 'Baru saja',
-                    unread: true,
-                    onClick: function () { openChat(order); }
+                    type: 'chat',
+                    orderId: order.id
                 });
             }
         }
@@ -490,12 +506,21 @@ window.clearChatBadge = clearChatBadge;
 var _notifItems = [];
 var _notifUnsub = null;
 
+var _prevUnreadCount = 0;
 function initNotifications() {
     var session = getSession();
     if (!session || !isBackendConnected()) return;
     if (_notifUnsub) { _notifUnsub(); _notifUnsub = null; }
+    _prevUnreadCount = 0;
     _notifUnsub = FB.onNotifications(session.id, function (items) {
         _notifItems = items || [];
+        var newUnread = _notifItems.filter(function (n) { return n.unread; }).length;
+        // Play sound when new unread notifications arrive
+        if (newUnread > _prevUnreadCount) {
+            playBellSound();
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        }
+        _prevUnreadCount = newUnread;
         updateNotifBadges();
         // Re-render if popup is open
         var popup = document.getElementById('notifPopup');
@@ -554,8 +579,9 @@ function updateNotifBadges() {
         if (badge) {
             if (count > 0) {
                 badge.textContent = count > 9 ? '9+' : count;
-                badge.style.display = '';
+                badge.style.display = 'flex';
             } else {
+                badge.textContent = '0';
                 badge.style.display = 'none';
             }
         }
