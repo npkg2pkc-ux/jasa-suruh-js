@@ -1,10 +1,10 @@
-const CACHE_NAME = 'js-app-v2';
+const CACHE_NAME = 'js-app-v3';
 const ASSETS = [
     '/',
     '/index.html',
     '/style.css',
     '/app.js',
-    '/firebase.js',
+    '/supabase.js',
     '/manifest.json',
     '/icons/icon-192.png',
     '/icons/icon-512.png'
