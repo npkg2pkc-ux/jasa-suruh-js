@@ -887,6 +887,68 @@ function openJSAntarPage() {
     }
 
     setTimeout(function () { initJapMap(); }, 100);
+    initJapSheetDrag();
+}
+
+// ── Draggable Bottom Sheet for JS Antar ──
+var _japSheetDragSetup = false;
+function initJapSheetDrag() {
+    if (_japSheetDragSetup) return;
+    var handle = document.getElementById('japSheetHandle');
+    var mapEl = document.getElementById('japMap');
+    if (!handle || !mapEl) return;
+    _japSheetDragSetup = true;
+
+    var startY = 0, startH = 0, dragging = false;
+
+    function getMinH() { return 0; }
+    function getMaxH() {
+        var page = document.getElementById('jsAntarPage');
+        var header = page ? page.querySelector('.jap-header') : null;
+        var headerH = header ? header.offsetHeight : 76;
+        return window.innerHeight - headerH - 100;
+    }
+    function getDefaultH() { return Math.round(window.innerHeight * 0.32); }
+
+    function snapMap(h) {
+        mapEl.style.transition = 'height .35s cubic-bezier(.4,0,.2,1)';
+        mapEl.style.height = Math.max(0, h) + 'px';
+        setTimeout(function () { if (_japMap) _japMap.invalidateSize(); }, 380);
+    }
+
+    handle.addEventListener('touchstart', function (e) {
+        dragging = true;
+        startY = e.touches[0].clientY;
+        startH = mapEl.offsetHeight;
+        mapEl.style.transition = 'none';
+    }, { passive: true });
+
+    handle.addEventListener('touchmove', function (e) {
+        if (!dragging) return;
+        e.preventDefault();
+        var dy = e.touches[0].clientY - startY;
+        var newH = Math.max(getMinH(), Math.min(getMaxH(), startH + dy));
+        mapEl.style.height = newH + 'px';
+        if (_japMap) _japMap.invalidateSize();
+    }, { passive: false });
+
+    handle.addEventListener('touchend', function () {
+        if (!dragging) return;
+        dragging = false;
+        var h = mapEl.offsetHeight;
+        var pageH = window.innerHeight;
+        // Snap thresholds
+        if (h < pageH * 0.12) {
+            snapMap(0); // Fullscreen sheet
+        } else if (h > pageH * 0.45) {
+            snapMap(Math.round(pageH * 0.55)); // Expanded map
+        } else {
+            snapMap(getDefaultH()); // Default
+        }
+    });
+
+    // Reset to default height
+    mapEl.style.height = getDefaultH() + 'px';
 }
 
 function closeJSAntarPage() {

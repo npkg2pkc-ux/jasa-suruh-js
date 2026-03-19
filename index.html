@@ -829,7 +829,9 @@
         <div id="japMap" class="jap-map"></div>
 
         <!-- Bottom Sheet -->
-        <div class="jap-sheet">
+        <div class="jap-sheet" id="japSheet">
+            <div class="jap-sheet-handle" id="japSheetHandle"><div class="jap-sheet-handle-bar"></div></div>
+            <div class="jap-sheet-scroll">
             <!-- Pickup Point -->
             <div class="jap-input-group">
                 <div class="jap-dot jap-dot-pickup"></div>
@@ -917,6 +919,7 @@
             <button class="btn-primary" id="japBtnOrder" style="margin-top:12px;" disabled>
                 🏍️ Temukan Driver
             </button>
+            </div><!-- end .jap-sheet-scroll -->
         </div>
     </div>
 

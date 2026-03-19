@@ -438,8 +438,9 @@ window.openTransactionHistory = openTransactionHistory;
 // ══════════════════════════════════════════
 var _unreadChatCount = 0;
 var _globalMsgUnsub = null;
-var _lastKnownMsgIds = {};
+var _lastKnownMsgCounts = {};
 var _chatPageOpen = false;
+var _msgPollTimer = null;
 
 function updateChatBadges() {
     // Update bottom nav chat badges
@@ -470,7 +471,6 @@ function updateChatBadges() {
             }
             fabBadge.textContent = _unreadChatCount > 9 ? '9+' : _unreadChatCount;
             fabBadge.style.display = '';
-            // Pulse animation
             fab.classList.add('chat-fab-pulse');
             setTimeout(function () { fab.classList.remove('chat-fab-pulse'); }, 1000);
         } else {
@@ -480,56 +480,75 @@ function updateChatBadges() {
 }
 window.updateChatBadges = updateChatBadges;
 
+// ── Polling-based message checker (replaces realtime subscription) ──
 function startGlobalMessageListener() {
     var session = getSession();
     if (!session || !isBackendConnected()) return;
+    // Clean up any previous listeners
     if (_globalMsgUnsub) { _globalMsgUnsub(); _globalMsgUnsub = null; }
+    if (_msgPollTimer) { clearInterval(_msgPollTimer); _msgPollTimer = null; }
 
-    // Listen for order changes which may have new messages
-    _globalMsgUnsub = FB.onOrdersForUser(session.id, function (res) {
-        if (!res.success || !res.data) return;
-        var activeOrders = res.data.filter(function (o) {
-            return ['pending', 'accepted', 'on_the_way', 'arrived', 'in_progress'].indexOf(o.status) >= 0;
-        });
-        activeOrders.forEach(function (order) {
-            subscribeToOrderMessages(order, session);
-        });
-    });
+    // Do initial check then poll every 8 seconds
+    _pollNewMessages(session);
+    _msgPollTimer = setInterval(function () { _pollNewMessages(session); }, 8000);
+
+    _globalMsgUnsub = function () {
+        if (_msgPollTimer) { clearInterval(_msgPollTimer); _msgPollTimer = null; }
+    };
 }
 window.startGlobalMessageListener = startGlobalMessageListener;
 
-var _orderMsgSubs = {};
-function subscribeToOrderMessages(order, session) {
-    if (_orderMsgSubs[order.id]) return; // Already subscribed
-    _orderMsgSubs[order.id] = FB.onMessages(order.id, function (res) {
-        if (!res.success || !res.data || res.data.length === 0) return;
-        var lastMsg = res.data[res.data.length - 1];
-        var knownId = _lastKnownMsgIds[order.id];
-        var msgKey = lastMsg.senderId + '-' + lastMsg.createdAt;
+function _pollNewMessages(session) {
+    if (!isBackendConnected()) return;
+    FB.get('getOrdersByUser', { userId: session.id })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (!res.success || !res.data) return;
+            var activeOrders = res.data.filter(function (o) {
+                return ['pending', 'accepted', 'on_the_way', 'arrived', 'in_progress', 'searching'].indexOf(o.status) >= 0;
+            });
+            activeOrders.forEach(function (order) {
+                _checkOrderMessages(order, session);
+            });
+        })
+        .catch(function () {});
+}
 
-        if (knownId && knownId !== msgKey && String(lastMsg.senderId) !== String(session.id)) {
-            // New message from someone else
-            if (!_chatPageOpen) {
-                _unreadChatCount++;
-                updateChatBadges();
-                playMessageSound();
-                if (navigator.vibrate) navigator.vibrate(100);
+function _checkOrderMessages(order, session) {
+    FB.get('getMessages', { orderId: order.id })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (!res.success || !res.data) return;
+            var msgs = res.data;
+            var prevCount = _lastKnownMsgCounts[order.id] || 0;
+            var currentCount = msgs.length;
 
-                // Add to notification popup
-                var users = getUsers();
-                var sender = users.find(function (u) { return u.id === lastMsg.senderId; });
-                var senderName = sender ? sender.name : (lastMsg.senderName || 'Seseorang');
-                addNotifItem({
-                    icon: '💬',
-                    title: 'Pesan dari ' + senderName,
-                    desc: lastMsg.text || '📷 Foto',
-                    type: 'chat',
-                    orderId: order.id
+            if (prevCount > 0 && currentCount > prevCount) {
+                // Find new messages not from self
+                var newMsgs = msgs.slice(prevCount);
+                var fromOthers = newMsgs.filter(function (m) {
+                    return String(m.senderId) !== String(session.id);
                 });
+                if (fromOthers.length > 0 && !_chatPageOpen) {
+                    _unreadChatCount += fromOthers.length;
+                    updateChatBadges();
+                    playMessageSound();
+                    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
+                    var lastMsg = fromOthers[fromOthers.length - 1];
+                    var senderName = lastMsg.senderName || 'Seseorang';
+                    addNotifItem({
+                        icon: '💬',
+                        title: 'Pesan dari ' + senderName,
+                        desc: lastMsg.text || '📷 Foto',
+                        type: 'chat',
+                        orderId: order.id
+                    });
+                }
             }
-        }
-        _lastKnownMsgIds[order.id] = msgKey;
-    });
+            _lastKnownMsgCounts[order.id] = currentCount;
+        })
+        .catch(function () {});
 }
 
 function clearChatBadge() {
@@ -543,29 +562,47 @@ window.clearChatBadge = clearChatBadge;
 // ══════════════════════════════════════════
 var _notifItems = [];
 var _notifUnsub = null;
+var _notifPollTimer = null;
 
 var _prevUnreadCount = 0;
 function initNotifications() {
     var session = getSession();
     if (!session || !isBackendConnected()) return;
     if (_notifUnsub) { _notifUnsub(); _notifUnsub = null; }
+    if (_notifPollTimer) { clearInterval(_notifPollTimer); _notifPollTimer = null; }
     _prevUnreadCount = 0;
+
+    // Try realtime first, fall back to polling
     _notifUnsub = FB.onNotifications(session.id, function (items) {
-        _notifItems = items || [];
-        var newUnread = _notifItems.filter(function (n) { return n.unread; }).length;
-        // Play sound when new unread notifications arrive
-        if (newUnread > _prevUnreadCount) {
-            playBellSound();
-            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-        }
-        _prevUnreadCount = newUnread;
-        updateNotifBadges();
-        // Re-render if popup is open
-        var popup = document.getElementById('notifPopup');
-        if (popup && !popup.classList.contains('hidden')) renderNotifItems();
+        _onNotifUpdate(items);
     });
+
+    // Also poll every 12s as backup to ensure we always get updates
+    _notifPollTimer = setInterval(function () {
+        FB.get('getNotifications', { userId: session.id })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.success && res.data) _onNotifUpdate(res.data);
+            })
+            .catch(function () {});
+    }, 12000);
 }
 window.initNotifications = initNotifications;
+
+function _onNotifUpdate(items) {
+    _notifItems = items || [];
+    var newUnread = _notifItems.filter(function (n) { return n.unread; }).length;
+    // Play sound when new unread notifications arrive
+    if (newUnread > _prevUnreadCount) {
+        playBellSound();
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    }
+    _prevUnreadCount = newUnread;
+    updateNotifBadges();
+    // Re-render if popup is open
+    var popup = document.getElementById('notifPopup');
+    if (popup && !popup.classList.contains('hidden')) renderNotifItems();
+}
 
 function openNotifPopup() {
     var popup = document.getElementById('notifPopup');
@@ -1151,28 +1188,7 @@ function startOrderPolling(orderId) {
                 _currentOrder.talentLng = loc.lng;
             }
         });
-        // Subscribe to messages for chat FAB badge on tracking page
-        if (session) {
-            _fbMsgUnsub = FB.onMessages(orderId, function (res) {
-                if (!res.success || !res.data || res.data.length === 0) return;
-                var lastMsg = res.data[res.data.length - 1];
-                var knownId = _lastKnownMsgIds[orderId];
-                var msgKey = lastMsg.senderId + '-' + lastMsg.createdAt;
-                if (knownId && knownId !== msgKey && String(lastMsg.senderId) !== String(session.id)) {
-                    if (!_chatPageOpen) {
-                        _unreadChatCount++;
-                        updateChatBadges();
-                        playMessageSound();
-                        if (navigator.vibrate) navigator.vibrate(100);
-                        var users = getUsers();
-                        var sender = users.find(function (u) { return u.id === lastMsg.senderId; });
-                        var senderName = sender ? sender.name : (lastMsg.senderName || 'Seseorang');
-                        addNotifItem({ icon: '💬', title: 'Pesan dari ' + senderName, desc: lastMsg.text || '📷 Foto', type: 'chat', orderId: orderId });
-                    }
-                }
-                _lastKnownMsgIds[orderId] = msgKey;
-            });
-        }
+        // Chat badge is handled by global message polling in startGlobalMessageListener
     } else {
         pollOrderUpdate(orderId);
         _locationPollTimer = setInterval(function () { pollOrderUpdate(orderId); }, 8000);
@@ -1184,7 +1200,6 @@ function stopPolling() {
     if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
     if (_fbOrderUnsub) { _fbOrderUnsub(); _fbOrderUnsub = null; }
     if (_fbLocUnsub) { _fbLocUnsub(); _fbLocUnsub = null; }
-    if (_fbMsgUnsub) { _fbMsgUnsub(); _fbMsgUnsub = null; }
 }
 
 function pollOrderUpdate(orderId) {

@@ -688,12 +688,24 @@
                 return r.data && r.data.role === 'owner';
             });
             if (!ownerRow || !ownerRow.data) return ok(null);
+            var ownerId = ownerRow.data.id;
             return doWalletCredit({
-                userId: ownerRow.data.id,
+                userId: ownerId,
                 amount: ownerTotal,
                 orderId: orderId,
                 type: 'commission',
                 description: 'Komisi dari pesanan #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')'
+            }).then(function (res) {
+                // Notify owner about incoming funds
+                doAddNotification({
+                    userId: ownerId,
+                    icon: '💰',
+                    title: 'Dana Masuk Rp ' + ownerTotal.toLocaleString('id-ID'),
+                    desc: 'Komisi pesanan #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')',
+                    type: 'earning',
+                    orderId: orderId
+                });
+                return res;
             });
         });
 
@@ -729,12 +741,24 @@
                 return r.data && r.data.role === 'owner';
             });
             if (!ownerRow || !ownerRow.data) return ok(null);
+            var ownerId = ownerRow.data.id;
             return doWalletCredit({
-                userId: ownerRow.data.id,
+                userId: ownerId,
                 amount: platformCut,
                 orderId: orderId,
                 type: 'commission',
                 description: 'Komisi COD pesanan #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')'
+            }).then(function (res) {
+                // Notify owner about incoming funds
+                doAddNotification({
+                    userId: ownerId,
+                    icon: '💰',
+                    title: 'Dana Masuk (COD) Rp ' + platformCut.toLocaleString('id-ID'),
+                    desc: 'Komisi COD pesanan #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')',
+                    type: 'earning',
+                    orderId: orderId
+                });
+                return res;
             });
         });
 
@@ -742,7 +766,7 @@
             var deductRes = results[0];
             if (deductRes && !deductRes.success) {
                 // Talent wallet insufficient — notify but don't block
-                addNotifItem && addNotifItem({ userId: talentId, icon: '⚠️', title: 'Saldo Minus', desc: 'Saldo tidak cukup untuk potongan platform COD. Harap top up.', type: 'payment', orderId: orderId });
+                doAddNotification({ userId: talentId, icon: '⚠️', title: 'Saldo Minus', desc: 'Saldo tidak cukup untuk potongan platform COD. Harap top up.', type: 'payment', orderId: orderId });
             }
             return ok({ platformCut: platformCut, commission: commission, fee: fee });
         });
