@@ -76,6 +76,229 @@ function playMessageSound() {
 window.playMessageSound = playMessageSound;
 
 // ══════════════════════════════════════════
+// ═══ WALLET HELPERS ═══
+// ══════════════════════════════════════════
+var _walletUnsub = null;
+var _walletBalance = 0;
+
+function formatRupiah(n) {
+    return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
+}
+window.formatRupiah = formatRupiah;
+
+function loadUserWallet() {
+    var session = getSession();
+    if (!session || !isBackendConnected()) return;
+    if (session.role === 'cs') return;
+
+    // Unsubscribe previous
+    if (_walletUnsub) { _walletUnsub(); _walletUnsub = null; }
+
+    _walletUnsub = FB.onWallet(session.id, function (walletData) {
+        _walletBalance = Number(walletData.balance) || 0;
+        updateWalletDisplay(_walletBalance);
+    });
+}
+window.loadUserWallet = loadUserWallet;
+
+function updateWalletDisplay(balance) {
+    var formatted = formatRupiah(balance);
+    // User pay-section
+    var balEl = document.querySelector('.pay-section .balance-amount');
+    if (balEl) balEl.textContent = formatted;
+    // Talent wallet
+    var tw = document.getElementById('talentWalletBalance');
+    if (tw) tw.textContent = formatted;
+    // Penjual wallet
+    var pw = document.getElementById('penjualWalletBalance');
+    if (pw) pw.textContent = formatted;
+    // Owner wallet
+    var ow = document.getElementById('ownerWalletBalance');
+    if (ow) ow.textContent = formatted;
+}
+
+function getWalletBalance() {
+    return _walletBalance;
+}
+window.getWalletBalance = getWalletBalance;
+
+// ── Top Up Modal ──
+function openTopUpModal() {
+    var existing = document.getElementById('topupModal');
+    if (existing) existing.remove();
+
+    var session = getSession();
+    if (!session) return;
+
+    var overlay = document.createElement('div');
+    overlay.id = 'topupModal';
+    overlay.className = 'wallet-modal-overlay';
+    overlay.innerHTML = '<div class="wallet-modal">'
+        + '<div class="wallet-modal-header"><h3>💰 Top Up Saldo</h3><button class="wallet-modal-close" id="topupClose">&times;</button></div>'
+        + '<div class="wallet-modal-body">'
+        + '<p class="wallet-modal-balance">Saldo saat ini: <strong>' + formatRupiah(_walletBalance) + '</strong></p>'
+        + '<div class="topup-amounts">'
+        + '<button class="topup-chip" data-amt="10000">Rp 10.000</button>'
+        + '<button class="topup-chip" data-amt="20000">Rp 20.000</button>'
+        + '<button class="topup-chip" data-amt="50000">Rp 50.000</button>'
+        + '<button class="topup-chip" data-amt="100000">Rp 100.000</button>'
+        + '<button class="topup-chip" data-amt="200000">Rp 200.000</button>'
+        + '<button class="topup-chip" data-amt="500000">Rp 500.000</button>'
+        + '</div>'
+        + '<div class="form-group" style="margin-top:12px"><label>Atau masukkan jumlah:</label><div class="input-wrap"><input type="number" id="topupCustomAmount" placeholder="Jumlah top up" min="1000" step="1000"></div></div>'
+        + '<button class="btn-primary" id="topupSubmitBtn" style="margin-top:12px">💳 Top Up Sekarang</button>'
+        + '</div>'
+        + '</div>';
+
+    document.body.appendChild(overlay);
+
+    var selectedAmount = 0;
+
+    overlay.querySelector('#topupClose').addEventListener('click', function () { overlay.remove(); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+
+    overlay.querySelectorAll('.topup-chip').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+            overlay.querySelectorAll('.topup-chip').forEach(function (c) { c.classList.remove('active'); });
+            chip.classList.add('active');
+            selectedAmount = Number(chip.dataset.amt);
+            document.getElementById('topupCustomAmount').value = '';
+        });
+    });
+
+    document.getElementById('topupCustomAmount').addEventListener('input', function () {
+        if (this.value) {
+            selectedAmount = Number(this.value);
+            overlay.querySelectorAll('.topup-chip').forEach(function (c) { c.classList.remove('active'); });
+        }
+    });
+
+    overlay.querySelector('#topupSubmitBtn').addEventListener('click', function () {
+        var custom = document.getElementById('topupCustomAmount').value;
+        var amount = custom ? Number(custom) : selectedAmount;
+        if (!amount || amount < 1000) {
+            showToast('Minimal top up Rp 1.000', 'error');
+            return;
+        }
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = '⏳ Memproses...';
+
+        backendPost({ action: 'topUp', userId: session.id, amount: amount })
+            .then(function (res) {
+                btn.disabled = false;
+                btn.textContent = '💳 Top Up Sekarang';
+                if (res && res.success) {
+                    showToast('Top up ' + formatRupiah(amount) + ' berhasil! ✅', 'success');
+                    overlay.remove();
+                } else {
+                    showToast((res && res.message) || 'Gagal top up', 'error');
+                }
+            });
+    });
+}
+window.openTopUpModal = openTopUpModal;
+
+// ── Withdraw Modal ──
+function openWithdrawModal() {
+    var existing = document.getElementById('withdrawModal');
+    if (existing) existing.remove();
+
+    var session = getSession();
+    if (!session) return;
+
+    var overlay = document.createElement('div');
+    overlay.id = 'withdrawModal';
+    overlay.className = 'wallet-modal-overlay';
+    overlay.innerHTML = '<div class="wallet-modal">'
+        + '<div class="wallet-modal-header"><h3>🏧 Tarik Saldo</h3><button class="wallet-modal-close" id="withdrawClose">&times;</button></div>'
+        + '<div class="wallet-modal-body">'
+        + '<p class="wallet-modal-balance">Saldo saat ini: <strong>' + formatRupiah(_walletBalance) + '</strong></p>'
+        + '<div class="form-group"><label>Jumlah Penarikan</label><div class="input-wrap"><input type="number" id="withdrawAmount" placeholder="Masukkan jumlah" min="10000" step="1000"></div></div>'
+        + '<button class="btn-primary" id="withdrawSubmitBtn" style="margin-top:12px">🏧 Tarik Sekarang</button>'
+        + '</div>'
+        + '</div>';
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#withdrawClose').addEventListener('click', function () { overlay.remove(); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+
+    overlay.querySelector('#withdrawSubmitBtn').addEventListener('click', function () {
+        var amount = Number(document.getElementById('withdrawAmount').value);
+        if (!amount || amount < 10000) {
+            showToast('Minimal penarikan Rp 10.000', 'error');
+            return;
+        }
+        if (amount > _walletBalance) {
+            showToast('Saldo tidak cukup!', 'error');
+            return;
+        }
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = '⏳ Memproses...';
+
+        backendPost({ action: 'withdraw', userId: session.id, amount: amount })
+            .then(function (res) {
+                btn.disabled = false;
+                btn.textContent = '🏧 Tarik Sekarang';
+                if (res && res.success) {
+                    showToast('Penarikan ' + formatRupiah(amount) + ' berhasil! ✅', 'success');
+                    overlay.remove();
+                } else {
+                    showToast((res && res.message) || 'Gagal menarik saldo', 'error');
+                }
+            });
+    });
+}
+window.openWithdrawModal = openWithdrawModal;
+
+// ── Transaction History Page ──
+function openTransactionHistory() {
+    var session = getSession();
+    if (!session) return;
+
+    var existing = document.getElementById('txHistoryPage');
+    if (existing) existing.remove();
+
+    var page = document.createElement('div');
+    page.id = 'txHistoryPage';
+    page.className = 'fullpage-overlay';
+    page.innerHTML = '<div class="fullpage-header"><button class="btn-back" id="txHistBack">←</button><h3>Riwayat Transaksi</h3></div>'
+        + '<div class="fullpage-body" id="txHistList"><div class="stp-empty"><div class="stp-empty-icon">⏳</div><p>Memuat...</p></div></div>';
+
+    document.body.appendChild(page);
+
+    page.querySelector('#txHistBack').addEventListener('click', function () { page.remove(); });
+
+    FB.get('getTransactions', { userId: session.id })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            var list = document.getElementById('txHistList');
+            if (!list) return;
+            if (!res.success || !res.data || res.data.length === 0) {
+                list.innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">📭</div><p>Belum ada transaksi</p></div>';
+                return;
+            }
+            var txs = res.data;
+            var typeLabels = { topup: '💰 Top Up', payment: '🛒 Pembayaran', earning: '💵 Pendapatan', commission: '📊 Komisi', withdraw: '🏧 Penarikan' };
+            var typeColors = { topup: '#22C55E', payment: '#EF4444', earning: '#22C55E', commission: '#FF6B00', withdraw: '#EF4444' };
+
+            list.innerHTML = txs.map(function (tx) {
+                var label = typeLabels[tx.type] || tx.type;
+                var color = typeColors[tx.type] || '#666';
+                var amountStr = tx.amount >= 0 ? '+' + formatRupiah(tx.amount) : '-' + formatRupiah(Math.abs(tx.amount));
+                var date = new Date(Number(tx.createdAt)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                return '<div class="tx-item">'
+                    + '<div class="tx-item-left"><span class="tx-item-label">' + label + '</span><span class="tx-item-desc">' + (tx.description || '') + '</span><span class="tx-item-date">' + date + '</span></div>'
+                    + '<div class="tx-item-amount" style="color:' + color + '">' + amountStr + '</div>'
+                    + '</div>';
+            }).join('');
+        });
+}
+window.openTransactionHistory = openTransactionHistory;
+
+// ══════════════════════════════════════════
 // ═══ CHAT BADGE (unread messages) ═══
 // ══════════════════════════════════════════
 var _unreadChatCount = 0;
@@ -370,6 +593,35 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                 renderOrderInfo(_currentOrder, session && session.id === _currentOrder.talentId);
             }
             showToast('Status diperbarui!', 'success');
+
+            // When order is completed, distribute funds to talent/penjual + owner commission
+            if (newStatus === 'completed' && _currentOrder) {
+                var order = _currentOrder;
+                // Get commission settings to calculate proper rates
+                FB.get('getSettings')
+                    .then(function (r) { return r.json(); })
+                    .then(function (settingsRes) {
+                        var commPercent = 10; // default
+                        if (settingsRes.success && settingsRes.data) {
+                            var s = settingsRes.data;
+                            // Use talent or penjual commission based on order type
+                            if (order.skillType === 'js_food') {
+                                commPercent = Number(s.commission_penjual_percent) || 10;
+                            } else {
+                                commPercent = Number(s.commission_talent_percent) || 15;
+                            }
+                        }
+                        backendPost({
+                            action: 'walletCompleteOrder',
+                            orderId: order.id,
+                            talentId: order.talentId,
+                            price: order.price,
+                            fee: order.fee,
+                            commissionPercent: commPercent,
+                            serviceType: order.serviceType || order.skillType || ''
+                        });
+                    });
+            }
         } else {
             showToast('Gagal update status', 'error');
         }

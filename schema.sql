@@ -67,6 +67,26 @@ CREATE TABLE IF NOT EXISTS locations (
     updated_at BIGINT DEFAULT 0
 );
 
+-- 9. Tabel Wallets (saldo per user)
+CREATE TABLE IF NOT EXISTS wallets (
+    user_id TEXT PRIMARY KEY,
+    balance BIGINT DEFAULT 0,
+    updated_at BIGINT DEFAULT 0,
+    data JSONB NOT NULL DEFAULT '{}'
+);
+
+-- 10. Tabel Transactions (riwayat transaksi wallet)
+CREATE TABLE IF NOT EXISTS transactions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT '',
+    amount BIGINT DEFAULT 0,
+    created_at BIGINT DEFAULT 0,
+    data JSONB NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(user_id, created_at);
+
 -- ============================================================
 -- Row Level Security (RLS) — Policies untuk akses publik (anon)
 -- Sama seperti keamanan Firebase sebelumnya.
@@ -96,6 +116,12 @@ CREATE POLICY "anon_all_products" ON products FOR ALL TO anon USING (true) WITH 
 
 ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "anon_all_locations" ON locations FOR ALL TO anon USING (true) WITH CHECK (true);
+
+ALTER TABLE wallets ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "anon_all_wallets" ON wallets FOR ALL TO anon USING (true) WITH CHECK (true);
+
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "anon_all_transactions" ON transactions FOR ALL TO anon USING (true) WITH CHECK (true);
 
 -- ============================================================
 -- Aktifkan Supabase Realtime untuk tabel yang butuh listener

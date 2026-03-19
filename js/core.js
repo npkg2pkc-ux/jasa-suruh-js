@@ -447,6 +447,8 @@ function updateRoleUI(user) {
     var role = user.role;
     // Start global message listener for chat notifications (all roles)
     startGlobalMessageListener();
+    // Load wallet for all roles except CS
+    if (role !== 'cs') loadUserWallet();
     if (role === 'user') {
         var el = document.getElementById('userName');
         if (el) el.textContent = user.name || 'User';

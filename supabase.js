@@ -450,6 +450,258 @@
             });
     }
 
+    // ── Wallet Functions ──
+
+    function getWallet(userId) {
+        return sb.from('wallets').select('*').eq('user_id', userId).single()
+            .then(function (res) {
+                if (res.error && res.error.code === 'PGRST116') {
+                    // No wallet yet — return zero balance
+                    return ok({ userId: userId, balance: 0 });
+                }
+                throwIfError(res);
+                var w = res.data;
+                return ok({ userId: w.user_id, balance: Number(w.balance) || 0, updatedAt: w.updated_at });
+            });
+    }
+
+    function getTransactions(userId) {
+        return sb.from('transactions').select('data')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .then(function (res) {
+                throwIfError(res);
+                return ok(rowsToArr(res.data));
+            });
+    }
+
+    function doTopUp(body) {
+        var userId = body.userId;
+        var amount = Math.abs(Number(body.amount) || 0);
+        if (amount <= 0) return Promise.resolve(fail('Jumlah top up harus lebih dari 0'));
+
+        return sb.from('wallets').select('*').eq('user_id', userId).single()
+            .then(function (res) {
+                var currentBalance = 0;
+                if (!res.error && res.data) {
+                    currentBalance = Number(res.data.balance) || 0;
+                }
+                var newBalance = currentBalance + amount;
+                return sb.from('wallets').upsert({
+                    user_id: userId,
+                    balance: newBalance,
+                    updated_at: Date.now(),
+                    data: { userId: userId, balance: newBalance, updatedAt: Date.now() }
+                }).then(function (ures) {
+                    throwIfError(ures);
+                    // Record transaction
+                    var txId = generateId();
+                    var txData = {
+                        id: txId,
+                        userId: userId,
+                        type: 'topup',
+                        amount: amount,
+                        balanceBefore: currentBalance,
+                        balanceAfter: newBalance,
+                        description: 'Top Up Saldo',
+                        createdAt: Date.now()
+                    };
+                    return sb.from('transactions').insert({
+                        id: txId,
+                        user_id: userId,
+                        type: 'topup',
+                        amount: amount,
+                        created_at: txData.createdAt,
+                        data: txData
+                    }).then(function () {
+                        return ok({ balance: newBalance });
+                    });
+                });
+            });
+    }
+
+    function doWithdraw(body) {
+        var userId = body.userId;
+        var amount = Math.abs(Number(body.amount) || 0);
+        if (amount <= 0) return Promise.resolve(fail('Jumlah penarikan harus lebih dari 0'));
+
+        return sb.from('wallets').select('*').eq('user_id', userId).single()
+            .then(function (res) {
+                if (res.error || !res.data) return fail('Wallet tidak ditemukan');
+                var currentBalance = Number(res.data.balance) || 0;
+                if (currentBalance < amount) return fail('Saldo tidak cukup');
+
+                var newBalance = currentBalance - amount;
+                return sb.from('wallets').update({
+                    balance: newBalance,
+                    updated_at: Date.now(),
+                    data: { userId: userId, balance: newBalance, updatedAt: Date.now() }
+                }).eq('user_id', userId).then(function (ures) {
+                    throwIfError(ures);
+                    var txId = generateId();
+                    var txData = {
+                        id: txId,
+                        userId: userId,
+                        type: 'withdraw',
+                        amount: -amount,
+                        balanceBefore: currentBalance,
+                        balanceAfter: newBalance,
+                        description: 'Penarikan Saldo',
+                        createdAt: Date.now()
+                    };
+                    return sb.from('transactions').insert({
+                        id: txId,
+                        user_id: userId,
+                        type: 'withdraw',
+                        amount: -amount,
+                        created_at: txData.createdAt,
+                        data: txData
+                    }).then(function () {
+                        return ok({ balance: newBalance });
+                    });
+                });
+            });
+    }
+
+    function doWalletPay(body) {
+        var userId = body.userId;
+        var amount = Math.abs(Number(body.amount) || 0);
+        var orderId = body.orderId || '';
+        var desc = body.description || 'Pembayaran Pesanan';
+        if (amount <= 0) return Promise.resolve(fail('Jumlah pembayaran harus lebih dari 0'));
+
+        return sb.from('wallets').select('*').eq('user_id', userId).single()
+            .then(function (res) {
+                if (res.error || !res.data) return fail('Wallet tidak ditemukan. Silakan top up terlebih dahulu.');
+                var currentBalance = Number(res.data.balance) || 0;
+                if (currentBalance < amount) return fail('Saldo tidak cukup! Butuh Rp ' + amount.toLocaleString('id-ID') + ', saldo Anda Rp ' + currentBalance.toLocaleString('id-ID'));
+
+                var newBalance = currentBalance - amount;
+                return sb.from('wallets').update({
+                    balance: newBalance,
+                    updated_at: Date.now(),
+                    data: { userId: userId, balance: newBalance, updatedAt: Date.now() }
+                }).eq('user_id', userId).then(function (ures) {
+                    throwIfError(ures);
+                    var txId = generateId();
+                    var txData = {
+                        id: txId,
+                        userId: userId,
+                        type: 'payment',
+                        amount: -amount,
+                        orderId: orderId,
+                        balanceBefore: currentBalance,
+                        balanceAfter: newBalance,
+                        description: desc,
+                        createdAt: Date.now()
+                    };
+                    return sb.from('transactions').insert({
+                        id: txId,
+                        user_id: userId,
+                        type: 'payment',
+                        amount: -amount,
+                        created_at: txData.createdAt,
+                        data: txData
+                    }).then(function () {
+                        return ok({ balance: newBalance });
+                    });
+                });
+            });
+    }
+
+    function doWalletCredit(body) {
+        var userId = body.userId;
+        var amount = Math.abs(Number(body.amount) || 0);
+        var orderId = body.orderId || '';
+        var type = body.type || 'earning';
+        var desc = body.description || 'Pendapatan';
+
+        return sb.from('wallets').select('*').eq('user_id', userId).single()
+            .then(function (res) {
+                var currentBalance = 0;
+                if (!res.error && res.data) {
+                    currentBalance = Number(res.data.balance) || 0;
+                }
+                var newBalance = currentBalance + amount;
+                return sb.from('wallets').upsert({
+                    user_id: userId,
+                    balance: newBalance,
+                    updated_at: Date.now(),
+                    data: { userId: userId, balance: newBalance, updatedAt: Date.now() }
+                }).then(function (ures) {
+                    throwIfError(ures);
+                    var txId = generateId();
+                    var txData = {
+                        id: txId,
+                        userId: userId,
+                        type: type,
+                        amount: amount,
+                        orderId: orderId,
+                        balanceBefore: currentBalance,
+                        balanceAfter: newBalance,
+                        description: desc,
+                        createdAt: Date.now()
+                    };
+                    return sb.from('transactions').insert({
+                        id: txId,
+                        user_id: userId,
+                        type: type,
+                        amount: amount,
+                        created_at: txData.createdAt,
+                        data: txData
+                    }).then(function () {
+                        return ok({ balance: newBalance });
+                    });
+                });
+            });
+    }
+
+    function doWalletCompleteOrder(body) {
+        // Called when order is completed — distribute funds to talent/penjual + owner commission
+        var orderId = body.orderId;
+        var talentId = body.talentId;
+        var price = Number(body.price) || 0;
+        var fee = Number(body.fee) || 0;
+        var commissionPercent = Number(body.commissionPercent) || 10;
+        var serviceType = body.serviceType || '';
+
+        // Commission from price goes to owner
+        var commission = Math.round(price * commissionPercent / 100);
+        var talentEarning = price - commission;
+
+        // Fee always goes to owner (platform fee)
+        var ownerTotal = fee + commission;
+
+        // Credit talent/penjual
+        var creditTalent = doWalletCredit({
+            userId: talentId,
+            amount: talentEarning,
+            orderId: orderId,
+            type: 'earning',
+            description: 'Pendapatan dari pesanan #' + orderId.substr(0, 8)
+        });
+
+        // Credit owner (find owner user)
+        var creditOwner = sb.from('users').select('data').then(function (res) {
+            if (res.error || !res.data) return ok(null);
+            var ownerRow = res.data.find(function (r) {
+                return r.data && r.data.role === 'owner';
+            });
+            if (!ownerRow || !ownerRow.data) return ok(null);
+            return doWalletCredit({
+                userId: ownerRow.data.id,
+                amount: ownerTotal,
+                orderId: orderId,
+                type: 'commission',
+                description: 'Komisi dari pesanan #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')'
+            });
+        });
+
+        return Promise.all([creditTalent, creditOwner]).then(function () {
+            return ok({ talentEarning: talentEarning, ownerTotal: ownerTotal, commission: commission });
+        });
+    }
+
     // ── Dispatch GET ──
     function dispatchGet(action, params) {
         var p = params || {};
@@ -465,6 +717,8 @@
             case 'getStoresByUser': return getStoresByUser(p.userId);
             case 'getProductsByStore': return getProductsByStore(p.storeId);
             case 'login': return doLogin(p.username, p.password);
+            case 'getWallet': return getWallet(p.userId);
+            case 'getTransactions': return getTransactions(p.userId);
             default: return Promise.reject(new Error('Unknown GET action: ' + action));
         }
     }
@@ -488,6 +742,11 @@
             case 'createProduct': return doCreateProduct(body);
             case 'updateProduct': return doUpdateProduct(body);
             case 'deleteProduct': return doDeleteProduct(body);
+            case 'topUp': return doTopUp(body);
+            case 'withdraw': return doWithdraw(body);
+            case 'walletPay': return doWalletPay(body);
+            case 'walletCredit': return doWalletCredit(body);
+            case 'walletCompleteOrder': return doWalletCompleteOrder(body);
             default: return Promise.reject(new Error('Unknown POST action: ' + body.action));
         }
     }
@@ -665,6 +924,27 @@
         onOrder: onOrder,
         onMessages: onMessages,
         onTalentLocation: onTalentLocation,
+
+        onWallet: function (userId, callback) {
+            // Initial load
+            getWallet(userId).then(function (res) {
+                if (res.success) callback(res.data);
+            });
+            // Realtime
+            var channel = sb.channel('wallet-' + userId)
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'wallets',
+                    filter: 'user_id=eq.' + userId
+                }, function () {
+                    getWallet(userId).then(function (res) {
+                        if (res.success) callback(res.data);
+                    });
+                })
+                .subscribe();
+            return function () { sb.removeChannel(channel); };
+        },
 
         setTalentLocation: function (orderId, lat, lng) {
             if (!isSupabaseReady) return;

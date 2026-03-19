@@ -170,6 +170,49 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .balance-amount { font-size:16px; font-weight:700; color:var(--black); }
 .balance-divider { width:1px; height:36px; background:var(--gray-200); }
 
+/* ========== WALLET CARD (Talent, Penjual, Owner) ========== */
+.wallet-section { margin-top:16px; animation:fadeInUp .5s ease-out both; animation-delay:.15s; }
+.wallet-card { background:linear-gradient(135deg,#FF6B00,#FF9A3C); border-radius:var(--r-lg); padding:18px 20px; color:var(--white); }
+.wallet-card-owner { background:linear-gradient(135deg,#1a1a2e,#16213e); }
+.wallet-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+.wallet-card-title { font-size:14px; font-weight:600; opacity:.9; }
+.wallet-card-balance { font-size:22px; font-weight:800; }
+.wallet-card-actions { display:flex; gap:10px; }
+.wallet-btn { flex:1; padding:10px; border:none; border-radius:var(--r-md); font-size:13px; font-weight:600; font-family:var(--font); cursor:pointer; transition:var(--tr); text-align:center; }
+.wallet-btn:active { transform:scale(.95); }
+.wallet-btn-withdraw { background:rgba(255,255,255,.2); color:var(--white); backdrop-filter:blur(4px); }
+.wallet-btn-history { background:rgba(255,255,255,.15); color:var(--white); backdrop-filter:blur(4px); }
+
+/* ========== WALLET MODAL (Top Up / Withdraw) ========== */
+.wallet-modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.5); z-index:9999; display:flex; align-items:flex-end; justify-content:center; animation:fadeIn .2s; }
+.wallet-modal { background:var(--white); border-radius:20px 20px 0 0; width:100%; max-width:480px; max-height:85vh; overflow-y:auto; padding:0; animation:slideUp .3s ease-out; }
+.wallet-modal-header { display:flex; justify-content:space-between; align-items:center; padding:18px 20px 10px; border-bottom:1px solid var(--gray-100); }
+.wallet-modal-header h3 { font-size:18px; font-weight:700; }
+.wallet-modal-close { background:none; border:none; font-size:28px; color:var(--gray-400); cursor:pointer; padding:0 4px; line-height:1; }
+.wallet-modal-body { padding:16px 20px 28px; }
+.wallet-modal-balance { font-size:14px; color:var(--gray-600); margin-bottom:16px; }
+.wallet-modal-balance strong { color:var(--black); font-size:16px; }
+.topup-amounts { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.topup-chip { background:var(--gray-100); border:2px solid transparent; border-radius:var(--r-md); padding:12px 8px; font-size:13px; font-weight:600; font-family:var(--font); color:var(--black); cursor:pointer; transition:var(--tr); text-align:center; }
+.topup-chip:active { transform:scale(.95); }
+.topup-chip.active { border-color:var(--orange); background:var(--orange-light); color:var(--orange); }
+
+/* ========== TRANSACTION HISTORY ========== */
+.fullpage-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:var(--white); z-index:9998; display:flex; flex-direction:column; animation:slideRight .3s ease-out; }
+.fullpage-header { display:flex; align-items:center; gap:12px; padding:16px 20px; background:var(--white); border-bottom:1px solid var(--gray-100); }
+.fullpage-header h3 { font-size:18px; font-weight:700; }
+.fullpage-body { flex:1; overflow-y:auto; padding:12px 16px; }
+.tx-item { display:flex; justify-content:space-between; align-items:center; padding:14px 0; border-bottom:1px solid var(--gray-100); }
+.tx-item:last-child { border-bottom:none; }
+.tx-item-left { display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; }
+.tx-item-label { font-size:14px; font-weight:600; color:var(--black); }
+.tx-item-desc { font-size:12px; color:var(--gray-600); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tx-item-date { font-size:11px; color:var(--gray-400); }
+.tx-item-amount { font-size:15px; font-weight:700; white-space:nowrap; margin-left:12px; }
+
+@keyframes slideUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
+@keyframes slideRight { from { transform:translateX(100%); } to { transform:translateX(0); } }
+
 /* ========== NEWS (User) ========== */
 .news-section { margin-top:28px; }
 .news-list { display:flex; flex-direction:column; gap:12px; }

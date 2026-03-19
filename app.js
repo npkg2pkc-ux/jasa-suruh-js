@@ -269,6 +269,8 @@
         const role = user.role;
         // Start global message listener for chat notifications (all roles)
         startGlobalMessageListener();
+        // Load wallet for all roles except CS
+        if (role !== 'cs') loadUserWallet();
         if (role === 'user') {
             const el = document.getElementById('userName');
             if (el) el.textContent = user.name || 'User';
@@ -1667,6 +1669,15 @@
 
         var price = Number(t.skill.price) || 0;
         var fee = Math.round(price * 0.1);
+        var totalCost = price + fee;
+
+        // Check wallet balance
+        if (getWalletBalance() < totalCost) {
+            showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Silakan top up dulu.', 'error');
+            openTopUpModal();
+            return;
+        }
+
         var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
 
         var orderData = {
@@ -1686,26 +1697,33 @@
             talentLng: t.user.lng || 0
         };
 
-        showToast('Membuat pesanan...', 'success');
+        showToast('Memproses pembayaran...', 'success');
 
-        backendPost(orderData).then(function (res) {
-            if (res && res.success) {
-                var order = res.data || orderData;
-                order.status = 'pending';
-                order.createdAt = Date.now();
-                order.talentName = t.user.name;
-                order.userName = session.name;
-                showToast('Pesanan berhasil dibuat!', 'success');
-                // Close detail page and open tracking
-                document.getElementById('talentDetailPage').classList.add('hidden');
-                document.getElementById('serviceTalentPage').classList.add('hidden');
-                openOrderTracking(order);
-            } else {
-                showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
-            }
-        }).catch(function () {
-            showToast('Gagal membuat pesanan', 'error');
-        });
+        backendPost({ action: 'walletPay', userId: session.id, amount: totalCost, orderId: orderId, description: 'Pembayaran pesanan ' + (t.skill.serviceType || t.skill.name || '') })
+            .then(function (payRes) {
+                if (!payRes || !payRes.success) {
+                    showToast((payRes && payRes.message) || 'Saldo tidak cukup!', 'error');
+                    return;
+                }
+                return backendPost(orderData).then(function (res) {
+                    if (res && res.success) {
+                        var order = res.data || orderData;
+                        order.status = 'pending';
+                        order.createdAt = Date.now();
+                        order.talentName = t.user.name;
+                        order.userName = session.name;
+                        showToast('Pesanan berhasil dibuat! Saldo dipotong ' + formatRupiah(totalCost), 'success');
+                        document.getElementById('talentDetailPage').classList.add('hidden');
+                        document.getElementById('serviceTalentPage').classList.add('hidden');
+                        openOrderTracking(order);
+                    } else {
+                        backendPost({ action: 'walletCredit', userId: session.id, amount: totalCost, orderId: orderId, type: 'refund', description: 'Refund - gagal buat pesanan' });
+                        showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
+                    }
+                });
+            }).catch(function () {
+                showToast('Gagal memproses pembayaran', 'error');
+            });
     }
 
     // ══════════════════════════════════════════
@@ -1850,6 +1868,33 @@
                     renderOrderInfo(_currentOrder, session && session.id === _currentOrder.talentId);
                 }
                 showToast('Status diperbarui!', 'success');
+
+                // When order is completed, distribute funds to talent/penjual + owner commission
+                if (newStatus === 'completed' && _currentOrder) {
+                    var order = _currentOrder;
+                    FB.get('getSettings')
+                        .then(function (r) { return r.json(); })
+                        .then(function (settingsRes) {
+                            var commPercent = 10;
+                            if (settingsRes.success && settingsRes.data) {
+                                var s = settingsRes.data;
+                                if (order.skillType === 'js_food') {
+                                    commPercent = Number(s.commission_penjual_percent) || 10;
+                                } else {
+                                    commPercent = Number(s.commission_talent_percent) || 15;
+                                }
+                            }
+                            backendPost({
+                                action: 'walletCompleteOrder',
+                                orderId: order.id,
+                                talentId: order.talentId,
+                                price: order.price,
+                                fee: order.fee,
+                                commissionPercent: commPercent,
+                                serviceType: order.serviceType || order.skillType || ''
+                            });
+                        });
+                }
             } else {
                 showToast('Gagal update status', 'error');
             }
@@ -3433,19 +3478,29 @@
         if (!store) { showToast('Data toko tidak ditemukan', 'error'); return; }
 
         var price = Number(product.price) || 0;
-        var deliveryFee = 3000; // default, will use settings
+        var deliveryFee = 3000;
+        var fee = Math.round(price * 0.1);
+        var totalCost = price + deliveryFee + fee;
+
+        // Check wallet balance
+        if (getWalletBalance() < totalCost) {
+            showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Silakan top up dulu.', 'error');
+            openTopUpModal();
+            return;
+        }
+
         var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
 
         var orderData = {
             action: 'createOrder',
             id: orderId,
             userId: session.id,
-            talentId: store.userId, // penjual acts as fulfiller
+            talentId: store.userId,
             skillType: 'js_food',
             serviceType: product.name,
             description: 'Produk dari ' + store.name,
             price: price + deliveryFee,
-            fee: Math.round(price * 0.1),
+            fee: fee,
             userLat: session.lat || 0,
             userLng: session.lng || 0,
             userAddr: session.address || '',
@@ -3453,24 +3508,33 @@
             talentLng: store.lng || 0
         };
 
-        showToast('Membuat pesanan...', 'success');
-        backendPost(orderData).then(function(res) {
-            if (res && res.success) {
-                var order = res.data || orderData;
-                order.status = 'pending';
-                order.createdAt = Date.now();
-                order.talentName = store.name;
-                order.userName = session.name;
-                showToast('Pesanan berhasil dibuat!', 'success');
-                document.getElementById('storeDetailPage').classList.add('hidden');
-                document.getElementById('storeListPage').classList.add('hidden');
-                openOrderTracking(order);
-            } else {
-                showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
-            }
-        }).catch(function() {
-            showToast('Gagal membuat pesanan', 'error');
-        });
+        showToast('Memproses pembayaran...', 'success');
+
+        backendPost({ action: 'walletPay', userId: session.id, amount: totalCost, orderId: orderId, description: 'Pembayaran produk ' + product.name })
+            .then(function (payRes) {
+                if (!payRes || !payRes.success) {
+                    showToast((payRes && payRes.message) || 'Saldo tidak cukup!', 'error');
+                    return;
+                }
+                return backendPost(orderData).then(function (res) {
+                    if (res && res.success) {
+                        var order = res.data || orderData;
+                        order.status = 'pending';
+                        order.createdAt = Date.now();
+                        order.talentName = store.name;
+                        order.userName = session.name;
+                        showToast('Pesanan berhasil! Saldo dipotong ' + formatRupiah(totalCost), 'success');
+                        document.getElementById('storeDetailPage').classList.add('hidden');
+                        document.getElementById('storeListPage').classList.add('hidden');
+                        openOrderTracking(order);
+                    } else {
+                        backendPost({ action: 'walletCredit', userId: session.id, amount: totalCost, orderId: orderId, type: 'refund', description: 'Refund - gagal buat pesanan' });
+                        showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
+                    }
+                });
+            }).catch(function () {
+                showToast('Gagal memproses pembayaran', 'error');
+            });
     }
 
     // ══════════════════════════════════════════
@@ -3937,21 +4001,30 @@
         var pickupAddr = document.getElementById('japPickupText').textContent || '';
         var destAddr = document.getElementById('japDestInput').value || _japDestAddress;
 
+        var fee = Math.round(price * 0.1);
+        var totalCost = price + fee;
+
+        // Check wallet balance
+        if (getWalletBalance() < totalCost) {
+            showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Silakan top up dulu.', 'error');
+            openTopUpModal();
+            return;
+        }
+
         var btn = document.getElementById('japBtnOrder');
         btn.disabled = true;
-        btn.textContent = '⏳ Mencari driver...';
+        btn.textContent = '⏳ Memproses pembayaran...';
 
-        // Build service description
         var desc = 'Antar dari: ' + pickupAddr + '\nTujuan: ' + destAddr + '\nJarak: ' + _japRouteDistKm.toFixed(1) + ' km';
         if (note) desc += '\nCatatan: ' + note;
 
-        // Calculate fee (platform commission)
-        var fee = Math.round(price * 0.1); // 10% platform
+        var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
 
         var orderData = {
             action: 'createOrder',
+            id: orderId,
             userId: session.id,
-            talentId: '',  // will be assigned when driver accepts
+            talentId: '',
             skillType: 'js_antar',
             serviceType: 'JS Antar Motor',
             description: desc,
@@ -3966,23 +4039,32 @@
             distanceKm: _japRouteDistKm
         };
 
-        backendPost(orderData).then(function(res) {
-            if (res && res.success && res.data) {
-                closeJSAntarPage();
-                showToast('Pesanan dibuat! Menunggu driver... 🏍️', 'success');
-                // Open order tracking immediately
-                var order = res.data;
-                openOrderTracking(order);
-            } else {
+        backendPost({ action: 'walletPay', userId: session.id, amount: totalCost, orderId: orderId, description: 'Pembayaran JS Antar Motor' })
+            .then(function (payRes) {
+                if (!payRes || !payRes.success) {
+                    btn.disabled = false;
+                    btn.textContent = '🏍️ Pesan Driver — Rp ' + price.toLocaleString('id-ID');
+                    showToast((payRes && payRes.message) || 'Saldo tidak cukup!', 'error');
+                    return;
+                }
+                return backendPost(orderData).then(function (res) {
+                    if (res && res.success && res.data) {
+                        closeJSAntarPage();
+                        showToast('Pesanan dibuat! Saldo dipotong ' + formatRupiah(totalCost) + ' 🏍️', 'success');
+                        var order = res.data;
+                        openOrderTracking(order);
+                    } else {
+                        backendPost({ action: 'walletCredit', userId: session.id, amount: totalCost, orderId: orderId, type: 'refund', description: 'Refund - gagal buat pesanan' });
+                        btn.disabled = false;
+                        btn.textContent = '🏍️ Pesan Driver — Rp ' + price.toLocaleString('id-ID');
+                        showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'coba lagi'), 'error');
+                    }
+                });
+            }).catch(function () {
                 btn.disabled = false;
                 btn.textContent = '🏍️ Pesan Driver — Rp ' + price.toLocaleString('id-ID');
-                showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'coba lagi'), 'error');
-            }
-        }).catch(function() {
-            btn.disabled = false;
-            btn.textContent = '🏍️ Pesan Driver — Rp ' + price.toLocaleString('id-ID');
-            showToast('Koneksi error, coba lagi', 'error');
-        });
+                showToast('Koneksi error, coba lagi', 'error');
+            });
     }
 
     // ── Bottom Nav ──
