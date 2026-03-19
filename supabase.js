@@ -34,8 +34,8 @@
     // PENTING: Isi dengan konfigurasi Supabase project Anda
     // Cara mendapatkan: Supabase Dashboard → Settings → API
     var defaultSupabaseConfig = {
-        url: 'YOUR_SUPABASE_URL',        // e.g. https://xxxxx.supabase.co
-        anonKey: 'YOUR_SUPABASE_ANON_KEY' // e.g. eyJhbGciOiJIUzI1NiIs...
+        url: 'https://aqptkuoazqharfzxvgem.supabase.co',        // e.g. https://xxxxx.supabase.co
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxcHRrdW9henFoYXJmenh2Z2VtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4OTYyOTUsImV4cCI6MjA4OTQ3MjI5NX0.mFEpJlSB7dJTaubqXj6jZtbh9wki1L37gg7NaCguzQI' // e.g. eyJhbGciOiJIUzI1NiIs...
     };
     // Bisa di-override dari script global: window.__SUPABASE_CONFIG__
     var config = window.__SUPABASE_CONFIG__ || defaultSupabaseConfig;
