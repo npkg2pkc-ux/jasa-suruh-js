@@ -365,6 +365,22 @@ var STATUS_LABELS = {
     cancelled: '❌ Dibatalkan'
 };
 
+var STATUS_LABELS_ANTAR = {
+    pending: '⏳ Menunggu',
+    accepted: '✅ Driver Ditemukan',
+    on_the_way: '🏍️ Menuju Lokasi Jemput',
+    arrived: '📍 Driver Tiba',
+    in_progress: '🚀 Dalam Perjalanan',
+    completed: '🏁 Sampai Tujuan',
+    rated: '⭐ Dinilai',
+    cancelled: '❌ Dibatalkan'
+};
+
+function getStatusLabel(status, skillType) {
+    if (skillType === 'js_antar') return STATUS_LABELS_ANTAR[status] || status;
+    return STATUS_LABELS[status] || status;
+}
+
 // Skill definitions (shared between talent and user)
 var SKILL_DEFS = [
     { type: 'js_antar', name: 'JS Antar', icon: '🏍️', desc: 'Jasa antar barang & dokumen', hasForm: false },

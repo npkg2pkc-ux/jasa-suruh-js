@@ -476,7 +476,7 @@ function renderTalentDashboardOrders(orders, session) {
                 var user = users.find(function (u) { return u.id === o.userId; });
                 var userName = user ? user.name : 'Pelanggan';
                 var priceText = o.price ? 'Rp ' + Number(o.price).toLocaleString('id-ID') : '-';
-                var statusText = STATUS_LABELS[o.status] || o.status;
+                var statusText = getStatusLabel(o.status, o.skillType);
                 return '<div class="td-order-card active-card" data-src="active" data-idx="' + idx + '">'
                     + '<div class="td-oc-top">'
                     + '<div class="td-oc-service">' + escapeHtml(o.serviceType || o.skillType || 'Pesanan') + '</div>'
@@ -598,6 +598,13 @@ function startTalentDashboardPolling() {
                 checkNewPendingOrders(res.data, s);
             }
         });
+        // Also poll as backup - Supabase Realtime can miss filter changes
+        _talentDashPollTimer = setInterval(function () {
+            var s = getSession();
+            if (s && s.role === 'talent') {
+                loadTalentDashboardOrders();
+            }
+        }, 5000);
     } else {
         _talentDashPollTimer = setInterval(function () {
             var s = getSession();

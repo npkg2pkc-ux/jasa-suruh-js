@@ -9,6 +9,8 @@
 // ══════════════════════════════════════════
 var _audioCtx = null;
 var _audioUnlocked = false;
+var _silentAudio = null;
+
 function _getAudioCtx() {
     if (!_audioCtx) {
         _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -17,27 +19,37 @@ function _getAudioCtx() {
     return _audioCtx;
 }
 
-// Unlock AudioContext on first user interaction (required by browsers)
+// Unlock AudioContext on first user interaction (required by iOS Safari)
 function _unlockAudio() {
     if (_audioUnlocked) return;
-    _audioUnlocked = true;
     try {
         var ctx = _getAudioCtx();
-        // Create a silent buffer to unlock
+        if (ctx.state === 'suspended') ctx.resume();
+        // Play silent buffer to unlock
         var buf = ctx.createBuffer(1, 1, 22050);
         var src = ctx.createBufferSource();
         src.buffer = buf;
         src.connect(ctx.destination);
-        src.start(0);
+        if (src.start) src.start(0); else src.noteOn(0);
     } catch (e) {}
+    // Also unlock HTML5 Audio for iOS fallback
+    try {
+        if (!_silentAudio) {
+            _silentAudio = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRwBHAAAAAAD/+xBkAA/wAABpAAAACAAADSAAAAEAAAGkAAAAIAAANIAAAARMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/7EGQeD/AAAGkAAAAIAAANIAAAAQAAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVQ==');
+            _silentAudio.volume = 0.01;
+        }
+        _silentAudio.play().then(function () { _silentAudio.pause(); }).catch(function () {});
+    } catch (e) {}
+    _audioUnlocked = true;
 }
-document.addEventListener('click', _unlockAudio, { once: true });
-document.addEventListener('touchstart', _unlockAudio, { once: true });
+document.addEventListener('click', _unlockAudio);
+document.addEventListener('touchstart', _unlockAudio);
+document.addEventListener('touchend', _unlockAudio);
 
 function playBellSound() {
     try {
         var ctx = _getAudioCtx();
-        // Bell-like tone: two sine oscillators with decay
+        if (ctx.state === 'suspended') ctx.resume();
         var t = ctx.currentTime;
         [880, 1175].forEach(function (freq, i) {
             var osc = ctx.createOscillator();
@@ -51,31 +63,35 @@ function playBellSound() {
             osc.start(t + i * 0.15);
             osc.stop(t + i * 0.15 + 0.7);
         });
-        // Second ring
         setTimeout(function () {
-            var t2 = ctx.currentTime;
-            [880, 1175].forEach(function (freq, i) {
-                var osc = ctx.createOscillator();
-                var gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.value = freq;
-                gain.gain.setValueAtTime(0.25, t2 + i * 0.15);
-                gain.gain.exponentialRampToValueAtTime(0.001, t2 + i * 0.15 + 0.6);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start(t2 + i * 0.15);
-                osc.stop(t2 + i * 0.15 + 0.7);
-            });
+            try {
+                var t2 = ctx.currentTime;
+                [880, 1175].forEach(function (freq, i) {
+                    var osc = ctx.createOscillator();
+                    var gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.25, t2 + i * 0.15);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t2 + i * 0.15 + 0.6);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(t2 + i * 0.15);
+                    osc.stop(t2 + i * 0.15 + 0.7);
+                });
+            } catch (e) {}
         }, 400);
-    } catch (e) {}
+    } catch (e) {
+        // iOS fallback: use vibration
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+    }
 }
 window.playBellSound = playBellSound;
 
 function playMessageSound() {
     try {
         var ctx = _getAudioCtx();
+        if (ctx.state === 'suspended') ctx.resume();
         var t = ctx.currentTime;
-        // Short two-tone "ding" for messages
         var freqs = [660, 880];
         freqs.forEach(function (freq, i) {
             var osc = ctx.createOscillator();
@@ -89,7 +105,9 @@ function playMessageSound() {
             osc.start(t + i * 0.12);
             osc.stop(t + i * 0.12 + 0.35);
         });
-    } catch (e) {}
+    } catch (e) {
+        if (navigator.vibrate) navigator.vibrate(100);
+    }
 }
 window.playMessageSound = playMessageSound;
 
@@ -424,6 +442,7 @@ var _lastKnownMsgIds = {};
 var _chatPageOpen = false;
 
 function updateChatBadges() {
+    // Update bottom nav chat badges
     document.querySelectorAll('.bottom-nav .nav-item[data-page="chat"]').forEach(function (btn) {
         var badge = btn.querySelector('.chat-badge');
         if (_unreadChatCount > 0) {
@@ -439,6 +458,25 @@ function updateChatBadges() {
             if (badge) badge.style.display = 'none';
         }
     });
+    // Update floating chat FAB badge on order tracking page
+    var fab = document.getElementById('otpChatFab');
+    if (fab) {
+        var fabBadge = fab.querySelector('.chat-fab-badge');
+        if (_unreadChatCount > 0) {
+            if (!fabBadge) {
+                fabBadge = document.createElement('span');
+                fabBadge.className = 'chat-fab-badge';
+                fab.appendChild(fabBadge);
+            }
+            fabBadge.textContent = _unreadChatCount > 9 ? '9+' : _unreadChatCount;
+            fabBadge.style.display = '';
+            // Pulse animation
+            fab.classList.add('chat-fab-pulse');
+            setTimeout(function () { fab.classList.remove('chat-fab-pulse'); }, 1000);
+        } else {
+            if (fabBadge) fabBadge.style.display = 'none';
+        }
+    }
 }
 window.updateChatBadges = updateChatBadges;
 
@@ -678,7 +716,19 @@ function openOrderTracking(order) {
 function updateOrderStatusBadge(status) {
     var badge = document.getElementById('otpStatus');
     if (!badge) return;
-    var TRACKING_STATUS = {
+    var isAntar = _currentOrder && _currentOrder.skillType === 'js_antar';
+    var TRACKING_STATUS = isAntar ? {
+        searching: 'Mencari Driver...',
+        pending: 'Menunggu Konfirmasi',
+        accepted: 'Driver Ditemukan',
+        on_the_way: 'Driver Menuju Lokasi',
+        arrived: 'Driver Tiba',
+        in_progress: 'Dalam Perjalanan',
+        completed: 'Sampai Tujuan',
+        rated: 'Sudah Dinilai',
+        cancelled: 'Dibatalkan',
+        rejected: 'Ditolak'
+    } : {
         searching: 'Mencari Driver...',
         pending: 'Menunggu Konfirmasi',
         accepted: 'Diterima',
@@ -712,13 +762,23 @@ function renderOrderInfo(order, isTalent) {
     // Driver/customer photo
     var photoHtml = '';
     if (!isTalent && other && order.talentId) {
-        var photoSrc = other.photo || '';
+        var photoSrc = other.photo || getProfilePhoto(other.id) || '';
+        // Also check talent skill selfie
+        if (!photoSrc) {
+            var tSkills = getUserSkills(other.id);
+            if (tSkills && tSkills.length > 0) {
+                for (var si = 0; si < tSkills.length; si++) {
+                    if (tSkills[si].selfieThumb) { photoSrc = tSkills[si].selfieThumb; break; }
+                }
+            }
+        }
         var initial = (other.name || '?').charAt(0).toUpperCase();
+        var vehicleLabel = isAntar ? '🏍️ JS Antar Motor' : ('🔧 ' + (order.serviceType || 'Talent'));
         photoHtml = '<div class="otp-driver-card">'
             + '<div class="otp-driver-avatar">' + (photoSrc ? '<img src="' + photoSrc + '" alt="">' : '<span>' + escapeHtml(initial) + '</span>') + '</div>'
             + '<div class="otp-driver-info">'
             + '<div class="otp-driver-name">' + escapeHtml(other.name || 'Driver') + '</div>'
-            + '<div class="otp-driver-vehicle">🏍️ JS Antar Motor</div>'
+            + '<div class="otp-driver-vehicle">' + vehicleLabel + '</div>'
             + '</div>'
             + '</div>';
     }
@@ -729,7 +789,7 @@ function renderOrderInfo(order, isTalent) {
         + (isAntar ? '<div class="otp-info-row"><span class="otp-info-label">📍 Jemput</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>' : '<div class="otp-info-row"><span class="otp-info-label">Alamat</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>')
         + (isAntar && order.destAddr ? '<div class="otp-info-row"><span class="otp-info-label">🏁 Tujuan</span><span class="otp-info-val">' + escapeHtml(String(order.destAddr)) + '</span></div>' : '')
         + (isAntar && order.distanceKm ? '<div class="otp-info-row"><span class="otp-info-label">Jarak</span><span class="otp-info-val">' + Number(order.distanceKm).toFixed(1) + ' km</span></div>' : '')
-        + '<div class="otp-info-row"><span class="otp-info-label">Ongkos kirim</span><span class="otp-info-val">' + priceText + '</span></div>'
+        + '<div class="otp-info-row"><span class="otp-info-label">' + (isAntar ? 'Ongkos kirim' : 'Harga') + '</span><span class="otp-info-val">' + priceText + '</span></div>'
         + '<div class="otp-info-row"><span class="otp-info-label">Biaya layanan</span><span class="otp-info-val">' + feeText + '</span></div>'
         + '<div class="otp-info-row otp-info-total"><span class="otp-info-label">Total Bayar</span><span class="otp-info-val">' + totalText + '</span></div>'
         + '<div class="otp-info-row"><span class="otp-info-label">Pembayaran</span><span class="otp-info-val">' + pmLabel + '</span></div>'
@@ -740,6 +800,7 @@ function renderOrderActions(order, isTalent, isUser) {
     var el = document.getElementById('otpActions');
     if (!el) return;
     el.innerHTML = '';
+    var isAntar = order.skillType === 'js_antar';
 
     // ── USER: Cancel button on searching / pending ──
     if (isUser && (order.status === 'searching' || order.status === 'pending')) {
@@ -823,31 +884,43 @@ function renderOrderActions(order, isTalent, isUser) {
                 });
             });
         } else if (order.status === 'accepted') {
-            el.innerHTML = '<button class="otp-btn otp-btn-otw" id="otpBtnOtw">🏍️ Menuju Lokasi</button>';
+            var otwLabel = isAntar ? '🏍️ Menuju Lokasi Jemput' : '🏍️ Menuju Lokasi';
+            el.innerHTML = '<button class="otp-btn otp-btn-otw" id="otpBtnOtw">' + otwLabel + '</button>';
             document.getElementById('otpBtnOtw').addEventListener('click', function () { updateOrderStatus(order.id, 'on_the_way', {}); startTalentLocationBroadcast(order.id); });
         } else if (order.status === 'on_the_way') {
-            el.innerHTML = '<button class="otp-btn otp-btn-arrive" id="otpBtnArrive">📍 Sudah Tiba</button>';
+            var arriveLabel = isAntar ? '📍 Sudah di Lokasi Jemput' : '📍 Sudah Tiba';
+            el.innerHTML = '<button class="otp-btn otp-btn-arrive" id="otpBtnArrive">' + arriveLabel + '</button>';
             document.getElementById('otpBtnArrive').addEventListener('click', function () { updateOrderStatus(order.id, 'arrived', {}); });
         } else if (order.status === 'arrived') {
-            el.innerHTML = '<button class="otp-btn otp-btn-start" id="otpBtnStart">🔨 Mulai Mengerjakan</button>';
+            var startLabel = isAntar ? '🚀 Mulai Perjalanan' : '🔨 Mulai Mengerjakan';
+            el.innerHTML = '<button class="otp-btn otp-btn-start" id="otpBtnStart">' + startLabel + '</button>';
             document.getElementById('otpBtnStart').addEventListener('click', function () { updateOrderStatus(order.id, 'in_progress', { startedAt: Date.now() }); });
         } else if (order.status === 'in_progress') {
-            el.innerHTML = '<button class="otp-btn otp-btn-complete" id="otpBtnComplete">✅ Selesai + Upload Bukti</button><input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">';
-            document.getElementById('otpBtnComplete').addEventListener('click', function () {
-                document.getElementById('otpProofInput').click();
-            });
-            document.getElementById('otpProofInput').addEventListener('change', function () {
-                var file = this.files[0];
-                if (!file) return;
-                var reader = new FileReader();
-                reader.onload = function () {
-                    compressThumbnail(reader.result, function (proofThumb) {
-                        updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb });
-                    });
-                };
-                reader.readAsDataURL(file);
-                this.value = '';
-            });
+            var completeLabel = isAntar ? '🏁 Sampai Tujuan' : '✅ Selesai + Upload Bukti';
+            el.innerHTML = '<button class="otp-btn otp-btn-complete" id="otpBtnComplete">' + completeLabel + '</button>' + (isAntar ? '' : '<input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">');
+            if (isAntar) {
+                // JS Antar: no photo proof needed, just mark complete
+                document.getElementById('otpBtnComplete').addEventListener('click', function () {
+                    if (!confirm('Konfirmasi penumpang sudah sampai tujuan?')) return;
+                    updateOrderStatus(order.id, 'completed', { completedAt: Date.now() });
+                });
+            } else {
+                document.getElementById('otpBtnComplete').addEventListener('click', function () {
+                    document.getElementById('otpProofInput').click();
+                });
+                document.getElementById('otpProofInput').addEventListener('change', function () {
+                    var file = this.files[0];
+                    if (!file) return;
+                    var reader = new FileReader();
+                    reader.onload = function () {
+                        compressThumbnail(reader.result, function (proofThumb) {
+                            updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb });
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                    this.value = '';
+                });
+            }
         }
     }
 
@@ -879,7 +952,10 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
 
             // Create notifications for order status change
             if (_currentOrder) {
-                var statusLabels = { accepted: 'Diterima', on_the_way: 'Dalam Perjalanan', arrived: 'Talent Tiba', in_progress: 'Dikerjakan', completed: 'Selesai' };
+                var isAntarOrder = _currentOrder.skillType === 'js_antar';
+                var statusLabels = isAntarOrder
+                    ? { accepted: 'Driver Ditemukan', on_the_way: 'Driver Menuju Lokasi', arrived: 'Driver Tiba', in_progress: 'Dalam Perjalanan', completed: 'Sampai Tujuan' }
+                    : { accepted: 'Diterima', on_the_way: 'Dalam Perjalanan', arrived: 'Talent Tiba', in_progress: 'Dikerjakan', completed: 'Selesai' };
                 var label = statusLabels[newStatus] || newStatus;
                 var svc = _currentOrder.serviceType || _currentOrder.skillType || 'Pesanan';
                 // Notify the other party
@@ -1046,6 +1122,7 @@ function updateTalentMarkerPosition(lat, lng) {
 // ══════════════════════════════════════════
 function startOrderPolling(orderId) {
     stopPolling();
+    var session = getSession();
     if (typeof FB !== 'undefined' && FB.isReady()) {
         _fbOrderUnsub = FB.onOrder(orderId, function (order) {
             if (!order || !_currentOrder || _currentOrder.id !== orderId) return;
@@ -1074,6 +1151,28 @@ function startOrderPolling(orderId) {
                 _currentOrder.talentLng = loc.lng;
             }
         });
+        // Subscribe to messages for chat FAB badge on tracking page
+        if (session) {
+            _fbMsgUnsub = FB.onMessages(orderId, function (res) {
+                if (!res.success || !res.data || res.data.length === 0) return;
+                var lastMsg = res.data[res.data.length - 1];
+                var knownId = _lastKnownMsgIds[orderId];
+                var msgKey = lastMsg.senderId + '-' + lastMsg.createdAt;
+                if (knownId && knownId !== msgKey && String(lastMsg.senderId) !== String(session.id)) {
+                    if (!_chatPageOpen) {
+                        _unreadChatCount++;
+                        updateChatBadges();
+                        playMessageSound();
+                        if (navigator.vibrate) navigator.vibrate(100);
+                        var users = getUsers();
+                        var sender = users.find(function (u) { return u.id === lastMsg.senderId; });
+                        var senderName = sender ? sender.name : (lastMsg.senderName || 'Seseorang');
+                        addNotifItem({ icon: '💬', title: 'Pesan dari ' + senderName, desc: lastMsg.text || '📷 Foto', type: 'chat', orderId: orderId });
+                    }
+                }
+                _lastKnownMsgIds[orderId] = msgKey;
+            });
+        }
     } else {
         pollOrderUpdate(orderId);
         _locationPollTimer = setInterval(function () { pollOrderUpdate(orderId); }, 8000);
@@ -1582,9 +1681,54 @@ window.addEventListener('beforeinstallprompt', function (e) {
 
 function registerSW() {
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(function () {});
+        navigator.serviceWorker.register('sw.js').then(function (reg) {
+            // Check for updates on load
+            reg.addEventListener('updatefound', function () {
+                var newWorker = reg.installing;
+                if (!newWorker) return;
+                newWorker.addEventListener('statechange', function () {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        // New version available — show update popup
+                        _showUpdatePopup(newWorker);
+                    }
+                });
+            });
+        }).catch(function () {});
+        // Reload when new SW takes control
+        var refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+            if (!refreshing) {
+                refreshing = true;
+                window.location.reload();
+            }
+        });
     }
 }
+
+function _showUpdatePopup(waitingWorker) {
+    var popup = document.getElementById('appUpdatePopup');
+    if (!popup) return;
+    popup.classList.remove('hidden');
+    var btnUpdate = document.getElementById('appUpdateBtn');
+    var btnLater = document.getElementById('appUpdateLater');
+    if (btnUpdate) {
+        var newBtn = btnUpdate.cloneNode(true);
+        btnUpdate.parentNode.replaceChild(newBtn, btnUpdate);
+        newBtn.addEventListener('click', function () {
+            newBtn.disabled = true;
+            newBtn.textContent = '⏳ Mengupdate...';
+            waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+        });
+    }
+    if (btnLater) {
+        var newLater = btnLater.cloneNode(true);
+        btnLater.parentNode.replaceChild(newLater, btnLater);
+        newLater.addEventListener('click', function () {
+            popup.classList.add('hidden');
+        });
+    }
+}
+window._showUpdatePopup = _showUpdatePopup;
 
 function handleSplash() {
     var splash = document.getElementById('splash');
