@@ -37,7 +37,8 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .splash { position:fixed; inset:0; background:var(--white); display:flex; align-items:center; justify-content:center; z-index:9999; transition:opacity .5s,visibility .5s; }
 .splash.fade-out { opacity:0; visibility:hidden; }
 .splash-content { text-align:center; }
-.splash-logo { width:90px; height:90px; background:linear-gradient(135deg,var(--orange),var(--orange-light)); border-radius:var(--r-xl); display:flex; align-items:center; justify-content:center; font-size:40px; font-weight:800; color:var(--white); margin:0 auto 16px; box-shadow:0 8px 32px rgba(255,107,0,.4); animation:pulse-glow 2s ease-in-out infinite; }
+.splash-logo { width:90px; height:90px; border-radius:var(--r-xl); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; box-shadow:0 8px 32px rgba(255,107,0,.4); animation:pulse-glow 2s ease-in-out infinite; overflow:hidden; }
+.splash-logo img { width:100%; height:100%; object-fit:cover; border-radius:var(--r-xl); }
 @keyframes pulse-glow { 0%,100%{box-shadow:0 8px 32px rgba(255,107,0,.4)} 50%{box-shadow:0 8px 48px rgba(255,107,0,.6)} }
 .splash-text { color:var(--black); font-size:24px; font-weight:700; letter-spacing:1px; margin-bottom:32px; }
 .splash-loader { width:40px; height:4px; background:var(--gray-200); border-radius:2px; margin:0 auto; overflow:hidden; position:relative; }
@@ -52,7 +53,8 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .page-auth { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; background:var(--gray-100); }
 .auth-container { width:100%; max-width:400px; }
 .auth-header { text-align:center; margin-bottom:32px; }
-.auth-logo { width:70px; height:70px; background:linear-gradient(135deg,var(--orange),var(--orange-light)); border-radius:var(--r-lg); display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:800; color:var(--white); margin:0 auto 16px; box-shadow:0 4px 16px rgba(255,107,0,.3); }
+.auth-logo { width:70px; height:70px; border-radius:var(--r-lg); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; box-shadow:0 4px 16px rgba(255,107,0,.3); overflow:hidden; }
+.auth-logo img { width:100%; height:100%; object-fit:cover; border-radius:var(--r-lg); }
 .auth-header h1 { font-size:24px; font-weight:800; color:var(--black); }
 .auth-header p { font-size:14px; color:var(--gray-600); margin-top:4px; }
 .auth-form { background:var(--white); padding:24px; border-radius:var(--r-lg); box-shadow:var(--shadow); }
@@ -156,8 +158,8 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .pay-section { margin-top:20px; }
 .pay-card { background:var(--gray-100); border-radius:var(--r-lg); padding:20px; }
 .pay-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
-.pay-logo { color:var(--black); font-size:20px; font-weight:700; }
-.pay-brand { color:var(--orange); font-weight:800; }
+.pay-logo { color:var(--black); font-size:20px; font-weight:700; display:flex; align-items:center; gap:4px; }
+.pay-logo-icon { width:24px; height:24px; border-radius:6px; object-fit:cover; }
 .btn-topup { background:var(--orange); color:var(--white); border:none; padding:8px 20px; border-radius:var(--r-full); font-size:13px; font-weight:600; font-family:var(--font); cursor:pointer; transition:var(--tr); }
 .btn-topup:active { transform:scale(.95); }
 .pay-balance { display:flex; align-items:center; gap:16px; }
