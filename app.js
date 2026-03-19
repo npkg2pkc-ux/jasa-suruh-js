@@ -1112,7 +1112,7 @@
         // Wire click to open orders list (only once)
         if (!btn._eventsSetup) {
             btn._eventsSetup = true;
-            btn.addEventListener('click', function() { openOrdersList(); });
+            btn.addEventListener('click', function() { openNotifPopup(); });
         }
         // Update badge with active orders count
         if (isBackendConnected()) {
@@ -1268,11 +1268,11 @@
             }
         });
 
-        // Notification bell click → open orders list
+        // Notification bell click → open notification popup
         var notifBtn = document.getElementById('talentNotifBtn');
         if (notifBtn) {
             notifBtn.addEventListener('click', function () {
-                openOrdersList();
+                openNotifPopup();
             });
         }
     }
@@ -2306,6 +2306,7 @@
 
             document.getElementById('settingsBtnBack').addEventListener('click', function () {
                 page.classList.add('hidden');
+                resetBottomNavToHome();
             });
 
             document.getElementById('settingsBtnLogout').addEventListener('click', function () {
@@ -2372,6 +2373,7 @@
             page._eventsSetup = true;
             document.getElementById('olpBtnBack').addEventListener('click', function () {
                 page.classList.add('hidden');
+                resetBottomNavToHome();
             });
             document.querySelectorAll('#olpTabs .olp-tab').forEach(function (tab) {
                 tab.addEventListener('click', function () {
@@ -2481,6 +2483,7 @@
             page._eventsSetup = true;
             document.getElementById('atpBtnBack').addEventListener('click', function () {
                 page.classList.add('hidden');
+                resetBottomNavToHome();
             });
         }
     }
@@ -4103,7 +4106,7 @@
 
         // Penjual: notif button
         var penjualNotifBtn = document.getElementById('penjualNotifBtn');
-        if (penjualNotifBtn) penjualNotifBtn.addEventListener('click', function() { openOrdersList(); });
+        if (penjualNotifBtn) penjualNotifBtn.addEventListener('click', function() { openNotifPopup(); });
 
         // Penjual: add product button
         var btnAddProduct = document.getElementById('btnAddProduct');

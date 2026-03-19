@@ -12,7 +12,7 @@ function setupUserNotifBtn(userId) {
     if (!btn) return;
     if (!btn._eventsSetup) {
         btn._eventsSetup = true;
-        btn.addEventListener('click', function () { openOrdersList(); });
+        btn.addEventListener('click', function () { openNotifPopup(); });
     }
     if (isBackendConnected()) {
         FB.get('getOrdersByUser', { userId: userId })
@@ -21,16 +21,21 @@ function setupUserNotifBtn(userId) {
                 if (res.success && Array.isArray(res.data)) {
                     var active = res.data.filter(function (o) {
                         return o.status !== 'completed' && o.status !== 'rated';
-                    }).length;
-                    var badge = document.getElementById('userHeaderBadge');
-                    if (badge) {
-                        if (active > 0) {
-                            badge.textContent = active > 9 ? '9+' : active;
-                            badge.style.display = '';
-                        } else {
-                            badge.style.display = 'none';
-                        }
-                    }
+                    });
+                    // Add active orders as notifications
+                    active.forEach(function (o) {
+                        var statusMap = { pending: 'Menunggu', accepted: 'Diterima', on_the_way: 'Dalam Perjalanan', arrived: 'Tiba', in_progress: 'Dikerjakan' };
+                        addNotifItem({
+                            id: 'order-' + o.id,
+                            icon: '📦',
+                            title: 'Pesanan ' + (statusMap[o.status] || o.status),
+                            desc: (o.serviceType || 'Layanan') + (o.price ? ' - Rp ' + Number(o.price).toLocaleString('id-ID') : ''),
+                            time: o.createdAt ? new Date(o.createdAt).toLocaleDateString('id-ID') : '',
+                            unread: o.status === 'pending' || o.status === 'accepted',
+                            onClick: function () { openOrderTracking(o); }
+                        });
+                    });
+                    updateNotifBadges();
                 }
             })
             .catch(function () {});

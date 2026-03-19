@@ -5,6 +5,82 @@
    ======================================== */
 
 // ══════════════════════════════════════════
+// ═══ NOTIFICATION POPUP ═══
+// ══════════════════════════════════════════
+var _notifItems = [];
+
+function openNotifPopup() {
+    var popup = document.getElementById('notifPopup');
+    if (!popup) return;
+    popup.classList.remove('hidden');
+    renderNotifItems();
+
+    if (!popup._eventsSetup) {
+        popup._eventsSetup = true;
+        document.getElementById('notifPopupClose').addEventListener('click', function () { popup.classList.add('hidden'); });
+        document.getElementById('notifPopupOverlay').addEventListener('click', function () { popup.classList.add('hidden'); });
+    }
+}
+window.openNotifPopup = openNotifPopup;
+
+function addNotifItem(item) {
+    // item: { icon, title, desc, time, id, onClick }
+    // Prevent duplicates by id
+    if (item.id && _notifItems.some(function (n) { return n.id === item.id; })) return;
+    _notifItems.unshift(item);
+    // Keep max 50
+    if (_notifItems.length > 50) _notifItems = _notifItems.slice(0, 50);
+    updateNotifBadges();
+}
+window.addNotifItem = addNotifItem;
+
+function updateNotifBadges() {
+    var count = _notifItems.length;
+    ['userHeaderBadge', 'talentHeaderBadge', 'penjualHeaderBadge'].forEach(function (id) {
+        var badge = document.getElementById(id);
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = count > 9 ? '9+' : count;
+                badge.style.display = '';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    });
+}
+
+function renderNotifItems() {
+    var body = document.getElementById('notifPopupBody');
+    if (!body) return;
+    if (_notifItems.length === 0) {
+        body.innerHTML = '<div class="notif-empty"><div class="notif-empty-icon">🔕</div><p>Belum ada notifikasi</p></div>';
+        return;
+    }
+    var html = '';
+    _notifItems.forEach(function (n, i) {
+        html += '<div class="notif-item' + (n.unread ? ' unread' : '') + '" data-idx="' + i + '">';
+        html += '<div class="notif-item-icon">' + (n.icon || '🔔') + '</div>';
+        html += '<div class="notif-item-body">';
+        html += '<div class="notif-item-title">' + (n.title || '') + '</div>';
+        html += '<div class="notif-item-desc">' + (n.desc || '') + '</div>';
+        if (n.time) html += '<div class="notif-item-time">' + n.time + '</div>';
+        html += '</div></div>';
+    });
+    body.innerHTML = html;
+    body.querySelectorAll('.notif-item').forEach(function (el) {
+        el.addEventListener('click', function () {
+            var idx = parseInt(this.dataset.idx);
+            var item = _notifItems[idx];
+            if (item) {
+                item.unread = false;
+                if (typeof item.onClick === 'function') item.onClick();
+            }
+            document.getElementById('notifPopup').classList.add('hidden');
+        });
+    });
+}
+
+// ══════════════════════════════════════════
 // ═══ ORDER TRACKING PAGE ═══
 // ══════════════════════════════════════════
 function openOrderTracking(order) {
@@ -559,6 +635,7 @@ function openSettingsPage() {
 
         document.getElementById('settingsBtnBack').addEventListener('click', function () {
             page.classList.add('hidden');
+            resetBottomNavToHome();
         });
 
         document.getElementById('settingsBtnLogout').addEventListener('click', function () {
@@ -621,6 +698,7 @@ function openOrdersList() {
         page._eventsSetup = true;
         document.getElementById('olpBtnBack').addEventListener('click', function () {
             page.classList.add('hidden');
+            resetBottomNavToHome();
         });
         document.querySelectorAll('#olpTabs .olp-tab').forEach(function (tab) {
             tab.addEventListener('click', function () {
@@ -700,6 +778,20 @@ function renderOrderCards(orders) {
         });
     });
 }
+
+// ══════════════════════════════════════════
+// ═══ RESET BOTTOM NAV ═══
+// ══════════════════════════════════════════
+function resetBottomNavToHome() {
+    document.querySelectorAll('.bottom-nav').forEach(function (nav) {
+        // Only reset the visible nav (inside visible page)
+        if (nav.closest('.page') && nav.closest('.page').classList.contains('hidden')) return;
+        nav.querySelectorAll('.nav-item').forEach(function (n) { n.classList.remove('active'); });
+        var homeBtn = nav.querySelector('.nav-item[data-page="home"]');
+        if (homeBtn) homeBtn.classList.add('active');
+    });
+}
+window.resetBottomNavToHome = resetBottomNavToHome;
 
 // ══════════════════════════════════════════
 // ═══ BOTTOM NAV ═══

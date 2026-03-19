@@ -549,6 +549,17 @@ function showOrderNotification(order) {
 
     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
 
+    // Add to notification list
+    addNotifItem({
+        id: 'order-' + order.id,
+        icon: '📦',
+        title: 'Pesanan Baru dari ' + userName,
+        desc: (order.serviceType || 'Layanan') + (priceText ? ' - ' + priceText : ''),
+        time: 'Baru saja',
+        unread: true,
+        onClick: function () { openOrderTracking(order); }
+    });
+
     var dismissBtn = document.getElementById('notifBtnDismiss');
     var acceptBtn = document.getElementById('notifBtnAccept');
 
