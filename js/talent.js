@@ -374,6 +374,17 @@ function setupTalentToggle() {
     if (!toggle || !label) return;
     toggle.addEventListener('change', function () {
         if (this.checked) {
+            var balance = typeof getWalletBalance === 'function' ? getWalletBalance() : 0;
+            if (balance < 50000) {
+                this.checked = false;
+                showToast('Saldo minimal Rp 50.000 untuk bisa Online!', 'error');
+                setTimeout(function () {
+                    if (confirm('Saldo Anda ' + formatRupiah(balance) + '. Minimal Rp 50.000 untuk bisa menerima orderan.\n\nTop Up sekarang?')) {
+                        openTopUpModal();
+                    }
+                }, 300);
+                return;
+            }
             label.textContent = 'Online';
             label.classList.add('online');
             showToast('Anda sekarang Online! ✅', 'success');

@@ -108,6 +108,19 @@ function handlePenjualStoreToggle() {
         return;
     }
     var isOpen = toggle.checked;
+    if (isOpen) {
+        var balance = typeof getWalletBalance === 'function' ? getWalletBalance() : 0;
+        if (balance < 50000) {
+            toggle.checked = false;
+            showToast('Saldo minimal Rp 50.000 untuk buka toko!', 'error');
+            setTimeout(function () {
+                if (confirm('Saldo Anda ' + formatRupiah(balance) + '. Minimal Rp 50.000 untuk bisa buka toko dan menerima pesanan.\n\nTop Up sekarang?')) {
+                    openTopUpModal();
+                }
+            }, 300);
+            return;
+        }
+    }
     if (statusLbl) statusLbl.textContent = isOpen ? 'Toko Buka' : 'Toko Tutup';
     _penjualStore.isOpen = isOpen;
     backendPost({ action: 'updateStore', storeId: _penjualStore.id, fields: { isOpen: isOpen } })
