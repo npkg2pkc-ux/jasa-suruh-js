@@ -202,7 +202,7 @@ function openTopUpModal() {
             if (res && res.success && res.invoiceUrl) {
                 showToast('Mengarahkan ke halaman pembayaran...', 'success');
                 overlay.remove();
-                window.open(res.invoiceUrl, '_blank');
+                window.location.href = res.invoiceUrl;
             } else {
                 showToast(res.error || 'Gagal membuat invoice', 'error');
             }
@@ -1386,3 +1386,109 @@ function handleSplash() {
         }
     }, 1800);
 }
+
+// ══════════════════════════════════════════
+// ═══ PULL TO REFRESH ═══
+// ══════════════════════════════════════════
+(function () {
+    var _ptr_startY = 0;
+    var _ptr_currentY = 0;
+    var _ptr_pulling = false;
+    var _ptr_threshold = 80;
+    var _ptr_indicator = null;
+
+    function createIndicator() {
+        if (_ptr_indicator) return _ptr_indicator;
+        var el = document.createElement('div');
+        el.id = 'pullRefreshIndicator';
+        el.className = 'ptr-indicator';
+        el.innerHTML = '<div class="ptr-spinner"></div><span class="ptr-text">Tarik untuk refresh</span>';
+        document.body.appendChild(el);
+        _ptr_indicator = el;
+        return el;
+    }
+
+    function isAtTop() {
+        return window.scrollY <= 0;
+    }
+
+    function doRefresh() {
+        var session = typeof getSession === 'function' ? getSession() : null;
+        if (!session) { window.location.reload(); return; }
+
+        // Reload wallet
+        if (typeof loadUserWallet === 'function') loadUserWallet();
+
+        // Reload role-specific data
+        var role = session.role;
+        if (role === 'talent') {
+            if (typeof loadTalentDashboardOrders === 'function') loadTalentDashboardOrders();
+        } else if (role === 'penjual') {
+            if (typeof loadPenjualDashboard === 'function') loadPenjualDashboard();
+        } else if (role === 'cs') {
+            if (typeof loadCSDashboard === 'function') loadCSDashboard();
+        } else if (role === 'owner') {
+            if (typeof renderOwnerStats === 'function') renderOwnerStats();
+            if (typeof renderOwnerUsers === 'function') renderOwnerUsers();
+        }
+
+        if (typeof showToast === 'function') showToast('Data diperbarui ✅', 'success');
+    }
+
+    document.addEventListener('touchstart', function (e) {
+        if (!isAtTop()) return;
+        _ptr_startY = e.touches[0].clientY;
+        _ptr_pulling = true;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', function (e) {
+        if (!_ptr_pulling || !isAtTop()) return;
+        _ptr_currentY = e.touches[0].clientY;
+        var dist = _ptr_currentY - _ptr_startY;
+        if (dist < 0) return;
+
+        var ind = createIndicator();
+        var progress = Math.min(dist / _ptr_threshold, 1);
+        var translateY = Math.min(dist * 0.5, 60);
+        ind.style.transform = 'translateX(-50%) translateY(' + translateY + 'px)';
+        ind.style.opacity = progress;
+        ind.classList.add('ptr-visible');
+
+        if (dist >= _ptr_threshold) {
+            ind.querySelector('.ptr-text').textContent = 'Lepas untuk refresh';
+            ind.classList.add('ptr-ready');
+        } else {
+            ind.querySelector('.ptr-text').textContent = 'Tarik untuk refresh';
+            ind.classList.remove('ptr-ready');
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchend', function () {
+        if (!_ptr_pulling) return;
+        var dist = _ptr_currentY - _ptr_startY;
+        _ptr_pulling = false;
+        _ptr_currentY = 0;
+        _ptr_startY = 0;
+
+        var ind = _ptr_indicator;
+        if (!ind) return;
+
+        if (dist >= _ptr_threshold) {
+            ind.querySelector('.ptr-text').textContent = 'Memperbarui...';
+            ind.classList.add('ptr-loading');
+            ind.style.transform = 'translateX(-50%) translateY(50px)';
+
+            doRefresh();
+
+            setTimeout(function () {
+                ind.classList.remove('ptr-visible', 'ptr-ready', 'ptr-loading');
+                ind.style.transform = 'translateX(-50%) translateY(-60px)';
+                ind.style.opacity = '0';
+            }, 1200);
+        } else {
+            ind.classList.remove('ptr-visible', 'ptr-ready');
+            ind.style.transform = 'translateX(-50%) translateY(-60px)';
+            ind.style.opacity = '0';
+        }
+    }, { passive: true });
+})();
