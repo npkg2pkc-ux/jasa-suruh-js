@@ -701,20 +701,38 @@ function renderOrderInfo(order, isTalent) {
     var other = users.find(function (u) {
         return u.id === (isTalent ? order.userId : order.talentId);
     });
-    var otherName = other ? other.name : 'Unknown';
-    var priceText = order.price ? 'Rp ' + Number(order.price).toLocaleString('id-ID') : '-';
-    var feeText = order.fee ? 'Rp ' + Number(order.fee).toLocaleString('id-ID') : '-';
+    var otherName = other ? other.name : 'Mencari...';
+    var priceText = order.price ? formatRupiah(Number(order.price)) : '-';
+    var feeText = order.fee ? formatRupiah(Number(order.fee)) : '-';
+    var totalText = order.totalCost ? formatRupiah(Number(order.totalCost)) : '-';
     var addrText = order.userAddr || 'Tidak tersedia';
     var isAntar = order.skillType === 'js_antar';
+    var pmLabel = order.paymentMethod === 'cod' ? '💵 Tunai (COD)' : '💳 JsPay';
 
-    el.innerHTML = ''
-        + '<div class="otp-info-row"><span class="otp-info-label">' + (isTalent ? 'Pelanggan' : 'Driver') + '</span><span class="otp-info-val">' + escapeHtml(otherName) + '</span></div>'
+    // Driver/customer photo
+    var photoHtml = '';
+    if (!isTalent && other && order.talentId) {
+        var photoSrc = other.photo || '';
+        var initial = (other.name || '?').charAt(0).toUpperCase();
+        photoHtml = '<div class="otp-driver-card">'
+            + '<div class="otp-driver-avatar">' + (photoSrc ? '<img src="' + photoSrc + '" alt="">' : '<span>' + escapeHtml(initial) + '</span>') + '</div>'
+            + '<div class="otp-driver-info">'
+            + '<div class="otp-driver-name">' + escapeHtml(other.name || 'Driver') + '</div>'
+            + '<div class="otp-driver-vehicle">🏍️ JS Antar Motor</div>'
+            + '</div>'
+            + '</div>';
+    }
+
+    el.innerHTML = photoHtml
+        + (isTalent ? '<div class="otp-info-row"><span class="otp-info-label">Pelanggan</span><span class="otp-info-val">' + escapeHtml(otherName) + '</span></div>' : '')
         + '<div class="otp-info-row"><span class="otp-info-label">Layanan</span><span class="otp-info-val">' + escapeHtml(order.serviceType || '') + '</span></div>'
         + (isAntar ? '<div class="otp-info-row"><span class="otp-info-label">📍 Jemput</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>' : '<div class="otp-info-row"><span class="otp-info-label">Alamat</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>')
         + (isAntar && order.destAddr ? '<div class="otp-info-row"><span class="otp-info-label">🏁 Tujuan</span><span class="otp-info-val">' + escapeHtml(String(order.destAddr)) + '</span></div>' : '')
         + (isAntar && order.distanceKm ? '<div class="otp-info-row"><span class="otp-info-label">Jarak</span><span class="otp-info-val">' + Number(order.distanceKm).toFixed(1) + ' km</span></div>' : '')
-        + '<div class="otp-info-row"><span class="otp-info-label">Harga</span><span class="otp-info-val">' + priceText + '</span></div>'
-        + '<div class="otp-info-row"><span class="otp-info-label">Biaya Layanan</span><span class="otp-info-val">' + feeText + '</span></div>'
+        + '<div class="otp-info-row"><span class="otp-info-label">Ongkos kirim</span><span class="otp-info-val">' + priceText + '</span></div>'
+        + '<div class="otp-info-row"><span class="otp-info-label">Biaya layanan</span><span class="otp-info-val">' + feeText + '</span></div>'
+        + '<div class="otp-info-row otp-info-total"><span class="otp-info-label">Total Bayar</span><span class="otp-info-val">' + totalText + '</span></div>'
+        + '<div class="otp-info-row"><span class="otp-info-label">Pembayaran</span><span class="otp-info-val">' + pmLabel + '</span></div>'
         + (order.proofPhoto ? '<div class="otp-proof"><img src="' + order.proofPhoto + '" alt="Bukti"></div>' : '');
 }
 
@@ -758,28 +776,33 @@ function renderOrderActions(order, isTalent, isUser) {
                 var btn = this;
                 btn.disabled = true;
                 btn.textContent = '⏳ Memproses...';
-                // Deduct user wallet NOW (on accept)
-                var totalCost = (Number(order.price) || 0) + (Number(order.fee) || 0);
-                backendPost({
-                    action: 'walletPay',
-                    userId: order.userId,
-                    amount: totalCost,
-                    orderId: order.id,
-                    description: 'Pembayaran ' + (order.serviceType || 'Pesanan')
-                }).then(function (payRes) {
-                    if (!payRes || !payRes.success) {
-                        btn.disabled = false;
-                        btn.textContent = '✅ Terima Pesanan';
-                        showToast('Saldo user tidak cukup!', 'error');
-                        // Notify user about insufficient balance
-                        addNotifItem({ userId: order.userId, icon: '⚠️', title: 'Saldo Tidak Cukup', desc: 'Saldo Anda tidak cukup untuk pesanan ' + (order.serviceType || '') + '. Top up ' + formatRupiah(totalCost), type: 'order', orderId: order.id });
-                        return;
-                    }
-                    // Payment successful → accept order
-                    updateOrderStatus(order.id, 'accepted', { acceptedAt: Date.now(), paidAmount: totalCost });
-                    // Notify user that saldo was deducted
-                    addNotifItem({ userId: order.userId, icon: '💳', title: 'Saldo Dipotong', desc: formatRupiah(totalCost) + ' untuk pesanan ' + (order.serviceType || ''), type: 'payment', orderId: order.id });
-                });
+                var totalCost = Number(order.totalCost) || ((Number(order.price) || 0) + (Number(order.fee) || 0));
+                var pm = order.paymentMethod || 'jspay';
+
+                if (pm === 'cod') {
+                    // COD: No wallet deduction from user. Accept directly.
+                    updateOrderStatus(order.id, 'accepted', { acceptedAt: Date.now(), paidAmount: 0 });
+                    addNotifItem({ userId: order.userId, icon: '✅', title: 'Driver Ditemukan!', desc: 'Pembayaran COD - siapkan uang tunai ' + formatRupiah(totalCost), type: 'order', orderId: order.id });
+                } else {
+                    // JSpay: Deduct user wallet NOW (on accept)
+                    backendPost({
+                        action: 'walletPay',
+                        userId: order.userId,
+                        amount: totalCost,
+                        orderId: order.id,
+                        description: 'Pembayaran ' + (order.serviceType || 'Pesanan')
+                    }).then(function (payRes) {
+                        if (!payRes || !payRes.success) {
+                            btn.disabled = false;
+                            btn.textContent = '✅ Terima Pesanan';
+                            showToast('Saldo user tidak cukup!', 'error');
+                            addNotifItem({ userId: order.userId, icon: '⚠️', title: 'Saldo Tidak Cukup', desc: 'Saldo Anda tidak cukup untuk pesanan ' + (order.serviceType || '') + '. Top up ' + formatRupiah(totalCost), type: 'order', orderId: order.id });
+                            return;
+                        }
+                        updateOrderStatus(order.id, 'accepted', { acceptedAt: Date.now(), paidAmount: totalCost });
+                        addNotifItem({ userId: order.userId, icon: '💳', title: 'Saldo Dipotong', desc: formatRupiah(totalCost) + ' untuk pesanan ' + (order.serviceType || ''), type: 'payment', orderId: order.id });
+                    });
+                }
             });
             document.getElementById('otpBtnReject').addEventListener('click', function () {
                 if (!confirm('Tolak pesanan ini?')) return;
@@ -874,6 +897,7 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
             // When order is completed, distribute funds to talent/penjual + owner commission
             if (newStatus === 'completed' && _currentOrder) {
                 var order = _currentOrder;
+                var pm = order.paymentMethod || 'jspay';
                 // Get commission settings to calculate proper rates
                 FB.get('getSettings')
                     .then(function (r) { return r.json(); })
@@ -881,22 +905,37 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                         var commPercent = 10; // default
                         if (settingsRes.success && settingsRes.data) {
                             var s = settingsRes.data;
-                            // Use talent or penjual commission based on order type
                             if (order.skillType === 'js_food') {
                                 commPercent = Number(s.commission_penjual_percent) || 10;
                             } else {
                                 commPercent = Number(s.commission_talent_percent) || 15;
                             }
                         }
-                        backendPost({
-                            action: 'walletCompleteOrder',
-                            orderId: order.id,
-                            talentId: order.talentId,
-                            price: order.price,
-                            fee: order.fee,
-                            commissionPercent: commPercent,
-                            serviceType: order.serviceType || order.skillType || ''
-                        });
+                        if (pm === 'cod') {
+                            // COD: Talent received cash from user.
+                            // Deduct platform cut (fee + commission) from talent's wallet
+                            backendPost({
+                                action: 'walletCompleteOrderCOD',
+                                orderId: order.id,
+                                talentId: order.talentId,
+                                price: order.price,
+                                fee: order.fee,
+                                totalCost: order.totalCost,
+                                commissionPercent: commPercent,
+                                serviceType: order.serviceType || order.skillType || ''
+                            });
+                        } else {
+                            // JSpay: Standard flow — distribute from platform to talent + owner
+                            backendPost({
+                                action: 'walletCompleteOrder',
+                                orderId: order.id,
+                                talentId: order.talentId,
+                                price: order.price,
+                                fee: order.fee,
+                                commissionPercent: commPercent,
+                                serviceType: order.serviceType || order.skillType || ''
+                            });
+                        }
                     });
             }
         } else {

@@ -702,6 +702,52 @@
         });
     }
 
+    function doWalletCompleteOrderCOD(body) {
+        // COD: Talent collected cash from user (totalCost).
+        // Platform deducts fee + commission from talent's wallet.
+        var orderId = body.orderId;
+        var talentId = body.talentId;
+        var price = Number(body.price) || 0;
+        var fee = Number(body.fee) || 0;
+        var commissionPercent = Number(body.commissionPercent) || 10;
+
+        var commission = Math.round(price * commissionPercent / 100);
+        var platformCut = fee + commission; // Total to deduct from talent
+
+        // Deduct platform cut from talent's wallet
+        var deductTalent = doWalletPay({
+            userId: talentId,
+            amount: platformCut,
+            orderId: orderId,
+            description: 'Potongan platform COD #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')'
+        });
+
+        // Credit owner
+        var creditOwner = sb.from('users').select('data').then(function (res) {
+            if (res.error || !res.data) return ok(null);
+            var ownerRow = res.data.find(function (r) {
+                return r.data && r.data.role === 'owner';
+            });
+            if (!ownerRow || !ownerRow.data) return ok(null);
+            return doWalletCredit({
+                userId: ownerRow.data.id,
+                amount: platformCut,
+                orderId: orderId,
+                type: 'commission',
+                description: 'Komisi COD pesanan #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')'
+            });
+        });
+
+        return Promise.all([deductTalent, creditOwner]).then(function (results) {
+            var deductRes = results[0];
+            if (deductRes && !deductRes.success) {
+                // Talent wallet insufficient — notify but don't block
+                addNotifItem && addNotifItem({ userId: talentId, icon: '⚠️', title: 'Saldo Minus', desc: 'Saldo tidak cukup untuk potongan platform COD. Harap top up.', type: 'payment', orderId: orderId });
+            }
+            return ok({ platformCut: platformCut, commission: commission, fee: fee });
+        });
+    }
+
     // ── Notification Functions ──
 
     function getNotifications(userId) {
@@ -888,6 +934,7 @@
             case 'walletPay': return doWalletPay(body);
             case 'walletCredit': return doWalletCredit(body);
             case 'walletCompleteOrder': return doWalletCompleteOrder(body);
+            case 'walletCompleteOrderCOD': return doWalletCompleteOrderCOD(body);
             case 'addNotification': return doAddNotification(body);
             case 'markNotifRead': return doMarkNotifRead(body);
             case 'markAllNotifsRead': return doMarkAllNotifsRead(body);

@@ -1067,26 +1067,63 @@ function fetchJapRoute(fromLat, fromLng, toLat, toLng) {
         });
 }
 
+var _japSelectedPayment = 'jspay'; // 'jspay' or 'cod'
+
 function updateJapPriceInfo(distKm, durationMin) {
     var price = Math.max(_japBaseFare, Math.round(_japPricePerKm * distKm));
     price = Math.ceil(price / 500) * 500;
+    var fee = Math.round(price * 0.1);
+    var totalCost = price + fee;
 
     var distText = distKm < 1
         ? Math.round(distKm * 1000) + ' m'
         : distKm.toFixed(1) + ' km';
     var etaText = durationMin < 1 ? '< 1 menit' : durationMin + ' menit';
-    var priceText = 'Rp ' + price.toLocaleString('id-ID');
 
     document.getElementById('japDistance').textContent = distText;
     document.getElementById('japEta').textContent = etaText;
-    document.getElementById('japPrice').textContent = priceText;
     document.getElementById('japInfoRow').classList.remove('hidden');
     document.getElementById('japNoteWrap').classList.remove('hidden');
 
+    // Price breakdown
+    var bd = document.getElementById('japPriceBreakdown');
+    if (bd) {
+        bd.classList.remove('hidden');
+        document.getElementById('japPbBase').textContent = formatRupiah(price);
+        document.getElementById('japPbFee').textContent = formatRupiah(fee);
+        document.getElementById('japPbTotal').textContent = formatRupiah(totalCost);
+    }
+
+    // Payment method
+    var pmEl = document.getElementById('japPayMethod');
+    if (pmEl) {
+        pmEl.classList.remove('hidden');
+        var balEl = document.getElementById('japPmBalance');
+        if (balEl) balEl.textContent = formatRupiah(getWalletBalance());
+    }
+    _setupJapPaymentToggle();
+
     var btn = document.getElementById('japBtnOrder');
     btn.disabled = false;
-    btn.textContent = '🏍️ Pesan Driver — ' + priceText;
+    btn.textContent = '🏍️ Pesan Driver — ' + formatRupiah(totalCost);
     btn.dataset.price = price;
+    btn.dataset.fee = fee;
+    btn.dataset.total = totalCost;
+}
+
+function _setupJapPaymentToggle() {
+    var jspayBtn = document.getElementById('japPmJspay');
+    var codBtn = document.getElementById('japPmCod');
+    if (!jspayBtn || !codBtn || jspayBtn._pmSetup) return;
+    jspayBtn._pmSetup = true;
+
+    function selectPM(method) {
+        _japSelectedPayment = method;
+        jspayBtn.classList.toggle('active', method === 'jspay');
+        codBtn.classList.toggle('active', method === 'cod');
+    }
+    jspayBtn.addEventListener('click', function () { selectPM('jspay'); });
+    codBtn.addEventListener('click', function () { selectPM('cod'); });
 }
 
 function onJapOrderClick() {
@@ -1100,22 +1137,21 @@ function onJapOrderClick() {
         showToast('Tidak ada koneksi ke server', 'error');
         return;
     }
-    var price = Number(document.getElementById('japBtnOrder').dataset.price) || 0;
+    var btn = document.getElementById('japBtnOrder');
+    var price = Number(btn.dataset.price) || 0;
+    var fee = Number(btn.dataset.fee) || Math.round(price * 0.1);
+    var totalCost = Number(btn.dataset.total) || (price + fee);
+    var paymentMethod = _japSelectedPayment || 'jspay';
     var note = (document.getElementById('japNote').value || '').trim();
     var pickupAddr = document.getElementById('japPickupText').textContent || '';
     var destAddr = document.getElementById('japDestInput').value || _japDestAddress;
 
-    var fee = Math.round(price * 0.1);
-    var totalCost = price + fee;
-
-    // Check wallet balance (verify only, don't deduct yet)
-    if (getWalletBalance() < totalCost) {
-        showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Silakan top up dulu.', 'error');
-        openTopUpModal();
+    // JsPay: check wallet balance. COD: no wallet check for user
+    if (paymentMethod === 'jspay' && getWalletBalance() < totalCost) {
+        showToast('Saldo JsPay tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Top up atau pilih bayar Tunai (COD).', 'error');
         return;
     }
 
-    var btn = document.getElementById('japBtnOrder');
     btn.disabled = true;
     btn.textContent = '⏳ Mencari driver...';
 
@@ -1136,6 +1172,7 @@ function onJapOrderClick() {
         price: price,
         fee: fee,
         totalCost: totalCost,
+        paymentMethod: paymentMethod,
         userLat: _japPickupCoords.lat,
         userLng: _japPickupCoords.lng,
         userAddr: pickupAddr,
@@ -1155,12 +1192,12 @@ function onJapOrderClick() {
             searchNearbyDriver(order);
         } else {
             btn.disabled = false;
-            btn.textContent = '🏍️ Pesan Driver — Rp ' + price.toLocaleString('id-ID');
+            btn.textContent = '🏍️ Pesan Driver — ' + formatRupiah(totalCost);
             showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'coba lagi'), 'error');
         }
     }).catch(function () {
         btn.disabled = false;
-        btn.textContent = '🏍️ Pesan Driver — Rp ' + price.toLocaleString('id-ID');
+        btn.textContent = '🏍️ Pesan Driver — ' + formatRupiah(totalCost);
         showToast('Koneksi error, coba lagi', 'error');
     });
 }

@@ -856,7 +856,7 @@
             <!-- Map pick hint -->
             <div id="japMapPickHint" class="jap-map-pick-hint hidden">👆 Ketuk peta untuk menentukan titik antar &nbsp;<button type="button" id="japBtnCancelMapPick" class="jap-cancel-pick">Batal</button></div>
 
-            <!-- Info row: distance + price -->
+            <!-- Info row: distance + ETA -->
             <div class="jap-info-row hidden" id="japInfoRow">
                 <div class="jap-info-item">
                     <span class="jap-info-icon">📏</span>
@@ -873,13 +873,37 @@
                         <span class="jap-info-label-sm">Estimasi</span>
                     </div>
                 </div>
-                <div class="jap-info-divider"></div>
-                <div class="jap-info-item">
-                    <span class="jap-info-icon">💰</span>
-                    <div>
-                        <span class="jap-info-val" id="japPrice">-</span>
-                        <span class="jap-info-label-sm">Harga</span>
-                    </div>
+            </div>
+
+            <!-- Price breakdown -->
+            <div class="jap-price-breakdown hidden" id="japPriceBreakdown">
+                <div class="jap-pb-title">Rincian Biaya</div>
+                <div class="jap-pb-row"><span>Ongkos kirim</span><span id="japPbBase">-</span></div>
+                <div class="jap-pb-row"><span>Biaya layanan (10%)</span><span id="japPbFee">-</span></div>
+                <div class="jap-pb-divider"></div>
+                <div class="jap-pb-row jap-pb-total"><span>Total Bayar</span><span id="japPbTotal">-</span></div>
+            </div>
+
+            <!-- Payment method -->
+            <div class="jap-pay-method hidden" id="japPayMethod">
+                <div class="jap-pm-label">Metode Pembayaran</div>
+                <div class="jap-pm-options">
+                    <button class="jap-pm-btn active" id="japPmJspay" data-method="jspay">
+                        <span class="jap-pm-icon">💳</span>
+                        <div class="jap-pm-info">
+                            <span class="jap-pm-name">JsPay</span>
+                            <span class="jap-pm-desc">Saldo: <span id="japPmBalance">Rp 0</span></span>
+                        </div>
+                        <span class="jap-pm-check">✓</span>
+                    </button>
+                    <button class="jap-pm-btn" id="japPmCod" data-method="cod">
+                        <span class="jap-pm-icon">💵</span>
+                        <div class="jap-pm-info">
+                            <span class="jap-pm-name">Tunai (COD)</span>
+                            <span class="jap-pm-desc">Bayar langsung ke driver</span>
+                        </div>
+                        <span class="jap-pm-check">✓</span>
+                    </button>
                 </div>
             </div>
 
