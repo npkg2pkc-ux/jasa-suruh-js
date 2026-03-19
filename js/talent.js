@@ -373,6 +373,7 @@ function setupTalentToggle() {
     var label = document.getElementById('talentStatusLabel');
     if (!toggle || !label) return;
     toggle.addEventListener('change', function () {
+        var session = getSession();
         if (this.checked) {
             var balance = typeof getWalletBalance === 'function' ? getWalletBalance() : 0;
             if (balance < 50000) {
@@ -388,10 +389,12 @@ function setupTalentToggle() {
             label.textContent = 'Online';
             label.classList.add('online');
             showToast('Anda sekarang Online! ✅', 'success');
+            if (session) backendPost({ action: 'setOnlineStatus', userId: session.id, isOnline: true });
         } else {
             label.textContent = 'Offline';
             label.classList.remove('online');
             showToast('Anda sekarang Offline', 'error');
+            if (session) backendPost({ action: 'setOnlineStatus', userId: session.id, isOnline: false });
         }
     });
 
@@ -535,10 +538,9 @@ function checkNewPendingOrders(orders, session) {
 
     var newOrders = pending.filter(function (o) { return _talentLastPendingIds.indexOf(o.id) < 0; });
 
-    if (_talentLastPendingIds.length > 0 || pendingIds.length > 0) {
-        if (newOrders.length > 0 && _talentLastPendingIds.length > 0) {
-            showOrderNotification(newOrders[0]);
-        }
+    // Show notification for new pending orders (even on first load)
+    if (newOrders.length > 0) {
+        showOrderNotification(newOrders[0]);
     }
 
     _talentLastPendingIds = pendingIds;
@@ -561,15 +563,13 @@ function showOrderNotification(order) {
     playBellSound();
     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
 
-    // Add to notification list
+    // Add to notification list (DB-backed)
     addNotifItem({
-        id: 'order-' + order.id,
         icon: '📦',
         title: 'Pesanan Baru dari ' + userName,
         desc: (order.serviceType || 'Layanan') + (priceText ? ' - ' + priceText : ''),
-        time: 'Baru saja',
-        unread: true,
-        onClick: function () { openOrderTracking(order); }
+        type: 'order',
+        orderId: order.id
     });
 
     var dismissBtn = document.getElementById('notifBtnDismiss');

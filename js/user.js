@@ -1106,7 +1106,7 @@ function onJapOrderClick() {
     var fee = Math.round(price * 0.1);
     var totalCost = price + fee;
 
-    // Check wallet balance
+    // Check wallet balance (verify only, don't deduct yet)
     if (getWalletBalance() < totalCost) {
         showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Silakan top up dulu.', 'error');
         openTopUpModal();
@@ -1115,7 +1115,7 @@ function onJapOrderClick() {
 
     var btn = document.getElementById('japBtnOrder');
     btn.disabled = true;
-    btn.textContent = '⏳ Memproses pembayaran...';
+    btn.textContent = '⏳ Mencari driver...';
 
     var desc = 'Antar dari: ' + pickupAddr + '\nTujuan: ' + destAddr + '\nJarak: ' + _japRouteDistKm.toFixed(1) + ' km';
     if (note) desc += '\nCatatan: ' + note;
@@ -1129,9 +1129,11 @@ function onJapOrderClick() {
         talentId: '',
         skillType: 'js_antar',
         serviceType: 'JS Antar Motor',
+        status: 'searching',
         description: desc,
         price: price,
         fee: fee,
+        totalCost: totalCost,
         userLat: _japPickupCoords.lat,
         userLng: _japPickupCoords.lng,
         userAddr: pickupAddr,
@@ -1141,30 +1143,93 @@ function onJapOrderClick() {
         distanceKm: _japRouteDistKm
     };
 
-    backendPost({ action: 'walletPay', userId: session.id, amount: totalCost, orderId: orderId, description: 'Pembayaran JS Antar Motor' })
-        .then(function (payRes) {
-            if (!payRes || !payRes.success) {
-                btn.disabled = false;
-                btn.textContent = '🏍️ Pesan Driver — Rp ' + price.toLocaleString('id-ID');
-                showToast((payRes && payRes.message) || 'Saldo tidak cukup!', 'error');
-                return;
-            }
-            return backendPost(orderData).then(function (res) {
-                if (res && res.success && res.data) {
-                    closeJSAntarPage();
-                    showToast('Pesanan dibuat! Saldo dipotong ' + formatRupiah(totalCost) + ' 🏍️', 'success');
-                    var order = res.data;
-                    openOrderTracking(order);
-                } else {
-                    backendPost({ action: 'walletCredit', userId: session.id, amount: totalCost, orderId: orderId, type: 'refund', description: 'Refund - gagal buat pesanan' });
-                    btn.disabled = false;
-                    btn.textContent = '🏍️ Pesan Driver — Rp ' + price.toLocaleString('id-ID');
-                    showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'coba lagi'), 'error');
-                }
-            });
-        }).catch(function () {
+    // Create order first (NO wallet deduction), then search for driver
+    backendPost(orderData).then(function (res) {
+        if (res && res.success && res.data) {
+            var order = res.data;
+            closeJSAntarPage();
+            openOrderTracking(order);
+            // Start searching for nearby driver
+            searchNearbyDriver(order);
+        } else {
             btn.disabled = false;
             btn.textContent = '🏍️ Pesan Driver — Rp ' + price.toLocaleString('id-ID');
-            showToast('Koneksi error, coba lagi', 'error');
-        });
+            showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'coba lagi'), 'error');
+        }
+    }).catch(function () {
+        btn.disabled = false;
+        btn.textContent = '🏍️ Pesan Driver — Rp ' + price.toLocaleString('id-ID');
+        showToast('Koneksi error, coba lagi', 'error');
+    });
 }
+
+// ── Search for nearest online driver ──
+var _searchDriverTimer = null;
+var _searchDriverAttempts = 0;
+var _searchDriverMaxAttempts = 6; // 6 attempts x 5s = 30s max search
+
+function searchNearbyDriver(order) {
+    _searchDriverAttempts = 0;
+    // Restore excluded talents from order data (in case of re-search after rejection)
+    _searchDriverExcluded = (order.excludedTalents || []).slice();
+    _doSearchDriver(order);
+}
+
+var _searchDriverExcluded = [];
+
+function _doSearchDriver(order) {
+    if (_searchDriverAttempts >= _searchDriverMaxAttempts) {
+        showToast('Tidak ada driver tersedia saat ini. Pesanan dibatalkan.', 'error');
+        backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'cancelled', cancelledAt: Date.now(), cancelReason: 'no_driver' } });
+        addNotifItem({ icon: '❌', title: 'Driver Tidak Ditemukan', desc: 'Tidak ada driver tersedia untuk pesanan JS Antar Anda.', type: 'order', orderId: order.id });
+        return;
+    }
+
+    _searchDriverAttempts++;
+
+    FB.get('findNearbyTalents', {
+        lat: order.userLat,
+        lng: order.userLng,
+        skillType: 'js_antar',
+        excludeUserId: order.userId,
+        excludeTalentIds: _searchDriverExcluded
+    }).then(function (r) { return r.json(); })
+    .then(function (res) {
+        if (!res.success || !res.data || res.data.length === 0) {
+            // No driver found yet, retry after 5s
+            _searchDriverTimer = setTimeout(function () { _doSearchDriver(order); }, 5000);
+            return;
+        }
+
+        // Found nearest talent — assign to order
+        var nearest = res.data[0];
+        var distText = nearest.distance < 1 ? (nearest.distance * 1000).toFixed(0) + 'm' : nearest.distance.toFixed(1) + 'km';
+
+        backendPost({
+            action: 'updateOrder',
+            orderId: order.id,
+            fields: { talentId: nearest.id, status: 'pending', assignedAt: Date.now() }
+        }).then(function () {
+            // Notify the assigned talent
+            addNotifItem({
+                userId: nearest.id,
+                icon: '🏍️',
+                title: 'Pesanan JS Antar Baru!',
+                desc: 'Jarak ' + distText + ' - ' + formatRupiah(order.price),
+                type: 'order',
+                orderId: order.id
+            });
+        });
+    }).catch(function () {
+        _searchDriverTimer = setTimeout(function () { _doSearchDriver(order); }, 5000);
+    });
+}
+
+function cancelDriverSearch() {
+    if (_searchDriverTimer) {
+        clearTimeout(_searchDriverTimer);
+        _searchDriverTimer = null;
+    }
+}
+window.cancelDriverSearch = cancelDriverSearch;
+window.searchNearbyDriver = searchNearbyDriver;

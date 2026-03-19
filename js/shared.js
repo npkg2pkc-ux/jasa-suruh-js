@@ -633,6 +633,11 @@ function openOrderTracking(order) {
     if (!page._eventsSetup) {
         page._eventsSetup = true;
         document.getElementById('otpBtnBack').addEventListener('click', function () {
+            // If still searching, cancel the search (no payment was made)
+            if (_currentOrder && _currentOrder.status === 'searching') {
+                if (typeof cancelDriverSearch === 'function') cancelDriverSearch();
+                backendPost({ action: 'updateOrder', orderId: _currentOrder.id, fields: { status: 'cancelled', cancelledAt: Date.now(), cancelledBy: 'user' } });
+            }
             page.classList.add('hidden');
             stopPolling();
         });
@@ -648,13 +653,16 @@ function updateOrderStatusBadge(status) {
     var badge = document.getElementById('otpStatus');
     if (!badge) return;
     var TRACKING_STATUS = {
+        searching: 'Mencari Driver...',
         pending: 'Menunggu Konfirmasi',
         accepted: 'Diterima',
         on_the_way: 'Dalam Perjalanan',
         arrived: 'Sudah Tiba',
         in_progress: 'Sedang Dikerjakan',
         completed: 'Selesai',
-        rated: 'Sudah Dinilai'
+        rated: 'Sudah Dinilai',
+        cancelled: 'Dibatalkan',
+        rejected: 'Ditolak'
     };
     badge.textContent = TRACKING_STATUS[status] || status;
     badge.className = 'otp-status-badge status-' + status;
@@ -689,10 +697,82 @@ function renderOrderActions(order, isTalent, isUser) {
     if (!el) return;
     el.innerHTML = '';
 
+    // ── USER: Cancel button on searching / pending ──
+    if (isUser && (order.status === 'searching' || order.status === 'pending')) {
+        var cancelHtml = '<button class="otp-btn otp-btn-cancel" id="otpBtnCancel">❌ Batalkan Pesanan</button>';
+        if (order.status === 'searching') {
+            cancelHtml = '<div class="searching-driver-anim"><div class="searching-spinner"></div><p>Mencari driver terdekat...</p></div>' + cancelHtml;
+        }
+        el.innerHTML = cancelHtml;
+        document.getElementById('otpBtnCancel').addEventListener('click', function () {
+            if (!confirm('Yakin ingin membatalkan pesanan ini?')) return;
+            if (typeof cancelDriverSearch === 'function') cancelDriverSearch();
+            backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'cancelled', cancelledAt: Date.now(), cancelledBy: 'user' } }).then(function (res) {
+                if (res && res.success) {
+                    if (_currentOrder) _currentOrder.status = 'cancelled';
+                    updateOrderStatusBadge('cancelled');
+                    renderOrderActions(order, false, true);
+                    showToast('Pesanan dibatalkan', 'success');
+                    addNotifItem({ icon: '❌', title: 'Pesanan Dibatalkan', desc: (order.serviceType || 'Pesanan') + ' - dibatalkan oleh Anda', type: 'order', orderId: order.id });
+                    // Notify talent if assigned
+                    if (order.talentId) {
+                        addNotifItem({ userId: order.talentId, icon: '❌', title: 'Pesanan Dibatalkan', desc: 'User membatalkan pesanan ' + (order.serviceType || ''), type: 'order', orderId: order.id });
+                    }
+                }
+            });
+        });
+        return;
+    }
+
+    // ── TALENT: Accept/Reject on pending ──
     if (isTalent) {
         if (order.status === 'pending') {
-            el.innerHTML = '<button class="otp-btn otp-btn-accept" id="otpBtnAccept">✅ Terima Pesanan</button>';
-            document.getElementById('otpBtnAccept').addEventListener('click', function () { updateOrderStatus(order.id, 'accepted', { acceptedAt: Date.now() }); });
+            el.innerHTML = '<div class="otp-btn-row"><button class="otp-btn otp-btn-accept" id="otpBtnAccept">✅ Terima Pesanan</button><button class="otp-btn otp-btn-reject" id="otpBtnReject">❌ Tolak</button></div>';
+            document.getElementById('otpBtnAccept').addEventListener('click', function () {
+                var btn = this;
+                btn.disabled = true;
+                btn.textContent = '⏳ Memproses...';
+                // Deduct user wallet NOW (on accept)
+                var totalCost = (Number(order.price) || 0) + (Number(order.fee) || 0);
+                backendPost({
+                    action: 'walletPay',
+                    userId: order.userId,
+                    amount: totalCost,
+                    orderId: order.id,
+                    description: 'Pembayaran ' + (order.serviceType || 'Pesanan')
+                }).then(function (payRes) {
+                    if (!payRes || !payRes.success) {
+                        btn.disabled = false;
+                        btn.textContent = '✅ Terima Pesanan';
+                        showToast('Saldo user tidak cukup!', 'error');
+                        // Notify user about insufficient balance
+                        addNotifItem({ userId: order.userId, icon: '⚠️', title: 'Saldo Tidak Cukup', desc: 'Saldo Anda tidak cukup untuk pesanan ' + (order.serviceType || '') + '. Top up ' + formatRupiah(totalCost), type: 'order', orderId: order.id });
+                        return;
+                    }
+                    // Payment successful → accept order
+                    updateOrderStatus(order.id, 'accepted', { acceptedAt: Date.now(), paidAmount: totalCost });
+                    // Notify user that saldo was deducted
+                    addNotifItem({ userId: order.userId, icon: '💳', title: 'Saldo Dipotong', desc: formatRupiah(totalCost) + ' untuk pesanan ' + (order.serviceType || ''), type: 'payment', orderId: order.id });
+                });
+            });
+            document.getElementById('otpBtnReject').addEventListener('click', function () {
+                if (!confirm('Tolak pesanan ini?')) return;
+                backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'rejected', talentId: '', rejectedAt: Date.now(), rejectedBy: getSession().id } }).then(function (res) {
+                    if (res && res.success) {
+                        showToast('Pesanan ditolak', 'success');
+                        if (_currentOrder) _currentOrder.status = 'rejected';
+                        updateOrderStatusBadge('rejected');
+                        renderOrderActions(order, true, false);
+                        // Notify user
+                        addNotifItem({ userId: order.userId, icon: '❌', title: 'Driver Menolak', desc: 'Sedang mencari driver lain...', type: 'order', orderId: order.id });
+                        // Re-search for another driver (via user-side function not available here, use backend update)
+                        // The order goes back to searching with excluded talent
+                        var excluded = order.excludedTalents || [];
+                        excluded.push(getSession().id);
+                        backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'searching', talentId: '', excludedTalents: excluded } });
+                    }
+                });
+            });
         } else if (order.status === 'accepted') {
             el.innerHTML = '<button class="otp-btn otp-btn-otw" id="otpBtnOtw">🏍️ Menuju Lokasi</button>';
             document.getElementById('otpBtnOtw').addEventListener('click', function () { updateOrderStatus(order.id, 'on_the_way', {}); startTalentLocationBroadcast(order.id); });
@@ -725,6 +805,11 @@ function renderOrderActions(order, isTalent, isUser) {
     if (isUser && order.status === 'completed') {
         el.innerHTML = '<button class="otp-btn otp-btn-rate" id="otpBtnRate">⭐ Beri Rating</button>';
         document.getElementById('otpBtnRate').addEventListener('click', function () { openRatingPage(order); });
+    }
+
+    // ── Show status messages for cancelled/rejected ──
+    if (order.status === 'cancelled') {
+        el.innerHTML = '<div class="otp-status-msg cancelled">❌ Pesanan ini telah dibatalkan</div>';
     }
 }
 
@@ -899,8 +984,15 @@ function startOrderPolling(orderId) {
             if (oldStatus !== order.status) {
                 updateOrderStatusBadge(order.status);
                 var session = getSession();
-                renderOrderActions(_currentOrder, session && session.id === _currentOrder.talentId, session && session.id === _currentOrder.userId);
-                renderOrderInfo(_currentOrder, session && session.id === _currentOrder.talentId);
+                var isTalent = session && session.id === _currentOrder.talentId;
+                var isUser = session && session.id === _currentOrder.userId;
+                renderOrderActions(_currentOrder, isTalent, isUser);
+                renderOrderInfo(_currentOrder, isTalent);
+
+                // If order went back to 'searching' (talent rejected), re-search from user side
+                if (isUser && order.status === 'searching' && typeof searchNearbyDriver === 'function') {
+                    searchNearbyDriver(_currentOrder);
+                }
             }
         });
         _fbLocUnsub = FB.onTalentLocation(orderId, function (loc) {

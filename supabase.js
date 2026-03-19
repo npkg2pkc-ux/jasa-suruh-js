@@ -767,6 +767,80 @@
             .then(function () { return ok(null); });
     }
 
+    // ── Find nearby online talents for JS Antar ──
+    function findNearbyTalents(body) {
+        var userLat = Number(body.lat);
+        var userLng = Number(body.lng);
+        var skillType = body.skillType || 'js_antar';
+        var excludeUserId = body.excludeUserId || '';
+        var excludeTalentIds = body.excludeTalentIds || [];
+
+        // Get all users + skills
+        return Promise.all([
+            sb.from('users').select('data'),
+            sb.from('skills').select('user_id, data')
+        ]).then(function (results) {
+            var usersRes = results[0];
+            var skillsRes = results[1];
+            throwIfError(usersRes);
+            throwIfError(skillsRes);
+
+            var skillMap = {};
+            (skillsRes.data || []).forEach(function (row) {
+                skillMap[row.user_id] = (row.data && row.data.skills) || [];
+            });
+
+            var talents = [];
+            (usersRes.data || []).forEach(function (row) {
+                var u = row.data;
+                if (!u || u.role !== 'talent') return;
+                if (u.id === excludeUserId) return;
+                if (excludeTalentIds.indexOf(u.id) >= 0) return;
+                if (!u.isOnline) return;
+                if (!u.lat || !u.lng) return;
+
+                // Check if talent has the required skill
+                var tSkills = skillMap[u.id] || [];
+                var hasSkill = tSkills.some(function (s) { return s.type === skillType; });
+                if (!hasSkill) return;
+
+                // Calculate distance (Haversine)
+                var dist = haversine(userLat, userLng, Number(u.lat), Number(u.lng));
+                talents.push({ id: u.id, name: u.name, lat: u.lat, lng: u.lng, distance: dist });
+            });
+
+            // Sort by distance
+            talents.sort(function (a, b) { return a.distance - b.distance; });
+
+            return ok(talents);
+        });
+    }
+
+    function haversine(lat1, lon1, lat2, lon2) {
+        var R = 6371; // km
+        var dLat = (lat2 - lat1) * Math.PI / 180;
+        var dLon = (lon2 - lon1) * Math.PI / 180;
+        var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    // ── Update user online status ──
+    function doSetOnlineStatus(body) {
+        return sb.from('users').select('data').eq('id', body.userId).single()
+            .then(function (res) {
+                throwIfError(res);
+                var current = (res.data && res.data.data) || {};
+                var merged = Object.assign({}, current, { isOnline: !!body.isOnline });
+                return sb.from('users').update({ data: merged }).eq('id', body.userId);
+            })
+            .then(function (res) {
+                throwIfError(res);
+                return ok(null);
+            });
+    }
+
     // ── Dispatch GET ──
     function dispatchGet(action, params) {
         var p = params || {};
@@ -785,6 +859,7 @@
             case 'getWallet': return getWallet(p.userId);
             case 'getTransactions': return getTransactions(p.userId);
             case 'getNotifications': return getNotifications(p.userId);
+            case 'findNearbyTalents': return findNearbyTalents(p);
             default: return Promise.reject(new Error('Unknown GET action: ' + action));
         }
     }
@@ -816,6 +891,7 @@
             case 'addNotification': return doAddNotification(body);
             case 'markNotifRead': return doMarkNotifRead(body);
             case 'markAllNotifsRead': return doMarkAllNotifsRead(body);
+            case 'setOnlineStatus': return doSetOnlineStatus(body);
             default: return Promise.reject(new Error('Unknown POST action: ' + body.action));
         }
     }
