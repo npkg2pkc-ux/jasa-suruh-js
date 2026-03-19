@@ -1,10 +1,17 @@
-const CACHE_NAME = 'js-app-v4';
+const CACHE_NAME = 'js-app-v5';
 const ASSETS = [
     '/',
     '/index.html',
     '/style.css',
-    '/app.js',
     '/supabase.js',
+    '/js/core.js',
+    '/js/shared.js',
+    '/js/user.js',
+    '/js/talent.js',
+    '/js/penjual.js',
+    '/js/cs.js',
+    '/js/owner.js',
+    '/js/app.js',
     '/manifest.json',
     '/favicon.png',
     '/icons/icon-72.png',

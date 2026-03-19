@@ -1,0 +1,681 @@
+/* ========================================
+   JASA SURUH (JS) - Core Module
+   Constants, Backend, Auth, Routing, Utils
+   ======================================== */
+'use strict';
+
+// ══════════════════════════════════════════
+// ═══ CONSTANTS ═══
+// ══════════════════════════════════════════
+var OWNER_USERNAME = '3123159';
+var OWNER_PASSWORD = '3123159';
+var STORAGE_USERS = 'js_users';
+var STORAGE_SESSION = 'js_session';
+var STORAGE_SKILLS = 'js_skills';
+var STORAGE_PHOTOS = 'js_skill_photos';
+var STORAGE_PROFILE_PHOTOS = 'js_profile_photos';
+
+// ══════════════════════════════════════════
+// ═══ SHARED STATE (used across files) ═══
+// ══════════════════════════════════════════
+var _currentOrder = null;
+var _otpMap = null;
+var _otpTalentMarker = null;
+var _otpUserMarker = null;
+var _otpRouteLine = null;
+var _locationPollTimer = null;
+var _chatPollTimer = null;
+var _fbOrderUnsub = null;
+var _fbLocUnsub = null;
+var _fbMsgUnsub = null;
+var _fbTalentOrdersUnsub = null;
+var _fbPenjualOrdersUnsub = null;
+var _chatOrderId = null;
+var _chatMessages = [];
+var _ratingOrder = null;
+var _ratingValue = 0;
+var _ordersListData = [];
+var _talentRatingsCache = {};
+var _talentLastPendingIds = [];
+var _talentDashPollTimer = null;
+var _stpCurrentType = '';
+var _stpAllTalents = [];
+var _stpCurrentSort = 'nearest';
+var _penjualStore = null;
+var _penjualProducts = [];
+var _penjualDashPollTimer = null;
+var _csOrdersData = [];
+var _csCurrentFilter = 'active';
+var _slpAllStores = [];
+var _slpCurrentCat = 'all';
+var _slpCurrentStore = null;
+var _sdpProducts = [];
+var _sdpSelectedProduct = null;
+var _japMap = null;
+var _japPickupMarker = null;
+var _japDestMarker = null;
+var _japRouteLine = null;
+var _japPickupCoords = null;
+var _japDestCoords = null;
+var _japDestAddress = '';
+var _japSuggestTimer = null;
+var _japRouteDistKm = 0;
+var _japPricePerKm = 3000;
+var _japBaseFare = 5000;
+var _japEventsSetup = false;
+var _japPickOnMapMode = false;
+var deferredPrompt = null;
+
+// ══════════════════════════════════════════
+// ═══ BACKEND HELPERS ═══
+// ══════════════════════════════════════════
+function isBackendConnected() {
+    return typeof FB !== 'undefined' && FB.isReady();
+}
+
+function backendPost(body) {
+    if (!isBackendConnected()) return Promise.resolve(null);
+    return FB.post(body).catch(function (err) {
+        console.error('Firebase POST error:', err);
+        showToast('Gagal terhubung ke server. Cek koneksi internet.', 'error');
+        return null;
+    });
+}
+
+// ══════════════════════════════════════════
+// ═══ GEOLOCATION HELPERS ═══
+// ══════════════════════════════════════════
+function getCurrentPosition() {
+    return new Promise(function (resolve, reject) {
+        if (!navigator.geolocation) {
+            reject(new Error('Geolocation tidak didukung'));
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            function (pos) { resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
+            function (err) { reject(err); },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+        );
+    });
+}
+
+function reverseGeocode(lat, lng) {
+    return fetch('https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lng + '&format=json&accept-language=id')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data && data.display_name) {
+                var addr = data.address || {};
+                var parts = [addr.suburb || addr.village || addr.neighbourhood || '', addr.city || addr.town || addr.county || '', addr.state || ''].filter(Boolean);
+                return parts.length > 0 ? parts.join(', ') : data.display_name.split(',').slice(0, 3).join(',');
+            }
+            return 'Lat ' + lat.toFixed(4) + ', Lng ' + lng.toFixed(4);
+        })
+        .catch(function () { return 'Lat ' + lat.toFixed(4) + ', Lng ' + lng.toFixed(4); });
+}
+
+function captureLocation(userId) {
+    getCurrentPosition().then(function (pos) {
+        reverseGeocode(pos.lat, pos.lng).then(function (address) {
+            var session = getSession();
+            if (session && session.id === userId) {
+                session.lat = pos.lat;
+                session.lng = pos.lng;
+                session.address = address;
+                setSession(session);
+                displayUserAddress(session);
+            }
+            var users = getUsers();
+            var idx = users.findIndex(function (u) { return u.id === userId; });
+            if (idx >= 0) {
+                users[idx].lat = pos.lat;
+                users[idx].lng = pos.lng;
+                users[idx].address = address;
+                saveUsers(users);
+            }
+            backendPost({ action: 'updateLocation', userId: userId, lat: pos.lat, lng: pos.lng, address: address });
+        });
+    }).catch(function () {
+        var el = document.getElementById('userAddress') || document.getElementById('talentAddress');
+        if (el) el.textContent = '📍 Lokasi tidak tersedia';
+    });
+}
+
+function displayUserAddress(user) {
+    if (user.role === 'user') {
+        var el = document.getElementById('userAddress');
+        if (el) el.textContent = '📍 ' + (user.address || 'Memuat lokasi...');
+    } else if (user.role === 'talent') {
+        var el2 = document.getElementById('talentAddress');
+        if (el2) el2.textContent = '📍 ' + (user.address || 'Memuat lokasi...');
+    }
+}
+
+function haversineDistance(lat1, lng1, lat2, lng2) {
+    var R = 6371;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLng = (lng2 - lng1) * Math.PI / 180;
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ══════════════════════════════════════════
+// ═══ DATABASE & STORAGE ═══
+// ══════════════════════════════════════════
+function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function initDB() {
+    var users = getUsers();
+    var ownerExists = users.some(function (u) { return u.username === OWNER_USERNAME && u.role === 'owner'; });
+    if (!ownerExists) {
+        var ownerData = {
+            id: generateId(),
+            name: 'Owner',
+            phone: '-',
+            username: OWNER_USERNAME,
+            password: OWNER_PASSWORD,
+            role: 'owner',
+            createdAt: Date.now()
+        };
+        users.push(ownerData);
+        saveUsers(users);
+        backendPost(Object.assign({ action: 'register' }, ownerData));
+    }
+    syncFromBackend();
+    syncSkillsFromBackend();
+}
+
+function syncFromBackend() {
+    if (!isBackendConnected()) return;
+    FB.get('getAll')
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res.success && Array.isArray(res.data)) {
+                saveUsers(res.data);
+                var session = getSession();
+                if (session && session.role === 'owner') {
+                    renderOwnerStats();
+                    renderOwnerUsers();
+                }
+            }
+        })
+        .catch(function () {});
+}
+
+function getUsers() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_USERS)) || []; }
+    catch (e) { return []; }
+}
+
+function saveUsers(users) {
+    localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+}
+
+function getSession() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_SESSION)); }
+    catch (e) { return null; }
+}
+
+function setSession(user) {
+    localStorage.setItem(STORAGE_SESSION, JSON.stringify(user));
+}
+
+function clearSession() {
+    localStorage.removeItem(STORAGE_SESSION);
+}
+
+function getProfilePhoto(userId) {
+    try { var p = JSON.parse(localStorage.getItem(STORAGE_PROFILE_PHOTOS)) || {}; return p[userId] || ''; }
+    catch (e) { return ''; }
+}
+
+function saveProfilePhoto(userId, dataUrl) {
+    try { var p = JSON.parse(localStorage.getItem(STORAGE_PROFILE_PHOTOS)) || {}; p[userId] = dataUrl; localStorage.setItem(STORAGE_PROFILE_PHOTOS, JSON.stringify(p)); }
+    catch (e) {}
+}
+
+// ── Skills Storage ──
+function getSkills() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_SKILLS)) || {}; }
+    catch (e) { return {}; }
+}
+
+function saveSkills(skills) {
+    localStorage.setItem(STORAGE_SKILLS, JSON.stringify(skills));
+}
+
+function getUserSkills(userId) {
+    var all = getSkills();
+    return all[userId] || [];
+}
+
+function setUserSkills(userId, skillArr) {
+    var all = getSkills();
+    all[userId] = skillArr;
+    saveSkills(all);
+}
+
+function getSkillPhotos() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_PHOTOS)) || {}; }
+    catch (e) { return {}; }
+}
+
+function saveSkillPhoto(userId, skillType, dataUrl) {
+    var photos = getSkillPhotos();
+    if (!photos[userId]) photos[userId] = {};
+    photos[userId][skillType] = dataUrl;
+    localStorage.setItem(STORAGE_PHOTOS, JSON.stringify(photos));
+}
+
+function getSkillPhoto(userId, skillType) {
+    var photos = getSkillPhotos();
+    return (photos[userId] && photos[userId][skillType]) || '';
+}
+
+function removeSkillPhoto(userId, skillType) {
+    var photos = getSkillPhotos();
+    if (photos[userId]) {
+        delete photos[userId][skillType];
+        localStorage.setItem(STORAGE_PHOTOS, JSON.stringify(photos));
+    }
+}
+
+function skillsForBackend(skillArr) {
+    return skillArr.map(function (s) {
+        var copy = {};
+        for (var k in s) { copy[k] = s[k]; }
+        return copy;
+    });
+}
+
+function syncSkillsFromBackend() {
+    if (!isBackendConnected()) return;
+    FB.get('getAllSkills')
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res.success && res.data) {
+                saveSkills(res.data);
+            }
+        })
+        .catch(function () {});
+}
+
+// ══════════════════════════════════════════
+// ═══ UI UTILITIES ═══
+// ══════════════════════════════════════════
+function showToast(msg, type) {
+    var existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.className = 'toast';
+    var bg = type === 'error' ? '#EF4444' : type === 'success' ? '#22C55E' : '#FF6B00';
+    toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:' + bg + ';color:#fff;padding:12px 24px;border-radius:12px;font-family:var(--font);font-size:14px;font-weight:600;z-index:10000;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:fadeInUp .3s ease;max-width:90%;text-align:center;';
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(function () { toast.style.opacity = '0'; setTimeout(function () { toast.remove(); }, 300); }, 3000);
+}
+
+function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+}
+
+function compressThumbnail(dataUrl, callback) {
+    var img = new Image();
+    img.onload = function () {
+        var canvas = document.createElement('canvas');
+        var maxDim = 200;
+        var w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+            var ratio = Math.min(maxDim / w, maxDim / h);
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+        }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        callback(canvas.toDataURL('image/jpeg', 0.4));
+    };
+    img.src = dataUrl;
+}
+
+function getTimeAgo(timestamp) {
+    var diff = Date.now() - Number(timestamp);
+    var mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Baru saja';
+    if (mins < 60) return mins + ' menit lalu';
+    var hours = Math.floor(mins / 60);
+    if (hours < 24) return hours + ' jam lalu';
+    var days = Math.floor(hours / 24);
+    return days + ' hari lalu';
+}
+
+var STATUS_LABELS = {
+    pending: '⏳ Menunggu',
+    accepted: '✅ Diterima',
+    on_the_way: '🏍️ Menuju Lokasi',
+    arrived: '📍 Tiba di Lokasi',
+    in_progress: '🔨 Sedang Dikerjakan',
+    completed: '✅ Selesai',
+    rated: '⭐ Dinilai',
+    cancelled: '❌ Dibatalkan'
+};
+
+// Skill definitions (shared between talent and user)
+var SKILL_DEFS = [
+    { type: 'js_antar', name: 'JS Antar', icon: '🏍️', desc: 'Jasa antar barang & dokumen', hasForm: false },
+    { type: 'js_shop', name: 'JS Shop', icon: '🛒', desc: 'Jasa belanja kebutuhan', hasForm: false },
+    { type: 'js_food', name: 'JS Food', icon: '🍔', desc: 'Jasa pesan & antar makanan', hasForm: false },
+    { type: 'js_delivery', name: 'JS Delivery', icon: '📦', desc: 'Jasa pengiriman paket', hasForm: false },
+    { type: 'js_clean', name: 'JS Clean', icon: '🧹', desc: 'Jasa kebersihan rumah & lingkungan', hasForm: true },
+    { type: 'js_service', name: 'JS Service', icon: '🔧', desc: 'Jasa perbaikan & servis', hasForm: true },
+    { type: 'js_medicine', name: 'JS Medicine', icon: '💊', desc: 'Jasa beli & antar obat', hasForm: false },
+    { type: 'js_other', name: 'JS Other', icon: '📌', desc: 'Jasa lainnya', hasForm: false }
+];
+
+// ══════════════════════════════════════════
+// ═══ ROUTING ═══
+// ══════════════════════════════════════════
+var ROUTES = {
+    login: '/login',
+    register: '/daftar',
+    user: '/home',
+    talent: '/talent',
+    penjual: '/penjual',
+    cs: '/cs-panel',
+    owner: '/owner-panel'
+};
+
+function pageFromPath(path) {
+    var clean = path.replace(/\/+$/, '') || '/';
+    for (var page in ROUTES) {
+        if (clean === ROUTES[page]) return page;
+    }
+    if (clean === '/' || clean === '') return 'login';
+    return null;
+}
+
+function showPage(pageName, pushState) {
+    var pages = document.querySelectorAll('.page');
+    pages.forEach(function (p) { p.classList.add('hidden'); });
+
+    var target = document.getElementById('page-' + pageName);
+    if (target) {
+        target.classList.remove('hidden');
+    }
+
+    if (pushState !== false && ROUTES[pageName]) {
+        var newPath = ROUTES[pageName];
+        if (window.location.pathname !== newPath) {
+            history.pushState({ page: pageName }, '', newPath);
+        }
+    }
+
+    var titles = {
+        login: 'Login - Jasa Suruh',
+        register: 'Daftar - Jasa Suruh',
+        user: 'Home - Jasa Suruh',
+        talent: 'Talent - Jasa Suruh',
+        penjual: 'Penjual - Jasa Suruh',
+        cs: 'CS Panel - Jasa Suruh',
+        owner: 'Owner Panel - Jasa Suruh'
+    };
+    document.title = titles[pageName] || 'Jasa Suruh (JS)';
+    window.scrollTo(0, 0);
+
+    var session = getSession();
+    if (session) {
+        updateRoleUI(session);
+    }
+}
+window.showPage = showPage;
+
+window.addEventListener('popstate', function (e) {
+    if (e.state && e.state.page) {
+        showPage(e.state.page, false);
+    } else {
+        var page = pageFromPath(window.location.pathname);
+        if (page) showPage(page, false);
+    }
+});
+
+function updateRoleUI(user) {
+    var role = user.role;
+    if (role === 'user') {
+        var el = document.getElementById('userName');
+        if (el) el.textContent = user.name || 'User';
+        displayUserAddress(user);
+        captureLocation(user.id);
+        setupUserNotifBtn(user.id);
+    } else if (role === 'talent') {
+        var el2 = document.getElementById('talentName');
+        if (el2) el2.textContent = user.name || 'Talent';
+        displayUserAddress(user);
+        captureLocation(user.id);
+        renderTalentSkills();
+        loadTalentDashboardOrders();
+        startTalentDashboardPolling();
+    } else if (role === 'penjual') {
+        var el3 = document.getElementById('penjualName');
+        if (el3) el3.textContent = user.name || 'Penjual';
+        var addrEl = document.getElementById('penjualAddress');
+        if (addrEl) addrEl.textContent = '📍 ' + (user.address || 'Memuat lokasi...');
+        captureLocation(user.id);
+        loadPenjualDashboard();
+        startPenjualDashboardPolling();
+    } else if (role === 'cs') {
+        var el4 = document.getElementById('csName');
+        if (el4) el4.textContent = user.name || 'CS';
+        loadCSDashboard();
+    } else if (role === 'owner') {
+        renderOwnerStats();
+        renderOwnerUsers();
+        loadOwnerCommissionSettings();
+        loadOwnerRevenue();
+    }
+}
+
+// ══════════════════════════════════════════
+// ═══ AUTH ═══
+// ══════════════════════════════════════════
+function handleLogin(e) {
+    e.preventDefault();
+    var username = document.getElementById('loginUsername').value.trim();
+    var password = document.getElementById('loginPassword').value;
+
+    if (!username || !password) {
+        showToast('Lengkapi semua data!', 'error');
+        return;
+    }
+
+    if (isBackendConnected()) {
+        var btn = e.target.querySelector('.btn-primary');
+        if (btn) { btn.disabled = true; btn.textContent = 'Memuat...'; }
+
+        FB.get('login', { username: username, password: password })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (btn) { btn.disabled = false; btn.textContent = 'Masuk'; }
+                if (res.success && res.data) {
+                    setSession(res.data);
+                    showToast('Selamat datang, ' + res.data.name + '!', 'success');
+                    showPage(res.data.role);
+                    syncFromBackend();
+                } else {
+                    showToast(res.message || 'Username atau password salah!', 'error');
+                }
+            })
+            .catch(function () {
+                if (btn) { btn.disabled = false; btn.textContent = 'Masuk'; }
+                loginLocal(username, password);
+            });
+    } else {
+        loginLocal(username, password);
+    }
+}
+
+function loginLocal(username, password) {
+    var users = getUsers();
+    var found = users.find(function (u) { return u.username === username && u.password === password; });
+    if (!found) {
+        showToast('Username atau password salah!', 'error');
+        return;
+    }
+    setSession(found);
+    showToast('Selamat datang, ' + found.name + '!', 'success');
+    showPage(found.role);
+}
+
+function handleRegister(e) {
+    e.preventDefault();
+    var name = document.getElementById('regName').value.trim();
+    var phone = document.getElementById('regPhone').value.trim();
+    var username = document.getElementById('regUsername').value.trim();
+    var password = document.getElementById('regPassword').value;
+    var role = document.getElementById('regRole').value;
+
+    if (!name || !phone || !username || !password) {
+        showToast('Lengkapi semua data!', 'error');
+        return;
+    }
+    if (password.length < 6) {
+        showToast('Password minimal 6 karakter!', 'error');
+        return;
+    }
+
+    var selfieDataUrl = '';
+    if (role === 'talent') {
+        var selfieImg = document.getElementById('regSelfieImg');
+        selfieDataUrl = selfieImg ? selfieImg.src : '';
+        if (!selfieDataUrl || !selfieDataUrl.startsWith('data:')) {
+            showToast('Foto selfie wajib untuk akun Talent!', 'error');
+            return;
+        }
+    }
+
+    var newUser = {
+        id: generateId(),
+        name: name,
+        phone: phone,
+        username: username,
+        password: password,
+        role: role,
+        createdAt: Date.now(),
+        lat: 0,
+        lng: 0,
+        address: ''
+    };
+
+    backendPost(Object.assign({ action: 'register' }, newUser)).then(function (res) {
+        if (res && res.success) {
+            var users = getUsers();
+            var savedUser = res.data || newUser;
+            users.push(savedUser);
+            saveUsers(users);
+            setSession(savedUser);
+            if (selfieDataUrl) saveProfilePhoto(savedUser.id, selfieDataUrl);
+            showToast('Akun berhasil dibuat!', 'success');
+            showPage(role);
+            document.getElementById('registerForm').reset();
+            document.getElementById('regRole').value = 'user';
+            var selfieImg2 = document.getElementById('regSelfieImg');
+            if (selfieImg2) { selfieImg2.src = ''; }
+            var prev = document.getElementById('regSelfiePreview');
+            if (prev) prev.style.display = 'none';
+            var btn = document.getElementById('regBtnSelfie');
+            if (btn) btn.style.display = '';
+            var sec = document.getElementById('regSelfieSection');
+            if (sec) sec.style.display = 'none';
+        } else if (res && !res.success) {
+            showToast(res.message || 'Gagal mendaftar', 'error');
+        } else {
+            var users2 = getUsers();
+            if (users2.some(function (u) { return u.username === username; })) {
+                showToast('Username sudah digunakan!', 'error');
+                return;
+            }
+            users2.push(newUser);
+            saveUsers(users2);
+            setSession(newUser);
+            if (selfieDataUrl) saveProfilePhoto(newUser.id, selfieDataUrl);
+            showToast('Akun berhasil dibuat (offline)!', 'success');
+            showPage(role);
+            document.getElementById('registerForm').reset();
+            document.getElementById('regRole').value = 'user';
+            var sec2 = document.getElementById('regSelfieSection');
+            if (sec2) sec2.style.display = 'none';
+        }
+    });
+}
+
+function setupRoleSelector() {
+    var buttons = document.querySelectorAll('.role-btn');
+    buttons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            buttons.forEach(function (b) { b.classList.remove('active'); });
+            this.classList.add('active');
+            document.getElementById('regRole').value = this.dataset.role;
+            var selfieSection = document.getElementById('regSelfieSection');
+            if (selfieSection) selfieSection.style.display = this.dataset.role === 'talent' ? '' : 'none';
+        });
+    });
+
+    var regBtnSelfie = document.getElementById('regBtnSelfie');
+    var regSelfieInput = document.getElementById('regSelfieInput');
+    var regRemoveSelfie = document.getElementById('regRemoveSelfie');
+    if (regBtnSelfie) regBtnSelfie.addEventListener('click', function () { regSelfieInput.click(); });
+    if (regSelfieInput) {
+        regSelfieInput.addEventListener('change', function () {
+            var file = this.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function () {
+                document.getElementById('regSelfieImg').src = reader.result;
+                document.getElementById('regSelfiePreview').style.display = '';
+                document.getElementById('regBtnSelfie').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+            this.value = '';
+        });
+    }
+    if (regRemoveSelfie) {
+        regRemoveSelfie.addEventListener('click', function () {
+            document.getElementById('regSelfieImg').src = '';
+            document.getElementById('regSelfiePreview').style.display = 'none';
+            document.getElementById('regBtnSelfie').style.display = '';
+        });
+    }
+}
+
+function togglePassword(inputId, btn) {
+    var input = document.getElementById(inputId);
+    if (input.type === 'password') {
+        input.type = 'text';
+        btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    } else {
+        input.type = 'password';
+        btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>';
+    }
+}
+window.togglePassword = togglePassword;
+
+function handleLogout() {
+    clearSession();
+    if (_talentDashPollTimer) { clearInterval(_talentDashPollTimer); _talentDashPollTimer = null; }
+    if (_penjualDashPollTimer) { clearInterval(_penjualDashPollTimer); _penjualDashPollTimer = null; }
+    if (_fbTalentOrdersUnsub) { _fbTalentOrdersUnsub(); _fbTalentOrdersUnsub = null; }
+    if (_fbPenjualOrdersUnsub) { _fbPenjualOrdersUnsub(); _fbPenjualOrdersUnsub = null; }
+    stopPolling();
+    _talentLastPendingIds = [];
+    _penjualStore = null;
+    _penjualProducts = [];
+    showToast('Berhasil keluar', 'success');
+    showPage('login');
+    var loginForm = document.getElementById('loginForm');
+    if (loginForm) loginForm.reset();
+}
+window.handleLogout = handleLogout;
