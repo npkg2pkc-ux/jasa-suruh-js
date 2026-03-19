@@ -4130,15 +4130,6 @@
         // Owner: transactions button
         var ownerBtnTransactions = document.getElementById('ownerBtnTransactions');
         if (ownerBtnTransactions) ownerBtnTransactions.addEventListener('click', openAdminTransactions);
-
-        // Logout buttons (avatar clicks as logout for now)
-        document.querySelectorAll('.avatar').forEach(av => {
-            av.addEventListener('click', () => {
-                if (confirm('Keluar dari akun?')) {
-                    handleLogout();
-                }
-            });
-        });
     }
 
     if (document.readyState === 'loading') {
