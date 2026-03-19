@@ -398,7 +398,7 @@ function setupTalentToggle() {
     var notifBtn = document.getElementById('talentNotifBtn');
     if (notifBtn) {
         notifBtn.addEventListener('click', function () {
-            openOrdersList();
+            openNotifPopup();
         });
     }
 }

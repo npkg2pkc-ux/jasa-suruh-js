@@ -16,6 +16,26 @@ function supaFetch(path, options) {
     }, options));
 }
 
+function insertNotification(userId, icon, title, desc, type) {
+    const nId = 'notif_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    const now = Date.now();
+    return supaFetch('notifications', {
+        method: 'POST',
+        headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+            id: nId,
+            user_id: userId,
+            created_at: now,
+            data: { id: nId, userId: userId, icon: icon, title: title, desc: desc, type: type, unread: true, createdAt: now }
+        })
+    }).catch(function () {});
+}
+
 // Handle top-up invoice paid
 async function handleTopUpPaid(body) {
     const txId = body.external_id;
@@ -89,7 +109,14 @@ async function handleTopUpPaid(body) {
         })
     });
 
+    // Notify user
+    await insertNotification(userId, '✅', 'Top Up Berhasil', 'Saldo bertambah ' + formatAmount(topUpAmount) + '. Saldo sekarang ' + formatAmount(newBalance), 'topup');
+
     return { success: true };
+}
+
+function formatAmount(n) {
+    return 'Rp ' + Number(n).toLocaleString('id-ID');
 }
 
 // Handle top-up invoice expired
@@ -120,6 +147,12 @@ async function handleTopUpExpired(body) {
             })
         })
     });
+
+    // Notify user
+    const userId = txData.userId || txRows[0].user_id;
+    if (userId) {
+        await insertNotification(userId, '⏰', 'Top Up Kedaluwarsa', 'Pembayaran top up tidak selesai dan telah kedaluwarsa.', 'topup');
+    }
 
     return { received: true };
 }
@@ -160,6 +193,13 @@ async function handleDisbursement(body) {
                 })
             })
         });
+
+        // Notify user
+        const userId = txData.userId || tx.user_id;
+        const amt = Math.abs(Number(tx.amount) || 0);
+        if (userId) {
+            await insertNotification(userId, '🏧', 'Penarikan Berhasil', 'Penarikan ' + formatAmount(amt) + ' ke ' + (txData.bankCode || 'bank') + ' berhasil.', 'withdraw');
+        }
     } else if (status === 'FAILED') {
         // Refund wallet
         const userId = txData.userId || tx.user_id;
@@ -209,6 +249,11 @@ async function handleDisbursement(body) {
                 })
             })
         });
+
+        // Notify user about failed withdrawal + refund
+        if (userId) {
+            await insertNotification(userId, '❌', 'Penarikan Gagal', 'Penarikan ' + formatAmount(refundAmount) + ' gagal. Saldo telah dikembalikan.', 'withdraw');
+        }
     }
 
     return { received: true };

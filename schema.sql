@@ -87,6 +87,16 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(user_id, created_at);
 
+-- 11. Tabel Notifications (notifikasi per user)
+CREATE TABLE IF NOT EXISTS notifications (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    created_at BIGINT DEFAULT 0,
+    data JSONB NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(user_id, created_at);
+
 -- ============================================================
 -- Row Level Security (RLS) — Policies untuk akses publik (anon)
 -- Sama seperti keamanan Firebase sebelumnya.
@@ -133,6 +143,10 @@ ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon_all_transactions" ON transactions;
 CREATE POLICY "anon_all_transactions" ON transactions FOR ALL TO anon USING (true) WITH CHECK (true);
 
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_all_notifications" ON notifications;
+CREATE POLICY "anon_all_notifications" ON notifications FOR ALL TO anon USING (true) WITH CHECK (true);
+
 -- ============================================================
 -- Aktifkan Supabase Realtime untuk tabel yang butuh listener
 -- ============================================================
@@ -150,6 +164,9 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND tablename='wallets') THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE wallets;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND tablename='notifications') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+  END IF;
 END $$;
 
 -- Set REPLICA IDENTITY agar realtime bisa kirim data lengkap
@@ -157,3 +174,4 @@ ALTER TABLE orders REPLICA IDENTITY FULL;
 ALTER TABLE messages REPLICA IDENTITY FULL;
 ALTER TABLE locations REPLICA IDENTITY FULL;
 ALTER TABLE wallets REPLICA IDENTITY FULL;
+ALTER TABLE notifications REPLICA IDENTITY FULL;

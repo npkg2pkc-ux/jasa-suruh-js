@@ -201,6 +201,7 @@ function openTopUpModal() {
             btn.textContent = '💳 Bayar via Xendit';
             if (res && res.success && res.invoiceUrl) {
                 showToast('Mengarahkan ke halaman pembayaran...', 'success');
+                addNotifItem({ icon: '💳', title: 'Top Up Diproses', desc: 'Top Up ' + formatRupiah(amount) + ' sedang menunggu pembayaran', type: 'topup' });
                 overlay.remove();
                 window.location.href = res.invoiceUrl;
             } else {
@@ -316,6 +317,7 @@ function openWithdrawModal() {
             btn.textContent = '🏧 Tarik ke Rekening';
             if (res && res.success) {
                 showToast('Penarikan ' + formatRupiah(amount) + ' sedang diproses! 🏧', 'success');
+                addNotifItem({ icon: '🏧', title: 'Penarikan Diproses', desc: 'Penarikan ' + formatRupiah(amount) + ' ke ' + bankCode + ' sedang diproses', type: 'withdraw' });
                 overlay.remove();
             } else {
                 showToast(res.error || 'Gagal menarik saldo', 'error');
@@ -386,8 +388,10 @@ window.openTransactionHistory = openTransactionHistory;
         setTimeout(function () {
             if (xenditStatus === 'success') {
                 if (typeof showToast === 'function') showToast('Pembayaran berhasil! Saldo akan segera diperbarui ✅', 'success');
+                addNotifItem({ icon: '✅', title: 'Top Up Berhasil', desc: 'Pembayaran berhasil! Saldo akan segera diperbarui.', type: 'topup' });
             } else if (xenditStatus === 'failed') {
                 if (typeof showToast === 'function') showToast('Pembayaran dibatalkan atau gagal ❌', 'error');
+                addNotifItem({ icon: '❌', title: 'Top Up Gagal', desc: 'Pembayaran dibatalkan atau gagal.', type: 'topup' });
             }
         }, 1500);
     }
@@ -481,9 +485,24 @@ function clearChatBadge() {
 window.clearChatBadge = clearChatBadge;
 
 // ══════════════════════════════════════════
-// ═══ NOTIFICATION POPUP ═══
+// ═══ NOTIFICATION POPUP (DB-backed) ═══
 // ══════════════════════════════════════════
 var _notifItems = [];
+var _notifUnsub = null;
+
+function initNotifications() {
+    var session = getSession();
+    if (!session || !isBackendConnected()) return;
+    if (_notifUnsub) { _notifUnsub(); _notifUnsub = null; }
+    _notifUnsub = FB.onNotifications(session.id, function (items) {
+        _notifItems = items || [];
+        updateNotifBadges();
+        // Re-render if popup is open
+        var popup = document.getElementById('notifPopup');
+        if (popup && !popup.classList.contains('hidden')) renderNotifItems();
+    });
+}
+window.initNotifications = initNotifications;
 
 function openNotifPopup() {
     var popup = document.getElementById('notifPopup');
@@ -495,23 +514,41 @@ function openNotifPopup() {
         popup._eventsSetup = true;
         document.getElementById('notifPopupClose').addEventListener('click', function () { popup.classList.add('hidden'); });
         document.getElementById('notifPopupOverlay').addEventListener('click', function () { popup.classList.add('hidden'); });
+        var markAllBtn = document.getElementById('notifMarkAllRead');
+        if (markAllBtn) {
+            markAllBtn.addEventListener('click', function () {
+                var session = getSession();
+                if (!session) return;
+                backendPost({ action: 'markAllNotifsRead', userId: session.id }).then(function () {
+                    _notifItems.forEach(function (n) { n.unread = false; });
+                    updateNotifBadges();
+                    renderNotifItems();
+                });
+            });
+        }
     }
 }
 window.openNotifPopup = openNotifPopup;
 
 function addNotifItem(item) {
-    // item: { icon, title, desc, time, id, onClick }
-    // Prevent duplicates by id
-    if (item.id && _notifItems.some(function (n) { return n.id === item.id; })) return;
-    _notifItems.unshift(item);
-    // Keep max 50
-    if (_notifItems.length > 50) _notifItems = _notifItems.slice(0, 50);
-    updateNotifBadges();
+    // Save to DB
+    var session = getSession();
+    if (!session || !isBackendConnected()) return;
+    backendPost({
+        action: 'addNotification',
+        userId: item.userId || session.id,
+        icon: item.icon || '🔔',
+        title: item.title || '',
+        desc: item.desc || '',
+        type: item.type || 'info',
+        orderId: item.orderId || '',
+        extra: item.extra || null
+    });
 }
 window.addNotifItem = addNotifItem;
 
 function updateNotifBadges() {
-    var count = _notifItems.length;
+    var count = _notifItems.filter(function (n) { return n.unread; }).length;
     ['userHeaderBadge', 'talentHeaderBadge', 'penjualHeaderBadge'].forEach(function (id) {
         var badge = document.getElementById(id);
         if (badge) {
@@ -525,6 +562,12 @@ function updateNotifBadges() {
     });
 }
 
+function _escapeHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str || ''));
+    return div.innerHTML;
+}
+
 function renderNotifItems() {
     var body = document.getElementById('notifPopupBody');
     if (!body) return;
@@ -534,26 +577,37 @@ function renderNotifItems() {
     }
     var html = '';
     _notifItems.forEach(function (n, i) {
-        html += '<div class="notif-item' + (n.unread ? ' unread' : '') + '" data-idx="' + i + '">';
-        html += '<div class="notif-item-icon">' + (n.icon || '🔔') + '</div>';
+        html += '<div class="notif-item' + (n.unread ? ' unread' : '') + '" data-idx="' + i + '" data-id="' + _escapeHtml(n.id) + '">';
+        html += '<div class="notif-item-icon">' + _escapeHtml(n.icon || '🔔') + '</div>';
         html += '<div class="notif-item-body">';
-        html += '<div class="notif-item-title">' + (n.title || '') + '</div>';
-        html += '<div class="notif-item-desc">' + (n.desc || '') + '</div>';
-        if (n.time) html += '<div class="notif-item-time">' + n.time + '</div>';
+        html += '<div class="notif-item-title">' + _escapeHtml(n.title || '') + '</div>';
+        html += '<div class="notif-item-desc">' + _escapeHtml(n.desc || '') + '</div>';
+        var t = n.createdAt ? _timeAgo(n.createdAt) : '';
+        if (t) html += '<div class="notif-item-time">' + t + '</div>';
         html += '</div></div>';
     });
     body.innerHTML = html;
     body.querySelectorAll('.notif-item').forEach(function (el) {
         el.addEventListener('click', function () {
             var idx = parseInt(this.dataset.idx);
+            var nId = this.dataset.id;
             var item = _notifItems[idx];
-            if (item) {
+            if (item && item.unread) {
                 item.unread = false;
-                if (typeof item.onClick === 'function') item.onClick();
+                backendPost({ action: 'markNotifRead', notifId: nId });
+                updateNotifBadges();
             }
             document.getElementById('notifPopup').classList.add('hidden');
         });
     });
+}
+
+function _timeAgo(ts) {
+    var diff = Date.now() - ts;
+    if (diff < 60000) return 'Baru saja';
+    if (diff < 3600000) return Math.floor(diff / 60000) + ' menit lalu';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + ' jam lalu';
+    return Math.floor(diff / 86400000) + ' hari lalu';
 }
 
 // ══════════════════════════════════════════
@@ -688,6 +742,23 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                 renderOrderInfo(_currentOrder, session && session.id === _currentOrder.talentId);
             }
             showToast('Status diperbarui!', 'success');
+
+            // Create notifications for order status change
+            if (_currentOrder) {
+                var statusLabels = { accepted: 'Diterima', on_the_way: 'Dalam Perjalanan', arrived: 'Talent Tiba', in_progress: 'Dikerjakan', completed: 'Selesai' };
+                var label = statusLabels[newStatus] || newStatus;
+                var svc = _currentOrder.serviceType || _currentOrder.skillType || 'Pesanan';
+                // Notify the other party
+                var session = getSession();
+                if (session) {
+                    var otherUserId = (session.id === _currentOrder.talentId) ? _currentOrder.userId : _currentOrder.talentId;
+                    if (otherUserId) {
+                        addNotifItem({ userId: otherUserId, icon: '📦', title: 'Pesanan ' + label, desc: svc + ' - status diperbarui ke ' + label, type: 'order', orderId: _currentOrder.id });
+                    }
+                    // Also notify self
+                    addNotifItem({ icon: '📦', title: 'Pesanan ' + label, desc: svc + ' - status diperbarui ke ' + label, type: 'order', orderId: _currentOrder.id });
+                }
+            }
 
             // When order is completed, distribute funds to talent/penjual + owner commission
             if (newStatus === 'completed' && _currentOrder) {

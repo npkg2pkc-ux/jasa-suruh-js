@@ -702,6 +702,71 @@
         });
     }
 
+    // ── Notification Functions ──
+
+    function getNotifications(userId) {
+        return sb.from('notifications').select('data')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(50)
+            .then(function (res) {
+                throwIfError(res);
+                return ok(rowsToArr(res.data));
+            });
+    }
+
+    function doAddNotification(body) {
+        var nId = body.id || generateId();
+        var nData = {
+            id: nId,
+            userId: body.userId,
+            icon: body.icon || '🔔',
+            title: body.title || '',
+            desc: body.desc || '',
+            type: body.type || 'info',
+            unread: true,
+            createdAt: Date.now()
+        };
+        if (body.orderId) nData.orderId = body.orderId;
+        if (body.extra) nData.extra = body.extra;
+        return sb.from('notifications').insert({
+            id: nId,
+            user_id: body.userId,
+            created_at: nData.createdAt,
+            data: nData
+        }).then(function (res) {
+            throwIfError(res);
+            return ok(nData);
+        });
+    }
+
+    function doMarkNotifRead(body) {
+        var notifId = body.notifId;
+        return sb.from('notifications').select('data').eq('id', notifId).single()
+            .then(function (res) {
+                if (res.error) return ok(null);
+                var current = (res.data && res.data.data) || {};
+                current.unread = false;
+                return sb.from('notifications').update({ data: current }).eq('id', notifId);
+            })
+            .then(function () { return ok(null); });
+    }
+
+    function doMarkAllNotifsRead(body) {
+        return sb.from('notifications').select('id, data').eq('user_id', body.userId)
+            .then(function (res) {
+                throwIfError(res);
+                var updates = (res.data || []).filter(function (r) {
+                    return r.data && r.data.unread;
+                }).map(function (r) {
+                    var d = Object.assign({}, r.data, { unread: false });
+                    return sb.from('notifications').update({ data: d }).eq('id', r.id);
+                });
+                return Promise.all(updates);
+            })
+            .then(function () { return ok(null); });
+    }
+
     // ── Dispatch GET ──
     function dispatchGet(action, params) {
         var p = params || {};
@@ -719,6 +784,7 @@
             case 'login': return doLogin(p.username, p.password);
             case 'getWallet': return getWallet(p.userId);
             case 'getTransactions': return getTransactions(p.userId);
+            case 'getNotifications': return getNotifications(p.userId);
             default: return Promise.reject(new Error('Unknown GET action: ' + action));
         }
     }
@@ -747,6 +813,9 @@
             case 'walletPay': return doWalletPay(body);
             case 'walletCredit': return doWalletCredit(body);
             case 'walletCompleteOrder': return doWalletCompleteOrder(body);
+            case 'addNotification': return doAddNotification(body);
+            case 'markNotifRead': return doMarkNotifRead(body);
+            case 'markAllNotifsRead': return doMarkAllNotifsRead(body);
             default: return Promise.reject(new Error('Unknown POST action: ' + body.action));
         }
     }
@@ -939,6 +1008,25 @@
                     filter: 'user_id=eq.' + userId
                 }, function () {
                     getWallet(userId).then(function (res) {
+                        if (res.success) callback(res.data);
+                    });
+                })
+                .subscribe();
+            return function () { sb.removeChannel(channel); };
+        },
+
+        onNotifications: function (userId, callback) {
+            getNotifications(userId).then(function (res) {
+                if (res.success) callback(res.data);
+            });
+            var channel = sb.channel('notifs-' + userId)
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: 'user_id=eq.' + userId
+                }, function () {
+                    getNotifications(userId).then(function (res) {
                         if (res.success) callback(res.data);
                     });
                 })

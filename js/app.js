@@ -39,7 +39,7 @@ function init() {
 
     // Penjual: notif button
     var penjualNotifBtn = document.getElementById('penjualNotifBtn');
-    if (penjualNotifBtn) penjualNotifBtn.addEventListener('click', function () { openOrdersList(); });
+    if (penjualNotifBtn) penjualNotifBtn.addEventListener('click', function () { openNotifPopup(); });
 
     // Penjual: add product button
     var btnAddProduct = document.getElementById('btnAddProduct');

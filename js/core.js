@@ -463,6 +463,7 @@ function updateRoleUI(user) {
         renderTalentSkills();
         loadTalentDashboardOrders();
         startTalentDashboardPolling();
+        initNotifications();
     } else if (role === 'penjual') {
         var el3 = document.getElementById('penjualName');
         if (el3) el3.textContent = user.name || 'Penjual';
@@ -471,6 +472,7 @@ function updateRoleUI(user) {
         captureLocation(user.id);
         loadPenjualDashboard();
         startPenjualDashboardPolling();
+        initNotifications();
     } else if (role === 'cs') {
         var el4 = document.getElementById('csName');
         if (el4) el4.textContent = user.name || 'CS';
