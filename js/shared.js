@@ -1455,69 +1455,8 @@ function submitRating() {
 // ═══ SETTINGS / AKUN PAGE ═══
 // ══════════════════════════════════════════
 function openSettingsPage() {
-    var page = document.getElementById('settingsPage');
-    if (!page) return;
-    var session = getSession();
-    if (!session) return;
-
-    var ROLE_LABELS = { user: 'Pengguna', talent: 'Talent', penjual: 'Penjual', cs: 'CS', owner: 'Owner' };
-    var roleLabel = ROLE_LABELS[session.role] || session.role;
-
-    document.getElementById('settingsProfileName').textContent = session.name || '-';
-    document.getElementById('settingsInfoName').textContent = session.name || '-';
-    document.getElementById('settingsInfoUsername').textContent = session.username || '-';
-    document.getElementById('settingsInfoPhone').textContent = session.phone || '-';
-    document.getElementById('settingsInfoRole').textContent = roleLabel;
-
-    var badge = document.getElementById('settingsRoleBadge');
-    if (badge) { badge.textContent = roleLabel; badge.className = 'settings-role-badge role-' + session.role; }
-
-    var photo = getProfilePhoto(session.id);
-    var avatarImg = document.getElementById('settingsAvatarImg');
-    var avatarIcon = document.getElementById('settingsAvatarIcon');
-    if (photo) {
-        avatarImg.src = photo; avatarImg.style.display = 'block'; avatarIcon.style.display = 'none';
-    } else {
-        avatarImg.style.display = 'none'; avatarIcon.style.display = '';
-    }
-
-    document.getElementById('settingsPhotoChangeBtn').style.display = session.role === 'talent' ? '' : 'none';
-
-    page.classList.remove('hidden');
-
-    if (!page._eventsSetup) {
-        page._eventsSetup = true;
-
-        document.getElementById('settingsBtnBack').addEventListener('click', function () {
-            page.classList.add('hidden');
-            resetBottomNavToHome();
-        });
-
-        document.getElementById('settingsBtnLogout').addEventListener('click', function () {
-            page.classList.add('hidden');
-            handleLogout();
-        });
-
-        document.getElementById('settingsBtnChangePhoto').addEventListener('click', function () {
-            document.getElementById('settingsPhotoInput').click();
-        });
-
-        document.getElementById('settingsPhotoInput').addEventListener('change', function () {
-            var file = this.files[0];
-            if (!file) return;
-            var reader = new FileReader();
-            reader.onload = function () {
-                compressThumbnail(reader.result, function (thumb) {
-                    var s = getSession();
-                    if (!s) return;
-                    saveProfilePhoto(s.id, thumb);
-                    avatarImg.src = thumb; avatarImg.style.display = 'block'; avatarIcon.style.display = 'none';
-                    showToast('Foto profil berhasil diperbarui! 📸', 'success');
-                });
-            };
-            reader.readAsDataURL(file);
-            this.value = '';
-        });
+    if (typeof AccountPage !== 'undefined') {
+        AccountPage.open();
     }
 }
 

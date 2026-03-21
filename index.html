@@ -742,44 +742,141 @@
 
     <!-- ===== SETTINGS / AKUN PAGE (all roles) ===== -->
     <div id="settingsPage" class="stp-page hidden">
-        <header class="stp-header">
-            <button class="stp-back" id="settingsBtnBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-            <div class="stp-header-info"><h2>⚙️ Pengaturan Akun</h2></div>
+        <header class="acc-header">
+            <button class="acc-back" id="settingsBtnBack"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <h2 class="acc-header-title">Pengaturan Akun</h2>
+            <div style="width:22px"></div>
         </header>
-        <div class="settings-content">
-            <div class="settings-profile-card">
-                <div class="settings-avatar" id="settingsAvatarWrap">
-                    <img id="settingsAvatarImg" src="" alt="Foto Profil" style="display:none">
-                    <span id="settingsAvatarIcon" class="settings-avatar-icon">👤</span>
-                </div>
-                <div id="settingsPhotoChangeBtn" style="display:none">
-                    <input type="file" id="settingsPhotoInput" accept="image/*" capture="user" style="display:none">
-                    <button type="button" class="settings-change-photo-btn" id="settingsBtnChangePhoto">📷 Ganti Foto Profil</button>
-                </div>
-                <h3 id="settingsProfileName" class="settings-profile-name">-</h3>
-                <span class="settings-role-badge" id="settingsRoleBadge">-</span>
-            </div>
-            <div class="settings-section">
-                <div class="settings-section-title">Informasi Akun</div>
-                <div class="settings-row">
-                    <span class="settings-label">Nama Lengkap</span>
-                    <span class="settings-value" id="settingsInfoName">-</span>
-                </div>
-                <div class="settings-row">
-                    <span class="settings-label">Username</span>
-                    <span class="settings-value" id="settingsInfoUsername">-</span>
-                </div>
-                <div class="settings-row">
-                    <span class="settings-label">No. HP</span>
-                    <span class="settings-value" id="settingsInfoPhone">-</span>
-                </div>
-                <div class="settings-row">
-                    <span class="settings-label">Role</span>
-                    <span class="settings-value" id="settingsInfoRole">-</span>
+
+        <div class="acc-body">
+            <!-- SKELETON (shown while loading) -->
+            <div id="accSkeleton" class="acc-skeleton">
+                <div class="acc-sk-avatar"></div>
+                <div class="acc-sk-line" style="width:140px;height:18px;margin:12px auto 0"></div>
+                <div class="acc-sk-line" style="width:80px;height:14px;margin:8px auto 0"></div>
+                <div class="acc-sk-line" style="width:120px;height:12px;margin:6px auto 0"></div>
+                <div style="margin-top:28px">
+                    <div class="acc-sk-row"></div>
+                    <div class="acc-sk-row"></div>
+                    <div class="acc-sk-row"></div>
+                    <div class="acc-sk-row"></div>
                 </div>
             </div>
-            <div class="settings-section">
-                <button class="settings-logout-btn" id="settingsBtnLogout">🚪 Keluar dari Akun</button>
+
+            <!-- ACTUAL CONTENT (hidden until loaded) -->
+            <div id="accContent" class="acc-content hidden">
+                <!-- PROFILE CARD -->
+                <div class="acc-profile-card">
+                    <div class="acc-avatar-wrap" id="accAvatarWrap">
+                        <div class="acc-avatar">
+                            <img id="accAvatarImg" src="" alt="Foto" style="display:none">
+                            <svg id="accAvatarFallback" class="acc-avatar-fallback" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.5"/></svg>
+                        </div>
+                        <button class="acc-avatar-edit" id="accBtnEditPhoto" title="Ganti foto">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/></svg>
+                        </button>
+                        <input type="file" id="accPhotoInput" accept="image/*" style="display:none">
+                    </div>
+                    <h3 class="acc-profile-name" id="accProfileName">-</h3>
+                    <span class="acc-role-badge" id="accRoleBadge">-</span>
+                    <p class="acc-profile-phone" id="accProfilePhone">-</p>
+                </div>
+
+                <!-- INFO LIST -->
+                <div class="acc-section">
+                    <p class="acc-section-title">Informasi Pribadi</p>
+                    <div class="acc-card">
+                        <button class="acc-item" id="accItemName">
+                            <span class="acc-item-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.5"/></svg></span>
+                            <span class="acc-item-body"><span class="acc-item-label">Nama Lengkap</span><span class="acc-item-value" id="accValName">-</span></span>
+                            <svg class="acc-item-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <button class="acc-item" id="accItemPhone">
+                            <span class="acc-item-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.81.36 1.6.68 2.34a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.74.32 1.53.55 2.34.68A2 2 0 0 1 22 16.92z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+                            <span class="acc-item-body"><span class="acc-item-label">Nomor HP</span><span class="acc-item-value" id="accValPhone">-</span></span>
+                            <svg class="acc-item-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <button class="acc-item" id="accItemEmail">
+                            <span class="acc-item-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                            <span class="acc-item-body"><span class="acc-item-label">Email</span><span class="acc-item-value" id="accValEmail">-</span></span>
+                            <svg class="acc-item-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KEAMANAN -->
+                <div class="acc-section">
+                    <p class="acc-section-title">Keamanan</p>
+                    <div class="acc-card">
+                        <button class="acc-item" id="accItemPin">
+                            <span class="acc-item-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+                            <span class="acc-item-body"><span class="acc-item-label">Ubah PIN</span><span class="acc-item-value acc-item-sub">Ganti PIN keamanan</span></span>
+                            <svg class="acc-item-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- LOGOUT -->
+                <div class="acc-section acc-section-logout">
+                    <button class="acc-logout-btn" id="settingsBtnLogout">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="16,17 21,12 16,7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                        Keluar dari Akun
+                    </button>
+                </div>
+
+                <p class="acc-version">Jasa Suruh v2.0</p>
+            </div>
+        </div>
+
+        <!-- EDIT MODAL -->
+        <div id="accEditModal" class="acc-modal hidden">
+            <div class="acc-modal-overlay" id="accModalOverlay"></div>
+            <div class="acc-modal-sheet">
+                <div class="acc-modal-handle"></div>
+                <h3 class="acc-modal-title" id="accModalTitle">Edit</h3>
+                <div class="acc-modal-body">
+                    <input type="text" class="acc-modal-input" id="accModalInput" placeholder="" autocomplete="off">
+                    <p class="acc-modal-error hidden" id="accModalError"></p>
+                </div>
+                <div class="acc-modal-actions">
+                    <button class="acc-modal-btn acc-modal-cancel" id="accModalCancel">Batal</button>
+                    <button class="acc-modal-btn acc-modal-save" id="accModalSave">Simpan</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PHOTO PREVIEW MODAL -->
+        <div id="accPhotoPreview" class="acc-modal hidden">
+            <div class="acc-modal-overlay" id="accPhotoOverlay"></div>
+            <div class="acc-modal-sheet acc-photo-sheet">
+                <div class="acc-modal-handle"></div>
+                <h3 class="acc-modal-title">Ganti Foto Profil</h3>
+                <div class="acc-photo-preview-wrap">
+                    <img id="accPhotoPreviewImg" src="" alt="Preview">
+                </div>
+                <div class="acc-modal-actions">
+                    <button class="acc-modal-btn acc-modal-cancel" id="accPhotoCancelBtn">Batal</button>
+                    <button class="acc-modal-btn acc-modal-save" id="accPhotoConfirmBtn">
+                        <span id="accPhotoConfirmText">Upload</span>
+                        <span id="accPhotoSpinner" class="acc-spinner hidden"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- LOGOUT CONFIRM -->
+        <div id="accLogoutConfirm" class="acc-modal hidden">
+            <div class="acc-modal-overlay" id="accLogoutOverlay"></div>
+            <div class="acc-modal-sheet acc-logout-sheet">
+                <div class="acc-logout-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="#EF4444" stroke-width="1.5" stroke-linecap="round"/><polyline points="16,17 21,12 16,7" stroke="#EF4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="21" y1="12" x2="9" y2="12" stroke="#EF4444" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </div>
+                <h3 class="acc-logout-title">Keluar dari Akun?</h3>
+                <p class="acc-logout-desc">Kamu harus login kembali untuk mengakses akunmu.</p>
+                <div class="acc-modal-actions acc-logout-actions">
+                    <button class="acc-modal-btn acc-modal-cancel" id="accLogoutCancelBtn">Batal</button>
+                    <button class="acc-modal-btn acc-logout-confirm-btn" id="accLogoutConfirmBtn">Ya, Keluar</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1057,6 +1154,7 @@
     <script src="js/penjual.js"></script>
     <script src="js/cs.js"></script>
     <script src="js/owner.js"></script>
+    <script src="js/account.js"></script>
     <script src="js/register.js"></script>
     <script src="js/app.js"></script>
 </body>
