@@ -570,6 +570,10 @@
                             <div class="od-quick-icon od-qi-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8.5" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
                             <span>Tambah CS</span>
                         </button>
+                        <button class="od-quick-btn od-owner-only" data-action="add-admin">
+                            <div class="od-quick-icon od-qi-red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                            <span>Tambah Admin</span>
+                        </button>
                         <button class="od-quick-btn" data-action="view-report">
                             <div class="od-quick-icon od-qi-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                             <span>Laporan</span>
@@ -578,7 +582,7 @@
                             <div class="od-quick-icon od-qi-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
                             <span>Kelola User</span>
                         </button>
-                        <button class="od-quick-btn" data-action="settings">
+                        <button class="od-quick-btn od-owner-only" data-action="settings">
                             <div class="od-quick-icon od-qi-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                             <span>Pengaturan</span>
                         </button>
@@ -607,6 +611,7 @@
                         <button class="od-see-all" onclick="renderOwnerUsers()">↻ Refresh</button>
                     </div>
                     <div class="od-user-stats-row">
+                        <span class="od-user-stat"><strong id="ownerStatAdmin">0</strong> Admin</span>
                         <span class="od-user-stat"><strong id="ownerStatPenjual">0</strong> Penjual</span>
                         <span class="od-user-stat"><strong id="ownerStatCS">0</strong> CS</span>
                     </div>
@@ -615,25 +620,15 @@
 
                 <div class="bottom-spacer"></div>
             </main>
-
-            <!-- Bottom Nav -->
-            <nav class="bottom-nav">
-                <button class="nav-item active" data-page="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Dashboard</span></button>
-                <button class="nav-item" data-page="users"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Users</span></button>
-                <button class="nav-item" data-page="reports"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Laporan</span></button>
-                <button class="nav-item" data-page="cs-manage"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12c0 1.6.376 3.112 1.043 4.453L2 22l5.547-1.043A9.96 9.96 0 0 0 12 22z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>CS</span></button>
-                <button class="nav-item" data-page="settings"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Setting</span></button>
-            </nav>
         </div>
 
-        <!-- ===== OWNER SETTINGS PAGE (separate) ===== -->
+        <!-- ===== OWNER SETTINGS PAGE (Commission - owner only) ===== -->
         <div id="ownerSettingsPage" class="stp-page hidden">
             <header class="stp-header">
                 <button class="stp-back" id="ownerSettingsBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-                <div class="stp-header-info"><h2>Pengaturan Platform</h2></div>
+                <div class="stp-header-info"><h2>Pengaturan Komisi</h2></div>
             </header>
             <div class="od-settings-body">
-                <!-- Commission Settings -->
                 <div class="od-settings-card">
                     <div class="od-settings-card-head">
                         <span class="od-settings-icon">💰</span>
@@ -667,8 +662,51 @@
                         <button type="submit" class="od-btn-save">💾 Simpan Pengaturan</button>
                     </form>
                 </div>
+            </div>
+        </div>
 
-                <!-- Create CS Account -->
+        <!-- ===== CREATE ADMIN PAGE (owner only) ===== -->
+        <div id="createAdminPage" class="stp-page hidden">
+            <header class="stp-header">
+                <button class="stp-back" id="createAdminBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                <div class="stp-header-info"><h2>Tambah Admin</h2></div>
+            </header>
+            <div class="od-settings-body">
+                <div class="od-settings-card">
+                    <div class="od-settings-card-head">
+                        <span class="od-settings-icon">🔐</span>
+                        <div><h4>Buat Akun Admin</h4><p>Admin dapat menambahkan CS dan mengelola pendaftaran</p></div>
+                    </div>
+                    <form id="createAdminForm" class="od-settings-form">
+                        <div class="od-form-row">
+                            <label>Nama Admin</label>
+                            <input type="text" id="adminFormName" placeholder="Nama lengkap admin" required>
+                        </div>
+                        <div class="od-form-row">
+                            <label>No. HP (WhatsApp)</label>
+                            <input type="tel" id="adminFormPhone" placeholder="08xxxxxxxxxx" required>
+                        </div>
+                        <div class="od-form-row">
+                            <label>Username</label>
+                            <input type="text" id="adminFormUsername" placeholder="Username untuk login" required>
+                        </div>
+                        <div class="od-form-row">
+                            <label>Password</label>
+                            <input type="password" id="adminFormPassword" placeholder="Minimal 6 karakter" required minlength="6">
+                        </div>
+                        <button type="submit" class="od-btn-save">🔐 Buat Akun Admin</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== CREATE CS PAGE (owner + admin) ===== -->
+        <div id="createCSPage" class="stp-page hidden">
+            <header class="stp-header">
+                <button class="stp-back" id="createCSBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                <div class="stp-header-info"><h2>Tambah CS</h2></div>
+            </header>
+            <div class="od-settings-body">
                 <div class="od-settings-card">
                     <div class="od-settings-card-head">
                         <span class="od-settings-icon">🧑‍💼</span>
@@ -685,7 +723,7 @@
                         </div>
                         <div class="od-form-row">
                             <label>Password</label>
-                            <input type="password" id="csFormPassword" placeholder="Password CS" required minlength="6">
+                            <input type="password" id="csFormPassword" placeholder="Minimal 6 karakter" required minlength="6">
                         </div>
                         <button type="submit" class="od-btn-save">✅ Buat Akun CS</button>
                     </form>

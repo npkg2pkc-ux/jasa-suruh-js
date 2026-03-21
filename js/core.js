@@ -403,6 +403,7 @@ var ROUTES = {
     talent: '/talent',
     penjual: '/penjual',
     cs: '/cs-panel',
+    admin: '/admin-panel',
     owner: '/owner-panel'
 };
 
@@ -419,8 +420,8 @@ function showPage(pageName, pushState) {
     var pages = document.querySelectorAll('.page');
     pages.forEach(function (p) { p.classList.add('hidden'); });
 
-    // Normalize role names
-    var ROLE_MAP = { pengguna: 'user', customer: 'user' };
+    // Normalize role names — admin shares owner dashboard
+    var ROLE_MAP = { pengguna: 'user', customer: 'user', admin: 'owner' };
     var resolved = ROLE_MAP[pageName] || pageName;
 
     var target = document.getElementById('page-' + resolved);
@@ -447,6 +448,7 @@ function showPage(pageName, pushState) {
         talent: 'Talent - Jasa Suruh',
         penjual: 'Penjual - Jasa Suruh',
         cs: 'CS Panel - Jasa Suruh',
+        admin: 'Admin Panel - Jasa Suruh',
         owner: 'Owner Panel - Jasa Suruh'
     };
     document.title = titles[pageName] || 'Jasa Suruh (JS)';
@@ -503,6 +505,12 @@ function updateRoleUI(user) {
         var el4 = document.getElementById('csName');
         if (el4) el4.textContent = user.name || 'CS';
         loadCSDashboard();
+        initNotifications();
+    } else if (role === 'admin') {
+        // Admin uses same dashboard as owner but with restricted access
+        if (typeof OwnerDashboard !== 'undefined') {
+            OwnerDashboard.loadDashboard();
+        }
         initNotifications();
     } else if (role === 'owner') {
         if (typeof OwnerDashboard !== 'undefined') {

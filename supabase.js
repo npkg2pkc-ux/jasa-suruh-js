@@ -245,6 +245,9 @@
                 return sb.from('users').upsert({
                     id: userData.id,
                     username: userData.username,
+                    role: userData.role || 'user',
+                    nama: userData.name || userData.nama || '',
+                    no_hp: userData.phone || userData.no_hp || '',
                     data: userData
                 }).then(function (res2) {
                     throwIfError(res2);
@@ -960,7 +963,8 @@
     function dispatchPost(body) {
         switch (body.action) {
             case 'register':
-            case 'createCS': return doRegister(body);
+            case 'createCS':
+            case 'createAdmin': return doRegister(body);
             case 'delete': return doDeleteUser(body.id);
             case 'updateLocation': return doUpdateLocation(body);
             case 'updateSkills': return doUpdateSkills(body);

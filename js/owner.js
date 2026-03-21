@@ -1,6 +1,9 @@
 /* ========================================
    JASA SURUH (JS) - Owner Dashboard Module
    Modern admin dashboard (Gojek/SaaS style)
+   Supports: owner + admin roles
+   Owner: full access (commission, add admin, add CS)
+   Admin: limited (add CS, manage users)
    ======================================== */
 'use strict';
 
@@ -9,6 +12,7 @@ var OwnerDashboard = (function () {
     var _chartInstance = null;
     var _ordersCache = [];
     var _currentRange = 'all'; // today, week, month, all
+    var _currentRole = 'owner'; // 'owner' or 'admin'
 
     function $(id) { return document.getElementById(id); }
     function $$(sel) { return document.querySelectorAll(sel); }
@@ -29,10 +33,19 @@ var OwnerDashboard = (function () {
         return d + ' hari lalu';
     }
 
+    function _isOwner() { return _currentRole === 'owner'; }
+
     // ─── Init ───
     function init() {
         if (_initialized) return;
         _initialized = true;
+
+        // Detect current role
+        var session = typeof getSession === 'function' ? getSession() : null;
+        _currentRole = session ? (session.role || 'owner') : 'owner';
+
+        // Hide owner-only elements for admin
+        _applyRoleVisibility();
 
         // Notif button
         var btn = $('ownerNotifBtn');
@@ -60,7 +73,8 @@ var OwnerDashboard = (function () {
         $$('.od-quick-btn').forEach(function (qbtn) {
             qbtn.addEventListener('click', function () {
                 var action = this.dataset.action;
-                if (action === 'add-cs') openOwnerSettings();
+                if (action === 'add-cs') openCreateCSPage();
+                else if (action === 'add-admin') openCreateAdminPage();
                 else if (action === 'view-report') { if (typeof openAdminTransactions === 'function') openAdminTransactions(); }
                 else if (action === 'manage-users') _scrollToUsers();
                 else if (action === 'settings') openOwnerSettings();
@@ -73,27 +87,64 @@ var OwnerDashboard = (function () {
             if (typeof openAdminTransactions === 'function') openAdminTransactions();
         });
 
-        // Settings page back button
+        // Settings page (commission) back button
         var backBtn = $('ownerSettingsBack');
         if (backBtn) backBtn.addEventListener('click', function () {
             $('ownerSettingsPage').classList.add('hidden');
+        });
+
+        // Create Admin page back button
+        var adminBackBtn = $('createAdminBack');
+        if (adminBackBtn) adminBackBtn.addEventListener('click', function () {
+            $('createAdminPage').classList.add('hidden');
+        });
+
+        // Create CS page back button
+        var csBackBtn = $('createCSBack');
+        if (csBackBtn) csBackBtn.addEventListener('click', function () {
+            $('createCSPage').classList.add('hidden');
+        });
+
+        // Create Admin form submit
+        var adminForm = $('createAdminForm');
+        if (adminForm) adminForm.addEventListener('submit', handleCreateAdmin);
+
+        // Create CS form submit  
+        var csForm = $('createCSForm');
+        if (csForm) csForm.addEventListener('submit', handleCreateCS);
+
+        // Commission form submit
+        var commForm = $('commissionForm');
+        if (commForm) commForm.addEventListener('submit', handleCommissionFormSubmit);
+    }
+
+    function _applyRoleVisibility() {
+        // Owner-only elements: Tambah Admin, Pengaturan (commission)
+        $$('.od-owner-only').forEach(function (el) {
+            if (!_isOwner()) el.style.display = 'none';
+            else el.style.display = '';
         });
     }
 
     // ─── Load All Dashboard Data ───
     function loadDashboard() {
+        // Re-detect role each time
+        var session = typeof getSession === 'function' ? getSession() : null;
+        _currentRole = session ? (session.role || 'owner') : 'owner';
+
         init();
+        _applyRoleVisibility();
         _setGreeting();
         renderOwnerStats();
         renderOwnerUsers();
         _loadOrdersAndRevenue();
-        loadOwnerCommissionSettings();
+        if (_isOwner()) loadOwnerCommissionSettings();
         if (typeof initNotifications === 'function') initNotifications();
     }
 
     function _setGreeting() {
         var session = typeof getSession === 'function' ? getSession() : null;
-        var name = session ? (session.name || session.nama || 'Owner') : 'Owner';
+        var name = session ? (session.name || session.nama || (_isOwner() ? 'Owner' : 'Admin')) : 'Owner';
         var hour = new Date().getHours();
         var greet = hour < 12 ? 'Selamat Pagi' : hour < 17 ? 'Selamat Siang' : 'Selamat Malam';
         var el = $('ownerGreeting');
@@ -113,11 +164,13 @@ var OwnerDashboard = (function () {
         var talentsCount = users.filter(function (u) { return u.role === 'talent'; }).length;
         var penjualCount = users.filter(function (u) { return u.role === 'penjual'; }).length;
         var csCount = users.filter(function (u) { return u.role === 'cs'; }).length;
+        var adminCount = users.filter(function (u) { return u.role === 'admin'; }).length;
 
         _setKPIValue('ownerTotalUsers', usersCount);
         _setKPIValue('ownerTotalTalents', talentsCount);
         if ($('ownerStatPenjual')) $('ownerStatPenjual').textContent = penjualCount;
         if ($('ownerStatCS')) $('ownerStatCS').textContent = csCount;
+        if ($('ownerStatAdmin')) $('ownerStatAdmin').textContent = adminCount;
     }
 
     function _setKPIValue(id, value) {
@@ -342,7 +395,7 @@ var OwnerDashboard = (function () {
             html += newUsers.map(function (u) {
                 var displayName = u.name || u.nama || 'User';
                 var initial = displayName.charAt(0).toUpperCase();
-                var roleLabel = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS' };
+                var roleLabel = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS', admin: 'Admin' };
                 return '<div class="od-activity-item">'
                     + '<div class="od-activity-avatar" style="background:' + _roleColor(u.role) + '">' + initial + '</div>'
                     + '<div class="od-activity-info">'
@@ -358,7 +411,7 @@ var OwnerDashboard = (function () {
     }
 
     function _roleColor(role) {
-        var map = { user: '#FF6B00', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6' };
+        var map = { user: '#FF6B00', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6', admin: '#EF4444' };
         return map[role] || '#9CA3AF';
     }
 
@@ -374,22 +427,27 @@ var OwnerDashboard = (function () {
             return;
         }
 
-        var roleColors = { user: '#FF6B00', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6' };
-        var roleLabels = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS' };
+        var roleColors = { user: '#FF6B00', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6', admin: '#EF4444' };
+        var roleLabels = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS', admin: 'Admin' };
 
         container.innerHTML = users.map(function (u) {
             var displayName = u.name || u.nama || 'Tanpa Nama';
             var displayUsername = u.username || u.no_hp || u.phone || '-';
             var initial = displayName.charAt(0).toUpperCase();
+            // Admin can only delete CS, Owner can delete anyone (except owner)
+            var canDelete = _isOwner() || (_currentRole === 'admin' && u.role === 'cs');
+            var deleteBtn = canDelete
+                ? '<button class="od-user-delete" data-uid="' + u.id + '" title="Hapus">'
+                    + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+                    + '</button>'
+                : '';
             return '<div class="od-user-item">'
                 + '<div class="od-user-avatar" style="background:' + (roleColors[u.role] || '#999') + '">' + initial + '</div>'
                 + '<div class="od-user-info">'
                 + '<div class="od-user-name">' + escapeHtml(displayName) + '</div>'
                 + '<div class="od-user-meta">@' + escapeHtml(displayUsername) + ' · <span class="od-user-role" style="color:' + (roleColors[u.role] || '#999') + '">' + (roleLabels[u.role] || u.role) + '</span></div>'
                 + '</div>'
-                + '<button class="od-user-delete" data-uid="' + u.id + '" title="Hapus">'
-                + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-                + '</button>'
+                + deleteBtn
                 + '</div>';
         }).join('');
 
@@ -409,8 +467,9 @@ var OwnerDashboard = (function () {
     }
     window.renderOwnerUsers = renderOwnerUsers;
 
-    // ─── Commission Settings ───
+    // ─── Commission Settings (owner only) ───
     function loadOwnerCommissionSettings() {
+        if (!_isOwner()) return;
         if (typeof isBackendConnected !== 'function' || !isBackendConnected()) return;
         FB.get('getSettings')
             .then(function (r) { return r.json(); })
@@ -429,6 +488,7 @@ var OwnerDashboard = (function () {
 
     function handleCommissionFormSubmit(e) {
         e.preventDefault();
+        if (!_isOwner()) { showToast('Hanya owner yang bisa mengubah komisi', 'error'); return; }
         var settings = {
             platform_fee: $('setPlatformFee').value || '2000',
             delivery_fee_per_km: $('setDeliveryFeePerKm').value || '3000',
@@ -452,7 +512,50 @@ var OwnerDashboard = (function () {
         }
     }
 
-    // ─── Create CS ───
+    // ─── Create Admin (owner only) ───
+    function handleCreateAdmin(e) {
+        e.preventDefault();
+        if (!_isOwner()) {
+            if (typeof showToast === 'function') showToast('Hanya owner yang bisa menambah admin!', 'error');
+            return;
+        }
+        var name = ($('adminFormName').value || '').trim();
+        var phone = ($('adminFormPhone').value || '').trim();
+        var username = ($('adminFormUsername').value || '').trim();
+        var password = $('adminFormPassword').value;
+
+        if (!name || !username || !password) {
+            if (typeof showToast === 'function') showToast('Lengkapi semua data!', 'error');
+            return;
+        }
+        if (password.length < 6) {
+            if (typeof showToast === 'function') showToast('Password minimal 6 karakter!', 'error');
+            return;
+        }
+        var users = typeof getUsers === 'function' ? getUsers() : [];
+        if (users.some(function (u) { return u.username === username; })) {
+            if (typeof showToast === 'function') showToast('Username sudah digunakan!', 'error');
+            return;
+        }
+
+        var adminUser = {
+            id: typeof generateId === 'function' ? generateId() : Date.now().toString(36),
+            name: name, phone: phone, no_hp: phone, nama: name,
+            username: username, password: password,
+            role: 'admin', createdAt: Date.now()
+        };
+        users.push(adminUser);
+        if (typeof saveUsers === 'function') saveUsers(users);
+        if (typeof backendPost === 'function') {
+            backendPost({ action: 'createAdmin', id: adminUser.id, name: adminUser.name, phone: adminUser.phone, username: adminUser.username, password: adminUser.password, role: adminUser.role, createdAt: adminUser.createdAt });
+        }
+        if (typeof showToast === 'function') showToast('Akun Admin berhasil dibuat!', 'success');
+        $('createAdminForm').reset();
+        renderOwnerStats();
+        renderOwnerUsers();
+    }
+
+    // ─── Create CS (owner + admin) ───
     function handleCreateCS(e) {
         e.preventDefault();
         var name = ($('csFormName').value || '').trim();
@@ -475,7 +578,8 @@ var OwnerDashboard = (function () {
 
         var csUser = {
             id: typeof generateId === 'function' ? generateId() : Date.now().toString(36),
-            name: name, phone: '-', username: username, password: password,
+            name: name, phone: '-', nama: name,
+            username: username, password: password,
             role: 'cs', createdAt: Date.now()
         };
         users.push(csUser);
@@ -489,13 +593,33 @@ var OwnerDashboard = (function () {
         renderOwnerUsers();
     }
 
-    // ─── Owner Settings Page ───
+    // ─── Page Openers ───
     function openOwnerSettings() {
+        if (!_isOwner()) {
+            if (typeof showToast === 'function') showToast('Hanya owner yang bisa mengakses pengaturan komisi', 'error');
+            return;
+        }
         var page = $('ownerSettingsPage');
         if (page) page.classList.remove('hidden');
         loadOwnerCommissionSettings();
     }
     window.openOwnerSettings = openOwnerSettings;
+
+    function openCreateAdminPage() {
+        if (!_isOwner()) {
+            if (typeof showToast === 'function') showToast('Hanya owner yang bisa menambah admin!', 'error');
+            return;
+        }
+        var page = $('createAdminPage');
+        if (page) page.classList.remove('hidden');
+    }
+    window.openCreateAdminPage = openCreateAdminPage;
+
+    function openCreateCSPage() {
+        var page = $('createCSPage');
+        if (page) page.classList.remove('hidden');
+    }
+    window.openCreateCSPage = openCreateCSPage;
 
     function _scrollToUsers() {
         var sec = $('ownerUsersSection');
@@ -509,8 +633,11 @@ var OwnerDashboard = (function () {
         renderOwnerUsers: renderOwnerUsers,
         loadOwnerCommissionSettings: loadOwnerCommissionSettings,
         handleCommissionFormSubmit: handleCommissionFormSubmit,
+        handleCreateAdmin: handleCreateAdmin,
         handleCreateCS: handleCreateCS,
-        openOwnerSettings: openOwnerSettings
+        openOwnerSettings: openOwnerSettings,
+        openCreateAdminPage: openCreateAdminPage,
+        openCreateCSPage: openCreateCSPage
     };
 })();
 
@@ -520,6 +647,7 @@ function renderOwnerUsers() { OwnerDashboard.renderOwnerUsers(); }
 function loadOwnerCommissionSettings() { OwnerDashboard.loadOwnerCommissionSettings(); }
 function handleCommissionFormSubmit(e) { OwnerDashboard.handleCommissionFormSubmit(e); }
 function handleCreateCS(e) { OwnerDashboard.handleCreateCS(e); }
+function handleCreateAdmin(e) { OwnerDashboard.handleCreateAdmin(e); }
 function loadOwnerRevenue() { /* handled by loadDashboard now */ }
 
 // ══════════════════════════════════════════

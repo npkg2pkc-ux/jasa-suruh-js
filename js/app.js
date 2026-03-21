@@ -17,6 +17,9 @@ function init() {
     var createCSForm = document.getElementById('createCSForm');
     if (createCSForm) createCSForm.addEventListener('submit', handleCreateCS);
 
+    var createAdminForm = document.getElementById('createAdminForm');
+    if (createAdminForm) createAdminForm.addEventListener('submit', handleCreateAdmin);
+
     setupRoleSelector();
     setupTalentToggle();
     setupTalentSkills();
