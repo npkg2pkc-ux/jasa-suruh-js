@@ -419,15 +419,24 @@ function showPage(pageName, pushState) {
     var pages = document.querySelectorAll('.page');
     pages.forEach(function (p) { p.classList.add('hidden'); });
 
-    var target = document.getElementById('page-' + pageName);
+    // Normalize role names
+    var ROLE_MAP = { pengguna: 'user', customer: 'user' };
+    var resolved = ROLE_MAP[pageName] || pageName;
+
+    var target = document.getElementById('page-' + resolved);
+    if (!target) {
+        // Fallback: show login page if target doesn't exist
+        resolved = 'login';
+        target = document.getElementById('page-login');
+    }
     if (target) {
         target.classList.remove('hidden');
     }
 
-    if (pushState !== false && ROUTES[pageName]) {
-        var newPath = ROUTES[pageName];
+    if (pushState !== false && ROUTES[resolved]) {
+        var newPath = ROUTES[resolved];
         if (window.location.pathname !== newPath) {
-            history.pushState({ page: pageName }, '', newPath);
+            history.pushState({ page: resolved }, '', newPath);
         }
     }
 

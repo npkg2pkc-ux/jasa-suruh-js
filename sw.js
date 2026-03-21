@@ -1,9 +1,10 @@
-const CACHE_NAME = 'js-app-v7';
+const CACHE_NAME = 'js-app-v8';
 const ASSETS = [
     '/',
     '/index.html',
     '/style.css',
     '/supabase.js',
+    '/services/auth.js',
     '/js/core.js',
     '/js/shared.js',
     '/js/user.js',
@@ -11,6 +12,9 @@ const ASSETS = [
     '/js/penjual.js',
     '/js/cs.js',
     '/js/owner.js',
+    '/js/login.js',
+    '/js/account.js',
+    '/js/register.js',
     '/js/app.js',
     '/manifest.json',
     '/favicon.png',

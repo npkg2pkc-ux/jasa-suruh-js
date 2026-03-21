@@ -1689,33 +1689,33 @@ function handleSplash() {
     var app = document.getElementById('app');
 
     setTimeout(function () {
-        splash.classList.add('fade-out');
-        app.classList.remove('hidden');
+        try {
+            splash.classList.add('fade-out');
+            app.classList.remove('hidden');
 
-        var urlPage = pageFromPath(window.location.pathname);
+            var urlPage = pageFromPath(window.location.pathname);
 
-        var session = getSession();
-        if (session) {
-            var users = getUsers();
-            var valid = users.find(function (u) { return u.id === session.id; });
-            if (valid || session.id) {
-                var activeUser = valid || session;
-                if (urlPage && urlPage !== 'login' && urlPage !== 'register') {
-                    showPage(urlPage);
-                } else {
-                    showPage(activeUser.role);
-                }
-                updateRoleUI(activeUser);
+            var session = getSession();
+            if (session && session.id && session.role) {
+                showPage(session.role);
+                updateRoleUI(session);
                 return;
             }
-            clearSession();
-        }
 
-        if (urlPage === 'register') {
-            showPage('register');
-        } else {
+            // Invalid or missing session — clear and show login
+            if (session) clearSession();
+
+            if (urlPage === 'register') {
+                showPage('register');
+            } else {
+                showPage('login');
+                if (typeof LoginPage !== 'undefined') LoginPage.reset();
+            }
+        } catch (err) {
+            // Emergency fallback: always show something
+            console.error('handleSplash error:', err);
+            if (app) app.classList.remove('hidden');
             showPage('login');
-            if (typeof LoginPage !== 'undefined') LoginPage.reset();
         }
     }, 1800);
 }
