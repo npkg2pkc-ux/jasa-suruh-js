@@ -29,6 +29,21 @@ CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_no_hp ON users(no_hp);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 
+-- 1b. Tabel OTP Codes (verifikasi via WhatsApp)
+CREATE TABLE IF NOT EXISTS otp_codes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    phone TEXT NOT NULL,
+    code TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    verified BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_otp_phone ON otp_codes(phone);
+-- Auto-cleanup expired OTPs
+ALTER TABLE otp_codes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_otp" ON otp_codes;
+CREATE POLICY "anon_otp" ON otp_codes FOR ALL TO anon USING (true) WITH CHECK (true);
+
 -- RLS Policy: users can read all but only update own row
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view all profiles" ON users;

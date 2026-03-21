@@ -75,7 +75,7 @@ var RegisterPage = (function () {
             } else if (to === 3) {
                 // Show phone number on OTP step
                 var phoneDisplay = document.getElementById('regOTPPhoneDisplay');
-                if (phoneDisplay) phoneDisplay.textContent = state.formattedPhone || state.phone;
+                if (phoneDisplay) phoneDisplay.textContent = '0' + state.phone.replace(/^0+/, '');
                 var otpFirst = document.getElementById('otpDigit0');
                 if (otpFirst) otpFirst.focus();
             } else if (to === 4) {
@@ -475,8 +475,9 @@ var RegisterPage = (function () {
 
             // Upload photo first if exists
             var photoPromise;
-            if (state.fotoFile && state.authUser) {
-                photoPromise = AuthService.uploadPhoto(state.authUser.id, state.fotoFile)
+            if (state.fotoFile) {
+                var tempId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+                photoPromise = AuthService.uploadPhoto(tempId, state.fotoFile)
                     .then(function (r) { return r.url; })
                     .catch(function () { return ''; });
             } else {
@@ -500,11 +501,14 @@ var RegisterPage = (function () {
                     submitBtn.textContent = 'Selesai';
                 }
 
-                // Also save to local session for existing app flow
+                // Save to local session for existing app flow
+                var userId = result.data ? result.data.id : (Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
                 var localUser = {
-                    id: state.authUser.id,
+                    id: userId,
                     name: state.nama,
                     phone: state.phone,
+                    username: state.phone,
+                    password: '',
                     role: state.role,
                     email: state.email,
                     createdAt: Date.now(),

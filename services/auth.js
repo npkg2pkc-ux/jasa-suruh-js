@@ -1,6 +1,6 @@
 /* ========================================
-   JASA SURUH - Auth Service (Supabase)
-   Handles OTP authentication & user profile
+   JASA SURUH - Auth Service (WhatsApp OTP)
+   Handles OTP via WhatsApp & user profile
    ======================================== */
 'use strict';
 
@@ -11,63 +11,77 @@ var AuthService = (function () {
         return null;
     }
 
-    // Format phone: 08xx → +628xx
+    // Format phone: 08xx → 628xx (tanpa +)
     function formatPhone(phone) {
         var cleaned = phone.replace(/\D/g, '');
         if (cleaned.startsWith('0')) cleaned = '62' + cleaned.slice(1);
         if (!cleaned.startsWith('62')) cleaned = '62' + cleaned;
-        return '+' + cleaned;
+        return cleaned;
     }
 
-    // Send OTP via Supabase Auth
+    // Format display: 628xx → 08xx
+    function formatPhoneDisplay(phone) {
+        var cleaned = phone.replace(/\D/g, '');
+        if (cleaned.startsWith('62')) cleaned = '0' + cleaned.slice(2);
+        return cleaned;
+    }
+
+    // Send OTP via WhatsApp API
     function sendOTP(phone) {
-        var sb = _getSb();
-        if (!sb) return Promise.reject(new Error('Supabase belum siap'));
-
         var formatted = formatPhone(phone);
-        return sb.auth.signInWithOtp({ phone: formatted })
-            .then(function (result) {
-                if (result.error) throw result.error;
-                return { success: true, phone: formatted };
-            });
+        return fetch('/api/otp/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: formatted })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (result) {
+            if (!result.success) throw new Error(result.message || 'Gagal mengirim OTP');
+            return { success: true, phone: formatted };
+        });
     }
 
-    // Verify OTP
+    // Verify OTP via API
     function verifyOTP(phone, otp) {
-        var sb = _getSb();
-        if (!sb) return Promise.reject(new Error('Supabase belum siap'));
-
         var formatted = formatPhone(phone);
-        return sb.auth.verifyOtp({
-            phone: formatted,
-            token: otp,
-            type: 'sms'
-        }).then(function (result) {
-            if (result.error) throw result.error;
+        return fetch('/api/otp/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: formatted, code: otp })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (result) {
+            if (!result.success) throw new Error(result.message || 'Kode OTP salah');
             return {
                 success: true,
-                user: result.data.user,
-                session: result.data.session
+                user: { id: result.data.token, phone: formatted },
+                session: result.data
             };
         });
     }
 
     // Create user profile in users table
-    function createProfile(authUser, profileData) {
+    function createProfile(verifiedData, profileData) {
         var sb = _getSb();
         if (!sb) return Promise.reject(new Error('Supabase belum siap'));
 
+        var userId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
         var userData = {
-            id: authUser.id,
+            id: userId,
             role: profileData.role,
             nama: profileData.nama,
-            no_hp: authUser.phone || profileData.no_hp,
+            no_hp: profileData.no_hp,
             email: profileData.email || null,
             foto_url: profileData.foto_url || null,
-            created_at: new Date().toISOString()
+            data: JSON.stringify({
+                name: profileData.nama,
+                phone: profileData.no_hp,
+                role: profileData.role,
+                createdAt: Date.now()
+            })
         };
 
-        return sb.from('users').upsert(userData, { onConflict: 'id' })
+        return sb.from('users').insert(userData)
             .then(function (result) {
                 if (result.error) throw result.error;
                 return { success: true, data: userData };
@@ -75,12 +89,12 @@ var AuthService = (function () {
     }
 
     // Upload photo to Supabase Storage
-    function uploadPhoto(authUserId, file) {
+    function uploadPhoto(userId, file) {
         var sb = _getSb();
         if (!sb) return Promise.reject(new Error('Supabase belum siap'));
 
         var ext = file.name.split('.').pop() || 'jpg';
-        var path = 'avatars/' + authUserId + '.' + ext;
+        var path = 'avatars/' + userId + '.' + ext;
 
         return sb.storage.from('photos').upload(path, file, {
             cacheControl: '3600',
@@ -92,22 +106,13 @@ var AuthService = (function () {
         });
     }
 
-    // Get current auth user
-    function getCurrentUser() {
-        var sb = _getSb();
-        if (!sb) return Promise.resolve(null);
-        return sb.auth.getUser().then(function (r) {
-            return r.data ? r.data.user : null;
-        }).catch(function () { return null; });
-    }
-
     return {
         formatPhone: formatPhone,
+        formatPhoneDisplay: formatPhoneDisplay,
         sendOTP: sendOTP,
         verifyOTP: verifyOTP,
         createProfile: createProfile,
-        uploadPhoto: uploadPhoto,
-        getCurrentUser: getCurrentUser
+        uploadPhoto: uploadPhoto
     };
 })();
 
