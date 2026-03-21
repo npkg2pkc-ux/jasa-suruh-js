@@ -12,8 +12,8 @@ function init() {
     var loginForm = document.getElementById('loginForm');
     if (loginForm) loginForm.addEventListener('submit', handleLogin);
 
-    var registerForm = document.getElementById('registerForm');
-    if (registerForm) registerForm.addEventListener('submit', handleRegister);
+    // Multi-step registration
+    if (typeof RegisterPage !== 'undefined') RegisterPage.init();
 
     var createCSForm = document.getElementById('createCSForm');
     if (createCSForm) createCSForm.addEventListener('submit', handleCreateCS);

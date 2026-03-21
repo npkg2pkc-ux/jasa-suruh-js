@@ -75,84 +75,162 @@
             </div>
         </div>
 
-        <!-- ==================== REGISTER PAGE ==================== -->
+        <!-- ==================== REGISTER PAGE (Multi-Step) ==================== -->
         <div id="page-register" class="page page-auth hidden">
-            <div class="auth-container">
+            <div class="auth-container reg-container">
                 <div class="auth-header">
                     <div class="auth-logo"><img src="icons/jsicon.png" alt="Jasa Suruh"></div>
                     <h1>Buat Akun</h1>
-                    <p>Pilih jenis akun Anda</p>
+                    <p>Daftar dalam beberapa langkah mudah</p>
                 </div>
-                <form id="registerForm" class="auth-form">
-                    <div class="role-selector">
-                        <button type="button" class="role-btn active" data-role="user">
-                            <span class="role-icon">👤</span>
-                            <span class="role-label">Pengguna</span>
-                            <span class="role-desc">Cari & pesan jasa</span>
-                        </button>
-                        <button type="button" class="role-btn" data-role="talent">
-                            <span class="role-icon">💼</span>
-                            <span class="role-label">Talent</span>
-                            <span class="role-desc">Tawarkan keahlian</span>
-                        </button>
-                        <button type="button" class="role-btn" data-role="penjual">
-                            <span class="role-icon">🏪</span>
-                            <span class="role-label">Penjual</span>
-                            <span class="role-desc">Jual produk & makanan</span>
-                        </button>
+
+                <!-- Step Indicator -->
+                <div class="reg-stepper">
+                    <div class="reg-stepper-item active" id="regIndicator1">
+                        <div class="reg-stepper-dot"><span>1</span></div>
+                        <div class="reg-stepper-label">Akun</div>
                     </div>
-                    <div class="form-group">
-                        <label>Nama Lengkap</label>
-                        <div class="input-wrap">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                            <input type="text" id="regName" placeholder="Nama lengkap Anda" required>
-                        </div>
+                    <div class="reg-stepper-line" id="regLine1"></div>
+                    <div class="reg-stepper-item" id="regIndicator2">
+                        <div class="reg-stepper-dot"><span>2</span></div>
+                        <div class="reg-stepper-label">No. HP</div>
                     </div>
-                    <div class="form-group">
-                        <label>No. HP</label>
-                        <div class="input-wrap">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="20" rx="2" stroke="currentColor" stroke-width="2"/><path d="M12 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                            <input type="tel" id="regPhone" placeholder="08xxxxxxxxxx" required>
-                        </div>
+                    <div class="reg-stepper-line" id="regLine2"></div>
+                    <div class="reg-stepper-item" id="regIndicator3">
+                        <div class="reg-stepper-dot"><span>3</span></div>
+                        <div class="reg-stepper-label">OTP</div>
                     </div>
-                    <div class="form-group">
-                        <label>Username</label>
-                        <div class="input-wrap">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8.5" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                            <input type="text" id="regUsername" placeholder="Buat username" required>
-                        </div>
+                    <div class="reg-stepper-line" id="regLine3"></div>
+                    <div class="reg-stepper-item" id="regIndicator4">
+                        <div class="reg-stepper-dot"><span>4</span></div>
+                        <div class="reg-stepper-label">Profil</div>
                     </div>
-                    <div class="form-group">
-                        <label>Password</label>
-                        <div class="input-wrap">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                            <input type="password" id="regPassword" placeholder="Min. 6 karakter" required minlength="6">
-                            <button type="button" class="btn-eye" onclick="togglePassword('regPassword', this)">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
-                            </button>
-                        </div>
-                    </div>
-                    <input type="hidden" id="regRole" value="user">
-                    <!-- Selfie for talent verification -->
-                    <div class="form-group" id="regSelfieSection" style="display:none">
-                        <label>📸 Foto Selfie <span style="color:var(--orange)">*</span></label>
-                        <p style="font-size:12px;color:var(--gray-500);margin:4px 0 8px">Foto wajah Anda akan dipasang di kartu jasa sebagai verifikasi untuk pengguna.</p>
-                        <div class="photo-upload-area" id="regSelfieArea">
-                            <input type="file" id="regSelfieInput" accept="image/*" capture="user" style="display:none">
-                            <div class="photo-preview selfie-preview" id="regSelfiePreview" style="display:none">
-                                <img id="regSelfieImg" src="" alt="Foto Selfie">
-                                <button type="button" class="btn-remove-photo" id="regRemoveSelfie">&times;</button>
+                </div>
+
+                <!-- Steps Container -->
+                <div class="reg-steps-wrapper">
+                    <div id="regStepsContainer" class="reg-steps-container">
+
+                        <!-- STEP 1: Pilih Jenis Akun -->
+                        <div id="regStep1" class="reg-step auth-form reg-step-active">
+                            <h3 class="reg-step-title">Pilih Jenis Akun</h3>
+                            <p class="reg-step-subtitle">Kamu mau pakai Jasa Suruh sebagai apa?</p>
+                            <div class="reg-role-selector">
+                                <button type="button" class="reg-role-btn active" data-role="user">
+                                    <div class="reg-role-icon-wrap"><span class="reg-role-icon">👤</span></div>
+                                    <div class="reg-role-info">
+                                        <span class="reg-role-name">Pengguna</span>
+                                        <span class="reg-role-desc">Cari & pesan jasa untuk kebutuhanmu</span>
+                                    </div>
+                                    <div class="reg-role-check"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                                </button>
+                                <button type="button" class="reg-role-btn" data-role="talent">
+                                    <div class="reg-role-icon-wrap"><span class="reg-role-icon">💼</span></div>
+                                    <div class="reg-role-info">
+                                        <span class="reg-role-name">Talent</span>
+                                        <span class="reg-role-desc">Tawarkan keahlianmu & dapatkan penghasilan</span>
+                                    </div>
+                                    <div class="reg-role-check"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                                </button>
+                                <button type="button" class="reg-role-btn" data-role="penjual">
+                                    <div class="reg-role-icon-wrap"><span class="reg-role-icon">🏪</span></div>
+                                    <div class="reg-role-info">
+                                        <span class="reg-role-name">Penjual</span>
+                                        <span class="reg-role-desc">Jual produk & makanan di platform kami</span>
+                                    </div>
+                                    <div class="reg-role-check"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                                </button>
                             </div>
-                            <button type="button" class="btn-upload-photo" id="regBtnSelfie">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/></svg>
-                                <span>Ambil Foto Selfie</span>
-                            </button>
+                            <button type="button" class="btn-primary" id="regStep1Next">Lanjutkan</button>
                         </div>
+
+                        <!-- STEP 2: Nomor HP -->
+                        <div id="regStep2" class="reg-step auth-form reg-step-hidden">
+                            <button type="button" class="reg-back-btn" id="regStep2Back">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </button>
+                            <h3 class="reg-step-title">Masukkan Nomor HP</h3>
+                            <p class="reg-step-subtitle">Kami akan mengirimkan kode OTP ke nomor ini</p>
+                            <div class="reg-phone-group">
+                                <div class="reg-phone-prefix">
+                                    <span class="reg-flag">🇮🇩</span>
+                                    <span>+62</span>
+                                </div>
+                                <div class="input-wrap reg-phone-input-wrap">
+                                    <input type="tel" id="regPhoneInput" placeholder="8xxxxxxxxxx" inputmode="numeric" autocomplete="tel">
+                                </div>
+                            </div>
+                            <p class="reg-phone-hint">Contoh: 081234567890</p>
+                            <p class="reg-error" id="regPhoneError"></p>
+                            <button type="button" class="btn-primary" id="regSendOTPBtn" disabled>Kirim OTP</button>
+                        </div>
+
+                        <!-- STEP 3: Verifikasi OTP -->
+                        <div id="regStep3" class="reg-step auth-form reg-step-hidden">
+                            <button type="button" class="reg-back-btn" id="regStep3Back">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </button>
+                            <h3 class="reg-step-title">Verifikasi OTP</h3>
+                            <p class="reg-step-subtitle">Masukkan 6 digit kode yang dikirim ke<br><strong id="regOTPPhoneDisplay"></strong></p>
+                            <div class="reg-otp-inputs" id="regOTPInputs">
+                                <input type="tel" id="otpDigit0" class="reg-otp-digit" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
+                                <input type="tel" id="otpDigit1" class="reg-otp-digit" maxlength="1" inputmode="numeric">
+                                <input type="tel" id="otpDigit2" class="reg-otp-digit" maxlength="1" inputmode="numeric">
+                                <input type="tel" id="otpDigit3" class="reg-otp-digit" maxlength="1" inputmode="numeric">
+                                <input type="tel" id="otpDigit4" class="reg-otp-digit" maxlength="1" inputmode="numeric">
+                                <input type="tel" id="otpDigit5" class="reg-otp-digit" maxlength="1" inputmode="numeric">
+                            </div>
+                            <p class="reg-error" id="regOTPError"></p>
+                            <div class="reg-otp-footer">
+                                <span id="regOTPTimer" class="reg-otp-timer"></span>
+                                <button type="button" class="reg-resend-btn" id="regResendOTP">Kirim Ulang OTP</button>
+                            </div>
+                        </div>
+
+                        <!-- STEP 4: Data Profil -->
+                        <div id="regStep4" class="reg-step auth-form reg-step-hidden">
+                            <button type="button" class="reg-back-btn" id="regStep4Back">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </button>
+                            <h3 class="reg-step-title">Lengkapi Profil</h3>
+                            <p class="reg-step-subtitle">Satu langkah lagi dan akunmu siap!</p>
+                            <!-- Photo Upload -->
+                            <div class="reg-photo-section">
+                                <input type="file" id="regPhotoInput" accept="image/*" style="display:none">
+                                <div class="reg-photo-upload" id="regPhotoUploadArea">
+                                    <button type="button" class="reg-photo-btn" id="regPhotoBtn">
+                                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="1.5"/></svg>
+                                    </button>
+                                    <span class="reg-photo-label">Tambah Foto</span>
+                                </div>
+                                <div class="reg-photo-preview" id="regPhotoPreview" style="display:none">
+                                    <img id="regPhotoImg" src="" alt="Foto Profil">
+                                    <button type="button" class="reg-photo-remove" id="regRemovePhoto">&times;</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Nama Lengkap <span style="color:var(--red)">*</span></label>
+                                <div class="input-wrap">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    <input type="text" id="regNamaInput" placeholder="Nama lengkap Anda" autocomplete="name">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Email <span style="color:var(--gray-400);font-weight:400">(opsional)</span></label>
+                                <div class="input-wrap">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" stroke-width="2"/><path d="m22 6-10 7L2 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    <input type="email" id="regEmailInput" placeholder="email@contoh.com" autocomplete="email">
+                                </div>
+                            </div>
+                            <p class="reg-error" id="regProfileError"></p>
+                            <button type="button" class="btn-primary" id="regSubmitBtn" disabled>Selesai</button>
+                        </div>
+
                     </div>
-                    <button type="submit" class="btn-primary">Daftar</button>
-                </form>
+                </div>
+
                 <div class="auth-footer">
-                    <p>Sudah punya akun? <a href="/login" onclick="showPage('login'); return false;">Masuk</a></p>
+                    <p>Sudah punya akun? <a href="/login" id="regBackToLogin">Masuk</a></p>
                 </div>
             </div>
         </div>
@@ -971,6 +1049,7 @@
     </div>
 
     <script src="supabase.js"></script>
+    <script src="services/auth.js"></script>
     <script src="js/core.js"></script>
     <script src="js/shared.js"></script>
     <script src="js/user.js"></script>
@@ -978,6 +1057,7 @@
     <script src="js/penjual.js"></script>
     <script src="js/cs.js"></script>
     <script src="js/owner.js"></script>
+    <script src="js/register.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

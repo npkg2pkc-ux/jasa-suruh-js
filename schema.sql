@@ -3,13 +3,43 @@
 -- Jalankan SQL ini di Supabase Dashboard → SQL Editor
 -- ============================================================
 
--- 1. Tabel Users
+-- 1. Tabel Users (OTP Auth - no password)
+-- Buat tabel dulu jika belum ada (schema baru)
 CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    role TEXT NOT NULL DEFAULT 'pengguna',
+    nama TEXT NOT NULL DEFAULT '',
+    no_hp TEXT,
+    email TEXT,
+    foto_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
     username TEXT UNIQUE,
     data JSONB NOT NULL DEFAULT '{}'
 );
+
+-- Migrasi: tambah kolom baru jika tabel sudah ada dengan schema lama
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'pengguna';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nama TEXT DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS no_hp TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS foto_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_no_hp ON users(no_hp);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+
+-- RLS Policy: users can read all but only update own row
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view all profiles" ON users;
+CREATE POLICY "Users can view all profiles"
+    ON users FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users can update own profile" ON users;
+CREATE POLICY "Users can update own profile"
+    ON users FOR UPDATE USING (auth.uid()::text = id::text);
+DROP POLICY IF EXISTS "Users can insert own profile" ON users;
+CREATE POLICY "Users can insert own profile"
+    ON users FOR INSERT WITH CHECK (auth.uid()::text = id::text);
 
 -- 2. Tabel Skills
 CREATE TABLE IF NOT EXISTS skills (

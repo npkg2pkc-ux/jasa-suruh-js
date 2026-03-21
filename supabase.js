@@ -1189,7 +1189,10 @@
                 lng: lng,
                 updated_at: Date.now()
             }).then(function () {});
-        }
+        },
+
+        // Expose raw Supabase client for auth service
+        _sb: sb
     };
 
 })();
