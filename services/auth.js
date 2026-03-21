@@ -94,14 +94,14 @@ var AuthService = (function () {
         if (!sb) return Promise.reject(new Error('Supabase belum siap'));
 
         var ext = file.name.split('.').pop() || 'jpg';
-        var path = 'avatars/' + userId + '.' + ext;
+        var path = userId + '.' + ext;
 
-        return sb.storage.from('photos').upload(path, file, {
+        return sb.storage.from('avatars').upload(path, file, {
             cacheControl: '3600',
             upsert: true
         }).then(function (result) {
             if (result.error) throw result.error;
-            var urlResult = sb.storage.from('photos').getPublicUrl(path);
+            var urlResult = sb.storage.from('avatars').getPublicUrl(path);
             return { success: true, url: urlResult.data.publicUrl };
         });
     }

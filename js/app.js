@@ -8,9 +8,8 @@ function init() {
     handleSplash();
     registerSW();
 
-    // Auth forms
-    var loginForm = document.getElementById('loginForm');
-    if (loginForm) loginForm.addEventListener('submit', handleLogin);
+    // Auth: OTP Login
+    if (typeof LoginPage !== 'undefined') LoginPage.init();
 
     // Multi-step registration
     if (typeof RegisterPage !== 'undefined') RegisterPage.init();

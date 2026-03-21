@@ -507,40 +507,12 @@ function updateRoleUI(user) {
 // ══════════════════════════════════════════
 // ═══ AUTH ═══
 // ══════════════════════════════════════════
+// Legacy handleLogin — no longer used (OTP flow via LoginPage)
 function handleLogin(e) {
-    e.preventDefault();
-    var username = document.getElementById('loginUsername').value.trim();
-    var password = document.getElementById('loginPassword').value;
-
-    if (!username || !password) {
-        showToast('Lengkapi semua data!', 'error');
-        return;
-    }
-
-    if (isBackendConnected()) {
-        var btn = e.target.querySelector('.btn-primary');
-        if (btn) { btn.disabled = true; btn.textContent = 'Memuat...'; }
-
-        FB.get('login', { username: username, password: password })
-            .then(function (r) { return r.json(); })
-            .then(function (res) {
-                if (btn) { btn.disabled = false; btn.textContent = 'Masuk'; }
-                if (res.success && res.data) {
-                    setSession(res.data);
-                    showToast('Selamat datang, ' + res.data.name + '!', 'success');
-                    showPage(res.data.role);
-                    syncFromBackend();
-                } else {
-                    showToast(res.message || 'Username atau password salah!', 'error');
-                }
-            })
-            .catch(function () {
-                if (btn) { btn.disabled = false; btn.textContent = 'Masuk'; }
-                loginLocal(username, password);
-            });
-    } else {
-        loginLocal(username, password);
-    }
+    if (e) e.preventDefault();
+    // Redirect to OTP login
+    showPage('login');
+    if (typeof LoginPage !== 'undefined') LoginPage.reset();
 }
 
 function loginLocal(username, password) {

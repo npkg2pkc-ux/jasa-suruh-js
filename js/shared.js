@@ -1697,14 +1697,15 @@ function handleSplash() {
         var session = getSession();
         if (session) {
             var users = getUsers();
-            var valid = users.find(function (u) { return u.id === session.id && u.username === session.username; });
-            if (valid) {
+            var valid = users.find(function (u) { return u.id === session.id; });
+            if (valid || session.id) {
+                var activeUser = valid || session;
                 if (urlPage && urlPage !== 'login' && urlPage !== 'register') {
                     showPage(urlPage);
                 } else {
-                    showPage(valid.role);
+                    showPage(activeUser.role);
                 }
-                updateRoleUI(valid);
+                updateRoleUI(activeUser);
                 return;
             }
             clearSession();
@@ -1714,6 +1715,7 @@ function handleSplash() {
             showPage('register');
         } else {
             showPage('login');
+            if (typeof LoginPage !== 'undefined') LoginPage.reset();
         }
     }, 1800);
 }
