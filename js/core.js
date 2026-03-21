@@ -505,10 +505,14 @@ function updateRoleUI(user) {
         loadCSDashboard();
         initNotifications();
     } else if (role === 'owner') {
-        renderOwnerStats();
-        renderOwnerUsers();
-        loadOwnerCommissionSettings();
-        loadOwnerRevenue();
+        if (typeof OwnerDashboard !== 'undefined') {
+            OwnerDashboard.loadDashboard();
+        } else {
+            renderOwnerStats();
+            renderOwnerUsers();
+            loadOwnerCommissionSettings();
+            loadOwnerRevenue();
+        }
         initNotifications();
     }
 }

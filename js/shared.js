@@ -1612,13 +1612,23 @@ function setupBottomNav() {
                 } else if (page === 'home') {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 } else if (page === 'akun' || page === 'profil' || page === 'settings') {
-                    openSettingsPage();
+                    var session = typeof getSession === 'function' ? getSession() : null;
+                    if (session && session.role === 'owner' && typeof openOwnerSettings === 'function') {
+                        openOwnerSettings();
+                    } else {
+                        openSettingsPage();
+                    }
                 } else if (page === 'users') {
-                    var userListSec = document.getElementById('ownerUserList') || document.getElementById('csUserList');
+                    var userListSec = document.getElementById('ownerUsersSection') || document.getElementById('ownerUserList') || document.getElementById('csUserList');
                     if (userListSec) userListSec.scrollIntoView({ behavior: 'smooth' });
                 } else if (page === 'cs-manage') {
-                    var csFormSec = document.getElementById('createCSForm');
-                    if (csFormSec) csFormSec.scrollIntoView({ behavior: 'smooth' });
+                    var session2 = typeof getSession === 'function' ? getSession() : null;
+                    if (session2 && session2.role === 'owner' && typeof openOwnerSettings === 'function') {
+                        openOwnerSettings();
+                    } else {
+                        var csFormSec = document.getElementById('createCSForm');
+                        if (csFormSec) csFormSec.scrollIntoView({ behavior: 'smooth' });
+                    }
                 }
             });
         });

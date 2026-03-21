@@ -1,209 +1,526 @@
 /* ========================================
-   JASA SURUH (JS) - Owner Module
-   Create CS, Stats, Users, Commission, Revenue, Transactions
+   JASA SURUH (JS) - Owner Dashboard Module
+   Modern admin dashboard (Gojek/SaaS style)
    ======================================== */
+'use strict';
 
-// ══════════════════════════════════════════
-// ═══ OWNER: NOTIFICATION BUTTON ═══
-// ══════════════════════════════════════════
-(function () {
-    var btn = document.getElementById('ownerNotifBtn');
-    if (btn && !btn._eventsSetup) {
-        btn._eventsSetup = true;
-        btn.addEventListener('click', function () { openNotifPopup(); });
-    }
-})();
+var OwnerDashboard = (function () {
+    var _initialized = false;
+    var _chartInstance = null;
+    var _ordersCache = [];
+    var _currentRange = 'all'; // today, week, month, all
 
-// ══════════════════════════════════════════
-// ═══ OWNER: CREATE CS ═══
-// ══════════════════════════════════════════
-function handleCreateCS(e) {
-    e.preventDefault();
-    var name = (document.getElementById('csFormName').value || '').trim();
-    var username = (document.getElementById('csFormUsername').value || '').trim();
-    var password = document.getElementById('csFormPassword').value;
+    function $(id) { return document.getElementById(id); }
+    function $$(sel) { return document.querySelectorAll(sel); }
 
-    if (!name || !username || !password) {
-        showToast('Lengkapi semua data!', 'error');
-        return;
-    }
-    if (password.length < 6) {
-        showToast('Password minimal 6 karakter!', 'error');
-        return;
+    function formatRp(n) {
+        if (!n && n !== 0) return '-';
+        return 'Rp ' + Number(n).toLocaleString('id-ID');
     }
 
-    var users = getUsers();
-    if (users.some(function (u) { return u.username === username; })) {
-        showToast('Username sudah digunakan!', 'error');
-        return;
+    function timeAgo(ts) {
+        var diff = Date.now() - Number(ts);
+        var m = Math.floor(diff / 60000);
+        if (m < 1) return 'Baru saja';
+        if (m < 60) return m + ' mnt lalu';
+        var h = Math.floor(m / 60);
+        if (h < 24) return h + ' jam lalu';
+        var d = Math.floor(h / 24);
+        return d + ' hari lalu';
     }
 
-    var csUser = {
-        id: generateId(),
-        name: name,
-        phone: '-',
-        username: username,
-        password: password,
-        role: 'cs',
-        createdAt: Date.now()
-    };
-    users.push(csUser);
-    saveUsers(users);
+    // ─── Init ───
+    function init() {
+        if (_initialized) return;
+        _initialized = true;
 
-    backendPost({ action: 'createCS', id: csUser.id, name: csUser.name, phone: csUser.phone, username: csUser.username, password: csUser.password, role: csUser.role, createdAt: csUser.createdAt }).then(function (res) {
-        if (res && !res.success) {
-            showToast(res.message || 'Gagal simpan ke server', 'error');
-        }
-    });
+        // Notif button
+        var btn = $('ownerNotifBtn');
+        if (btn) btn.addEventListener('click', function () {
+            if (typeof openNotifPopup === 'function') openNotifPopup();
+        });
 
-    showToast('Akun CS berhasil dibuat!', 'success');
-    document.getElementById('createCSForm').reset();
-    renderOwnerStats();
-    renderOwnerUsers();
-}
+        // Filter pills
+        $$('.od-filter-pills .od-pill').forEach(function (pill) {
+            pill.addEventListener('click', function () {
+                $$('.od-filter-pills .od-pill').forEach(function (p) { p.classList.remove('active'); });
+                this.classList.add('active');
+                _currentRange = this.dataset.range;
+                _refreshWithRange();
+            });
+        });
 
-// ══════════════════════════════════════════
-// ═══ OWNER: STATS ═══
-// ══════════════════════════════════════════
-function renderOwnerStats() {
-    var users = getUsers();
-    var el = function (id) { return document.getElementById(id); };
-    var usersCount = users.filter(function (u) { return u.role === 'user'; }).length;
-    var talentsCount = users.filter(function (u) { return u.role === 'talent'; }).length;
-    var penjualCount = users.filter(function (u) { return u.role === 'penjual'; }).length;
-    var csCount = users.filter(function (u) { return u.role === 'cs'; }).length;
+        // Chart range selector
+        var chartSelect = $('ownerChartRange');
+        if (chartSelect) chartSelect.addEventListener('change', function () {
+            _renderChart(_ordersCache, parseInt(this.value, 10));
+        });
 
-    if (el('ownerTotalUsers')) el('ownerTotalUsers').textContent = usersCount;
-    if (el('ownerTotalTalents')) el('ownerTotalTalents').textContent = talentsCount;
-    if (el('ownerTotalPenjual')) el('ownerTotalPenjual').textContent = penjualCount;
-    if (el('ownerTotalCS')) el('ownerTotalCS').textContent = csCount;
+        // Quick actions
+        $$('.od-quick-btn').forEach(function (qbtn) {
+            qbtn.addEventListener('click', function () {
+                var action = this.dataset.action;
+                if (action === 'add-cs') openOwnerSettings();
+                else if (action === 'view-report') { if (typeof openAdminTransactions === 'function') openAdminTransactions(); }
+                else if (action === 'manage-users') _scrollToUsers();
+                else if (action === 'settings') openOwnerSettings();
+            });
+        });
 
-    if (isBackendConnected()) {
+        // Transactions button
+        var txBtn = $('ownerBtnTransactions');
+        if (txBtn) txBtn.addEventListener('click', function () {
+            if (typeof openAdminTransactions === 'function') openAdminTransactions();
+        });
+
+        // Settings page back button
+        var backBtn = $('ownerSettingsBack');
+        if (backBtn) backBtn.addEventListener('click', function () {
+            $('ownerSettingsPage').classList.add('hidden');
+        });
+    }
+
+    // ─── Load All Dashboard Data ───
+    function loadDashboard() {
+        init();
+        _setGreeting();
+        renderOwnerStats();
+        renderOwnerUsers();
+        _loadOrdersAndRevenue();
+        loadOwnerCommissionSettings();
+        if (typeof initNotifications === 'function') initNotifications();
+    }
+
+    function _setGreeting() {
+        var session = typeof getSession === 'function' ? getSession() : null;
+        var name = session ? (session.name || session.nama || 'Owner') : 'Owner';
+        var hour = new Date().getHours();
+        var greet = hour < 12 ? 'Selamat Pagi' : hour < 17 ? 'Selamat Siang' : 'Selamat Malam';
+        var el = $('ownerGreeting');
+        if (el) el.textContent = greet + ', ' + name + ' 👋';
+    }
+
+    function _refreshWithRange() {
+        renderOwnerStats();
+        _updateRevenueKPI(_ordersCache);
+        _renderActivity(_ordersCache);
+    }
+
+    // ─── KPI Stats ───
+    function renderOwnerStats() {
+        var users = typeof getUsers === 'function' ? getUsers() : [];
+        var usersCount = users.filter(function (u) { return u.role === 'user'; }).length;
+        var talentsCount = users.filter(function (u) { return u.role === 'talent'; }).length;
+        var penjualCount = users.filter(function (u) { return u.role === 'penjual'; }).length;
+        var csCount = users.filter(function (u) { return u.role === 'cs'; }).length;
+
+        _setKPIValue('ownerTotalUsers', usersCount);
+        _setKPIValue('ownerTotalTalents', talentsCount);
+        if ($('ownerStatPenjual')) $('ownerStatPenjual').textContent = penjualCount;
+        if ($('ownerStatCS')) $('ownerStatCS').textContent = csCount;
+    }
+
+    function _setKPIValue(id, value) {
+        var el = $(id);
+        if (!el) return;
+        el.textContent = value;
+    }
+
+    // ─── Orders + Revenue ───
+    function _loadOrdersAndRevenue() {
+        if (typeof isBackendConnected !== 'function' || !isBackendConnected()) return;
+
         FB.get('getAllOrders')
             .then(function (r) { return r.json(); })
             .then(function (res) {
+                if (!res.success || !Array.isArray(res.data)) return;
+                _ordersCache = res.data;
+                _setKPIValue('ownerTotalOrders', res.data.length);
+                _updateRevenueKPI(res.data);
+                _renderChart(res.data, 7);
+                _renderActivity(res.data);
+            }).catch(function () {});
+    }
+
+    function _filterByRange(orders) {
+        if (_currentRange === 'all') return orders;
+        var now = new Date();
+        var start = new Date();
+        if (_currentRange === 'today') start.setHours(0, 0, 0, 0);
+        else if (_currentRange === 'week') start.setDate(now.getDate() - 7);
+        else if (_currentRange === 'month') start.setMonth(now.getMonth() - 1);
+        var startTs = start.getTime();
+        return orders.filter(function (o) {
+            return Number(o.createdAt || 0) >= startTs;
+        });
+    }
+
+    function _updateRevenueKPI(orders) {
+        var completed = orders.filter(function (o) { return o.status === 'completed' || o.status === 'rated'; });
+        var filtered = _filterByRange(completed);
+        var totalRevenue = filtered.reduce(function (sum, o) { return sum + (Number(o.fee) || 0); }, 0);
+        _setKPIValue('ownerRevenue', formatRp(totalRevenue));
+
+        var today = new Date(); today.setHours(0, 0, 0, 0);
+        var todayRevenue = completed
+            .filter(function (o) { return Number(o.completedAt || o.createdAt) >= today.getTime(); })
+            .reduce(function (sum, o) { return sum + (Number(o.fee) || 0); }, 0);
+        var todayEl = $('ownerTodayRevenue');
+        if (todayEl) todayEl.textContent = formatRp(todayRevenue);
+    }
+
+    // ─── Chart ───
+    function _renderChart(orders, days) {
+        var canvas = $('ownerRevenueChart');
+        var emptyEl = $('ownerChartEmpty');
+        if (!canvas) return;
+
+        if (!orders || orders.length === 0) {
+            canvas.style.display = 'none';
+            if (emptyEl) emptyEl.classList.remove('hidden');
+            return;
+        }
+        canvas.style.display = 'block';
+        if (emptyEl) emptyEl.classList.add('hidden');
+
+        var completed = orders.filter(function (o) { return o.status === 'completed' || o.status === 'rated'; });
+
+        var labels = [];
+        var revenueData = [];
+        var ordersData = [];
+        for (var i = days - 1; i >= 0; i--) {
+            var d = new Date();
+            d.setDate(d.getDate() - i);
+            d.setHours(0, 0, 0, 0);
+            var nextD = new Date(d); nextD.setDate(nextD.getDate() + 1);
+
+            labels.push(d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }));
+
+            var dStart = d.getTime(), dEnd = nextD.getTime();
+            var dayOrders = orders.filter(function (o) {
+                var ts = Number(o.createdAt || 0);
+                return ts >= dStart && ts < dEnd;
+            });
+            ordersData.push(dayOrders.length);
+
+            var dayRevenue = completed.filter(function (o) {
+                var ts = Number(o.completedAt || o.createdAt || 0);
+                return ts >= dStart && ts < dEnd;
+            }).reduce(function (s, o) { return s + (Number(o.fee) || 0); }, 0);
+            revenueData.push(dayRevenue);
+        }
+
+        if (_chartInstance) _chartInstance.destroy();
+        if (typeof Chart === 'undefined') return;
+
+        _chartInstance = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Revenue (Rp)',
+                        data: revenueData,
+                        borderColor: '#FF6B00',
+                        backgroundColor: 'rgba(255,107,0,0.08)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#FF6B00',
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Orders',
+                        data: ordersData,
+                        borderColor: '#3B82F6',
+                        backgroundColor: 'rgba(59,130,246,0.08)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#3B82F6',
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1a1a2e',
+                        titleFont: { family: 'Plus Jakarta Sans', size: 12 },
+                        bodyFont: { family: 'Plus Jakarta Sans', size: 12 },
+                        padding: 10,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function (ctx) {
+                                if (ctx.datasetIndex === 0) return 'Revenue: ' + formatRp(ctx.raw);
+                                return 'Orders: ' + ctx.raw;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { family: 'Plus Jakarta Sans', size: 10 }, color: '#9CA3AF', maxRotation: 0 }
+                    },
+                    y: {
+                        position: 'left',
+                        grid: { color: 'rgba(0,0,0,0.04)' },
+                        ticks: {
+                            font: { family: 'Plus Jakarta Sans', size: 10 }, color: '#9CA3AF',
+                            callback: function (v) {
+                                if (v >= 1000000) return (v / 1000000).toFixed(1) + 'jt';
+                                if (v >= 1000) return (v / 1000).toFixed(0) + 'rb';
+                                return v;
+                            }
+                        }
+                    },
+                    y1: {
+                        position: 'right',
+                        grid: { display: false },
+                        ticks: { font: { family: 'Plus Jakarta Sans', size: 10 }, color: '#93C5FD', stepSize: 1 }
+                    }
+                }
+            }
+        });
+    }
+
+    // ─── Activity List ───
+    function _renderActivity(orders) {
+        var container = $('ownerActivityList');
+        if (!container) return;
+        var users = typeof getUsers === 'function' ? getUsers() : [];
+
+        if (!orders || orders.length === 0) {
+            container.innerHTML = '<div class="od-empty"><span>📭</span><p>Belum ada aktivitas</p></div>';
+            return;
+        }
+
+        var sorted = orders.slice().sort(function (a, b) {
+            return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0);
+        });
+        var recent = sorted.slice(0, 8);
+
+        var STATUS_ICONS = {
+            pending: '🟡', accepted: '🔵', 'on-the-way': '🚀',
+            'in-progress': '⚡', completed: '✅', rated: '⭐', cancelled: '❌'
+        };
+        var STATUS_LABELS_MAP = typeof STATUS_LABELS !== 'undefined' ? STATUS_LABELS : {};
+
+        var html = recent.map(function (o) {
+            var user = users.find(function (u) { return u.id === o.userId; });
+            var userName = user ? (user.name || user.nama || 'User') : '-';
+            var icon = STATUS_ICONS[o.status] || '📦';
+            var statusText = STATUS_LABELS_MAP[o.status] || o.status || '-';
+            var priceText = o.price ? formatRp(o.price) : '-';
+            var time = timeAgo(o.createdAt);
+            var service = o.serviceType || o.skillType || 'Order';
+
+            return '<div class="od-activity-item">'
+                + '<div class="od-activity-icon">' + icon + '</div>'
+                + '<div class="od-activity-info">'
+                + '<div class="od-activity-title">' + escapeHtml(service) + ' <span class="od-activity-price">' + priceText + '</span></div>'
+                + '<div class="od-activity-meta">' + escapeHtml(userName) + ' · ' + statusText + '</div>'
+                + '</div>'
+                + '<span class="od-activity-time">' + time + '</span>'
+                + '</div>';
+        }).join('');
+
+        // New users section
+        var newUsers = users.filter(function (u) { return u.role !== 'owner'; })
+            .slice().sort(function (a, b) { return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0); })
+            .slice(0, 3);
+
+        if (newUsers.length > 0) {
+            html += '<div class="od-activity-divider">User Baru</div>';
+            html += newUsers.map(function (u) {
+                var displayName = u.name || u.nama || 'User';
+                var initial = displayName.charAt(0).toUpperCase();
+                var roleLabel = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS' };
+                return '<div class="od-activity-item">'
+                    + '<div class="od-activity-avatar" style="background:' + _roleColor(u.role) + '">' + initial + '</div>'
+                    + '<div class="od-activity-info">'
+                    + '<div class="od-activity-title">' + escapeHtml(displayName) + '</div>'
+                    + '<div class="od-activity-meta">' + (roleLabel[u.role] || u.role) + '</div>'
+                    + '</div>'
+                    + '<span class="od-activity-time">' + timeAgo(u.createdAt) + '</span>'
+                    + '</div>';
+            }).join('');
+        }
+
+        container.innerHTML = html;
+    }
+
+    function _roleColor(role) {
+        var map = { user: '#FF6B00', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6' };
+        return map[role] || '#9CA3AF';
+    }
+
+    // ─── User List ───
+    function renderOwnerUsers() {
+        var container = $('ownerUserList');
+        if (!container) return;
+        var allUsers = typeof getUsers === 'function' ? getUsers() : [];
+        var users = allUsers.filter(function (u) { return u.role !== 'owner'; });
+
+        if (users.length === 0) {
+            container.innerHTML = '<div class="od-empty"><span>👥</span><p>Belum ada pengguna</p></div>';
+            return;
+        }
+
+        var roleColors = { user: '#FF6B00', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6' };
+        var roleLabels = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS' };
+
+        container.innerHTML = users.map(function (u) {
+            var displayName = u.name || u.nama || 'Tanpa Nama';
+            var displayUsername = u.username || u.no_hp || u.phone || '-';
+            var initial = displayName.charAt(0).toUpperCase();
+            return '<div class="od-user-item">'
+                + '<div class="od-user-avatar" style="background:' + (roleColors[u.role] || '#999') + '">' + initial + '</div>'
+                + '<div class="od-user-info">'
+                + '<div class="od-user-name">' + escapeHtml(displayName) + '</div>'
+                + '<div class="od-user-meta">@' + escapeHtml(displayUsername) + ' · <span class="od-user-role" style="color:' + (roleColors[u.role] || '#999') + '">' + (roleLabels[u.role] || u.role) + '</span></div>'
+                + '</div>'
+                + '<button class="od-user-delete" data-uid="' + u.id + '" title="Hapus">'
+                + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+                + '</button>'
+                + '</div>';
+        }).join('');
+
+        container.querySelectorAll('.od-user-delete').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var uid = this.dataset.uid;
+                if (!confirm('Hapus pengguna ini?')) return;
+                var list = typeof getUsers === 'function' ? getUsers() : [];
+                list = list.filter(function (u) { return u.id !== uid; });
+                if (typeof saveUsers === 'function') saveUsers(list);
+                if (typeof backendPost === 'function') backendPost({ action: 'delete', id: uid });
+                if (typeof showToast === 'function') showToast('Pengguna dihapus', 'success');
+                renderOwnerStats();
+                renderOwnerUsers();
+            });
+        });
+    }
+    window.renderOwnerUsers = renderOwnerUsers;
+
+    // ─── Commission Settings ───
+    function loadOwnerCommissionSettings() {
+        if (typeof isBackendConnected !== 'function' || !isBackendConnected()) return;
+        FB.get('getSettings')
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
                 if (res.success && res.data) {
-                    if (el('ownerTotalOrders')) el('ownerTotalOrders').textContent = res.data.length;
+                    var s = res.data;
+                    if ($('setPlatformFee') && s.platform_fee) $('setPlatformFee').value = s.platform_fee;
+                    if ($('setDeliveryFeePerKm') && s.delivery_fee_per_km) $('setDeliveryFeePerKm').value = s.delivery_fee_per_km;
+                    if ($('setServiceFeePercent') && s.service_fee_percent) $('setServiceFeePercent').value = s.service_fee_percent;
+                    if ($('setCommTalent') && s.commission_talent_percent) $('setCommTalent').value = s.commission_talent_percent;
+                    if ($('setCommPenjual') && s.commission_penjual_percent) $('setCommPenjual').value = s.commission_penjual_percent;
+                    if ($('setMinFee') && s.minimum_fee) $('setMinFee').value = s.minimum_fee;
                 }
             }).catch(function () {});
     }
-}
 
-// ══════════════════════════════════════════
-// ═══ OWNER: USER LIST ═══
-// ══════════════════════════════════════════
-function renderOwnerUsers() {
-    var container = document.getElementById('ownerUserList');
-    if (!container) return;
-    var allUsers = getUsers();
-    // Filter out owner — owner tidak ditampilkan di daftar pengguna
-    var users = allUsers.filter(function (u) { return u.role !== 'owner'; });
-
-    if (users.length === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><h3>Belum Ada Pengguna</h3><p>Pengguna yang mendaftar akan muncul di sini.</p></div>';
-        return;
+    function handleCommissionFormSubmit(e) {
+        e.preventDefault();
+        var settings = {
+            platform_fee: $('setPlatformFee').value || '2000',
+            delivery_fee_per_km: $('setDeliveryFeePerKm').value || '3000',
+            service_fee_percent: $('setServiceFeePercent').value || '10',
+            commission_talent_percent: $('setCommTalent').value || '15',
+            commission_penjual_percent: $('setCommPenjual').value || '10',
+            minimum_fee: $('setMinFee').value || '5000'
+        };
+        var btn = e.target.querySelector('.od-btn-save');
+        if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
+        if (typeof backendPost === 'function') {
+            backendPost({ action: 'updateSettings', settings: settings })
+                .then(function (res) {
+                    if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan Pengaturan'; }
+                    if (res && res.success) {
+                        if (typeof showToast === 'function') showToast('Pengaturan disimpan!', 'success');
+                    } else {
+                        if (typeof showToast === 'function') showToast('Gagal menyimpan', 'error');
+                    }
+                });
+        }
     }
 
-    var roleColors = { user: '#FF6B00', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6' };
-    var roleClasses = { user: 'role-user', talent: 'role-talent', penjual: 'role-penjual', cs: 'role-cs' };
-    var roleLabels = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS' };
+    // ─── Create CS ───
+    function handleCreateCS(e) {
+        e.preventDefault();
+        var name = ($('csFormName').value || '').trim();
+        var username = ($('csFormUsername').value || '').trim();
+        var password = $('csFormPassword').value;
 
-    container.innerHTML = users.map(function (u) {
-        var displayName = u.name || u.nama || 'Tanpa Nama';
-        var displayUsername = u.username || u.no_hp || u.phone || '-';
-        var initial = displayName.charAt(0).toUpperCase();
-        return '<div class="user-list-item">'
-            + '<div class="user-list-avatar" style="background:' + (roleColors[u.role] || '#999') + '">' + initial + '</div>'
-            + '<div class="user-list-info">'
-            + '<div class="user-list-name">' + escapeHtml(displayName) + ' <small style="color:#999">@' + escapeHtml(displayUsername) + '</small></div>'
-            + '<span class="user-list-role ' + (roleClasses[u.role] || '') + '">' + (roleLabels[u.role] || u.role) + '</span>'
-            + '</div>'
-            + '<button class="btn-delete" data-uid="' + u.id + '" title="Hapus">🗑️</button>'
-            + '</div>';
-    }).join('');
+        if (!name || !username || !password) {
+            if (typeof showToast === 'function') showToast('Lengkapi semua data!', 'error');
+            return;
+        }
+        if (password.length < 6) {
+            if (typeof showToast === 'function') showToast('Password minimal 6 karakter!', 'error');
+            return;
+        }
+        var users = typeof getUsers === 'function' ? getUsers() : [];
+        if (users.some(function (u) { return u.username === username; })) {
+            if (typeof showToast === 'function') showToast('Username sudah digunakan!', 'error');
+            return;
+        }
 
-    container.querySelectorAll('.btn-delete').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var uid = this.dataset.uid;
-            var users = getUsers();
-            users = users.filter(function (u) { return u.id !== uid; });
-            saveUsers(users);
-            backendPost({ action: 'delete', id: uid });
-            showToast('Pengguna dihapus', 'success');
-            renderOwnerStats();
-            renderOwnerUsers();
-        });
-    });
-}
-window.renderOwnerUsers = renderOwnerUsers;
+        var csUser = {
+            id: typeof generateId === 'function' ? generateId() : Date.now().toString(36),
+            name: name, phone: '-', username: username, password: password,
+            role: 'cs', createdAt: Date.now()
+        };
+        users.push(csUser);
+        if (typeof saveUsers === 'function') saveUsers(users);
+        if (typeof backendPost === 'function') {
+            backendPost({ action: 'createCS', id: csUser.id, name: csUser.name, phone: csUser.phone, username: csUser.username, password: csUser.password, role: csUser.role, createdAt: csUser.createdAt });
+        }
+        if (typeof showToast === 'function') showToast('Akun CS berhasil dibuat!', 'success');
+        $('createCSForm').reset();
+        renderOwnerStats();
+        renderOwnerUsers();
+    }
 
-// ══════════════════════════════════════════
-// ═══ OWNER: COMMISSION SETTINGS ═══
-// ══════════════════════════════════════════
-function loadOwnerCommissionSettings() {
-    if (!isBackendConnected()) return;
-    FB.get('getSettings')
-        .then(function (r) { return r.json(); })
-        .then(function (res) {
-            if (res.success && res.data) {
-                var s = res.data;
-                var el = function (id) { return document.getElementById(id); };
-                if (el('setPlatformFee') && s.platform_fee) el('setPlatformFee').value = s.platform_fee;
-                if (el('setDeliveryFeePerKm') && s.delivery_fee_per_km) el('setDeliveryFeePerKm').value = s.delivery_fee_per_km;
-                if (el('setServiceFeePercent') && s.service_fee_percent) el('setServiceFeePercent').value = s.service_fee_percent;
-                if (el('setCommTalent') && s.commission_talent_percent) el('setCommTalent').value = s.commission_talent_percent;
-                if (el('setCommPenjual') && s.commission_penjual_percent) el('setCommPenjual').value = s.commission_penjual_percent;
-                if (el('setMinFee') && s.minimum_fee) el('setMinFee').value = s.minimum_fee;
-            }
-        }).catch(function () {});
-}
+    // ─── Owner Settings Page ───
+    function openOwnerSettings() {
+        var page = $('ownerSettingsPage');
+        if (page) page.classList.remove('hidden');
+        loadOwnerCommissionSettings();
+    }
+    window.openOwnerSettings = openOwnerSettings;
 
-function handleCommissionFormSubmit(e) {
-    e.preventDefault();
-    var el = function (id) { return document.getElementById(id); };
-    var settings = {
-        platform_fee: el('setPlatformFee').value || '2000',
-        delivery_fee_per_km: el('setDeliveryFeePerKm').value || '3000',
-        service_fee_percent: el('setServiceFeePercent').value || '10',
-        commission_talent_percent: el('setCommTalent').value || '15',
-        commission_penjual_percent: el('setCommPenjual').value || '10',
-        minimum_fee: el('setMinFee').value || '5000'
+    function _scrollToUsers() {
+        var sec = $('ownerUsersSection');
+        if (sec) sec.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    return {
+        init: init,
+        loadDashboard: loadDashboard,
+        renderOwnerStats: renderOwnerStats,
+        renderOwnerUsers: renderOwnerUsers,
+        loadOwnerCommissionSettings: loadOwnerCommissionSettings,
+        handleCommissionFormSubmit: handleCommissionFormSubmit,
+        handleCreateCS: handleCreateCS,
+        openOwnerSettings: openOwnerSettings
     };
-    var btn = e.target.querySelector('.btn-primary');
-    if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
-    backendPost({ action: 'updateSettings', settings: settings })
-        .then(function (res) {
-            if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan Pengaturan'; }
-            if (res && res.success) {
-                showToast('Pengaturan komisi disimpan!', 'success');
-            } else {
-                showToast('Gagal menyimpan pengaturan', 'error');
-            }
-        });
-}
+})();
 
-// ══════════════════════════════════════════
-// ═══ OWNER: REVENUE ═══
-// ══════════════════════════════════════════
-function loadOwnerRevenue() {
-    if (!isBackendConnected()) return;
-    FB.get('getAllOrders')
-        .then(function (r) { return r.json(); })
-        .then(function (res) {
-            if (!res.success || !res.data) return;
-            var orders = res.data;
-            var completed = orders.filter(function (o) { return o.status === 'completed' || o.status === 'rated'; });
-            var totalRevenue = completed.reduce(function (sum, o) { return sum + (Number(o.fee) || 0); }, 0);
-            var today = new Date(); today.setHours(0, 0, 0, 0);
-            var todayRevenue = completed
-                .filter(function (o) { return Number(o.completedAt || o.createdAt) >= today.getTime(); })
-                .reduce(function (sum, o) { return sum + (Number(o.fee) || 0); }, 0);
-            var revEl = document.getElementById('ownerRevenue');
-            var todayEl = document.getElementById('ownerTodayRevenue');
-            if (revEl) revEl.textContent = 'Rp ' + totalRevenue.toLocaleString('id-ID');
-            if (todayEl) todayEl.textContent = 'Rp ' + todayRevenue.toLocaleString('id-ID');
-        }).catch(function () {});
-}
+// Expose globals for backward compatibility
+function renderOwnerStats() { OwnerDashboard.renderOwnerStats(); }
+function renderOwnerUsers() { OwnerDashboard.renderOwnerUsers(); }
+function loadOwnerCommissionSettings() { OwnerDashboard.loadOwnerCommissionSettings(); }
+function handleCommissionFormSubmit(e) { OwnerDashboard.handleCommissionFormSubmit(e); }
+function handleCreateCS(e) { OwnerDashboard.handleCreateCS(e); }
+function loadOwnerRevenue() { /* handled by loadDashboard now */ }
 
 // ══════════════════════════════════════════
 // ═══ ADMIN TRANSACTIONS PAGE ═══
@@ -251,17 +568,17 @@ function renderAdminTransactions(orders) {
     list.innerHTML = orders.map(function (o, idx) {
         var user = users.find(function (u) { return u.id === o.userId; });
         var talent = users.find(function (u) { return u.id === o.talentId; });
-        var userName = user ? user.name : o.userId;
-        var talentName = talent ? talent.name : o.talentId;
+        var userName = user ? (user.name || user.nama || 'User') : (o.userId || '-');
+        var talentName = talent ? (talent.name || talent.nama || 'Talent') : (o.talentId || '-');
         var priceText = o.price ? 'Rp ' + Number(o.price).toLocaleString('id-ID') : '-';
         var feeText = o.fee ? 'Rp ' + Number(o.fee).toLocaleString('id-ID') : '-';
         var dateText = new Date(Number(o.createdAt)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        var statusText = STATUS_LABELS[o.status] || o.status;
+        var statusText = (typeof STATUS_LABELS !== 'undefined' ? STATUS_LABELS[o.status] : null) || o.status || '-';
         var ratingText = o.rating > 0 ? '⭐ ' + o.rating + '/5' : '-';
 
         return '<div class="olp-card" data-idx="' + idx + '">'
             + '<div class="olp-card-top">'
-            + '<div class="olp-card-service">#' + o.id.substr(0, 8) + ' · ' + escapeHtml(o.serviceType || o.skillType || '') + '</div>'
+            + '<div class="olp-card-service">#' + (o.id || '').substr(0, 8) + ' · ' + escapeHtml(o.serviceType || o.skillType || '') + '</div>'
             + '<span class="otp-status-badge status-' + o.status + '">' + statusText + '</span>'
             + '</div>'
             + '<div class="olp-card-name">👤 ' + escapeHtml(userName) + ' → 🏍️ ' + escapeHtml(talentName) + '</div>'
@@ -276,7 +593,7 @@ function renderAdminTransactions(orders) {
     list.querySelectorAll('.olp-card').forEach(function (card) {
         card.addEventListener('click', function () {
             var idx = parseInt(this.dataset.idx, 10);
-            if (orders[idx]) openChat(orders[idx]);
+            if (orders[idx] && typeof openChat === 'function') openChat(orders[idx]);
         });
     });
 }

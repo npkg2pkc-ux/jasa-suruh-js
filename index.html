@@ -28,6 +28,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Chart.js for dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <!-- Splash Screen -->
@@ -450,81 +452,171 @@
 
         <!-- ==================== OWNER DASHBOARD ==================== -->
         <div id="page-owner" class="page hidden">
-            <header class="header header-owner">
-                <div class="header-top">
-                    <div class="greeting-text">
-                        <span class="greeting-hi">Owner Panel 👑</span>
-                        <span class="greeting-question">Dashboard Admin</span>
+            <!-- Modern Header with Gradient -->
+            <header class="od-header">
+                <div class="od-header-bg"></div>
+                <div class="od-header-content">
+                    <div class="od-header-top">
+                        <div class="od-greeting">
+                            <span class="od-greeting-hi" id="ownerGreeting">Halo, Owner 👋</span>
+                            <span class="od-greeting-sub">Ringkasan performa platform hari ini</span>
+                        </div>
+                        <div class="od-header-actions">
+                            <button class="od-notif-btn" id="ownerNotifBtn">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                <span class="od-notif-badge" id="ownerHeaderBadge" style="display:none">0</span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="header-actions">
-                        <button class="btn-icon" id="ownerNotifBtn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="badge" id="ownerHeaderBadge" style="display:none">0</span></button>
+                    <!-- Date Filter Pills -->
+                    <div class="od-filter-pills">
+                        <button class="od-pill active" data-range="today">Hari Ini</button>
+                        <button class="od-pill" data-range="week">Minggu Ini</button>
+                        <button class="od-pill" data-range="month">Bulan Ini</button>
+                        <button class="od-pill" data-range="all">Semua</button>
                     </div>
                 </div>
             </header>
-            <main class="main-content">
-                <section class="owner-stats">
-                    <div class="stat-card-wide">
-                        <div class="stat-row">
-                            <div class="stat-mini"><span class="stat-mini-value" id="ownerTotalUsers">0</span><span class="stat-mini-label">Users</span></div>
-                            <div class="stat-mini"><span class="stat-mini-value" id="ownerTotalTalents">0</span><span class="stat-mini-label">Talents</span></div>
-                            <div class="stat-mini"><span class="stat-mini-value" id="ownerTotalPenjual">0</span><span class="stat-mini-label">Penjual</span></div>
-                            <div class="stat-mini"><span class="stat-mini-value" id="ownerTotalCS">0</span><span class="stat-mini-label">CS</span></div>
-                            <div class="stat-mini"><span class="stat-mini-value" id="ownerTotalOrders">0</span><span class="stat-mini-label">Orders</span></div>
+
+            <main class="od-main">
+                <!-- KPI Cards Grid -->
+                <section class="od-kpi-grid">
+                    <div class="od-kpi-card">
+                        <div class="od-kpi-icon od-kpi-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg></div>
+                        <div class="od-kpi-info">
+                            <span class="od-kpi-value" id="ownerTotalUsers"><span class="od-skeleton-text"></span></span>
+                            <span class="od-kpi-label">Users</span>
+                        </div>
+                        <span class="od-kpi-trend od-trend-up" id="ownerTrendUsers" style="display:none">↑ 0%</span>
+                    </div>
+                    <div class="od-kpi-card">
+                        <div class="od-kpi-icon od-kpi-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="9" y="3" width="6" height="4" rx="1" stroke="currentColor" stroke-width="2"/></svg></div>
+                        <div class="od-kpi-info">
+                            <span class="od-kpi-value" id="ownerTotalOrders"><span class="od-skeleton-text"></span></span>
+                            <span class="od-kpi-label">Orders</span>
+                        </div>
+                        <span class="od-kpi-trend od-trend-up" id="ownerTrendOrders" style="display:none">↑ 0%</span>
+                    </div>
+                    <div class="od-kpi-card">
+                        <div class="od-kpi-icon od-kpi-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                        <div class="od-kpi-info">
+                            <span class="od-kpi-value" id="ownerRevenue"><span class="od-skeleton-text"></span></span>
+                            <span class="od-kpi-label">Revenue</span>
+                        </div>
+                        <span class="od-kpi-trend od-trend-up" id="ownerTrendRevenue" style="display:none">↑ 0%</span>
+                    </div>
+                    <div class="od-kpi-card">
+                        <div class="od-kpi-icon od-kpi-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                        <div class="od-kpi-info">
+                            <span class="od-kpi-value" id="ownerTotalTalents"><span class="od-skeleton-text"></span></span>
+                            <span class="od-kpi-label">Talents Aktif</span>
+                        </div>
+                        <span class="od-kpi-trend od-trend-up" id="ownerTrendTalents" style="display:none">↑ 0%</span>
+                    </div>
+                </section>
+
+                <!-- Revenue Chart -->
+                <section class="od-chart-section">
+                    <div class="od-section-head">
+                        <h3>📊 Revenue & Orders</h3>
+                        <select class="od-chart-select" id="ownerChartRange">
+                            <option value="7">7 Hari</option>
+                            <option value="14">14 Hari</option>
+                            <option value="30">30 Hari</option>
+                        </select>
+                    </div>
+                    <div class="od-chart-wrap">
+                        <canvas id="ownerRevenueChart" height="200"></canvas>
+                        <div class="od-chart-empty hidden" id="ownerChartEmpty">
+                            <span>📈</span>
+                            <p>Belum ada data transaksi</p>
+                        </div>
+                    </div>
+                    <div class="od-chart-legend">
+                        <span class="od-legend-item"><span class="od-legend-dot od-dot-orange"></span>Revenue</span>
+                        <span class="od-legend-item"><span class="od-legend-dot od-dot-blue"></span>Orders</span>
+                    </div>
+                </section>
+
+                <!-- Wallet Card (Fintech Style) -->
+                <section class="od-wallet-section">
+                    <div class="od-wallet-card">
+                        <div class="od-wallet-bg"></div>
+                        <div class="od-wallet-content">
+                            <div class="od-wallet-top">
+                                <span class="od-wallet-label">💳 Saldo Platform</span>
+                                <span class="od-wallet-balance" id="ownerWalletBalance">Rp 0</span>
+                                <span class="od-wallet-today">Hari ini: <strong id="ownerTodayRevenue">Rp 0</strong></span>
+                            </div>
+                            <div class="od-wallet-actions">
+                                <button class="od-wallet-btn od-wbtn-withdraw" onclick="openWithdrawModal()">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    Tarik Dana
+                                </button>
+                                <button class="od-wallet-btn od-wbtn-history" onclick="openTransactionHistory()">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 8v4l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/></svg>
+                                    Riwayat
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </section>
-                <section class="content-section">
-                    <div class="section-header"><h2>💰 Pendapatan Platform</h2></div>
-                    <div class="stat-card-wide">
-                        <div class="stat-row">
-                            <div class="stat-mini"><span class="stat-mini-value" id="ownerRevenue">Rp 0</span><span class="stat-mini-label">Total Revenue</span></div>
-                            <div class="stat-mini"><span class="stat-mini-value" id="ownerTodayRevenue">Rp 0</span><span class="stat-mini-label">Hari Ini</span></div>
+
+                <!-- Quick Actions -->
+                <section class="od-quick-section">
+                    <div class="od-section-head"><h3>⚡ Aksi Cepat</h3></div>
+                    <div class="od-quick-grid">
+                        <button class="od-quick-btn" data-action="add-cs">
+                            <div class="od-quick-icon od-qi-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8.5" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+                            <span>Tambah CS</span>
+                        </button>
+                        <button class="od-quick-btn" data-action="view-report">
+                            <div class="od-quick-icon od-qi-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                            <span>Laporan</span>
+                        </button>
+                        <button class="od-quick-btn" data-action="manage-users">
+                            <div class="od-quick-icon od-qi-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+                            <span>Kelola User</span>
+                        </button>
+                        <button class="od-quick-btn" data-action="settings">
+                            <div class="od-quick-icon od-qi-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                            <span>Pengaturan</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Recent Activity -->
+                <section class="od-activity-section">
+                    <div class="od-section-head">
+                        <h3>🕐 Aktivitas Terbaru</h3>
+                        <button class="od-see-all" id="ownerBtnTransactions">Lihat Semua</button>
+                    </div>
+                    <div class="od-activity-list" id="ownerActivityList">
+                        <div class="od-activity-skeleton">
+                            <div class="od-skel-row"><div class="od-skel-avatar"></div><div class="od-skel-lines"><div class="od-skel-line od-skel-w70"></div><div class="od-skel-line od-skel-w40"></div></div></div>
+                            <div class="od-skel-row"><div class="od-skel-avatar"></div><div class="od-skel-lines"><div class="od-skel-line od-skel-w60"></div><div class="od-skel-line od-skel-w30"></div></div></div>
+                            <div class="od-skel-row"><div class="od-skel-avatar"></div><div class="od-skel-lines"><div class="od-skel-line od-skel-w80"></div><div class="od-skel-line od-skel-w50"></div></div></div>
                         </div>
                     </div>
                 </section>
-                <section class="wallet-section">
-                    <div class="wallet-card wallet-card-owner">
-                        <div class="wallet-card-header"><span class="wallet-card-title">🏦 Dompet Platform</span><span class="wallet-card-balance" id="ownerWalletBalance">Rp 0</span></div>
-                        <div class="wallet-card-actions">
-                            <button class="wallet-btn wallet-btn-withdraw" onclick="openWithdrawModal()">🏧 Tarik</button>
-                            <button class="wallet-btn wallet-btn-history" onclick="openTransactionHistory()">📋 Riwayat</button>
-                        </div>
+
+                <!-- Pengguna section (Users) -->
+                <section class="od-users-section" id="ownerUsersSection">
+                    <div class="od-section-head">
+                        <h3>👥 Pengguna</h3>
+                        <button class="od-see-all" onclick="renderOwnerUsers()">↻ Refresh</button>
                     </div>
-                </section>
-                <section class="content-section">
-                    <div class="section-header"><h2>⚙️ Pengaturan Komisi</h2></div>
-                    <div class="card-form" id="commissionSettingsCard">
-                        <form id="commissionForm">
-                            <div class="form-group"><label>Biaya Platform (Rp)</label><div class="input-wrap"><input type="number" id="setPlatformFee" placeholder="2000" min="0"></div></div>
-                            <div class="form-group"><label>Ongkir per KM (Rp)</label><div class="input-wrap"><input type="number" id="setDeliveryFeePerKm" placeholder="3000" min="0"></div></div>
-                            <div class="form-group"><label>Biaya Layanan (%)</label><div class="input-wrap"><input type="number" id="setServiceFeePercent" placeholder="10" min="0" max="100"></div></div>
-                            <div class="form-group"><label>Komisi Talent (%)</label><div class="input-wrap"><input type="number" id="setCommTalent" placeholder="15" min="0" max="100"></div></div>
-                            <div class="form-group"><label>Komisi Penjual (%)</label><div class="input-wrap"><input type="number" id="setCommPenjual" placeholder="10" min="0" max="100"></div></div>
-                            <div class="form-group"><label>Minimum Fee (Rp)</label><div class="input-wrap"><input type="number" id="setMinFee" placeholder="5000" min="0"></div></div>
-                            <button type="submit" class="btn-primary">💾 Simpan Pengaturan</button>
-                        </form>
+                    <div class="od-user-stats-row">
+                        <span class="od-user-stat"><strong id="ownerStatPenjual">0</strong> Penjual</span>
+                        <span class="od-user-stat"><strong id="ownerStatCS">0</strong> CS</span>
                     </div>
+                    <div id="ownerUserList" class="od-user-list"></div>
                 </section>
-                <section class="content-section">
-                    <div class="section-header"><h2>Buat Akun CS</h2></div>
-                    <div class="card-form">
-                        <form id="createCSForm">
-                            <div class="form-group"><label>Nama CS</label><div class="input-wrap"><input type="text" id="csFormName" placeholder="Nama lengkap CS" required></div></div>
-                            <div class="form-group"><label>Username</label><div class="input-wrap"><input type="text" id="csFormUsername" placeholder="Username untuk login" required></div></div>
-                            <div class="form-group"><label>Password</label><div class="input-wrap"><input type="password" id="csFormPassword" placeholder="Password CS" required minlength="6"></div></div>
-                            <button type="submit" class="btn-primary">Buat Akun CS</button>
-                        </form>
-                    </div>
-                </section>
-                <section class="content-section">
-                    <div class="section-header"><h2>📊 Semua Transaksi</h2><button class="btn-refresh" id="ownerBtnTransactions">📋</button></div>
-                </section>
-                <section class="content-section">
-                    <div class="section-header"><h2>Semua Pengguna</h2><button class="btn-refresh" onclick="renderOwnerUsers()">↻</button></div>
-                    <div id="ownerUserList" class="user-list"></div>
-                </section>
+
                 <div class="bottom-spacer"></div>
             </main>
+
+            <!-- Bottom Nav -->
             <nav class="bottom-nav">
                 <button class="nav-item active" data-page="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Dashboard</span></button>
                 <button class="nav-item" data-page="users"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Users</span></button>
@@ -532,6 +624,73 @@
                 <button class="nav-item" data-page="cs-manage"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12c0 1.6.376 3.112 1.043 4.453L2 22l5.547-1.043A9.96 9.96 0 0 0 12 22z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>CS</span></button>
                 <button class="nav-item" data-page="settings"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Setting</span></button>
             </nav>
+        </div>
+
+        <!-- ===== OWNER SETTINGS PAGE (separate) ===== -->
+        <div id="ownerSettingsPage" class="stp-page hidden">
+            <header class="stp-header">
+                <button class="stp-back" id="ownerSettingsBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                <div class="stp-header-info"><h2>Pengaturan Platform</h2></div>
+            </header>
+            <div class="od-settings-body">
+                <!-- Commission Settings -->
+                <div class="od-settings-card">
+                    <div class="od-settings-card-head">
+                        <span class="od-settings-icon">💰</span>
+                        <div><h4>Pengaturan Komisi</h4><p>Atur biaya dan komisi platform</p></div>
+                    </div>
+                    <form id="commissionForm" class="od-settings-form">
+                        <div class="od-form-row">
+                            <label>Biaya Platform</label>
+                            <div class="od-input-group"><span class="od-input-prefix">Rp</span><input type="number" id="setPlatformFee" placeholder="2000" min="0"></div>
+                        </div>
+                        <div class="od-form-row">
+                            <label>Ongkir per KM</label>
+                            <div class="od-input-group"><span class="od-input-prefix">Rp</span><input type="number" id="setDeliveryFeePerKm" placeholder="3000" min="0"></div>
+                        </div>
+                        <div class="od-form-row">
+                            <label>Biaya Layanan</label>
+                            <div class="od-input-group"><input type="number" id="setServiceFeePercent" placeholder="10" min="0" max="100"><span class="od-input-suffix">%</span></div>
+                        </div>
+                        <div class="od-form-row">
+                            <label>Komisi Talent</label>
+                            <div class="od-input-group"><input type="number" id="setCommTalent" placeholder="15" min="0" max="100"><span class="od-input-suffix">%</span></div>
+                        </div>
+                        <div class="od-form-row">
+                            <label>Komisi Penjual</label>
+                            <div class="od-input-group"><input type="number" id="setCommPenjual" placeholder="10" min="0" max="100"><span class="od-input-suffix">%</span></div>
+                        </div>
+                        <div class="od-form-row">
+                            <label>Minimum Fee</label>
+                            <div class="od-input-group"><span class="od-input-prefix">Rp</span><input type="number" id="setMinFee" placeholder="5000" min="0"></div>
+                        </div>
+                        <button type="submit" class="od-btn-save">💾 Simpan Pengaturan</button>
+                    </form>
+                </div>
+
+                <!-- Create CS Account -->
+                <div class="od-settings-card">
+                    <div class="od-settings-card-head">
+                        <span class="od-settings-icon">🧑‍💼</span>
+                        <div><h4>Buat Akun CS</h4><p>Tambahkan customer service baru</p></div>
+                    </div>
+                    <form id="createCSForm" class="od-settings-form">
+                        <div class="od-form-row">
+                            <label>Nama CS</label>
+                            <input type="text" id="csFormName" placeholder="Nama lengkap CS" required>
+                        </div>
+                        <div class="od-form-row">
+                            <label>Username</label>
+                            <input type="text" id="csFormUsername" placeholder="Username untuk login" required>
+                        </div>
+                        <div class="od-form-row">
+                            <label>Password</label>
+                            <input type="password" id="csFormPassword" placeholder="Password CS" required minlength="6">
+                        </div>
+                        <button type="submit" class="od-btn-save">✅ Buat Akun CS</button>
+                    </form>
+                </div>
+            </div>
         </div>
 
         <!-- ==================== PENJUAL DASHBOARD ==================== -->
