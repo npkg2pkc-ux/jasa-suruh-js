@@ -73,12 +73,12 @@ var AuthService = (function () {
             no_hp: profileData.no_hp,
             email: profileData.email || null,
             foto_url: profileData.foto_url || null,
-            data: JSON.stringify({
+            data: {
                 name: profileData.nama,
                 phone: profileData.no_hp,
                 role: profileData.role,
                 createdAt: Date.now()
-            })
+            }
         };
 
         return sb.from('users').insert(userData)

@@ -95,30 +95,30 @@ function renderOwnerStats() {
 function renderOwnerUsers() {
     var container = document.getElementById('ownerUserList');
     if (!container) return;
-    var users = getUsers();
+    var allUsers = getUsers();
+    // Filter out owner — owner tidak ditampilkan di daftar pengguna
+    var users = allUsers.filter(function (u) { return u.role !== 'owner'; });
 
     if (users.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><h3>Belum Ada Pengguna</h3><p>Pengguna yang mendaftar akan muncul di sini.</p></div>';
         return;
     }
 
-    var roleColors = { user: '#FF6B00', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6', owner: '#111111' };
-    var roleClasses = { user: 'role-user', talent: 'role-talent', penjual: 'role-penjual', cs: 'role-cs', owner: 'role-owner-tag' };
-    var roleLabels = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS', owner: 'Owner' };
+    var roleColors = { user: '#FF6B00', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6' };
+    var roleClasses = { user: 'role-user', talent: 'role-talent', penjual: 'role-penjual', cs: 'role-cs' };
+    var roleLabels = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS' };
 
     container.innerHTML = users.map(function (u) {
-        var initial = (u.name || 'U').charAt(0).toUpperCase();
-        var canDelete = u.role !== 'owner';
-        var deleteBtn = canDelete
-            ? '<button class="btn-delete" data-uid="' + u.id + '" title="Hapus">🗑️</button>'
-            : '';
+        var displayName = u.name || u.nama || 'Tanpa Nama';
+        var displayUsername = u.username || u.no_hp || u.phone || '-';
+        var initial = displayName.charAt(0).toUpperCase();
         return '<div class="user-list-item">'
             + '<div class="user-list-avatar" style="background:' + (roleColors[u.role] || '#999') + '">' + initial + '</div>'
             + '<div class="user-list-info">'
-            + '<div class="user-list-name">' + escapeHtml(u.name) + ' <small style="color:#999">@' + escapeHtml(u.username) + '</small></div>'
+            + '<div class="user-list-name">' + escapeHtml(displayName) + ' <small style="color:#999">@' + escapeHtml(displayUsername) + '</small></div>'
             + '<span class="user-list-role ' + (roleClasses[u.role] || '') + '">' + (roleLabels[u.role] || u.role) + '</span>'
             + '</div>'
-            + deleteBtn
+            + '<button class="btn-delete" data-uid="' + u.id + '" title="Hapus">🗑️</button>'
             + '</div>';
     }).join('');
 

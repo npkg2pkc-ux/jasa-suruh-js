@@ -80,10 +80,32 @@
     // ── GET Actions ──
 
     function getAll() {
-        return sb.from('users').select('data')
+        return sb.from('users').select('id, role, nama, no_hp, email, foto_url, username, data, created_at')
             .then(function (res) {
                 throwIfError(res);
-                return ok(rowsToArr(res.data));
+                var normalized = (res.data || []).map(function (row) {
+                    var d = row.data || {};
+                    if (typeof d === 'string') {
+                        try { d = JSON.parse(d); } catch (e) { d = {}; }
+                    }
+                    return {
+                        id: row.id || d.id,
+                        name: row.nama || d.name || '',
+                        nama: row.nama || d.name || '',
+                        phone: row.no_hp || d.phone || '',
+                        no_hp: row.no_hp || d.phone || '',
+                        username: row.username || d.username || row.no_hp || '',
+                        role: row.role || d.role || 'user',
+                        email: row.email || d.email || '',
+                        foto_url: row.foto_url || d.foto_url || '',
+                        password: d.password || '',
+                        createdAt: d.createdAt || row.created_at || Date.now(),
+                        lat: d.lat || 0,
+                        lng: d.lng || 0,
+                        address: d.address || ''
+                    };
+                });
+                return ok(normalized);
             });
     }
 
