@@ -282,9 +282,13 @@ var LoginPage = (function () {
             return;
         }
 
+        // Try 62xxx format first (primary), then 08xxx fallback
+        var phone62 = _phone; // already '62' + _phoneRaw
+        var phone08 = '0' + _phoneRaw;
+
         sb.from('users')
             .select('id, nama, no_hp, email, role, foto_url, data')
-            .eq('no_hp', _phone)
+            .or('no_hp.eq.' + phone62 + ',no_hp.eq.' + phone08)
             .limit(1)
             .then(function (result) {
                 if (result.error || !result.data || result.data.length === 0) {
@@ -324,12 +328,19 @@ var LoginPage = (function () {
             catch (e) { parsed = {}; }
         }
 
+        // Normalize phone to 62xxx if stored as 08xxx
+        var storedPhone = dbUser.no_hp || '';
+        var normalizedPhone = _phone; // 62xxx format
+        if (storedPhone !== normalizedPhone && _getSb()) {
+            _getSb().from('users').update({ no_hp: normalizedPhone }).eq('id', dbUser.id).then(function () {});
+        }
+
         var sessionData = {
             id: dbUser.id,
             name: dbUser.nama || parsed.name || '',
-            phone: dbUser.no_hp || _phone,
-            no_hp: dbUser.no_hp || _phone,
-            username: parsed.username || dbUser.no_hp || _phone,
+            phone: normalizedPhone,
+            no_hp: normalizedPhone,
+            username: parsed.username || normalizedPhone,
             password: '',
             role: dbUser.role || parsed.role || 'user',
             email: dbUser.email || parsed.email || '',

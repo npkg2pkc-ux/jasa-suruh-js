@@ -234,12 +234,21 @@
     function doRegister(body) {
         var userData = Object.assign({}, body);
         delete userData.action;
+
+        // Normalize phone: always store as 62xxx
+        var phone = (userData.phone || userData.no_hp || '').replace(/\D/g, '');
+        if (phone.startsWith('0')) phone = '62' + phone.slice(1);
+        if (phone && !phone.startsWith('62')) phone = '62' + phone;
+        userData.no_hp = phone;
+        userData.phone = phone;
+        if (!userData.username) userData.username = phone;
+
         return sb.from('users').select('id')
             .eq('username', userData.username)
             .limit(1)
             .then(function (res) {
                 throwIfError(res);
-                if (res.data && res.data.length > 0) {
+                if (res.data && res.data.length > 0 && res.data[0].id !== userData.id) {
                     return fail('Username sudah digunakan!');
                 }
                 return sb.from('users').upsert({

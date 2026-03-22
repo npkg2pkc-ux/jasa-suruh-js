@@ -118,13 +118,19 @@ var StaffManagement = (function () {
 
     // Also register in users table for login compatibility
     function registerStaffInUsers(staffData) {
+        // Normalize phone to 62xxx format for login compatibility
+        var rawPhone = (staffData.no_hp || '').replace(/\D/g, '');
+        if (rawPhone.startsWith('0')) rawPhone = '62' + rawPhone.slice(1);
+        if (!rawPhone.startsWith('62')) rawPhone = '62' + rawPhone;
+
         var userData = {
             action: 'register',
             id: staffData.id,
             name: staffData.nama,
             nama: staffData.nama,
-            phone: staffData.no_hp,
-            no_hp: staffData.no_hp,
+            username: rawPhone,
+            phone: rawPhone,
+            no_hp: rawPhone,
             email: staffData.email || '',
             foto_url: staffData.foto_url || '',
             role: staffData.role,
