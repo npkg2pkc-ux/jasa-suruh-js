@@ -92,6 +92,12 @@ var OwnerDashboard = (function () {
             $('ownerSettingsPage').classList.add('hidden');
         });
 
+        // Owner logout button
+        var logoutBtn = $('ownerLogoutBtn');
+        if (logoutBtn) logoutBtn.addEventListener('click', function () {
+            if (typeof handleLogout === 'function') handleLogout();
+        });
+
         // Old admin/CS form/back handlers removed — replaced by React Staff Management
 
         // Commission form submit
