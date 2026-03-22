@@ -248,6 +248,8 @@
                     role: userData.role || 'user',
                     nama: userData.name || userData.nama || '',
                     no_hp: userData.phone || userData.no_hp || '',
+                    email: userData.email || '',
+                    foto_url: userData.foto_url || '',
                     data: userData
                 }).then(function (res2) {
                     throwIfError(res2);

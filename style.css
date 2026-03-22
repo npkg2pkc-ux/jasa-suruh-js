@@ -1320,7 +1320,7 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
    ═══════════════════════════════════════════ */
 
 /* ─── Staff Page Container ─── */
-#staffManagementPage { background:var(--gray-50); }
+#staffManagementPage { background:var(--gray-50); overflow-y:auto; }
 #staffAppRoot { min-height:100vh; max-width:480px; margin:0 auto; }
 
 /* ─── Header ─── */

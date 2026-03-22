@@ -126,6 +126,7 @@ var StaffManagement = (function () {
             phone: staffData.no_hp,
             no_hp: staffData.no_hp,
             email: staffData.email || '',
+            foto_url: staffData.foto_url || '',
             role: staffData.role,
             createdAt: Date.now()
         };
