@@ -22,6 +22,7 @@ var LoginPage = (function () {
 
         _setupPhoneStep();
         _setupOTPStep();
+        _setupLegalLinks();
 
         // Restore last phone
         var lastPhone = localStorage.getItem(LAST_PHONE_KEY);
@@ -107,6 +108,30 @@ var LoginPage = (function () {
             error.textContent = 'Koneksi gagal. Coba lagi.';
             error.classList.remove('hidden');
         });
+    }
+
+    // ═══════════════════════════════════
+    //  LEGAL LINKS (Terms & Privacy)
+    // ═══════════════════════════════════
+    function _setupLegalLinks() {
+        function openLegal(pageId) {
+            var page = $(pageId);
+            if (page) { page.classList.remove('hidden'); page.scrollTop = 0; }
+        }
+        function closeLegal(pageId) {
+            var page = $(pageId);
+            if (page) page.classList.add('hidden');
+        }
+
+        var linkTerms = $('linkTerms');
+        var linkPrivacy = $('linkPrivacy');
+        if (linkTerms) linkTerms.addEventListener('click', function () { openLegal('termsPage'); });
+        if (linkPrivacy) linkPrivacy.addEventListener('click', function () { openLegal('privacyPage'); });
+
+        var termsBack = $('termsBackBtn');
+        var privacyBack = $('privacyBackBtn');
+        if (termsBack) termsBack.addEventListener('click', function () { closeLegal('termsPage'); });
+        if (privacyBack) privacyBack.addEventListener('click', function () { closeLegal('privacyPage'); });
     }
 
     // ═══════════════════════════════════
