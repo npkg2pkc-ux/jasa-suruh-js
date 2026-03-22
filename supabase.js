@@ -936,6 +936,73 @@
             });
     }
 
+    // ══════════════════════════════════
+    // ═══ STAFF MANAGEMENT ═══
+    // ══════════════════════════════════
+
+    function getAllStaff() {
+        return sb.from('staff').select('*').order('created_at', { ascending: false })
+            .then(function (res) {
+                throwIfError(res);
+                return ok(res.data || []);
+            });
+    }
+
+    function getStaffById(id) {
+        return sb.from('staff').select('*').eq('id', id).single()
+            .then(function (res) {
+                throwIfError(res);
+                return ok(res.data);
+            });
+    }
+
+    function doCreateStaff(body) {
+        var data = Object.assign({}, body);
+        delete data.action;
+        return sb.from('staff').select('id').eq('no_hp', data.no_hp).limit(1)
+            .then(function (res) {
+                throwIfError(res);
+                if (res.data && res.data.length > 0) {
+                    return fail('Nomor HP sudah terdaftar!');
+                }
+                return sb.from('staff').insert(data)
+                    .then(function (res2) {
+                        throwIfError(res2);
+                        return ok(data);
+                    });
+            });
+    }
+
+    function doUpdateStaff(body) {
+        var id = body.id;
+        var data = Object.assign({}, body);
+        delete data.action;
+        delete data.id;
+        data.updated_at = new Date().toISOString();
+        return sb.from('staff').update(data).eq('id', id)
+            .then(function (res) {
+                throwIfError(res);
+                return ok(data);
+            });
+    }
+
+    function doDeleteStaff(body) {
+        return sb.from('staff').delete().eq('id', body.id)
+            .then(function (res) {
+                throwIfError(res);
+                return ok(null);
+            });
+    }
+
+    function uploadStaffFile(path, file) {
+        return sb.storage.from('staff-files').upload(path, file, { upsert: true })
+            .then(function (res) {
+                if (res.error) throw res.error;
+                var publicUrl = sb.storage.from('staff-files').getPublicUrl(path);
+                return ok(publicUrl.data.publicUrl);
+            });
+    }
+
     // ── Dispatch GET ──
     function dispatchGet(action, params) {
         var p = params || {};
@@ -955,6 +1022,8 @@
             case 'getTransactions': return getTransactions(p.userId);
             case 'getNotifications': return getNotifications(p.userId);
             case 'findNearbyTalents': return findNearbyTalents(p);
+            case 'getAllStaff': return getAllStaff();
+            case 'getStaffById': return getStaffById(p.id);
             default: return Promise.reject(new Error('Unknown GET action: ' + action));
         }
     }
@@ -989,6 +1058,9 @@
             case 'markNotifRead': return doMarkNotifRead(body);
             case 'markAllNotifsRead': return doMarkAllNotifsRead(body);
             case 'setOnlineStatus': return doSetOnlineStatus(body);
+            case 'createStaff': return doCreateStaff(body);
+            case 'updateStaff': return doUpdateStaff(body);
+            case 'deleteStaff': return doDeleteStaff(body);
             default: return Promise.reject(new Error('Unknown POST action: ' + body.action));
         }
     }
@@ -1218,7 +1290,10 @@
         },
 
         // Expose raw Supabase client for auth service
-        _sb: sb
+        _sb: sb,
+
+        // Staff file upload (for React staff app)
+        uploadStaffFile: uploadStaffFile
     };
 
 })();

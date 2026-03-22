@@ -1,4 +1,4 @@
-const CACHE_NAME = 'js-app-v11';
+const CACHE_NAME = 'js-app-v12';
 const ASSETS = [
     '/',
     '/index.html',
@@ -12,6 +12,7 @@ const ASSETS = [
     '/js/penjual.js',
     '/js/cs.js',
     '/js/owner.js',
+    '/js/staff-app.js',
     '/js/login.js',
     '/js/account.js',
     '/js/register.js',

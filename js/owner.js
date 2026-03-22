@@ -73,10 +73,9 @@ var OwnerDashboard = (function () {
         $$('.od-quick-btn').forEach(function (qbtn) {
             qbtn.addEventListener('click', function () {
                 var action = this.dataset.action;
-                if (action === 'add-cs') openCreateCSPage();
-                else if (action === 'add-admin') openCreateAdminPage();
+                if (action === 'add-staff') { if (typeof openStaffManagement === 'function') openStaffManagement('add'); }
+                else if (action === 'staff-list') { if (typeof openStaffManagement === 'function') openStaffManagement('list'); }
                 else if (action === 'view-report') { if (typeof openAdminTransactions === 'function') openAdminTransactions(); }
-                else if (action === 'manage-users') _scrollToUsers();
                 else if (action === 'settings') openOwnerSettings();
             });
         });
@@ -93,25 +92,7 @@ var OwnerDashboard = (function () {
             $('ownerSettingsPage').classList.add('hidden');
         });
 
-        // Create Admin page back button
-        var adminBackBtn = $('createAdminBack');
-        if (adminBackBtn) adminBackBtn.addEventListener('click', function () {
-            $('createAdminPage').classList.add('hidden');
-        });
-
-        // Create CS page back button
-        var csBackBtn = $('createCSBack');
-        if (csBackBtn) csBackBtn.addEventListener('click', function () {
-            $('createCSPage').classList.add('hidden');
-        });
-
-        // Create Admin form submit
-        var adminForm = $('createAdminForm');
-        if (adminForm) adminForm.addEventListener('submit', handleCreateAdmin);
-
-        // Create CS form submit  
-        var csForm = $('createCSForm');
-        if (csForm) csForm.addEventListener('submit', handleCreateCS);
+        // Old admin/CS form/back handlers removed — replaced by React Staff Management
 
         // Commission form submit
         var commForm = $('commissionForm');
@@ -605,21 +586,7 @@ var OwnerDashboard = (function () {
     }
     window.openOwnerSettings = openOwnerSettings;
 
-    function openCreateAdminPage() {
-        if (!_isOwner()) {
-            if (typeof showToast === 'function') showToast('Hanya owner yang bisa menambah admin!', 'error');
-            return;
-        }
-        var page = $('createAdminPage');
-        if (page) page.classList.remove('hidden');
-    }
-    window.openCreateAdminPage = openCreateAdminPage;
-
-    function openCreateCSPage() {
-        var page = $('createCSPage');
-        if (page) page.classList.remove('hidden');
-    }
-    window.openCreateCSPage = openCreateCSPage;
+    // openCreateAdminPage & openCreateCSPage removed — replaced by openStaffManagement() in staff-app.js
 
     function _scrollToUsers() {
         var sec = $('ownerUsersSection');
@@ -633,11 +600,7 @@ var OwnerDashboard = (function () {
         renderOwnerUsers: renderOwnerUsers,
         loadOwnerCommissionSettings: loadOwnerCommissionSettings,
         handleCommissionFormSubmit: handleCommissionFormSubmit,
-        handleCreateAdmin: handleCreateAdmin,
-        handleCreateCS: handleCreateCS,
-        openOwnerSettings: openOwnerSettings,
-        openCreateAdminPage: openCreateAdminPage,
-        openCreateCSPage: openCreateCSPage
+        openOwnerSettings: openOwnerSettings
     };
 })();
 
@@ -646,8 +609,7 @@ function renderOwnerStats() { OwnerDashboard.renderOwnerStats(); }
 function renderOwnerUsers() { OwnerDashboard.renderOwnerUsers(); }
 function loadOwnerCommissionSettings() { OwnerDashboard.loadOwnerCommissionSettings(); }
 function handleCommissionFormSubmit(e) { OwnerDashboard.handleCommissionFormSubmit(e); }
-function handleCreateCS(e) { OwnerDashboard.handleCreateCS(e); }
-function handleCreateAdmin(e) { OwnerDashboard.handleCreateAdmin(e); }
+// handleCreateCS and handleCreateAdmin removed — replaced by React Staff Management
 function loadOwnerRevenue() { /* handled by loadDashboard now */ }
 
 // ══════════════════════════════════════════
