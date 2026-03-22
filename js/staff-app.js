@@ -33,6 +33,9 @@ var StaffManagement = (function () {
     function formatPhone(phone) {
         if (!phone) return '-';
         var clean = phone.replace(/\D/g, '');
+        // Convert 62xxx to 08xxx for display
+        if (clean.startsWith('62')) clean = '0' + clean.slice(2);
+        if (!clean.startsWith('0')) clean = '0' + clean;
         if (clean.length <= 4) return clean;
         if (clean.length <= 8) return clean.slice(0, 4) + '-' + clean.slice(4);
         return clean.slice(0, 4) + '-' + clean.slice(4, 8) + '-' + clean.slice(8);
@@ -54,6 +57,24 @@ var StaffManagement = (function () {
         var clean = phone.replace(/\D/g, '');
         // Indonesian phone: 08xxx or 628xxx, 10-15 digits
         return /^(08|628)\d{8,12}$/.test(clean);
+    }
+
+    // Normalize any phone format to 62xxx (no leading 0)
+    function normalizePhone(phone) {
+        var clean = (phone || '').replace(/\D/g, '');
+        if (clean.startsWith('08')) clean = '62' + clean.slice(1);
+        else if (clean.startsWith('8')) clean = '62' + clean;
+        else if (!clean.startsWith('62')) clean = '62' + clean;
+        return clean;
+    }
+
+    // Extract raw digits after country code (for input display)
+    function phoneToRaw(phone) {
+        var clean = (phone || '').replace(/\D/g, '');
+        if (clean.startsWith('62')) return clean.slice(2);
+        if (clean.startsWith('08')) return clean.slice(1);
+        if (clean.startsWith('0')) return clean.slice(1);
+        return clean;
     }
 
     function compressImage(file, maxWidth, quality) {
@@ -118,19 +139,16 @@ var StaffManagement = (function () {
 
     // Also register in users table for login compatibility
     function registerStaffInUsers(staffData) {
-        // Normalize phone to 62xxx format for login compatibility
-        var rawPhone = (staffData.no_hp || '').replace(/\D/g, '');
-        if (rawPhone.startsWith('0')) rawPhone = '62' + rawPhone.slice(1);
-        if (!rawPhone.startsWith('62')) rawPhone = '62' + rawPhone;
+        var normalized = normalizePhone(staffData.no_hp);
 
         var userData = {
             action: 'register',
             id: staffData.id,
             name: staffData.nama,
             nama: staffData.nama,
-            username: rawPhone,
-            phone: rawPhone,
-            no_hp: rawPhone,
+            username: normalized,
+            phone: normalized,
+            no_hp: normalized,
             email: staffData.email || '',
             foto_url: staffData.foto_url || '',
             role: staffData.role,
@@ -487,7 +505,7 @@ var StaffManagement = (function () {
     function StepReview(props) {
         var data = props.data, onEdit = props.onEdit;
         var roleLabel = data.role === 'admin' ? '🔐 Admin' : '🎧 Customer Service';
-        var fullPhone = data.no_hp ? '0' + data.no_hp : '-';
+        var fullPhone = data.no_hp ? normalizePhone(data.no_hp) : '-';
 
         function Row(p) {
             return html`<div className="sf-review-row">
@@ -612,7 +630,7 @@ var StaffManagement = (function () {
             if (loading) return;
             setLoading(true);
 
-            var fullPhone = '08' + formData.no_hp;
+            var fullPhone = normalizePhone(formData.no_hp);
             var staffId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
             var uploadChain = Promise.resolve({ fotoUrl: null, ktpUrl: null });
 
@@ -944,7 +962,7 @@ var StaffManagement = (function () {
     function EditStaff(props) {
         var staff = props.staff, onBack = props.onBack, onSuccess = props.onSuccess;
         var _f = useState(Object.assign({}, staff, {
-            no_hp: (staff.no_hp || '').replace(/^0+/, '').replace(/^62/, ''),
+            no_hp: phoneToRaw(staff.no_hp),
             foto_preview: staff.foto_url || null,
             ktp_preview: staff.ktp_url || null
         })), formData = _f[0], setFormData = _f[1];
@@ -983,7 +1001,7 @@ var StaffManagement = (function () {
             if (loading) return;
             setLoading(true);
 
-            var fullPhone = '08' + formData.no_hp;
+            var fullPhone = normalizePhone(formData.no_hp);
             var uploadChain = Promise.resolve({ fotoUrl: formData.foto_url, ktpUrl: formData.ktp_url });
 
             if (formData.foto_file || formData.ktp_file) {
@@ -1022,6 +1040,15 @@ var StaffManagement = (function () {
             }).then(function (res) {
                 setLoading(false);
                 if (res && res.success) {
+                    // Sync users table too (phone, foto, nama, role)
+                    registerStaffInUsers({
+                        id: staff.id,
+                        nama: formData.nama.trim(),
+                        no_hp: fullPhone,
+                        email: (formData.email || '').trim(),
+                        foto_url: formData.foto_url || '',
+                        role: formData.role
+                    });
                     setToast({ message: 'Data berhasil diupdate! ✅', type: 'success' });
                     setTimeout(function () { onSuccess && onSuccess(); }, 1200);
                 } else {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'js-app-v12';
+const CACHE_NAME = 'js-app-v13';
 const ASSETS = [
     '/',
     '/index.html',

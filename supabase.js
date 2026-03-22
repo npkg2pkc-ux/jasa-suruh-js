@@ -237,33 +237,38 @@
 
         // Normalize phone: always store as 62xxx
         var phone = (userData.phone || userData.no_hp || '').replace(/\D/g, '');
-        if (phone.startsWith('0')) phone = '62' + phone.slice(1);
-        if (phone && !phone.startsWith('62')) phone = '62' + phone;
+        if (phone.startsWith('08')) phone = '62' + phone.slice(1);
+        else if (phone.startsWith('8')) phone = '62' + phone;
+        else if (phone && !phone.startsWith('62')) phone = '62' + phone;
         userData.no_hp = phone;
         userData.phone = phone;
         if (!userData.username) userData.username = phone;
 
-        return sb.from('users').select('id')
-            .eq('username', userData.username)
-            .limit(1)
+        var upsertData = {
+            id: userData.id,
+            username: userData.username,
+            role: userData.role || 'user',
+            nama: userData.name || userData.nama || '',
+            no_hp: phone,
+            email: userData.email || '',
+            foto_url: userData.foto_url || '',
+            data: userData
+        };
+
+        // Try upsert by id first; if username conflict, update by id instead
+        return sb.from('users').upsert(upsertData, { onConflict: 'id' })
             .then(function (res) {
-                throwIfError(res);
-                if (res.data && res.data.length > 0 && res.data[0].id !== userData.id) {
-                    return fail('Username sudah digunakan!');
+                if (res.error && res.error.code === '23505') {
+                    // Username unique violation — update existing row by id
+                    delete upsertData.username;
+                    return sb.from('users').update(upsertData).eq('id', userData.id)
+                        .then(function (res2) {
+                            throwIfError(res2);
+                            return ok(userData);
+                        });
                 }
-                return sb.from('users').upsert({
-                    id: userData.id,
-                    username: userData.username,
-                    role: userData.role || 'user',
-                    nama: userData.name || userData.nama || '',
-                    no_hp: userData.phone || userData.no_hp || '',
-                    email: userData.email || '',
-                    foto_url: userData.foto_url || '',
-                    data: userData
-                }).then(function (res2) {
-                    throwIfError(res2);
-                    return ok(userData);
-                });
+                throwIfError(res);
+                return ok(userData);
             });
     }
 
@@ -970,6 +975,13 @@
     function doCreateStaff(body) {
         var data = Object.assign({}, body);
         delete data.action;
+        // Normalize phone to 62xxx
+        var ph = (data.no_hp || '').replace(/\D/g, '');
+        if (ph.startsWith('08')) ph = '62' + ph.slice(1);
+        else if (ph.startsWith('8')) ph = '62' + ph;
+        else if (ph && !ph.startsWith('62')) ph = '62' + ph;
+        data.no_hp = ph;
+
         return sb.from('staff').select('id').eq('no_hp', data.no_hp).limit(1)
             .then(function (res) {
                 throwIfError(res);
@@ -989,6 +1001,14 @@
         var data = Object.assign({}, body);
         delete data.action;
         delete data.id;
+        // Normalize phone to 62xxx
+        if (data.no_hp) {
+            var ph = data.no_hp.replace(/\D/g, '');
+            if (ph.startsWith('08')) ph = '62' + ph.slice(1);
+            else if (ph.startsWith('8')) ph = '62' + ph;
+            else if (ph && !ph.startsWith('62')) ph = '62' + ph;
+            data.no_hp = ph;
+        }
         data.updated_at = new Date().toISOString();
         return sb.from('staff').update(data).eq('id', id)
             .then(function (res) {
