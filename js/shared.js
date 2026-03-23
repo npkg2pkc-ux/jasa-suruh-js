@@ -860,6 +860,20 @@ function renderOrderActions(order, isTalent, isUser) {
                     if (order.talentId) {
                         addNotifItem({ userId: order.talentId, icon: '❌', title: 'Pesanan Dibatalkan', desc: 'User membatalkan pesanan ' + (order.serviceType || ''), type: 'order', orderId: order.id });
                     }
+                    // Refund user if payment was already deducted (JsPay after accept)
+                    var paidAmount = Number(order.paidAmount) || 0;
+                    if (paidAmount > 0 && (order.paymentMethod || 'jspay') !== 'cod') {
+                        backendPost({
+                            action: 'walletCredit',
+                            userId: order.userId,
+                            amount: paidAmount,
+                            orderId: order.id,
+                            type: 'refund',
+                            description: 'Refund pembatalan ' + (order.serviceType || 'Pesanan')
+                        });
+                        addNotifItem({ userId: order.userId, icon: '💰', title: 'Refund Berhasil', desc: 'Saldo ' + formatRupiah(paidAmount) + ' dikembalikan karena pembatalan', type: 'refund', orderId: order.id });
+                        showToast('Saldo ' + formatRupiah(paidAmount) + ' dikembalikan', 'success');
+                    }
                 }
             });
         });
