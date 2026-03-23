@@ -184,8 +184,11 @@ function renderPenjualProducts(products) {
     }
     container.innerHTML = products.map(function (p) {
         var priceText = p.price ? 'Rp ' + Number(p.price).toLocaleString('id-ID') : '-';
-        var stockText = 'Stok: ' + (p.stock || 0);
-        var activeClass = p.isActive ? '' : ' style="opacity:0.5"';
+        var isAvailable = (p.isAvailable !== undefined)
+            ? !!p.isAvailable
+            : ((Number(p.stock) || 0) > 0);
+        var statusText = isAvailable ? '✅ Tersedia' : '⛔ Habis';
+        var activeClass = (p.isActive && isAvailable) ? '' : ' style="opacity:0.5"';
         return '<div class="skill-card" data-pid="' + escapeHtml(p.id) + '"' + activeClass + '>'
             + '<div class="skill-card-header">'
             + (p.photo ? '<img src="' + p.photo + '" style="width:40px;height:40px;border-radius:8px;object-fit:cover;margin-right:8px">' : '<span class="skill-card-icon">📦</span>')
@@ -196,7 +199,7 @@ function renderPenjualProducts(products) {
             + '</div></div>'
             + '<div class="skill-card-detail">'
             + '<span class="skill-detail-type">' + priceText + '</span>'
-            + '<span class="skill-detail-price">' + stockText + '</span>'
+                + '<span class="skill-detail-price">' + statusText + '</span>'
             + '</div></div>';
     }).join('');
 
@@ -244,7 +247,10 @@ function openEditProductModal(productId) {
     document.getElementById('prodFormCategory').value = product.category || 'food';
     document.getElementById('prodFormDesc').value = product.description || '';
     document.getElementById('prodFormPrice').value = product.price || '';
-    document.getElementById('prodFormStock').value = product.stock || '';
+    var isAvailable = (product.isAvailable !== undefined)
+        ? !!product.isAvailable
+        : ((Number(product.stock) || 0) > 0);
+    document.getElementById('prodFormAvailability').value = isAvailable ? 'available' : 'sold_out';
     if (product.photo) {
         document.getElementById('prodPhotoImg').src = product.photo;
         document.getElementById('prodPhotoImg').dataset.newUpload = '';
@@ -268,7 +274,8 @@ function handleProductFormSubmit(e) {
     var category = document.getElementById('prodFormCategory').value;
     var desc = (document.getElementById('prodFormDesc').value || '').trim();
     var price = parseInt(document.getElementById('prodFormPrice').value) || 0;
-    var stock = parseInt(document.getElementById('prodFormStock').value) || 0;
+    var availability = document.getElementById('prodFormAvailability').value;
+    var isAvailable = availability !== 'sold_out';
     var photoImg = document.getElementById('prodPhotoImg');
     var isNewPhoto = photoImg.dataset.newUpload === '1';
     var photoData = isNewPhoto ? photoImg.src : (productId ? ((_penjualProducts.find(function (p) { return p.id === productId; }) || {}).photo || '') : '');
@@ -281,7 +288,7 @@ function handleProductFormSubmit(e) {
     function doSave(photo) {
         if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan Produk'; }
         if (productId) {
-            backendPost({ action: 'updateProduct', productId: productId, fields: { name: name, category: category, description: desc, price: price, stock: stock, photo: photo } })
+            backendPost({ action: 'updateProduct', productId: productId, fields: { name: name, category: category, description: desc, price: price, isAvailable: isAvailable, photo: photo } })
                 .then(function (res) {
                     if (res && res.success) {
                         showToast('Produk diperbarui!', 'success');
@@ -290,7 +297,7 @@ function handleProductFormSubmit(e) {
                     } else { showToast('Gagal memperbarui produk', 'error'); }
                 });
         } else {
-            backendPost({ action: 'createProduct', id: generateId(), storeId: _penjualStore.id, name: name, category: category, description: desc, price: price, stock: stock, photo: photo, isActive: true })
+            backendPost({ action: 'createProduct', id: generateId(), storeId: _penjualStore.id, name: name, category: category, description: desc, price: price, isAvailable: isAvailable, photo: photo, isActive: true })
                 .then(function (res) {
                     if (res && res.success) {
                         showToast('Produk berhasil ditambahkan!', 'success');

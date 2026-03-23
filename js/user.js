@@ -692,7 +692,7 @@ function openStoreDetail(store) {
         FB.get('getProductsByStore', { storeId: store.id })
             .then(function (r) { return r.json(); })
             .then(function (res) {
-                _sdpProducts = (res.success && res.data) ? res.data.filter(function (p) { return p.isActive && p.stock > 0; }) : [];
+                _sdpProducts = (res.success && res.data) ? res.data.filter(function (p) { return p.isActive; }) : [];
                 renderStoreProducts(_sdpProducts);
             }).catch(function () {
                 if (productList) productList.innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">❌</div><p>Gagal memuat produk</p></div>';
@@ -724,20 +724,28 @@ function renderStoreProducts(products) {
     list.innerHTML = products.map(function (p, idx) {
         var priceText = p.price ? 'Rp ' + Number(p.price).toLocaleString('id-ID') : '-';
         var qtyInCart = _shopGetProductQty(p.id);
+        var isAvailable = (p.isAvailable !== undefined)
+            ? !!p.isAvailable
+            : ((Number(p.stock) || 0) > 0);
+        var statusText = isAvailable ? '✅ Tersedia' : '⛔ Habis';
+        var unavailableClass = isAvailable ? '' : ' stc-unavailable';
+        var minusDisabled = !isAvailable ? ' disabled' : '';
+        var plusDisabled = !isAvailable ? ' disabled' : '';
         return '<div class="stc" data-idx="' + idx + '" style="cursor:pointer">'
-            + '<div class="stc-img">'
+            + '<div class="stc-img' + unavailableClass + '">'
             + (p.photo ? '<img src="' + p.photo + '" alt="">' : '<div class="stc-img-placeholder">📦</div>')
+            + (!isAvailable ? '<div class="stc-unavailable-badge">HABIS</div>' : '')
             + '</div>'
-            + '<div class="stc-body">'
+            + '<div class="stc-body' + unavailableClass + '">'
             + '<div class="stc-name">' + escapeHtml(p.name) + '</div>'
             + (p.description ? '<div class="stc-desc">' + escapeHtml(p.description) + '</div>' : '')
             + '<div class="stc-bottom">'
             + '<span class="stc-price">' + priceText + '</span>'
-            + '<span class="stc-rating">Stok: ' + p.stock + '</span>'
+            + '<span class="stc-rating">' + statusText + '</span>'
             + '<div class="stc-qty-wrap">'
-            + '<button class="stc-qty-btn stc-qty-minus" data-minus-idx="' + idx + '" title="Kurangi">-</button>'
+            + '<button class="stc-qty-btn stc-qty-minus" data-minus-idx="' + idx + '" title="Kurangi"' + minusDisabled + '>-</button>'
             + '<span class="stc-qty-val">' + qtyInCart + '</span>'
-            + '<button class="stc-qty-btn stc-qty-plus" data-plus-idx="' + idx + '" title="Tambah">+</button>'
+            + '<button class="stc-qty-btn stc-qty-plus" data-plus-idx="' + idx + '" title="Tambah"' + plusDisabled + '>+</button>'
             + '</div>'
             + '</div></div></div>';
     }).join('');
@@ -747,6 +755,11 @@ function renderStoreProducts(products) {
             e.stopPropagation();
             var idx = parseInt(this.getAttribute('data-plus-idx'), 10);
             if (!products[idx]) return;
+            var p = products[idx];
+            var isAvailable = (p.isAvailable !== undefined)
+                ? !!p.isAvailable
+                : ((Number(p.stock) || 0) > 0);
+            if (!isAvailable) return;
             var currentQty = _shopGetProductQty(products[idx].id);
             _shopSetProductQty(products[idx], currentQty + 1);
             renderStoreProducts(products);
@@ -768,6 +781,14 @@ function renderStoreProducts(products) {
         card.addEventListener('click', function () {
             var idx = parseInt(this.dataset.idx, 10);
             if (!products[idx]) return;
+            var p = products[idx];
+            var isAvailable = (p.isAvailable !== undefined)
+                ? !!p.isAvailable
+                : ((Number(p.stock) || 0) > 0);
+            if (!isAvailable) {
+                showToast('Produk sedang habis', 'error');
+                return;
+            }
             openShopProductModal(products[idx]);
         });
     });
@@ -794,8 +815,10 @@ function _shopGetProductQty(productId) {
 
 function _shopSetProductQty(product, qty) {
     if (!product || !product.id) return;
-    var maxStock = Number(product.stock) || 0;
-    var safeQty = Math.max(0, Math.min(maxStock > 0 ? maxStock : 9999, Number(qty) || 0));
+    var isAvailable = (product.isAvailable !== undefined)
+        ? !!product.isAvailable
+        : ((Number(product.stock) || 0) > 0);
+    var safeQty = isAvailable ? Math.max(0, Number(qty) || 0) : 0;
     var idx = _shopCart.findIndex(function (it) { return it.productId === product.id; });
 
     if (idx >= 0) {
@@ -803,7 +826,7 @@ function _shopSetProductQty(product, qty) {
             _shopCart.splice(idx, 1);
         } else {
             _shopCart[idx].qty = safeQty;
-            _shopCart[idx].stock = maxStock;
+            _shopCart[idx].isAvailable = true;
         }
     } else if (safeQty > 0) {
         _shopCart.push({
@@ -811,7 +834,7 @@ function _shopSetProductQty(product, qty) {
             name: product.name || 'Produk',
             price: Number(product.price) || 0,
             qty: safeQty,
-            stock: maxStock
+            isAvailable: true
         });
     }
 
@@ -832,16 +855,23 @@ function updateShopCartUI() {
 function addProductToShopCart(product, qty) {
     var q = Number(qty) || 1;
     if (!product || q < 1) return;
+    var isAvailable = (product.isAvailable !== undefined)
+        ? !!product.isAvailable
+        : ((Number(product.stock) || 0) > 0);
+    if (!isAvailable) {
+        showToast('Produk sedang habis', 'error');
+        return;
+    }
     var existing = _shopCart.find(function (it) { return it.productId === product.id; });
     if (existing) {
-        existing.qty = Math.min(Number(product.stock) || 9999, existing.qty + q);
+        existing.qty = existing.qty + q;
     } else {
         _shopCart.push({
             productId: product.id,
             name: product.name || 'Produk',
             price: Number(product.price) || 0,
-            qty: Math.min(Number(product.stock) || 9999, q),
-            stock: Number(product.stock) || 0
+            qty: q,
+            isAvailable: true
         });
     }
     updateShopCartUI();
@@ -877,21 +907,27 @@ function openShopProductModal(product) {
     document.getElementById('shopProductModalTitle').textContent = product.name || 'Produk';
     document.getElementById('shopProductModalDesc').textContent = product.description || 'Tanpa deskripsi';
     document.getElementById('shopProductModalPrice').textContent = formatRupiah(Number(product.price) || 0);
-    document.getElementById('shopProductModalStock').textContent = 'Stok: ' + (Number(product.stock) || 0);
+    var isAvailable = (product.isAvailable !== undefined)
+        ? !!product.isAvailable
+        : ((Number(product.stock) || 0) > 0);
+    document.getElementById('shopProductModalStock').textContent = isAvailable ? '✅ Tersedia' : '⛔ Habis';
     var qtyInput = document.getElementById('shopQtyInput');
     qtyInput.value = '1';
-    qtyInput.max = String(Math.max(1, Number(product.stock) || 1));
+    qtyInput.max = '9999';
 
     document.getElementById('shopQtyMinus').onclick = function () {
         var v = Math.max(1, (Number(qtyInput.value) || 1) - 1);
         qtyInput.value = String(v);
     };
     document.getElementById('shopQtyPlus').onclick = function () {
-        var max = Math.max(1, Number(product.stock) || 1);
-        var v = Math.min(max, (Number(qtyInput.value) || 1) + 1);
+        var v = (Number(qtyInput.value) || 1) + 1;
         qtyInput.value = String(v);
     };
     document.getElementById('shopAddCartBtn').onclick = function () {
+        if (!isAvailable) {
+            showToast('Produk sedang habis', 'error');
+            return;
+        }
         var qty = Number(qtyInput.value) || 1;
         if (qty < 1) qty = 1;
         addProductToShopCart(product, qty);
