@@ -723,6 +723,7 @@ function renderStoreProducts(products) {
 
     list.innerHTML = products.map(function (p, idx) {
         var priceText = p.price ? 'Rp ' + Number(p.price).toLocaleString('id-ID') : '-';
+        var qtyInCart = _shopGetProductQty(p.id);
         return '<div class="stc" data-idx="' + idx + '" style="cursor:pointer">'
             + '<div class="stc-img">'
             + (p.photo ? '<img src="' + p.photo + '" alt="">' : '<div class="stc-img-placeholder">📦</div>')
@@ -733,17 +734,33 @@ function renderStoreProducts(products) {
             + '<div class="stc-bottom">'
             + '<span class="stc-price">' + priceText + '</span>'
             + '<span class="stc-rating">Stok: ' + p.stock + '</span>'
-            + '<button class="stc-add-btn" data-add-idx="' + idx + '" title="Tambah ke keranjang">+</button>'
+            + '<div class="stc-qty-wrap">'
+            + '<button class="stc-qty-btn stc-qty-minus" data-minus-idx="' + idx + '" title="Kurangi">-</button>'
+            + '<span class="stc-qty-val">' + qtyInCart + '</span>'
+            + '<button class="stc-qty-btn stc-qty-plus" data-plus-idx="' + idx + '" title="Tambah">+</button>'
+            + '</div>'
             + '</div></div></div>';
     }).join('');
 
-    list.querySelectorAll('.stc-add-btn').forEach(function (btn) {
+    list.querySelectorAll('.stc-qty-plus').forEach(function (btn) {
         btn.addEventListener('click', function (e) {
             e.stopPropagation();
-            var idx = parseInt(this.getAttribute('data-add-idx'), 10);
+            var idx = parseInt(this.getAttribute('data-plus-idx'), 10);
             if (!products[idx]) return;
-            addProductToShopCart(products[idx], 1);
-            showToast((products[idx].name || 'Produk') + ' ditambahkan ke keranjang', 'success');
+            var currentQty = _shopGetProductQty(products[idx].id);
+            _shopSetProductQty(products[idx], currentQty + 1);
+            renderStoreProducts(products);
+        });
+    });
+
+    list.querySelectorAll('.stc-qty-minus').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var idx = parseInt(this.getAttribute('data-minus-idx'), 10);
+            if (!products[idx]) return;
+            var currentQty = _shopGetProductQty(products[idx].id);
+            _shopSetProductQty(products[idx], currentQty - 1);
+            renderStoreProducts(products);
         });
     });
 
@@ -768,6 +785,37 @@ function _shopCartTotalQty() {
 
 function _shopCartSubtotal() {
     return _shopCart.reduce(function (sum, it) { return sum + ((Number(it.price) || 0) * (Number(it.qty) || 0)); }, 0);
+}
+
+function _shopGetProductQty(productId) {
+    var item = _shopCart.find(function (it) { return it.productId === productId; });
+    return item ? (Number(item.qty) || 0) : 0;
+}
+
+function _shopSetProductQty(product, qty) {
+    if (!product || !product.id) return;
+    var maxStock = Number(product.stock) || 0;
+    var safeQty = Math.max(0, Math.min(maxStock > 0 ? maxStock : 9999, Number(qty) || 0));
+    var idx = _shopCart.findIndex(function (it) { return it.productId === product.id; });
+
+    if (idx >= 0) {
+        if (safeQty === 0) {
+            _shopCart.splice(idx, 1);
+        } else {
+            _shopCart[idx].qty = safeQty;
+            _shopCart[idx].stock = maxStock;
+        }
+    } else if (safeQty > 0) {
+        _shopCart.push({
+            productId: product.id,
+            name: product.name || 'Produk',
+            price: Number(product.price) || 0,
+            qty: safeQty,
+            stock: maxStock
+        });
+    }
+
+    updateShopCartUI();
 }
 
 function updateShopCartUI() {
