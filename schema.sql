@@ -1,35 +1,45 @@
 -- ============================================================
--- JASA SURUH - Supabase Database Schema
--- Jalankan SQL ini di Supabase Dashboard → SQL Editor
+-- JASA SURUH - Supabase Schema (Updated for latest app flow)
 -- ============================================================
+-- Catatan:
+-- 1) Aplikasi ini menyimpan data utama pada kolom JSONB `data`.
+-- 2) Kolom relational dipakai untuk filter/index cepat (user_id, store_id, dll).
+-- 3) Flow produk terbaru memakai status `isAvailable` (tersedia/habis), bukan stok angka.
 
--- 1. Tabel Users (OTP Auth - no password)
--- Buat tabel dulu jika belum ada (schema baru)
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- ============================================================
+-- 1) USERS
+-- ============================================================
+-- Penting: gunakan TEXT id agar kompatibel dengan id non-UUID dari frontend.
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    role TEXT NOT NULL DEFAULT 'pengguna',
+    id TEXT PRIMARY KEY,
+    role TEXT NOT NULL DEFAULT 'user',
     nama TEXT NOT NULL DEFAULT '',
     no_hp TEXT,
     email TEXT,
     foto_url TEXT,
+    username TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
-    username TEXT UNIQUE,
     data JSONB NOT NULL DEFAULT '{}'
 );
 
--- Migrasi: tambah kolom baru jika tabel sudah ada dengan schema lama
-ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'pengguna';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS nama TEXT DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS no_hp TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS foto_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE users ADD COLUMN IF NOT EXISTS data JSONB DEFAULT '{}'::jsonb;
 
-CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_no_hp ON users(no_hp);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 
--- 1b. Tabel OTP Codes (verifikasi via WhatsApp)
+-- ============================================================
+-- 2) OTP CODES (WA OTP)
+-- ============================================================
 CREATE TABLE IF NOT EXISTS otp_codes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     phone TEXT NOT NULL,
@@ -39,30 +49,19 @@ CREATE TABLE IF NOT EXISTS otp_codes (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_otp_phone ON otp_codes(phone);
--- Auto-cleanup expired OTPs
-ALTER TABLE otp_codes ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "anon_otp" ON otp_codes;
-CREATE POLICY "anon_otp" ON otp_codes FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE INDEX IF NOT EXISTS idx_otp_phone_verified_created ON otp_codes(phone, verified, created_at DESC);
 
--- RLS Policy: users can read all but only update own row
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can view all profiles" ON users;
-CREATE POLICY "Users can view all profiles"
-    ON users FOR SELECT USING (true);
-DROP POLICY IF EXISTS "Users can update own profile" ON users;
-CREATE POLICY "Users can update own profile"
-    ON users FOR UPDATE USING (auth.uid()::text = id::text);
-DROP POLICY IF EXISTS "Users can insert own profile" ON users;
-CREATE POLICY "Users can insert own profile"
-    ON users FOR INSERT WITH CHECK (auth.uid()::text = id::text);
-
--- 2. Tabel Skills
+-- ============================================================
+-- 3) SKILLS
+-- ============================================================
 CREATE TABLE IF NOT EXISTS skills (
     user_id TEXT PRIMARY KEY,
     data JSONB NOT NULL DEFAULT '{}'
 );
 
--- 3. Tabel Orders
+-- ============================================================
+-- 4) ORDERS
+-- ============================================================
 CREATE TABLE IF NOT EXISTS orders (
     id TEXT PRIMARY KEY,
     user_id TEXT,
@@ -71,8 +70,12 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_talent_id ON orders(talent_id);
+CREATE INDEX IF NOT EXISTS idx_orders_seller_id_json ON orders((data->>'sellerId'));
+CREATE INDEX IF NOT EXISTS idx_orders_status_json ON orders((data->>'status'));
 
--- 4. Tabel Messages
+-- ============================================================
+-- 5) MESSAGES
+-- ============================================================
 CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
     order_id TEXT NOT NULL,
@@ -82,13 +85,17 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE INDEX IF NOT EXISTS idx_messages_order_id ON messages(order_id);
 CREATE INDEX IF NOT EXISTS idx_messages_order_created ON messages(order_id, created_at);
 
--- 5. Tabel Settings
+-- ============================================================
+-- 6) SETTINGS
+-- ============================================================
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY DEFAULT 'config',
     data JSONB NOT NULL DEFAULT '{}'
 );
 
--- 6. Tabel Stores
+-- ============================================================
+-- 7) STORES
+-- ============================================================
 CREATE TABLE IF NOT EXISTS stores (
     id TEXT PRIMARY KEY,
     user_id TEXT,
@@ -96,15 +103,44 @@ CREATE TABLE IF NOT EXISTS stores (
 );
 CREATE INDEX IF NOT EXISTS idx_stores_user_id ON stores(user_id);
 
--- 7. Tabel Products
+-- ============================================================
+-- 8) PRODUCTS
+-- ============================================================
 CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY,
     store_id TEXT,
     data JSONB NOT NULL DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS idx_products_store_id ON products(store_id);
+CREATE INDEX IF NOT EXISTS idx_products_active_json ON products((data->>'isActive'));
+CREATE INDEX IF NOT EXISTS idx_products_available_json ON products((data->>'isAvailable'));
 
--- 8. Tabel Locations (realtime tracking, pengganti Firebase RTDB)
+-- Migrasi flow lama -> baru:
+-- ubah `stock` menjadi `isAvailable`, lalu hapus key stock agar data lebih bersih.
+UPDATE products
+SET data = jsonb_set(
+    data,
+    '{isAvailable}',
+    to_jsonb(
+        CASE
+            WHEN data ? 'isAvailable' THEN (lower(coalesce(data->>'isAvailable', 'true')) IN ('true', '1', 'yes'))
+            WHEN data ? 'stock' THEN (
+                COALESCE(NULLIF(regexp_replace(coalesce(data->>'stock', '0'), '[^0-9-]', '', 'g'), ''), '0')::int > 0
+            )
+            ELSE true
+        END
+    ),
+    true
+)
+WHERE data IS NOT NULL;
+
+UPDATE products
+SET data = data - 'stock'
+WHERE data ? 'stock';
+
+-- ============================================================
+-- 9) LOCATIONS (realtime tracking)
+-- ============================================================
 CREATE TABLE IF NOT EXISTS locations (
     order_id TEXT PRIMARY KEY,
     lat DOUBLE PRECISION DEFAULT 0,
@@ -112,7 +148,9 @@ CREATE TABLE IF NOT EXISTS locations (
     updated_at BIGINT DEFAULT 0
 );
 
--- 9. Tabel Wallets (saldo per user)
+-- ============================================================
+-- 10) WALLETS
+-- ============================================================
 CREATE TABLE IF NOT EXISTS wallets (
     user_id TEXT PRIMARY KEY,
     balance BIGINT DEFAULT 0,
@@ -120,7 +158,9 @@ CREATE TABLE IF NOT EXISTS wallets (
     data JSONB NOT NULL DEFAULT '{}'
 );
 
--- 10. Tabel Transactions (riwayat transaksi wallet)
+-- ============================================================
+-- 11) TRANSACTIONS
+-- ============================================================
 CREATE TABLE IF NOT EXISTS transactions (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
@@ -132,7 +172,9 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(user_id, created_at);
 
--- 11. Tabel Notifications (notifikasi per user)
+-- ============================================================
+-- 12) NOTIFICATIONS
+-- ============================================================
 CREATE TABLE IF NOT EXISTS notifications (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
@@ -143,14 +185,44 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(user_id, created_at);
 
 -- ============================================================
--- Row Level Security (RLS) — Policies untuk akses publik (anon)
--- Sama seperti keamanan Firebase sebelumnya.
--- PENTING: Tambahkan RLS yang lebih ketat saat app production!
+-- 13) STAFF
 -- ============================================================
+CREATE TABLE IF NOT EXISTS staff (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nama TEXT NOT NULL,
+    no_hp TEXT UNIQUE NOT NULL,
+    email TEXT,
+    role TEXT NOT NULL CHECK (role IN ('admin', 'cs')),
+    foto_url TEXT,
+    ktp_url TEXT,
+    jenis_kelamin TEXT,
+    tanggal_lahir DATE,
+    alamat TEXT,
+    kota TEXT,
+    pendidikan TEXT,
+    pengalaman TEXT,
+    keahlian TEXT,
+    catatan TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_no_hp ON staff(no_hp);
+CREATE INDEX IF NOT EXISTS idx_staff_role ON staff(role);
 
+-- ============================================================
+-- RLS (current app uses anon-style open access like previous implementation)
+-- ============================================================
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon_all_users" ON users;
+DROP POLICY IF EXISTS "Users can view all profiles" ON users;
+DROP POLICY IF EXISTS "Users can update own profile" ON users;
+DROP POLICY IF EXISTS "Users can insert own profile" ON users;
 CREATE POLICY "anon_all_users" ON users FOR ALL TO anon USING (true) WITH CHECK (true);
+
+ALTER TABLE otp_codes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_otp" ON otp_codes;
+CREATE POLICY "anon_otp" ON otp_codes FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE skills ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon_all_skills" ON skills;
@@ -192,44 +264,13 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon_all_notifications" ON notifications;
 CREATE POLICY "anon_all_notifications" ON notifications FOR ALL TO anon USING (true) WITH CHECK (true);
 
--- ============================================================
--- 12. Tabel Staff (data karyawan profesional)
--- ============================================================
-CREATE TABLE IF NOT EXISTS staff (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    nama TEXT NOT NULL,
-    no_hp TEXT UNIQUE NOT NULL,
-    email TEXT,
-    role TEXT NOT NULL CHECK (role IN ('admin', 'cs')),
-    foto_url TEXT,
-    ktp_url TEXT,
-    jenis_kelamin TEXT,
-    tanggal_lahir DATE,
-    alamat TEXT,
-    kota TEXT,
-    pendidikan TEXT,
-    pengalaman TEXT,
-    keahlian TEXT,
-    catatan TEXT,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_no_hp ON staff(no_hp);
-CREATE INDEX IF NOT EXISTS idx_staff_role ON staff(role);
-
 ALTER TABLE staff ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon_all_staff" ON staff;
 CREATE POLICY "anon_all_staff" ON staff FOR ALL TO anon USING (true) WITH CHECK (true);
 
--- Supabase Storage: buat bucket staff-files via Dashboard
--- Struktur: /avatars/{staff_id}.jpg, /ktp/{staff_id}.jpg
-
 -- ============================================================
--- Aktifkan Supabase Realtime untuk tabel yang butuh listener
+-- Realtime publication
 -- ============================================================
-
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND tablename='orders') THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE orders;
@@ -248,7 +289,6 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- Set REPLICA IDENTITY agar realtime bisa kirim data lengkap
 ALTER TABLE orders REPLICA IDENTITY FULL;
 ALTER TABLE messages REPLICA IDENTITY FULL;
 ALTER TABLE locations REPLICA IDENTITY FULL;
