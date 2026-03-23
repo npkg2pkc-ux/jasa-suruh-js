@@ -1066,17 +1066,17 @@ function buildTrackingProgressSteps(order) {
 function animateTrackingProgressRow(rowEl, activeStepEl, shouldAnimate) {
     if (!rowEl || !activeStepEl) return;
 
-    var targetLeft = activeStepEl.offsetLeft - Math.max(0, (rowEl.clientWidth - activeStepEl.offsetWidth) / 2);
-    var maxLeft = Math.max(0, rowEl.scrollWidth - rowEl.clientWidth);
-    if (targetLeft < 0) targetLeft = 0;
-    if (targetLeft > maxLeft) targetLeft = maxLeft;
+    var targetTop = activeStepEl.offsetTop - Math.max(0, (rowEl.clientHeight - activeStepEl.offsetHeight) / 2);
+    var maxTop = Math.max(0, rowEl.scrollHeight - rowEl.clientHeight);
+    if (targetTop < 0) targetTop = 0;
+    if (targetTop > maxTop) targetTop = maxTop;
 
     if (shouldAnimate && typeof rowEl.scrollTo === 'function') {
         rowEl.classList.add('moving-next');
-        rowEl.scrollTo({ left: targetLeft, behavior: 'smooth' });
+        rowEl.scrollTo({ top: targetTop, behavior: 'smooth' });
         setTimeout(function () { rowEl.classList.remove('moving-next'); }, 420);
     } else {
-        rowEl.scrollLeft = targetLeft;
+        rowEl.scrollTop = targetTop;
     }
 }
 

@@ -504,7 +504,13 @@ function renderPenjualOrders(orders, session) {
 
 function updatePenjualStats(orders, session) {
     var today = new Date(); today.setHours(0, 0, 0, 0);
-    var todayOrders = orders.filter(function (o) { return o.createdAt >= today.getTime(); });
+    var todayOrders = orders.filter(function (o) {
+        var isSellerOrder = String(o.sellerId || '') === String(session.id || '');
+        var success = o.status === 'completed' || o.status === 'rated';
+        if (!isSellerOrder || !success) return false;
+        var ts = Number(o.completedAt || o.createdAt || 0);
+        return ts >= today.getTime();
+    });
     var earnings = orders.filter(function (o) { return o.status === 'completed' || o.status === 'rated'; })
         .reduce(function (sum, o) { return sum + (Number(o.price) || 0); }, 0);
     var statOrdersEl = document.getElementById('penjualStatOrders');

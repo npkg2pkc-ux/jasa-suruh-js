@@ -559,7 +559,12 @@ function updateTalentStats(orders, session) {
     var today = new Date();
     today.setHours(0, 0, 0, 0);
     var todayTs = today.getTime();
-    var todayOrders = myOrders.filter(function (o) { return o.createdAt >= todayTs; });
+    var todayOrders = myOrders.filter(function (o) {
+        var success = o.status === 'completed' || o.status === 'rated';
+        if (!success) return false;
+        var ts = Number(o.completedAt || o.createdAt || 0);
+        return ts >= todayTs;
+    });
 
     var earnings = myOrders.filter(function (o) { return o.status === 'completed' || o.status === 'rated'; })
         .reduce(function (sum, o) { return sum + (o.price || 0); }, 0);

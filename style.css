@@ -729,12 +729,12 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .otp-progress-wrap.hidden { display:none; }
 .otp-progress-card { background:#fff; border:1px solid #FFE2CB; border-radius:18px; padding:14px 12px 14px; box-shadow:0 12px 28px rgba(255,107,0,.11); }
 .otp-progress-title { font-size:13px; font-weight:800; color:#B45309; margin-bottom:11px; letter-spacing:.2px; }
-.otp-progress-row { display:flex; align-items:stretch; gap:5px; overflow-x:auto; overflow-y:hidden; padding:2px 2px 8px; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; scroll-behavior:smooth; }
-.otp-progress-row::-webkit-scrollbar { height:4px; }
+.otp-progress-row { display:flex; flex-direction:column; align-items:stretch; gap:4px; overflow-x:hidden; overflow-y:auto; max-height:42vh; padding:2px 2px 8px; -webkit-overflow-scrolling:touch; scroll-behavior:smooth; }
+.otp-progress-row::-webkit-scrollbar { width:4px; }
 .otp-progress-row::-webkit-scrollbar-thumb { background:#FED7AA; border-radius:999px; }
-.otp-progress-step { min-width:106px; max-width:114px; display:flex; flex-direction:column; align-items:flex-start; gap:6px; padding:8px 8px; border-radius:13px; background:#FFF9F4; border:1px solid #FDE7D6; position:relative; scroll-snap-align:start; flex-shrink:0; transition:transform .28s ease, box-shadow .28s ease, border-color .28s ease; }
+.otp-progress-step { width:100%; min-width:0; max-width:none; display:flex; flex-direction:row; align-items:center; gap:8px; padding:8px 8px; border-radius:13px; background:#FFF9F4; border:1px solid #FDE7D6; position:relative; flex-shrink:0; transition:transform .28s ease, box-shadow .28s ease, border-color .28s ease; }
 .otp-progress-dot { width:24px; height:24px; border-radius:50%; background:#FFE8D6; color:#D97706; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
-.otp-progress-line { width:14px; min-width:14px; align-self:center; background:linear-gradient(90deg,#F3F4F6,#E5E7EB); border-radius:999px; height:2px; margin-top:20px; flex-shrink:0; }
+.otp-progress-line { width:2px; min-width:2px; align-self:flex-start; background:linear-gradient(180deg,#F3F4F6,#E5E7EB); border-radius:999px; height:12px; margin-left:11px; flex-shrink:0; }
 .otp-progress-text { font-size:10px; line-height:1.28; color:#6B7280; font-weight:650; white-space:normal; }
 .otp-progress-step.done .otp-progress-dot { background:#D1FAE5; color:#059669; }
 .otp-progress-step.done { background:#F0FDF4; border-color:#BBF7D0; }
@@ -767,21 +767,21 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 }
 
 @keyframes otpRowShift {
-    0% { transform:translateX(0); }
-    45% { transform:translateX(-6px); }
-    100% { transform:translateX(0); }
+    0% { transform:translateY(0); }
+    45% { transform:translateY(4px); }
+    100% { transform:translateY(0); }
 }
 
 @keyframes otpStepArrive {
-    0% { transform:translateX(14px) scale(.96); }
-    70% { transform:translateX(-2px) scale(1.02); }
-    100% { transform:translateX(0) scale(1); }
+    0% { transform:translateY(8px) scale(.96); }
+    70% { transform:translateY(-1px) scale(1.02); }
+    100% { transform:translateY(0) scale(1); }
 }
 
 @keyframes otpStepPassed {
-    0% { transform:translateX(0); }
-    40% { transform:translateX(8px); }
-    100% { transform:translateX(0); }
+    0% { transform:translateY(0); }
+    40% { transform:translateY(3px); }
+    100% { transform:translateY(0); }
 }
 
 /* ── Leaflet Clean Override (Google Maps Style) ── */
