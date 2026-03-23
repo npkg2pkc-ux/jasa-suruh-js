@@ -527,6 +527,14 @@ function startPenjualDashboardPolling() {
                 checkNewPenjualOrders(res.data, s);
             }
         });
+
+        // Backup polling to avoid missed realtime events on some devices/networks.
+        _penjualDashPollTimer = setInterval(function () {
+            var s = getSession();
+            if (s && s.role === 'penjual') {
+                loadPenjualOrders();
+            }
+        }, 5000);
     } else {
         _penjualDashPollTimer = setInterval(function () {
             var s = getSession();

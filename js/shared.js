@@ -1074,34 +1074,39 @@ function renderOrderActions(order, isTalent, isUser) {
         }
         el.innerHTML = cancelHtml;
         document.getElementById('otpBtnCancel').addEventListener('click', function () {
-            if (!confirm('Yakin ingin membatalkan pesanan ini?')) return;
-            if (typeof cancelDriverSearch === 'function') cancelDriverSearch();
-            backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'cancelled', cancelledAt: Date.now(), cancelledBy: 'user' } }).then(function (res) {
-                if (res && res.success) {
-                    if (_currentOrder) _currentOrder.status = 'cancelled';
-                    updateOrderStatusBadge('cancelled');
-                    renderOrderActions(order, false, true);
-                    showToast('Pesanan dibatalkan', 'success');
-                    addNotifItem({ icon: '❌', title: 'Pesanan Dibatalkan', desc: (order.serviceType || 'Pesanan') + ' - dibatalkan oleh Anda', type: 'order', orderId: order.id });
-                    // Notify talent if assigned
-                    if (order.talentId) {
-                        addNotifItem({ userId: order.talentId, icon: '❌', title: 'Pesanan Dibatalkan', desc: 'User membatalkan pesanan ' + (order.serviceType || ''), type: 'order', orderId: order.id });
+            openModernConfirm({
+                title: 'Batalkan Pesanan?',
+                message: 'Pesanan akan dibatalkan sekarang. Lanjutkan pembatalan?'
+            }).then(function (ok) {
+                if (!ok) return;
+                if (typeof cancelDriverSearch === 'function') cancelDriverSearch();
+                backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'cancelled', cancelledAt: Date.now(), cancelledBy: 'user' } }).then(function (res) {
+                    if (res && res.success) {
+                        if (_currentOrder) _currentOrder.status = 'cancelled';
+                        updateOrderStatusBadge('cancelled');
+                        renderOrderActions(order, false, true);
+                        showToast('Pesanan dibatalkan', 'success');
+                        addNotifItem({ icon: '❌', title: 'Pesanan Dibatalkan', desc: (order.serviceType || 'Pesanan') + ' - dibatalkan oleh Anda', type: 'order', orderId: order.id });
+                        // Notify talent if assigned
+                        if (order.talentId) {
+                            addNotifItem({ userId: order.talentId, icon: '❌', title: 'Pesanan Dibatalkan', desc: 'User membatalkan pesanan ' + (order.serviceType || ''), type: 'order', orderId: order.id });
+                        }
+                        // Refund user if payment was already deducted (JsPay after accept)
+                        var paidAmount = Number(order.paidAmount) || 0;
+                        if (paidAmount > 0 && (order.paymentMethod || 'jspay') !== 'cod') {
+                            backendPost({
+                                action: 'walletCredit',
+                                userId: order.userId,
+                                amount: paidAmount,
+                                orderId: order.id,
+                                type: 'refund',
+                                description: 'Refund pembatalan ' + (order.serviceType || 'Pesanan')
+                            });
+                            addNotifItem({ userId: order.userId, icon: '💰', title: 'Refund Berhasil', desc: 'Saldo ' + formatRupiah(paidAmount) + ' dikembalikan karena pembatalan', type: 'refund', orderId: order.id });
+                            showToast('Saldo ' + formatRupiah(paidAmount) + ' dikembalikan', 'success');
+                        }
                     }
-                    // Refund user if payment was already deducted (JsPay after accept)
-                    var paidAmount = Number(order.paidAmount) || 0;
-                    if (paidAmount > 0 && (order.paymentMethod || 'jspay') !== 'cod') {
-                        backendPost({
-                            action: 'walletCredit',
-                            userId: order.userId,
-                            amount: paidAmount,
-                            orderId: order.id,
-                            type: 'refund',
-                            description: 'Refund pembatalan ' + (order.serviceType || 'Pesanan')
-                        });
-                        addNotifItem({ userId: order.userId, icon: '💰', title: 'Refund Berhasil', desc: 'Saldo ' + formatRupiah(paidAmount) + ' dikembalikan karena pembatalan', type: 'refund', orderId: order.id });
-                        showToast('Saldo ' + formatRupiah(paidAmount) + ' dikembalikan', 'success');
-                    }
-                }
+                });
             });
         });
         return;
