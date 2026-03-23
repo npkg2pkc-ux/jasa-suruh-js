@@ -8,6 +8,9 @@
     --orange-light: #FF8A33;
     --orange-dark: #E05E00;
     --orange-subtle: #FFF3E8;
+    --orange-soft: #FFE6D1;
+    --cream: #FFF8F2;
+    --cream-deep: #FFF1E4;
     --black: #111111;
     --gray-900: #1E1E1E;
     --gray-700: #3D3D3D;
@@ -26,10 +29,33 @@
     --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px; --r-full: 50px;
     --shadow: 0 2px 12px rgba(0,0,0,0.06);
     --shadow-md: 0 4px 20px rgba(0,0,0,0.1);
+    --shadow-orange: 0 10px 28px rgba(255,107,0,0.1);
     --tr: 0.3s cubic-bezier(0.4,0,0.2,1);
 }
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-body { font-family:var(--font); background:var(--white); color:var(--black); overflow-x:hidden; -webkit-font-smoothing:antialiased; }
+body { font-family:var(--font); background:linear-gradient(180deg,var(--cream) 0%, var(--cream-deep) 46%, #FFE9D5 100%); color:var(--black); overflow-x:hidden; -webkit-font-smoothing:antialiased; position:relative; }
+body::before,
+body::after {
+    content:'';
+    position:fixed;
+    pointer-events:none;
+    z-index:-1;
+    filter:blur(4px);
+}
+body::before {
+    width:380px;
+    height:380px;
+    top:-120px;
+    right:-120px;
+    background:radial-gradient(circle, rgba(255,107,0,.2) 0%, rgba(255,107,0,0) 68%);
+}
+body::after {
+    width:320px;
+    height:320px;
+    bottom:-140px;
+    left:-110px;
+    background:radial-gradient(circle, rgba(255,138,51,.18) 0%, rgba(255,138,51,0) 70%);
+}
 .hidden { display:none !important; }
 a { color:var(--orange); text-decoration:none; font-weight:600; }
 
@@ -46,11 +72,41 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 @keyframes loader-slide { 0%{left:-40px} 100%{left:40px} }
 
 /* ========== APP ========== */
-.app { min-height:100vh; max-width:480px; margin:0 auto; position:relative; background:var(--white); }
+.app {
+    min-height:100vh;
+    max-width:480px;
+    margin:0 auto;
+    position:relative;
+    background:linear-gradient(180deg,#FFFDF9 0%, #FFF4EA 100%);
+    box-shadow:0 0 0 1px rgba(255,107,0,.06);
+}
 .page { min-height:100vh; }
 
+.auth-form,
+.login-card,
+.services-grid,
+.pay-card,
+.news-card,
+.stat-card,
+.search-results-container,
+.modal-container,
+.wallet-modal,
+.notif-popup-panel,
+.order-notif-content,
+.js-confirm-card,
+.olp-order-card,
+.olp-card,
+.tdp-info,
+.tdp-section,
+.tdp-footer,
+.chat-header,
+.chat-input-bar {
+    border:1px solid rgba(255,107,0,.08);
+    box-shadow:var(--shadow-orange);
+}
+
 /* ========== AUTH PAGES ========== */
-.page-auth { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; background:var(--gray-100); }
+.page-auth { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; background:linear-gradient(180deg,#FFF7EE 0%, #FFF0E2 100%); }
 .auth-container { width:100%; max-width:400px; }
 .auth-header { text-align:center; margin-bottom:32px; }
 .auth-logo { width:70px; height:70px; border-radius:var(--r-lg); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; box-shadow:0 4px 16px rgba(255,107,0,.3); overflow:hidden; }
@@ -318,7 +374,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .service-item:active { transform:scale(.9); }
 .service-icon { width:52px; height:52px; border-radius:var(--r-md); display:flex; align-items:center; justify-content:center; font-size:26px; }
 .si-orange { background:var(--orange-subtle); }
-.si-dark { background:var(--gray-100); }
+.si-dark { background:#FFEBDD; }
 .service-name { font-size:11px; font-weight:600; color:var(--gray-600); text-align:center; line-height:1.3; }
 
 /* ========== PAY (User) ========== */
@@ -570,32 +626,32 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .search-result-card { display:flex; align-items:center; gap:14px; padding:14px; background:var(--gray-100); border-radius:var(--r-md); margin-bottom:10px; }
 
 /* ========== SERVICE TALENT PAGE (Shopee Food Style) ========== */
-.stp-page { position:fixed; inset:0; background:#FAFAFA; z-index:400; display:flex; flex-direction:column; animation:stpSlideIn .3s ease; overflow:hidden; }
+.stp-page { position:fixed; inset:0; background:linear-gradient(180deg,#FFF7EE 0%, #FFEEDC 100%); z-index:400; display:flex; flex-direction:column; animation:stpSlideIn .3s ease; overflow:hidden; }
 .stp-page.hidden { display:none; }
 #orderTrackingPage { z-index:500; }
 #ratingPage { z-index:550; }
 #chatPage { z-index:600; }
 @keyframes stpSlideIn { from{transform:translateX(100%)} to{transform:translateX(0)} }
-.stp-header { display:flex; align-items:center; gap:12px; padding:48px 16px 14px; background:var(--white); box-shadow:0 1px 3px rgba(0,0,0,.06); flex-shrink:0; }
+.stp-header { display:flex; align-items:center; gap:12px; padding:48px 16px 14px; background:linear-gradient(135deg,#FFF7EE,#FFEBD9); box-shadow:0 8px 18px rgba(255,107,0,.1); border-bottom:1px solid rgba(255,107,0,.12); flex-shrink:0; }
 .stp-back { background:none; border:none; color:var(--black); cursor:pointer; padding:4px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-md); transition:var(--tr); }
 .stp-back:active { background:var(--gray-100); }
 .stp-header-info h2 { font-size:18px; font-weight:800; color:var(--black); line-height:1.2; }
 .stp-subtitle { font-size:12px; color:var(--gray-600); }
-.stp-search { padding:12px 16px 0; background:var(--white); flex-shrink:0; }
-.stp-search-bar { display:flex; align-items:center; gap:10px; background:var(--gray-100); border-radius:var(--r-full); padding:10px 16px; }
+.stp-search { padding:12px 16px 0; background:linear-gradient(180deg,#FFEFDF 0%, #FFF7EE 100%); flex-shrink:0; }
+.stp-search-bar { display:flex; align-items:center; gap:10px; background:rgba(255,255,255,.92); border:1px solid rgba(255,107,0,.14); border-radius:var(--r-full); padding:10px 16px; box-shadow:0 6px 14px rgba(255,107,0,.08); }
 .stp-search-bar svg { color:var(--gray-400); flex-shrink:0; }
 .stp-search-bar input { border:none; background:none; outline:none; font-family:var(--font); font-size:14px; color:var(--black); flex:1; }
 .stp-search-bar input::placeholder { color:var(--gray-400); }
 .stp-sort-row { display:flex; gap:8px; margin-top:12px; padding-bottom:12px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
-.stp-sort-btn { background:var(--white); border:1.5px solid var(--gray-200); color:var(--gray-600); padding:6px 16px; border-radius:var(--r-full); font-size:12px; font-weight:600; font-family:var(--font); cursor:pointer; white-space:nowrap; transition:var(--tr); }
+.stp-sort-btn { background:rgba(255,255,255,.9); border:1.5px solid rgba(255,107,0,.18); color:var(--gray-600); padding:6px 16px; border-radius:var(--r-full); font-size:12px; font-weight:600; font-family:var(--font); cursor:pointer; white-space:nowrap; transition:var(--tr); }
 .stp-sort-btn.active { background:var(--orange); border-color:var(--orange); color:var(--white); }
 .stp-sort-btn:active { transform:scale(.96); }
-.stp-count { padding:8px 16px 4px; font-size:12px; color:var(--gray-600); font-weight:500; flex-shrink:0; background:var(--gray-50); }
+.stp-count { padding:8px 16px 4px; font-size:12px; color:var(--orange-dark); font-weight:600; flex-shrink:0; background:linear-gradient(180deg,#FFF8EF 0%, #FFF2E6 100%); }
 .stp-list { flex:1; overflow-y:auto; padding:8px 16px 100px; -webkit-overflow-scrolling:touch; }
 
 /* Talent Card - Shopee Food Style */
-.stc { display:flex; background:var(--white); border-radius:var(--r-lg); overflow:hidden; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.06); cursor:pointer; transition:var(--tr); }
-.stc:active { transform:scale(.985); box-shadow:0 2px 8px rgba(0,0,0,.1); }
+.stc { display:flex; background:var(--white); border-radius:var(--r-lg); overflow:hidden; margin-bottom:12px; border:1px solid rgba(255,107,0,.12); box-shadow:0 8px 20px rgba(255,107,0,.1); cursor:pointer; transition:var(--tr); }
+.stc:active { transform:scale(.985); box-shadow:0 10px 24px rgba(255,107,0,.16); }
 .stc-img { width:120px; min-height:120px; background:var(--gray-200); flex-shrink:0; position:relative; overflow:hidden; }
 .stc-img img { width:100%; height:100%; object-fit:cover; display:block; }
 .stc-img-placeholder { width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--orange-subtle),#FFE0CC); font-size:40px; }
