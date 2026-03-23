@@ -673,22 +673,32 @@ function openNotifPopup() {
     popup.classList.remove('hidden');
     renderNotifItems();
 
+    var markAllBtn = document.getElementById('notifMarkAllRead');
+    if (markAllBtn && !markAllBtn._eventsSetup) {
+        markAllBtn._eventsSetup = true;
+        markAllBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var session = getSession();
+            if (!session) return;
+
+            markAllBtn.disabled = true;
+            backendPost({ action: 'markAllNotifsRead', userId: session.id }).then(function () {
+                _notifItems.forEach(function (n) { n.unread = false; });
+                // Also reset unread chat counter so header badge fully clears.
+                clearChatBadge();
+                updateNotifBadges();
+                renderNotifItems();
+            }).finally(function () {
+                markAllBtn.disabled = false;
+            });
+        });
+    }
+
     if (!popup._eventsSetup) {
         popup._eventsSetup = true;
         document.getElementById('notifPopupClose').addEventListener('click', function () { popup.classList.add('hidden'); });
         document.getElementById('notifPopupOverlay').addEventListener('click', function () { popup.classList.add('hidden'); });
-        var markAllBtn = document.getElementById('notifMarkAllRead');
-        if (markAllBtn) {
-            markAllBtn.addEventListener('click', function () {
-                var session = getSession();
-                if (!session) return;
-                backendPost({ action: 'markAllNotifsRead', userId: session.id }).then(function () {
-                    _notifItems.forEach(function (n) { n.unread = false; });
-                    updateNotifBadges();
-                    renderNotifItems();
-                });
-            });
-        }
     }
 }
 window.openNotifPopup = openNotifPopup;
