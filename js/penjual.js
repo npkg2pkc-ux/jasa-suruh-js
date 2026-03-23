@@ -47,6 +47,21 @@ function populatePenjualStoreForm(store) {
     if (addrEl) addrEl.value = store.address || '';
     if (toggle) toggle.checked = store.isOpen;
     if (statusLbl) statusLbl.textContent = store.isOpen ? 'Toko Buka' : 'Toko Tutup';
+
+    // Populate store photo
+    var photoImg = document.getElementById('storePhotoImg');
+    var photoPreview = document.getElementById('storePhotoPreview');
+    var btnUpload = document.getElementById('storeBtnUpload');
+    if (store.photo && photoImg) {
+        photoImg.src = store.photo;
+        photoImg.dataset.newUpload = '';
+        if (photoPreview) photoPreview.style.display = 'block';
+        if (btnUpload) btnUpload.style.display = 'none';
+    } else {
+        if (photoImg) { photoImg.src = ''; photoImg.dataset.newUpload = ''; }
+        if (photoPreview) photoPreview.style.display = 'none';
+        if (btnUpload) btnUpload.style.display = '';
+    }
 }
 
 function handleStoreFormSubmit(e) {
@@ -58,44 +73,56 @@ function handleStoreFormSubmit(e) {
     var category = document.getElementById('storeFormCategory').value;
     var desc = (document.getElementById('storeFormDesc').value || '').trim();
     var addr = (document.getElementById('storeFormAddr').value || '').trim() || session.address || '';
+    var photoImg = document.getElementById('storePhotoImg');
+    var isNewPhoto = photoImg && photoImg.dataset.newUpload === '1';
+    var photoData = isNewPhoto ? photoImg.src : ((_penjualStore && _penjualStore.photo) || '');
 
     if (!name) { showToast('Nama toko wajib diisi!', 'error'); return; }
 
     var btn = e.target.querySelector('.btn-primary');
     if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
 
-    var storeData = {
-        name: name,
-        category: category,
-        description: desc,
-        address: addr,
-        lat: session.lat || 0,
-        lng: session.lng || 0
-    };
+    function doSaveStore(photo) {
+        var storeData = {
+            name: name,
+            category: category,
+            description: desc,
+            address: addr,
+            lat: session.lat || 0,
+            lng: session.lng || 0,
+            photo: photo
+        };
 
-    if (_penjualStore && _penjualStore.id) {
-        backendPost({ action: 'updateStore', storeId: _penjualStore.id, fields: storeData })
-            .then(function (res) {
-                if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan Toko'; }
-                if (res && res.success) {
-                    for (var k in storeData) _penjualStore[k] = storeData[k];
-                    showToast('Toko berhasil diperbarui!', 'success');
-                } else {
-                    showToast('Gagal memperbarui toko', 'error');
-                }
-            });
+        if (_penjualStore && _penjualStore.id) {
+            backendPost({ action: 'updateStore', storeId: _penjualStore.id, fields: storeData })
+                .then(function (res) {
+                    if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan Toko'; }
+                    if (res && res.success) {
+                        for (var k in storeData) _penjualStore[k] = storeData[k];
+                        showToast('Toko berhasil diperbarui!', 'success');
+                    } else {
+                        showToast('Gagal memperbarui toko', 'error');
+                    }
+                });
+        } else {
+            var newStore = Object.assign({ action: 'createStore', id: generateId(), userId: session.id, isOpen: true, createdAt: Date.now() }, storeData);
+            backendPost(newStore)
+                .then(function (res) {
+                    if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan Toko'; }
+                    if (res && res.success) {
+                        _penjualStore = res.data || newStore;
+                        showToast('Toko berhasil dibuat!', 'success');
+                    } else {
+                        showToast('Gagal membuat toko', 'error');
+                    }
+                });
+        }
+    }
+
+    if (isNewPhoto && photoData.startsWith('data:')) {
+        compressThumbnail(photoData, function (thumb) { doSaveStore(thumb); });
     } else {
-        var newStore = Object.assign({ action: 'createStore', id: generateId(), userId: session.id, isOpen: true, createdAt: Date.now() }, storeData);
-        backendPost(newStore)
-            .then(function (res) {
-                if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan Toko'; }
-                if (res && res.success) {
-                    _penjualStore = res.data || newStore;
-                    showToast('Toko berhasil dibuat!', 'success');
-                } else {
-                    showToast('Gagal membuat toko', 'error');
-                }
-            });
+        doSaveStore(photoData);
     }
 }
 
@@ -307,6 +334,40 @@ function setupProductPhotoUpload() {
     if (removePhoto) {
         removePhoto.addEventListener('click', function () {
             photoInput.value = '';
+            photoImg.src = '';
+            photoImg.dataset.newUpload = '';
+            photoPreview.style.display = 'none';
+            btnUpload.style.display = '';
+        });
+    }
+}
+
+function setupStorePhotoUpload() {
+    var photoInput = document.getElementById('storePhoto');
+    var btnUpload = document.getElementById('storeBtnUpload');
+    var photoPreview = document.getElementById('storePhotoPreview');
+    var photoImg = document.getElementById('storePhotoImg');
+    var removePhoto = document.getElementById('storeRemovePhoto');
+
+    if (btnUpload && photoInput) {
+        btnUpload.addEventListener('click', function () { photoInput.click(); });
+        photoInput.addEventListener('change', function () {
+            var file = this.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function () {
+                photoImg.src = reader.result;
+                photoImg.dataset.newUpload = '1';
+                photoPreview.style.display = 'block';
+                btnUpload.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+            this.value = '';
+        });
+    }
+    if (removePhoto) {
+        removePhoto.addEventListener('click', function () {
+            if (photoInput) photoInput.value = '';
             photoImg.src = '';
             photoImg.dataset.newUpload = '';
             photoPreview.style.display = 'none';

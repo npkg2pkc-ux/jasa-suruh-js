@@ -693,6 +693,7 @@ function handleLogout() {
     _penjualProducts = [];
     showToast('Berhasil keluar', 'success');
     showPage('login');
+    if (typeof LoginPage !== 'undefined' && LoginPage.reset) LoginPage.reset();
     var loginForm = document.getElementById('loginForm');
     if (loginForm) loginForm.reset();
 }

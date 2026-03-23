@@ -486,7 +486,7 @@ var RegisterPage = (function () {
 
             photoPromise.then(function (fotoUrl) {
                 var profileData = {
-                    role: state.role === 'user' ? 'pengguna' : state.role,
+                    role: state.role,
                     nama: state.nama,
                     no_hp: state.formattedPhone || AuthService.formatPhone(state.phone),
                     email: state.email || null,

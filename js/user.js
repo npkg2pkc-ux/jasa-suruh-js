@@ -643,8 +643,11 @@ function renderStoreCards(stores) {
         var icon = catIcons[s.category] || '🏪';
         var dist = (myLat && myLng && s.lat && s.lng) ? haversineDistance(myLat, myLng, s.lat, s.lng) : -1;
         var distText = dist >= 0 ? (dist < 1 ? (dist * 1000).toFixed(0) + ' m' : dist.toFixed(1) + ' km') : '';
+        var storeImgHtml = s.photo
+            ? '<img src="' + s.photo + '" alt="' + escapeHtml(s.name) + '" style="width:100%;height:100%;object-fit:cover;">'
+            : '<div class="stc-img-placeholder" style="font-size:36px">' + icon + '</div>';
         return '<div class="stc" data-idx="' + idx + '">'
-            + '<div class="stc-img"><div class="stc-img-placeholder" style="font-size:36px">' + icon + '</div>'
+            + '<div class="stc-img">' + storeImgHtml
             + (distText ? '<span class="stc-dist-badge">📍 ' + distText + '</span>' : '') + '</div>'
             + '<div class="stc-body">'
             + '<div class="stc-name">' + escapeHtml(s.name) + '</div>'

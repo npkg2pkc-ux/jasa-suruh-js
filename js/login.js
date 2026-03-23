@@ -360,6 +360,11 @@ var LoginPage = (function () {
             _getSb().from('users').update({ no_hp: normalizedPhone }).eq('id', dbUser.id).then(function () {});
         }
 
+        // Normalize role: 'pengguna' → 'user' for consistency
+        var ROLE_NORMALIZE = { pengguna: 'user', customer: 'user' };
+        var rawRole = dbUser.role || parsed.role || 'user';
+        var normalizedRole = ROLE_NORMALIZE[rawRole] || rawRole;
+
         var sessionData = {
             id: dbUser.id,
             name: dbUser.nama || parsed.name || '',
@@ -367,7 +372,7 @@ var LoginPage = (function () {
             no_hp: normalizedPhone,
             username: parsed.username || normalizedPhone,
             password: '',
-            role: dbUser.role || parsed.role || 'user',
+            role: normalizedRole,
             email: dbUser.email || parsed.email || '',
             foto_url: dbUser.foto_url || '',
             createdAt: parsed.createdAt || Date.now(),
