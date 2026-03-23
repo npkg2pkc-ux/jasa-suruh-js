@@ -853,6 +853,7 @@ function renderOrderActions(order, isTalent, isUser) {
     el.innerHTML = '';
     var isAntar = order.skillType === 'js_antar';
     var isProductOrder = order.skillType === 'js_food' || order.sellerId;
+    var session = getSession();
     var isSeller = session && session.id === order.sellerId;
 
     // ── USER: Cancel button on pending_seller / searching / pending ──
