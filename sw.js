@@ -1,4 +1,4 @@
-const CACHE_NAME = 'js-app-v14';
+const CACHE_NAME = 'js-app-v15';
 const ASSETS = [
     '/',
     '/index.html',
@@ -53,7 +53,14 @@ self.addEventListener('activate', (event) => {
 });
 
 // Fetch - Network first, fallback to cache
+// IMPORTANT: Only cache GET requests; POST/PATCH/etc are not cacheable by Cache API
 self.addEventListener('fetch', (event) => {
+    // Skip non-GET requests entirely (Supabase API calls use POST/PATCH)
+    if (event.request.method !== 'GET') return;
+
+    // Skip Supabase/external API calls — don't cache API responses
+    if (event.request.url.includes('supabase.co')) return;
+
     event.respondWith(
         fetch(event.request)
             .then((response) => {

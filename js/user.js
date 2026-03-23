@@ -751,77 +751,91 @@ function createProductOrder(product, store) {
     if (!store) { showToast('Data toko tidak ditemukan', 'error'); return; }
 
     var price = Number(product.price) || 0;
+    if (price <= 0) { showToast('Harga produk tidak valid', 'error'); return; }
 
     showToast('Memproses pesanan...', 'success');
 
     // Fetch settings for dynamic fee
-    FB.get('getSettings')
-        .then(function (r) { return r.json(); })
-        .then(function (sRes) {
-            var feePercent = 10, platformFee = 0, deliveryFee = 3000;
-            if (sRes.success && sRes.data) {
-                feePercent = Number(sRes.data.service_fee_percent) || 10;
-                platformFee = Number(sRes.data.platform_fee) || 0;
-                deliveryFee = Number(sRes.data.delivery_fee_per_km) || 3000;
-            }
-            var fee = Math.round(price * feePercent / 100) + platformFee;
-            var totalCost = price + deliveryFee + fee;
+    var settingsPromise;
+    try {
+        settingsPromise = FB.get('getSettings').then(function (r) { return r.json(); });
+    } catch (e) {
+        console.error('createProductOrder: getSettings error', e);
+        settingsPromise = Promise.resolve({ success: false });
+    }
 
-            if (getWalletBalance() < totalCost) {
-                showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Silakan top up dulu.', 'error');
-                openTopUpModal();
-                return;
-            }
+    settingsPromise.then(function (sRes) {
+        var feePercent = 10, platformFee = 0, deliveryFee = 3000;
+        if (sRes && sRes.success && sRes.data) {
+            feePercent = Number(sRes.data.service_fee_percent) || 10;
+            platformFee = Number(sRes.data.platform_fee) || 0;
+            deliveryFee = Number(sRes.data.delivery_fee_per_km) || 3000;
+        }
+        var fee = Math.round(price * feePercent / 100) + platformFee;
+        var totalCost = price + deliveryFee + fee;
 
-            var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+        var balance = (typeof getWalletBalance === 'function') ? getWalletBalance() : 0;
+        if (balance < totalCost) {
+            showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Silakan top up dulu.', 'error');
+            if (typeof openTopUpModal === 'function') openTopUpModal();
+            return;
+        }
 
-            var orderData = {
-                action: 'createOrder',
-                id: orderId,
-                userId: session.id,
-                talentId: '',
-                sellerId: store.userId,
-                storeId: store.id || '',
-                storeName: store.name || '',
-                storeAddr: store.address || '',
-                skillType: 'js_food',
-                serviceType: product.name,
-                description: 'Produk dari ' + store.name,
-                price: price,
-                deliveryFee: deliveryFee,
-                fee: fee,
-                totalCost: totalCost,
-                paymentMethod: 'jspay',
-                status: 'pending_seller',
-                userLat: session.lat || 0,
-                userLng: session.lng || 0,
-                userAddr: session.address || '',
-                talentLat: store.lat || 0,
-                talentLng: store.lng || 0
-            };
+        var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
 
-            // Create order — seller must accept and prepare first, then driver picks up.
-            // Balance is NOT deducted until driver accepts.
-            return backendPost(orderData).then(function (res) {
-                if (res && res.success) {
-                    var order = res.data || orderData;
-                    order.status = 'pending_seller';
-                    order.createdAt = Date.now();
-                    order.storeName = store.name;
-                    order.userName = session.name;
-                    showToast('Pesanan berhasil! Menunggu penjual menyiapkan...', 'success');
-                    // Notify seller
+        var orderData = {
+            action: 'createOrder',
+            id: orderId,
+            userId: session.id,
+            talentId: '',
+            sellerId: store.userId || '',
+            storeId: store.id || '',
+            storeName: store.name || '',
+            storeAddr: store.address || '',
+            skillType: store.category || 'js_food',
+            serviceType: product.name || '',
+            description: 'Produk dari ' + (store.name || 'Toko'),
+            price: price,
+            deliveryFee: deliveryFee,
+            fee: fee,
+            totalCost: totalCost,
+            paymentMethod: 'jspay',
+            status: 'pending_seller',
+            userLat: session.lat || 0,
+            userLng: session.lng || 0,
+            userAddr: session.address || '',
+            talentLat: store.lat || 0,
+            talentLng: store.lng || 0
+        };
+
+        console.log('createProductOrder: sending order', orderId, orderData);
+
+        return backendPost(orderData).then(function (res) {
+            console.log('createProductOrder: response', res);
+            if (res && res.success) {
+                var order = res.data || orderData;
+                order.status = 'pending_seller';
+                order.createdAt = Date.now();
+                order.storeName = store.name;
+                order.userName = session.name;
+                showToast('Pesanan berhasil! Menunggu penjual menyiapkan...', 'success');
+                // Notify seller (non-blocking)
+                try {
                     addNotifItem({ userId: store.userId, icon: '🛒', title: 'Pesanan Baru!', desc: product.name + ' - ' + formatRupiah(price), type: 'order', orderId: orderId });
-                    document.getElementById('storeDetailPage').classList.add('hidden');
-                    document.getElementById('storeListPage').classList.add('hidden');
-                    openOrderTracking(order);
-                } else {
-                    showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
-                }
-            });
-        }).catch(function () {
-            showToast('Gagal memproses pesanan', 'error');
+                } catch (ne) { console.warn('Notif error:', ne); }
+                document.getElementById('storeDetailPage').classList.add('hidden');
+                document.getElementById('storeListPage').classList.add('hidden');
+                openOrderTracking(order);
+            } else {
+                var errMsg = (res && res.message) || 'Server error';
+                console.error('createProductOrder: failed', errMsg, res);
+                showToast('Gagal membuat pesanan: ' + errMsg, 'error');
+            }
         });
+    }).catch(function (err) {
+        console.error('createProductOrder: exception', err);
+        showToast('Gagal memproses pesanan: ' + (err && err.message ? err.message : 'Error'), 'error');
+    });
 }
 
 // ══════════════════════════════════════════
