@@ -565,6 +565,12 @@ function openStoreListPage(category) {
     var searchInput = document.getElementById('slpSearchInput');
     if (searchInput) searchInput.value = '';
 
+    // Hide category filter buttons when a specific category is selected
+    var sortRow = page.querySelector('.stp-sort-row');
+    if (sortRow) {
+        sortRow.style.display = (_slpCurrentCat !== 'all') ? 'none' : '';
+    }
+
     page.querySelectorAll('.stp-sort-btn').forEach(function (b) {
         b.classList.toggle('active', b.dataset.cat === _slpCurrentCat || (_slpCurrentCat === 'all' && b.dataset.cat === 'all'));
     });
