@@ -1015,6 +1015,7 @@ function renderOrderInfo(order, isTalent) {
             + '<div class="otp-driver-info">'
             + '<div class="otp-driver-name">' + escapeHtml(name) + '</div>'
             + '<div class="otp-driver-vehicle">' + escapeHtml(subtitle) + '</div>'
+            + (opts.extraInfoHtml || '')
             + '</div>'
             + (chatBtnId ? '<button class="otp-driver-chat-btn" id="' + chatBtnId + '" title="Buka chat">💬</button>' : '')
             + '</div>';
@@ -1042,12 +1043,14 @@ function renderOrderInfo(order, isTalent) {
     if (!isTalent && other && order.talentId) {
         var vehicleLabel = isAntar ? '🏍️ Driver Antar Motor' : ('🔧 ' + (order.serviceType || 'Driver'));
         var canChatDriver = session && session.id !== order.talentId;
+        var ratingId = 'otpDriverRating-' + order.id;
         driverHtml = buildContactCard({
             user: other,
             subtitle: vehicleLabel,
             roleClass: 'otp-driver-role',
             chatBtnId: canChatDriver ? 'otpDriverChatBtn' : '',
-            preferSkillSelfie: true
+            preferSkillSelfie: true,
+            extraInfoHtml: '<div class="otp-driver-rating" id="' + ratingId + '">⭐ 0.0 (0)</div>'
         });
     }
 
@@ -1109,6 +1112,18 @@ function renderOrderInfo(order, isTalent) {
         buyerChatBtn.addEventListener('click', function () {
             openChat(order, order.userId);
         });
+    }
+
+    if (!isTalent && order.talentId && isBackendConnected()) {
+        FB.get('getTalentRating', { talentId: order.talentId })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                var ratingEl = document.getElementById('otpDriverRating-' + order.id);
+                if (!ratingEl) return;
+                var rating = (res && res.success && res.data) ? res.data : { avg: 0, count: 0 };
+                ratingEl.textContent = '⭐ ' + Number(rating.avg || 0).toFixed(1) + ' (' + Number(rating.count || 0) + ')';
+            })
+            .catch(function () {});
     }
 }
 
