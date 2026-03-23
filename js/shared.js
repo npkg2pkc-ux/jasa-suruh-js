@@ -441,6 +441,7 @@ var _globalMsgUnsub = null;
 var _lastKnownMsgCounts = {};
 var _chatPageOpen = false;
 var _msgPollTimer = null;
+var _msgListenerStartedAt = 0;
 
 function updateChatBadges() {
     // Update bottom nav chat badges
@@ -488,9 +489,15 @@ function startGlobalMessageListener() {
     if (_globalMsgUnsub) { _globalMsgUnsub(); _globalMsgUnsub = null; }
     if (_msgPollTimer) { clearInterval(_msgPollTimer); _msgPollTimer = null; }
 
+    // Reset baseline for current login/role session to avoid stale counts.
+    _unreadChatCount = 0;
+    _lastKnownMsgCounts = {};
+    _msgListenerStartedAt = Date.now();
+    updateChatBadges();
+
     // Do initial check then poll every 8 seconds
     _pollNewMessages(session);
-    _msgPollTimer = setInterval(function () { _pollNewMessages(session); }, 8000);
+    _msgPollTimer = setInterval(function () { _pollNewMessages(session); }, 4000);
 
     _globalMsgUnsub = function () {
         if (_msgPollTimer) { clearInterval(_msgPollTimer); _msgPollTimer = null; }
@@ -522,29 +529,38 @@ function _checkOrderMessages(order, session) {
             var msgs = res.data;
             var prevCount = _lastKnownMsgCounts[order.id] || 0;
             var currentCount = msgs.length;
+            var fromOthers = [];
 
             if (prevCount > 0 && currentCount > prevCount) {
                 // Find new messages not from self
                 var newMsgs = msgs.slice(prevCount);
-                var fromOthers = newMsgs.filter(function (m) {
+                fromOthers = newMsgs.filter(function (m) {
                     return String(m.senderId) !== String(session.id);
                 });
-                if (fromOthers.length > 0 && !_chatPageOpen) {
-                    _unreadChatCount += fromOthers.length;
-                    updateChatBadges();
-                    playMessageSound();
-                    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            } else if (prevCount === 0 && currentCount > 0) {
+                // Handle first poll race: count only messages created after listener started.
+                fromOthers = msgs.filter(function (m) {
+                    var fromOther = String(m.senderId) !== String(session.id);
+                    var createdAt = Number(m.createdAt) || 0;
+                    return fromOther && createdAt >= (_msgListenerStartedAt - 500);
+                });
+            }
 
-                    var lastMsg = fromOthers[fromOthers.length - 1];
-                    var senderName = lastMsg.senderName || 'Seseorang';
-                    addNotifItem({
-                        icon: '💬',
-                        title: 'Pesan dari ' + senderName,
-                        desc: lastMsg.text || '📷 Foto',
-                        type: 'chat',
-                        orderId: order.id
-                    });
-                }
+            if (fromOthers.length > 0 && !_chatPageOpen) {
+                _unreadChatCount += fromOthers.length;
+                updateChatBadges();
+                playMessageSound();
+                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
+                var lastMsg = fromOthers[fromOthers.length - 1];
+                var senderName = lastMsg.senderName || 'Seseorang';
+                addNotifItem({
+                    icon: '💬',
+                    title: 'Pesan dari ' + senderName,
+                    desc: lastMsg.text || '📷 Foto',
+                    type: 'chat',
+                    orderId: order.id
+                });
             }
             _lastKnownMsgCounts[order.id] = currentCount;
         })

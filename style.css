@@ -901,14 +901,14 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 
 /* ========== PENJUAL ROLE ========== */
 .role-penjual { background:#DCFCE7; color:#16A34A; }
-.header-penjual { background:linear-gradient(135deg,#16A34A,#22C55E); }
+.header-penjual { background:linear-gradient(135deg,var(--orange),var(--orange-light)); }
 .header-penjual .header-greeting { color:rgba(255,255,255,.85); }
 .header-penjual .header-name { color:var(--white); }
 .header-penjual .header-location { color:rgba(255,255,255,.75); }
 .header-penjual .header-avatar { background:rgba(255,255,255,.25); color:var(--white); }
 .header-penjual .header-notif { background:rgba(255,255,255,.2); }
 .header-penjual .header-notif svg { stroke:var(--white); }
-.header-penjual .talent-status-bar { background:rgba(0,0,0,.15); }
+.header-penjual .talent-status-bar { background:rgba(255,255,255,.16); }
 
 /* Store toggle switch */
 .store-toggle-wrap { display:flex; align-items:center; justify-content:space-between; padding:12px 0; }
