@@ -847,7 +847,7 @@ function openOrderTracking(order) {
     updateOrderStatusBadge(order.status);
     renderOrderInfo(order, isTalent);
     renderOrderActions(order, isTalent, isUser);
-    initTrackingMap(order);
+    updateTrackingVisualState(order);
 
     page.classList.remove('hidden');
 
@@ -871,6 +871,84 @@ function openOrderTracking(order) {
     }
 
     startOrderPolling(order.id);
+}
+
+function shouldShowTrackingMap(order) {
+    if (!order) return false;
+    return ['on_the_way', 'arrived', 'in_progress', 'completed', 'rated'].indexOf(order.status) >= 0;
+}
+
+function buildTrackingProgressSteps(order) {
+    var isProductOrder = !!(order && (order.skillType === 'js_food' || order.sellerId));
+    var isAntar = !!(order && order.skillType === 'js_antar');
+    if (isProductOrder) {
+        return [
+            { key: 'pending_seller', icon: '🧾', text: 'Pesanan diterima penjual' },
+            { key: 'preparing', icon: '👨‍🍳', text: 'Penjual menyiapkan pesanan' },
+            { key: 'searching', icon: '🔎', text: 'Mencari driver terdekat' },
+            { key: 'pending', icon: '📲', text: 'Menunggu driver menerima order' },
+            { key: 'accepted', icon: '✅', text: 'Driver menerima pesanan' },
+            { key: 'on_the_way', icon: '🏍️', text: 'Driver menuju lokasi tujuan' }
+        ];
+    }
+    return [
+        { key: 'searching', icon: '🔎', text: isAntar ? 'Mencari driver terdekat' : 'Mencari talent terdekat' },
+        { key: 'pending', icon: '📲', text: 'Menunggu konfirmasi' },
+        { key: 'accepted', icon: '✅', text: isAntar ? 'Driver menerima pesanan' : 'Talent menerima pesanan' },
+        { key: 'on_the_way', icon: '🏍️', text: isAntar ? 'Driver menuju lokasi Anda' : 'Talent menuju lokasi Anda' }
+    ];
+}
+
+function renderTrackingProgress(order) {
+    var wrap = document.getElementById('otpProgressWrap');
+    var track = document.getElementById('otpProgressTrack');
+    if (!wrap || !track || !order) return;
+
+    var steps = buildTrackingProgressSteps(order);
+    var activeIdx = 0;
+    for (var i = 0; i < steps.length; i++) {
+        if (steps[i].key === order.status) { activeIdx = i; break; }
+    }
+
+    var html = '<div class="otp-progress-title">Progress Pesanan</div>';
+    for (var si = 0; si < steps.length; si++) {
+        var step = steps[si];
+        var cls = '';
+        if (si < activeIdx) cls = 'done';
+        else if (si === activeIdx) cls = 'active';
+        html += '<div class="otp-progress-step ' + cls + '">'
+            + '<div class="otp-progress-dot">' + step.icon + '</div>'
+            + '<div class="otp-progress-text">' + escapeHtml(step.text) + '</div>'
+            + '</div>'
+            + (si < steps.length - 1 ? '<div class="otp-progress-line"></div>' : '');
+    }
+    track.innerHTML = html;
+}
+
+function destroyTrackingMap() {
+    if (_otpMap) { _otpMap.remove(); _otpMap = null; }
+    _otpTalentMarker = null;
+    _otpUserMarker = null;
+    _otpRouteLine = null;
+}
+
+function updateTrackingVisualState(order) {
+    var mapEl = document.getElementById('otpMapContainer');
+    var progressWrap = document.getElementById('otpProgressWrap');
+    if (!mapEl || !progressWrap || !order) return;
+
+    var showMap = shouldShowTrackingMap(order);
+    if (showMap) {
+        progressWrap.classList.add('hidden');
+        mapEl.classList.remove('hidden');
+        if (!_otpMap) initTrackingMap(order);
+        else setTimeout(function () { if (_otpMap) _otpMap.invalidateSize(); }, 120);
+    } else {
+        mapEl.classList.add('hidden');
+        renderTrackingProgress(order);
+        progressWrap.classList.remove('hidden');
+        destroyTrackingMap();
+    }
 }
 
 function closeTrackingToHome() {
@@ -1055,7 +1133,7 @@ function renderOrderInfo(order, isTalent) {
     }
 
     var sellerHtml = '';
-    if (isProductOrder && isUser && seller) {
+    if (isProductOrder && (isUser || isTalent) && seller) {
         sellerHtml = buildContactCard({
             user: seller,
             subtitle: '🏪 Penjual / Toko',
@@ -1065,7 +1143,7 @@ function renderOrderInfo(order, isTalent) {
     }
 
     var buyerHtml = '';
-    if (isProductOrder && isSeller && buyer) {
+    if (isProductOrder && (isSeller || isTalent) && buyer) {
         buyerHtml = buildContactCard({
             user: buyer,
             subtitle: '🛒 Pembeli',
@@ -1414,6 +1492,7 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                 var session = getSession();
                 renderOrderActions(_currentOrder, session && session.id === _currentOrder.talentId, session && session.id === _currentOrder.userId);
                 renderOrderInfo(_currentOrder, session && session.id === _currentOrder.talentId);
+                updateTrackingVisualState(_currentOrder);
             }
             showToast('Status diperbarui!', 'success');
 
@@ -1610,6 +1689,7 @@ function startOrderPolling(orderId) {
                 var isUser = session && session.id === _currentOrder.userId;
                 renderOrderActions(_currentOrder, isTalent, isUser);
                 renderOrderInfo(_currentOrder, isTalent);
+                updateTrackingVisualState(_currentOrder);
 
                 if (order.status === 'completed' || order.status === 'rated') {
                     setTimeout(function () {
@@ -1663,6 +1743,7 @@ function pollOrderUpdate(orderId) {
                         var session = getSession();
                         renderOrderActions(_currentOrder, session && session.id === _currentOrder.talentId, session && session.id === _currentOrder.userId);
                         renderOrderInfo(_currentOrder, session && session.id === _currentOrder.talentId);
+                        updateTrackingVisualState(_currentOrder);
 
                         if (order.status === 'completed' || order.status === 'rated') {
                             setTimeout(function () {
