@@ -46,7 +46,7 @@ function populatePenjualStoreForm(store) {
     if (descEl) descEl.value = store.description || '';
     if (addrEl) addrEl.value = store.address || '';
     if (toggle) toggle.checked = store.isOpen;
-    if (statusLbl) statusLbl.textContent = store.isOpen ? 'Toko Buka' : 'Toko Tutup';
+    if (statusLbl) statusLbl.textContent = store.isOpen ? 'Online' : 'Offline';
 
     // Populate store photo
     var photoImg = document.getElementById('storePhotoImg');
@@ -148,7 +148,7 @@ function handlePenjualStoreToggle() {
             return;
         }
     }
-    if (statusLbl) statusLbl.textContent = isOpen ? 'Toko Buka' : 'Toko Tutup';
+    if (statusLbl) statusLbl.textContent = isOpen ? 'Online' : 'Offline';
     _penjualStore.isOpen = isOpen;
     backendPost({ action: 'updateStore', storeId: _penjualStore.id, fields: { isOpen: isOpen } })
         .then(function () {

@@ -908,7 +908,20 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .header-penjual .header-avatar { background:rgba(255,255,255,.25); color:var(--white); }
 .header-penjual .header-notif { background:rgba(255,255,255,.2); }
 .header-penjual .header-notif svg { stroke:var(--white); }
-.header-penjual .talent-status-bar { background:rgba(255,255,255,.16); }
+.header-penjual .talent-status-bar {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:rgba(255,255,255,.16);
+    padding:12px 16px;
+    border-radius:16px;
+    backdrop-filter:blur(4px);
+}
+.header-penjual .status-label {
+    font-size:15px;
+    font-weight:700;
+    color:rgba(255,255,255,.95);
+}
 
 /* Store toggle switch */
 .store-toggle-wrap { display:flex; align-items:center; justify-content:space-between; padding:12px 0; }
