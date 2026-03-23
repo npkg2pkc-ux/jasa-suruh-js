@@ -378,6 +378,8 @@
                 var merged = Object.assign({}, current, {
                     rating: body.rating,
                     review: body.review || '',
+                    sellerRating: (body.sellerRating !== undefined && body.sellerRating !== null) ? body.sellerRating : current.sellerRating,
+                    sellerReview: (body.sellerReview !== undefined && body.sellerReview !== null) ? body.sellerReview : (current.sellerReview || ''),
                     status: 'rated'
                 });
                 return sb.from('orders').update({
@@ -927,19 +929,34 @@
             return ok([]);
         }
 
-        // Get all users + skills
+        // Get all users + skills + active orders (to prevent assigning busy drivers)
         return Promise.all([
-            sb.from('users').select('data'),
-            sb.from('skills').select('user_id, data')
+            sb.from('users').select('id, role, nama, data'),
+            sb.from('skills').select('user_id, data'),
+            sb.from('orders').select('talent_id, data')
         ]).then(function (results) {
             var usersRes = results[0];
             var skillsRes = results[1];
+            var ordersRes = results[2];
             throwIfError(usersRes);
             throwIfError(skillsRes);
+            throwIfError(ordersRes);
 
             var skillMap = {};
             (skillsRes.data || []).forEach(function (row) {
                 skillMap[row.user_id] = (row.data && row.data.skills) || [];
+            });
+
+            var activeStatuses = { pending: true, accepted: true, on_the_way: true, arrived: true, in_progress: true };
+            var busyTalentMap = {};
+            (ordersRes.data || []).forEach(function (row) {
+                var d = row.data || {};
+                if (typeof d === 'string') {
+                    try { d = JSON.parse(d); } catch (e) { d = {}; }
+                }
+                var tId = row.talent_id || d.talentId || '';
+                var st = d.status || '';
+                if (tId && activeStatuses[st]) busyTalentMap[tId] = true;
             });
 
             var talents = [];
@@ -963,6 +980,7 @@
                 if (!u || u.role !== 'talent') return;
                 if (u.id === excludeUserId) return;
                 if (excludeTalentIds.indexOf(u.id) >= 0) return;
+                if (busyTalentMap[u.id]) return;
                 // Check online status — consider talent online if isOnline is true
                 // or if isOnline is not explicitly set to false (for backward compatibility)
                 if (u.isOnline === false) return;

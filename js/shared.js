@@ -699,8 +699,31 @@ function renderNotifItems() {
                 updateNotifBadges();
             }
             document.getElementById('notifPopup').classList.add('hidden');
+            if (item && item.orderId) {
+                openOrderFromNotification(item.orderId);
+            }
         });
     });
+}
+
+function openOrderFromNotification(orderId) {
+    var session = getSession();
+    if (!session || !orderId) return;
+    FB.get('getOrdersByUser', { userId: session.id })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (!res || !res.success || !res.data) {
+                showToast('Gagal membuka pesanan', 'error');
+                return;
+            }
+            var target = res.data.find(function (o) { return String(o.id) === String(orderId); });
+            if (!target) {
+                showToast('Pesanan tidak ditemukan atau sudah tidak aktif', 'error');
+                return;
+            }
+            openOrderTracking(target);
+        })
+        .catch(function () { showToast('Gagal membuka detail pesanan', 'error'); });
 }
 
 function _timeAgo(ts) {
@@ -957,31 +980,51 @@ function renderOrderActions(order, isTalent, isUser) {
                 btn.textContent = '⏳ Memproses...';
                 var totalCost = Number(order.totalCost) || ((Number(order.price) || 0) + (Number(order.fee) || 0));
                 var pm = order.paymentMethod || 'jspay';
+                var sessionNow = getSession();
 
-                if (pm === 'cod') {
-                    // COD: No wallet deduction from user. Accept directly.
-                    updateOrderStatus(order.id, 'accepted', { acceptedAt: Date.now(), paidAmount: 0 });
-                    addNotifItem({ userId: order.userId, icon: '✅', title: 'Driver Ditemukan!', desc: 'Pembayaran COD - siapkan uang tunai ' + formatRupiah(totalCost), type: 'order', orderId: order.id });
-                } else {
-                    // JSpay: Deduct user wallet NOW (on accept)
-                    backendPost({
-                        action: 'walletPay',
-                        userId: order.userId,
-                        amount: totalCost,
-                        orderId: order.id,
-                        description: 'Pembayaran ' + (order.serviceType || 'Pesanan')
-                    }).then(function (payRes) {
-                        if (!payRes || !payRes.success) {
-                            btn.disabled = false;
-                            btn.textContent = '✅ Terima Pesanan';
-                            showToast('Saldo user tidak cukup!', 'error');
-                            addNotifItem({ userId: order.userId, icon: '⚠️', title: 'Saldo Tidak Cukup', desc: 'Saldo Anda tidak cukup untuk pesanan ' + (order.serviceType || '') + '. Top up ' + formatRupiah(totalCost), type: 'order', orderId: order.id });
-                            return;
-                        }
-                        updateOrderStatus(order.id, 'accepted', { acceptedAt: Date.now(), paidAmount: totalCost });
-                        addNotifItem({ userId: order.userId, icon: '💳', title: 'Saldo Dipotong', desc: formatRupiah(totalCost) + ' untuk pesanan ' + (order.serviceType || ''), type: 'payment', orderId: order.id });
-                    });
+                function resetBtn() {
+                    btn.disabled = false;
+                    btn.textContent = '✅ Terima Pesanan';
                 }
+
+                ensureDriverSingleOrder(sessionNow ? sessionNow.id : '', order.id).then(function (hasActive) {
+                    if (hasActive) {
+                        resetBtn();
+                        showToast('Anda masih punya pesanan aktif. Selesaikan dulu sebelum menerima pesanan baru.', 'error');
+                        var excluded = order.excludedTalents || [];
+                        var sid = sessionNow ? sessionNow.id : '';
+                        if (sid && excluded.indexOf(sid) < 0) excluded.push(sid);
+                        backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'searching', talentId: '', excludedTalents: excluded } });
+                        return;
+                    }
+
+                    if (pm === 'cod') {
+                        // COD: No wallet deduction from user. Accept directly.
+                        updateOrderStatus(order.id, 'accepted', { acceptedAt: Date.now(), paidAmount: 0 });
+                        addNotifItem({ userId: order.userId, icon: '✅', title: 'Driver Ditemukan!', desc: 'Pembayaran COD - siapkan uang tunai ' + formatRupiah(totalCost), type: 'order', orderId: order.id });
+                    } else {
+                        // JSpay: Deduct user wallet NOW (on accept)
+                        backendPost({
+                            action: 'walletPay',
+                            userId: order.userId,
+                            amount: totalCost,
+                            orderId: order.id,
+                            description: 'Pembayaran ' + (order.serviceType || 'Pesanan')
+                        }).then(function (payRes) {
+                            if (!payRes || !payRes.success) {
+                                resetBtn();
+                                showToast('Saldo user tidak cukup!', 'error');
+                                addNotifItem({ userId: order.userId, icon: '⚠️', title: 'Saldo Tidak Cukup', desc: 'Saldo Anda tidak cukup untuk pesanan ' + (order.serviceType || '') + '. Top up ' + formatRupiah(totalCost), type: 'order', orderId: order.id });
+                                return;
+                            }
+                            updateOrderStatus(order.id, 'accepted', { acceptedAt: Date.now(), paidAmount: totalCost });
+                            addNotifItem({ userId: order.userId, icon: '💳', title: 'Saldo Dipotong', desc: formatRupiah(totalCost) + ' untuk pesanan ' + (order.serviceType || ''), type: 'payment', orderId: order.id });
+                        });
+                    }
+                }).catch(function () {
+                    resetBtn();
+                    showToast('Gagal memvalidasi status driver. Coba lagi.', 'error');
+                });
             });
             document.getElementById('otpBtnReject').addEventListener('click', function () {
                 if (!confirm('Tolak pesanan ini?')) return;
@@ -1063,6 +1106,22 @@ function renderOrderActions(order, isTalent, isUser) {
     if (order.status === 'cancelled') {
         el.innerHTML = '<div class="otp-status-msg cancelled">❌ Pesanan ini telah dibatalkan</div>';
     }
+}
+
+function ensureDriverSingleOrder(driverId, currentOrderId) {
+    if (!driverId) return Promise.resolve(false);
+    return FB.get('getOrdersByUser', { userId: driverId })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (!res || !res.success || !res.data) return false;
+            var active = res.data.filter(function (o) {
+                if (String(o.id) === String(currentOrderId)) return false;
+                if (String(o.talentId) !== String(driverId)) return false;
+                return ['pending', 'accepted', 'on_the_way', 'arrived', 'in_progress'].indexOf(o.status) >= 0;
+            });
+            return active.length > 0;
+        })
+        .catch(function () { return false; });
 }
 
 function updateOrderStatus(orderId, newStatus, extraFields) {
@@ -1520,11 +1579,28 @@ function submitRating() {
     if (!_ratingOrder || _ratingValue < 1) { showToast('Pilih rating terlebih dahulu', 'error'); return; }
     var review = (document.getElementById('ratingReview').value || '').trim();
 
+    var sellerRating = null;
+    var sellerReview = '';
+    var isProductOrder = !!_ratingOrder.sellerId;
+    if (isProductOrder) {
+        var sr = prompt('Beri rating untuk Penjual (1-5):', '5');
+        if (sr === null) return;
+        sellerRating = Number(sr);
+        if (!sellerRating || sellerRating < 1 || sellerRating > 5) {
+            showToast('Rating penjual harus antara 1 sampai 5', 'error');
+            return;
+        }
+        var srev = prompt('Ulasan untuk Penjual (opsional):', '');
+        sellerReview = srev === null ? '' : String(srev).trim();
+    }
+
     backendPost({
         action: 'rateOrder',
         orderId: _ratingOrder.id,
         rating: _ratingValue,
-        review: review
+        review: review,
+        sellerRating: sellerRating,
+        sellerReview: sellerReview
     }).then(function (res) {
         if (res && res.success) {
             showToast('Rating berhasil dikirim! Terima kasih 🎉', 'success');
@@ -1534,9 +1610,22 @@ function submitRating() {
                 _currentOrder.status = 'rated';
                 _currentOrder.rating = _ratingValue;
                 _currentOrder.review = review;
+                if (sellerRating) _currentOrder.sellerRating = sellerRating;
+                if (sellerReview) _currentOrder.sellerReview = sellerReview;
                 var session = getSession();
                 updateOrderStatusBadge('rated');
                 renderOrderActions(_currentOrder, session && session.id === _currentOrder.talentId, session && session.id === _currentOrder.userId);
+            }
+
+            if (_ratingOrder.sellerId && sellerRating) {
+                addNotifItem({
+                    userId: _ratingOrder.sellerId,
+                    icon: '⭐',
+                    title: 'Rating Penjual Baru',
+                    desc: 'Anda mendapat rating ' + sellerRating + '/5 dari pembeli',
+                    type: 'order',
+                    orderId: _ratingOrder.id
+                });
             }
             var olp = document.getElementById('ordersListPage');
             if (olp && !olp.classList.contains('hidden')) openOrdersList();

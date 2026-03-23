@@ -672,6 +672,8 @@ function openStoreDetail(store) {
     _slpCurrentStore = store;
     _sdpProducts = [];
     _sdpSelectedProduct = null;
+    _shopCart = [];
+    _shopSelectedPayment = 'jspay';
     var page = document.getElementById('storeDetailPage');
     if (!page) return;
     var titleEl = document.getElementById('sdpTitle');
@@ -679,7 +681,7 @@ function openStoreDetail(store) {
     var footerEl = document.getElementById('sdpFooter');
     if (titleEl) titleEl.textContent = store.name;
     if (subtitleEl) subtitleEl.textContent = (store.address || '').split(',')[0];
-    if (footerEl) footerEl.style.display = 'none';
+    if (footerEl) footerEl.style.display = '';
 
     var productList = document.getElementById('sdpProductList');
     if (productList) productList.innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">⏳</div><p>Memuat produk...</p></div>';
@@ -701,9 +703,11 @@ function openStoreDetail(store) {
         page._eventsSetup = true;
         document.getElementById('sdpBtnBack').addEventListener('click', function () { page.classList.add('hidden'); });
         document.getElementById('sdpBtnOrder').addEventListener('click', function () {
-            if (_sdpSelectedProduct) createProductOrder(_sdpSelectedProduct, _slpCurrentStore);
+            openShopCheckoutModal();
         });
     }
+
+    updateShopCartUI();
 }
 
 function renderStoreProducts(products) {
@@ -736,104 +740,322 @@ function renderStoreProducts(products) {
         card.addEventListener('click', function () {
             var idx = parseInt(this.dataset.idx, 10);
             if (!products[idx]) return;
-            _sdpSelectedProduct = products[idx];
-            list.querySelectorAll('.stc').forEach(function (c) { c.style.border = ''; });
-            this.style.border = '2px solid #FF6B00';
-            if (footerEl) footerEl.style.display = '';
+            openShopProductModal(products[idx]);
         });
+    });
+
+    if (footerEl) footerEl.style.display = '';
+    updateShopCartUI();
+}
+
+var _shopCart = [];
+var _shopSelectedPayment = 'jspay';
+
+function _shopCartTotalQty() {
+    return _shopCart.reduce(function (sum, it) { return sum + (Number(it.qty) || 0); }, 0);
+}
+
+function _shopCartSubtotal() {
+    return _shopCart.reduce(function (sum, it) { return sum + ((Number(it.price) || 0) * (Number(it.qty) || 0)); }, 0);
+}
+
+function updateShopCartUI() {
+    var btn = document.getElementById('sdpBtnOrder');
+    var qty = _shopCartTotalQty();
+    if (!btn) return;
+    if (qty > 0) {
+        btn.textContent = '🛒 Keranjang (' + qty + ')';
+    } else {
+        btn.textContent = '🛒 Keranjang';
+    }
+}
+
+function addProductToShopCart(product, qty) {
+    var q = Number(qty) || 1;
+    if (!product || q < 1) return;
+    var existing = _shopCart.find(function (it) { return it.productId === product.id; });
+    if (existing) {
+        existing.qty = Math.min(Number(product.stock) || 9999, existing.qty + q);
+    } else {
+        _shopCart.push({
+            productId: product.id,
+            name: product.name || 'Produk',
+            price: Number(product.price) || 0,
+            qty: Math.min(Number(product.stock) || 9999, q),
+            stock: Number(product.stock) || 0
+        });
+    }
+    updateShopCartUI();
+}
+
+function openShopProductModal(product) {
+    var modal = document.getElementById('shopProductModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'shopProductModal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;z-index:12000;';
+        modal.innerHTML = '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,420px);background:#fff;border-radius:16px;padding:16px;">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+            + '<h3 id="shopProductModalTitle" style="margin:0;font-size:18px;"></h3>'
+            + '<button id="shopProductModalClose" style="border:none;background:transparent;font-size:24px;line-height:1;">&times;</button>'
+            + '</div>'
+            + '<p id="shopProductModalDesc" style="margin:0 0 12px;color:#555;"></p>'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+            + '<strong id="shopProductModalPrice"></strong><span id="shopProductModalStock" style="color:#666;"></span>'
+            + '</div>'
+            + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">'
+            + '<button id="shopQtyMinus" style="width:34px;height:34px;border:1px solid #ddd;border-radius:8px;background:#fff;">-</button>'
+            + '<input id="shopQtyInput" type="number" min="1" value="1" style="width:70px;text-align:center;border:1px solid #ddd;border-radius:8px;height:34px;">'
+            + '<button id="shopQtyPlus" style="width:34px;height:34px;border:1px solid #ddd;border-radius:8px;background:#fff;">+</button>'
+            + '<button id="shopAddCartBtn" style="margin-left:auto;border:none;background:#FF6B00;color:#fff;padding:10px 14px;border-radius:10px;">+ Keranjang</button>'
+            + '</div>'
+            + '</div>';
+        document.body.appendChild(modal);
+        document.getElementById('shopProductModalClose').addEventListener('click', function () { modal.style.display = 'none'; });
+        modal.addEventListener('click', function (e) { if (e.target === modal) modal.style.display = 'none'; });
+    }
+
+    document.getElementById('shopProductModalTitle').textContent = product.name || 'Produk';
+    document.getElementById('shopProductModalDesc').textContent = product.description || 'Tanpa deskripsi';
+    document.getElementById('shopProductModalPrice').textContent = formatRupiah(Number(product.price) || 0);
+    document.getElementById('shopProductModalStock').textContent = 'Stok: ' + (Number(product.stock) || 0);
+    var qtyInput = document.getElementById('shopQtyInput');
+    qtyInput.value = '1';
+    qtyInput.max = String(Math.max(1, Number(product.stock) || 1));
+
+    document.getElementById('shopQtyMinus').onclick = function () {
+        var v = Math.max(1, (Number(qtyInput.value) || 1) - 1);
+        qtyInput.value = String(v);
+    };
+    document.getElementById('shopQtyPlus').onclick = function () {
+        var max = Math.max(1, Number(product.stock) || 1);
+        var v = Math.min(max, (Number(qtyInput.value) || 1) + 1);
+        qtyInput.value = String(v);
+    };
+    document.getElementById('shopAddCartBtn').onclick = function () {
+        var qty = Number(qtyInput.value) || 1;
+        if (qty < 1) qty = 1;
+        addProductToShopCart(product, qty);
+        showToast(qty + 'x ' + (product.name || 'produk') + ' ditambahkan ke keranjang', 'success');
+        modal.style.display = 'none';
+    };
+
+    modal.style.display = 'block';
+}
+
+function _buildShopCheckoutData(store, session) {
+    var subtotal = _shopCartSubtotal();
+    var distKm = 0;
+    var storeLat = Number(store && store.lat);
+    var storeLng = Number(store && store.lng);
+    var userLat = Number(session && session.lat);
+    var userLng = Number(session && session.lng);
+    if (isFinite(storeLat) && isFinite(storeLng) && isFinite(userLat) && isFinite(userLng) && !(storeLat === 0 && storeLng === 0) && !(userLat === 0 && userLng === 0)) {
+        distKm = haversineDistance(storeLat, storeLng, userLat, userLng);
+    }
+    var perKm = Number(_japPricePerKm) || 3000;
+    var feePercent = 10;
+    var platformFee = 0;
+    if (_shopSettingsCache) {
+        feePercent = Number(_shopSettingsCache.service_fee_percent) || 10;
+        platformFee = Number(_shopSettingsCache.platform_fee) || 0;
+        perKm = Number(_shopSettingsCache.delivery_fee_per_km) || 3000;
+    }
+    var deliveryFee = distKm > 0 ? Math.max(perKm, Math.round(distKm * perKm)) : perKm;
+    var fee = Math.round(subtotal * feePercent / 100) + platformFee;
+    var total = subtotal + deliveryFee + fee;
+    return {
+        subtotal: subtotal,
+        distanceKm: distKm,
+        deliveryFee: deliveryFee,
+        feePercent: feePercent,
+        fee: fee,
+        total: total
+    };
+}
+
+var _shopSettingsCache = null;
+function _ensureShopSettingsLoaded() {
+    if (_shopSettingsCache) return Promise.resolve(_shopSettingsCache);
+    return FB.get('getSettings').then(function (r) { return r.json(); }).then(function (res) {
+        _shopSettingsCache = (res && res.success && res.data) ? res.data : {};
+        return _shopSettingsCache;
+    }).catch(function () {
+        _shopSettingsCache = {};
+        return _shopSettingsCache;
     });
 }
 
-function createProductOrder(product, store) {
+function openShopCheckoutModal() {
+    if (!_slpCurrentStore) { showToast('Data toko tidak ditemukan', 'error'); return; }
+    if (_shopCart.length === 0) { showToast('Keranjang masih kosong', 'error'); return; }
+    var session = getSession();
+    if (!session || session.role !== 'user') { showToast('Hanya user yang bisa memesan', 'error'); return; }
+
+    _ensureShopSettingsLoaded().then(function () {
+        var data = _buildShopCheckoutData(_slpCurrentStore, session);
+        var modal = document.getElementById('shopCheckoutModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'shopCheckoutModal';
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:12001;';
+            modal.innerHTML = '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(94vw,460px);max-height:88vh;overflow:auto;background:#fff;border-radius:16px;padding:16px;">'
+                + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h3 style="margin:0;">🛒 Keranjang</h3><button id="shopCheckoutClose" style="border:none;background:transparent;font-size:24px;line-height:1;">&times;</button></div>'
+                + '<div id="shopCheckoutItems"></div>'
+                + '<div style="margin-top:12px;border-top:1px solid #eee;padding-top:10px;">'
+                + '<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Subtotal Produk</span><strong id="shopCoSubtotal"></strong></div>'
+                + '<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Ongkir <small id="shopCoDist"></small></span><strong id="shopCoDelivery"></strong></div>'
+                + '<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Biaya Layanan + Komisi</span><strong id="shopCoFee"></strong></div>'
+                + '<div style="display:flex;justify-content:space-between;font-size:17px;"><strong>Total</strong><strong id="shopCoTotal"></strong></div>'
+                + '</div>'
+                + '<div style="margin-top:12px;">'
+                + '<div style="font-size:13px;color:#666;margin-bottom:6px;">Metode Pembayaran</div>'
+                + '<div style="display:flex;gap:8px;">'
+                + '<button id="shopPmJspay" type="button" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:10px;background:#fff;">💳 JsPay</button>'
+                + '<button id="shopPmCod" type="button" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:10px;background:#fff;">💵 COD</button>'
+                + '</div>'
+                + '<div id="shopPmInfo" style="font-size:12px;color:#666;margin-top:6px;"></div>'
+                + '</div>'
+                + '<button id="shopCheckoutOrderBtn" style="margin-top:12px;width:100%;border:none;background:#FF6B00;color:#fff;padding:12px;border-radius:10px;font-weight:700;">Pesan Sekarang</button>'
+                + '</div>';
+            document.body.appendChild(modal);
+            document.getElementById('shopCheckoutClose').addEventListener('click', function () { modal.style.display = 'none'; });
+            modal.addEventListener('click', function (e) { if (e.target === modal) modal.style.display = 'none'; });
+        }
+
+        var itemHtml = _shopCart.map(function (it, idx) {
+            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f2f2f2;">'
+                + '<div><div style="font-weight:600;">' + escapeHtml(it.name) + '</div><div style="font-size:12px;color:#666;">' + formatRupiah(it.price) + ' x ' + it.qty + '</div></div>'
+                + '<div style="display:flex;align-items:center;gap:6px;">'
+                + '<button data-act="minus" data-idx="' + idx + '" style="width:28px;height:28px;border:1px solid #ddd;background:#fff;border-radius:8px;">-</button>'
+                + '<strong>' + it.qty + '</strong>'
+                + '<button data-act="plus" data-idx="' + idx + '" style="width:28px;height:28px;border:1px solid #ddd;background:#fff;border-radius:8px;">+</button>'
+                + '</div>'
+                + '</div>';
+        }).join('');
+        document.getElementById('shopCheckoutItems').innerHTML = itemHtml;
+        document.getElementById('shopCoSubtotal').textContent = formatRupiah(data.subtotal);
+        document.getElementById('shopCoDist').textContent = data.distanceKm > 0 ? '(' + data.distanceKm.toFixed(1) + ' km)' : '(estimasi)';
+        document.getElementById('shopCoDelivery').textContent = formatRupiah(data.deliveryFee);
+        document.getElementById('shopCoFee').textContent = formatRupiah(data.fee);
+        document.getElementById('shopCoTotal').textContent = formatRupiah(data.total);
+
+        function applyPaymentUI() {
+            var btnJ = document.getElementById('shopPmJspay');
+            var btnC = document.getElementById('shopPmCod');
+            var info = document.getElementById('shopPmInfo');
+            btnJ.style.borderColor = _shopSelectedPayment === 'jspay' ? '#FF6B00' : '#ddd';
+            btnC.style.borderColor = _shopSelectedPayment === 'cod' ? '#FF6B00' : '#ddd';
+            info.textContent = _shopSelectedPayment === 'jspay'
+                ? 'Saldo JsPay: ' + formatRupiah(getWalletBalance())
+                : 'Bayar tunai saat pesanan sampai.';
+        }
+
+        document.getElementById('shopPmJspay').onclick = function () { _shopSelectedPayment = 'jspay'; applyPaymentUI(); };
+        document.getElementById('shopPmCod').onclick = function () { _shopSelectedPayment = 'cod'; applyPaymentUI(); };
+        applyPaymentUI();
+
+        document.getElementById('shopCheckoutItems').querySelectorAll('button[data-act]').forEach(function (btn) {
+            btn.onclick = function () {
+                var idx = Number(this.getAttribute('data-idx'));
+                var act = this.getAttribute('data-act');
+                var item = _shopCart[idx];
+                if (!item) return;
+                if (act === 'minus') item.qty = Math.max(0, item.qty - 1);
+                if (act === 'plus') item.qty = Math.min(item.stock || 9999, item.qty + 1);
+                _shopCart = _shopCart.filter(function (it) { return it.qty > 0; });
+                modal.style.display = 'none';
+                updateShopCartUI();
+                if (_shopCart.length > 0) openShopCheckoutModal();
+            };
+        });
+
+        document.getElementById('shopCheckoutOrderBtn').onclick = function () {
+            createProductOrder(_shopCart.slice(), _slpCurrentStore, _shopSelectedPayment, data, modal);
+        };
+
+        modal.style.display = 'block';
+    });
+}
+
+function createProductOrder(cartItems, store, paymentMethod, pricing, checkoutModal) {
     var session = getSession();
     if (!session) { showToast('Silakan login terlebih dahulu', 'error'); return; }
     if (session.role !== 'user') { showToast('Hanya user yang bisa memesan', 'error'); return; }
     if (!store) { showToast('Data toko tidak ditemukan', 'error'); return; }
+    if (!cartItems || cartItems.length === 0) { showToast('Keranjang kosong', 'error'); return; }
 
-    var price = Number(product.price) || 0;
-    if (price <= 0) { showToast('Harga produk tidak valid', 'error'); return; }
+    var price = Number(pricing && pricing.subtotal) || _shopCartSubtotal();
+    var deliveryFee = Number(pricing && pricing.deliveryFee) || 0;
+    var fee = Number(pricing && pricing.fee) || 0;
+    var totalCost = Number(pricing && pricing.total) || (price + deliveryFee + fee);
+    paymentMethod = paymentMethod || 'jspay';
 
-    showToast('Memproses pesanan...', 'success');
-
-    // Fetch settings for dynamic fee
-    var settingsPromise;
-    try {
-        settingsPromise = FB.get('getSettings').then(function (r) { return r.json(); });
-    } catch (e) {
-        console.error('createProductOrder: getSettings error', e);
-        settingsPromise = Promise.resolve({ success: false });
-    }
-
-    settingsPromise.then(function (sRes) {
-        var feePercent = 10, platformFee = 0, deliveryFee = 3000;
-        if (sRes && sRes.success && sRes.data) {
-            feePercent = Number(sRes.data.service_fee_percent) || 10;
-            platformFee = Number(sRes.data.platform_fee) || 0;
-            deliveryFee = Number(sRes.data.delivery_fee_per_km) || 3000;
-        }
-        var fee = Math.round(price * feePercent / 100) + platformFee;
-        var totalCost = price + deliveryFee + fee;
-
+    if (paymentMethod === 'jspay') {
         var balance = (typeof getWalletBalance === 'function') ? getWalletBalance() : 0;
         if (balance < totalCost) {
-            showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Silakan top up dulu.', 'error');
+            showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Top up dulu atau pilih COD.', 'error');
             if (typeof openTopUpModal === 'function') openTopUpModal();
             return;
         }
+    }
 
-        var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+    showToast('Memproses pesanan...', 'success');
+    var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+    var totalQty = cartItems.reduce(function (s, it) { return s + (Number(it.qty) || 0); }, 0);
+    var itemNames = cartItems.map(function (it) { return (it.name || 'Produk') + ' x' + (Number(it.qty) || 0); }).join(', ');
 
-        var orderData = {
-            action: 'createOrder',
-            id: orderId,
-            userId: session.id,
-            talentId: '',
-            sellerId: store.userId || '',
-            storeId: store.id || '',
-            storeName: store.name || '',
-            storeAddr: store.address || '',
-            skillType: store.category || 'js_food',
-            serviceType: product.name || '',
-            description: 'Produk dari ' + (store.name || 'Toko'),
-            price: price,
-            deliveryFee: deliveryFee,
-            fee: fee,
-            totalCost: totalCost,
-            paymentMethod: 'jspay',
-            status: 'pending_seller',
-            userLat: session.lat || 0,
-            userLng: session.lng || 0,
-            userAddr: session.address || '',
-            talentLat: store.lat || 0,
-            talentLng: store.lng || 0
-        };
+    var orderData = {
+        action: 'createOrder',
+        id: orderId,
+        userId: session.id,
+        talentId: '',
+        sellerId: store.userId || '',
+        storeId: store.id || '',
+        storeName: store.name || '',
+        storeAddr: store.address || '',
+        skillType: store.category || 'js_food',
+        serviceType: 'Belanja ' + totalQty + ' item',
+        description: 'Produk: ' + itemNames,
+        items: cartItems,
+        totalQty: totalQty,
+        price: price,
+        deliveryFee: deliveryFee,
+        fee: fee,
+        totalCost: totalCost,
+        paymentMethod: paymentMethod,
+        status: 'pending_seller',
+        userLat: session.lat || 0,
+        userLng: session.lng || 0,
+        userAddr: session.address || '',
+        talentLat: store.lat || 0,
+        talentLng: store.lng || 0
+    };
 
-        console.log('createProductOrder: sending order', orderId, orderData);
+    backendPost(orderData).then(function (res) {
+        if (res && res.success) {
+            var order = res.data || orderData;
+            order.status = 'pending_seller';
+            order.createdAt = Date.now();
+            order.storeName = store.name;
+            order.userName = session.name;
 
-        return backendPost(orderData).then(function (res) {
-            console.log('createProductOrder: response', res);
-            if (res && res.success) {
-                var order = res.data || orderData;
-                order.status = 'pending_seller';
-                order.createdAt = Date.now();
-                order.storeName = store.name;
-                order.userName = session.name;
-                showToast('Pesanan berhasil! Menunggu penjual menyiapkan...', 'success');
-                // Notify seller (non-blocking)
-                try {
-                    addNotifItem({ userId: store.userId, icon: '🛒', title: 'Pesanan Baru!', desc: product.name + ' - ' + formatRupiah(price), type: 'order', orderId: orderId });
-                } catch (ne) { console.warn('Notif error:', ne); }
-                document.getElementById('storeDetailPage').classList.add('hidden');
-                document.getElementById('storeListPage').classList.add('hidden');
-                openOrderTracking(order);
-            } else {
-                var errMsg = (res && res.message) || 'Server error';
-                console.error('createProductOrder: failed', errMsg, res);
-                showToast('Gagal membuat pesanan: ' + errMsg, 'error');
-            }
-        });
+            try {
+                addNotifItem({ userId: store.userId, icon: '🛒', title: 'Pesanan Baru!', desc: (store.name || 'Toko') + ' - ' + formatRupiah(totalCost), type: 'order', orderId: orderId });
+            } catch (ne) {}
+
+            _shopCart = [];
+            updateShopCartUI();
+            if (checkoutModal) checkoutModal.style.display = 'none';
+            showToast('Pesanan berhasil! Menunggu penjual menyiapkan...', 'success');
+            document.getElementById('storeDetailPage').classList.add('hidden');
+            document.getElementById('storeListPage').classList.add('hidden');
+            openOrderTracking(order);
+        } else {
+            var errMsg = (res && res.message) || 'Server error';
+            showToast('Gagal membuat pesanan: ' + errMsg, 'error');
+        }
     }).catch(function (err) {
-        console.error('createProductOrder: exception', err);
         showToast('Gagal memproses pesanan: ' + (err && err.message ? err.message : 'Error'), 'error');
     });
 }
