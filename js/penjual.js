@@ -394,7 +394,10 @@ function loadPenjualOrders() {
 }
 
 function renderPenjualOrders(orders, session) {
-    var incoming = orders.filter(function (o) { return o.talentId === session.id && o.status === 'pending'; });
+    // Filter orders where this user is the seller (not talentId)
+    var incoming = orders.filter(function (o) {
+        return (o.sellerId === session.id || o.talentId === session.id) && (['pending_seller', 'preparing', 'pending'].indexOf(o.status) >= 0);
+    });
     var inEl = document.getElementById('penjualIncomingOrders');
     if (!inEl) return;
     if (incoming.length === 0) {
@@ -402,13 +405,15 @@ function renderPenjualOrders(orders, session) {
         return;
     }
     var users = getUsers();
+    var statusLabels = { pending_seller: '🆕 Baru', preparing: '👨‍🍳 Menyiapkan', pending: '🔔 Baru' };
     inEl.innerHTML = incoming.map(function (o, idx) {
         var user = users.find(function (u) { return u.id === o.userId; });
         var userName = user ? user.name : 'Pelanggan';
         var priceText = o.price ? 'Rp ' + Number(o.price).toLocaleString('id-ID') : '-';
+        var statusBadge = statusLabels[o.status] || 'Baru';
         return '<div class="td-order-card" data-idx="' + idx + '">'
             + '<div class="td-oc-top"><div class="td-oc-service">' + escapeHtml(o.serviceType || 'Pesanan Produk') + '</div>'
-            + '<span class="otp-status-badge status-pending">Baru</span></div>'
+            + '<span class="otp-status-badge status-' + o.status + '">' + statusBadge + '</span></div>'
             + '<div class="td-oc-user">👤 ' + escapeHtml(userName) + '</div>'
             + '<div class="td-oc-bottom"><span class="td-oc-price">' + priceText + '</span>'
             + '<span class="td-oc-time">' + getTimeAgo(o.createdAt) + '</span></div></div>';

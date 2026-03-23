@@ -505,7 +505,7 @@ function _pollNewMessages(session) {
         .then(function (res) {
             if (!res.success || !res.data) return;
             var activeOrders = res.data.filter(function (o) {
-                return ['pending', 'accepted', 'on_the_way', 'arrived', 'in_progress', 'searching'].indexOf(o.status) >= 0;
+                return ['pending_seller', 'preparing', 'pending', 'accepted', 'on_the_way', 'arrived', 'in_progress', 'searching'].indexOf(o.status) >= 0;
             });
             activeOrders.forEach(function (order) {
                 _checkOrderMessages(order, session);
@@ -754,6 +754,7 @@ function updateOrderStatusBadge(status) {
     var badge = document.getElementById('otpStatus');
     if (!badge) return;
     var isAntar = _currentOrder && _currentOrder.skillType === 'js_antar';
+    var isProductOrder = _currentOrder && (_currentOrder.skillType === 'js_food' || _currentOrder.sellerId);
     var TRACKING_STATUS = isAntar ? {
         searching: 'Mencari Driver...',
         pending: 'Menunggu Konfirmasi',
@@ -762,6 +763,19 @@ function updateOrderStatusBadge(status) {
         arrived: 'Driver Tiba',
         in_progress: 'Dalam Perjalanan',
         completed: 'Sampai Tujuan',
+        rated: 'Sudah Dinilai',
+        cancelled: 'Dibatalkan',
+        rejected: 'Ditolak'
+    } : isProductOrder ? {
+        pending_seller: 'Menunggu Penjual...',
+        preparing: 'Penjual Menyiapkan...',
+        searching: 'Mencari Driver...',
+        pending: 'Menunggu Driver',
+        accepted: 'Driver Ditemukan',
+        on_the_way: 'Driver Menuju Toko',
+        arrived: 'Driver di Toko',
+        in_progress: 'Diantar ke Anda',
+        completed: 'Pesanan Sampai',
         rated: 'Sudah Dinilai',
         cancelled: 'Dibatalkan',
         rejected: 'Ditolak'
@@ -838,12 +852,18 @@ function renderOrderActions(order, isTalent, isUser) {
     if (!el) return;
     el.innerHTML = '';
     var isAntar = order.skillType === 'js_antar';
+    var isProductOrder = order.skillType === 'js_food' || order.sellerId;
+    var isSeller = session && session.id === order.sellerId;
 
-    // ── USER: Cancel button on searching / pending ──
-    if (isUser && (order.status === 'searching' || order.status === 'pending')) {
+    // ── USER: Cancel button on pending_seller / searching / pending ──
+    if (isUser && (['pending_seller', 'preparing', 'searching', 'pending'].indexOf(order.status) >= 0)) {
         var cancelHtml = '<button class="otp-btn otp-btn-cancel" id="otpBtnCancel">❌ Batalkan Pesanan</button>';
         if (order.status === 'searching') {
             cancelHtml = '<div class="searching-driver-anim"><div class="searching-spinner"></div><p>Mencari driver terdekat...</p></div>' + cancelHtml;
+        } else if (order.status === 'pending_seller') {
+            cancelHtml = '<div class="searching-driver-anim"><div class="searching-spinner"></div><p>Menunggu penjual menerima pesanan...</p></div>' + cancelHtml;
+        } else if (order.status === 'preparing') {
+            cancelHtml = '<div class="searching-driver-anim"><div class="searching-spinner"></div><p>Penjual sedang menyiapkan pesanan...</p></div>' + cancelHtml;
         }
         el.innerHTML = cancelHtml;
         document.getElementById('otpBtnCancel').addEventListener('click', function () {
@@ -880,7 +900,53 @@ function renderOrderActions(order, isTalent, isUser) {
         return;
     }
 
-    // ── TALENT: Accept/Reject on pending ──
+    // ── SELLER: Accept/Prepare/Ready for product orders ──
+    if (isSeller && isProductOrder) {
+        if (order.status === 'pending_seller') {
+            el.innerHTML = '<div class="otp-btn-row"><button class="otp-btn otp-btn-accept" id="otpBtnSellerAccept">✅ Terima & Siapkan</button><button class="otp-btn otp-btn-reject" id="otpBtnSellerReject">❌ Tolak</button></div>';
+            document.getElementById('otpBtnSellerAccept').addEventListener('click', function () {
+                backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'preparing', sellerAcceptedAt: Date.now() } }).then(function (res) {
+                    if (res && res.success) {
+                        if (_currentOrder) _currentOrder.status = 'preparing';
+                        updateOrderStatusBadge('preparing');
+                        renderOrderActions(order, false, false);
+                        showToast('Pesanan diterima! Segera siapkan.', 'success');
+                        addNotifItem({ userId: order.userId, icon: '👨‍🍳', title: 'Penjual Menyiapkan', desc: (order.serviceType || 'Pesanan') + ' sedang disiapkan', type: 'order', orderId: order.id });
+                    }
+                });
+            });
+            document.getElementById('otpBtnSellerReject').addEventListener('click', function () {
+                if (!confirm('Tolak pesanan ini?')) return;
+                backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'cancelled', cancelledAt: Date.now(), cancelledBy: 'seller' } }).then(function (res) {
+                    if (res && res.success) {
+                        if (_currentOrder) _currentOrder.status = 'cancelled';
+                        updateOrderStatusBadge('cancelled');
+                        renderOrderActions(order, false, false);
+                        showToast('Pesanan ditolak', 'success');
+                        addNotifItem({ userId: order.userId, icon: '❌', title: 'Penjual Menolak', desc: (order.storeName || 'Toko') + ' menolak pesanan Anda', type: 'order', orderId: order.id });
+                    }
+                });
+            });
+        } else if (order.status === 'preparing') {
+            el.innerHTML = '<button class="otp-btn otp-btn-complete" id="otpBtnSellerReady">📦 Pesanan Siap Diambil</button>';
+            document.getElementById('otpBtnSellerReady').addEventListener('click', function () {
+                backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'searching', sellerReadyAt: Date.now() } }).then(function (res) {
+                    if (res && res.success) {
+                        if (_currentOrder) _currentOrder.status = 'searching';
+                        updateOrderStatusBadge('searching');
+                        renderOrderActions(order, false, false);
+                        showToast('Menunggu driver mengambil pesanan...', 'success');
+                        addNotifItem({ userId: order.userId, icon: '📦', title: 'Pesanan Siap!', desc: 'Sedang mencari driver untuk mengambil pesanan', type: 'order', orderId: order.id });
+                        // Trigger driver search from user side
+                        if (typeof searchNearbyDriver === 'function') searchNearbyDriver(order);
+                    }
+                });
+            });
+        }
+        return;
+    }
+
+    // ── TALENT/DRIVER: Accept/Reject on pending ──
     if (isTalent) {
         if (order.status === 'pending') {
             el.innerHTML = '<div class="otp-btn-row"><button class="otp-btn otp-btn-accept" id="otpBtnAccept">✅ Terima Pesanan</button><button class="otp-btn otp-btn-reject" id="otpBtnReject">❌ Tolak</button></div>';
@@ -938,6 +1004,18 @@ function renderOrderActions(order, isTalent, isUser) {
             var otwLabel = isAntar ? '🏍️ Menuju Lokasi Jemput' : '🏍️ Menuju Lokasi';
             el.innerHTML = '<button class="otp-btn otp-btn-otw" id="otpBtnOtw">' + otwLabel + '</button>';
             document.getElementById('otpBtnOtw').addEventListener('click', function () { updateOrderStatus(order.id, 'on_the_way', {}); startTalentLocationBroadcast(order.id); });
+        } else if (order.status === 'on_the_way' && isProductOrder) {
+            el.innerHTML = '<button class="otp-btn otp-btn-arrive" id="otpBtnArrive">📍 Sampai di Toko</button>';
+            document.getElementById('otpBtnArrive').addEventListener('click', function () { updateOrderStatus(order.id, 'arrived', {}); });
+        } else if (order.status === 'arrived' && isProductOrder) {
+            el.innerHTML = '<button class="otp-btn otp-btn-start" id="otpBtnStart">🛍️ Ambil Pesanan & Antar</button>';
+            document.getElementById('otpBtnStart').addEventListener('click', function () { updateOrderStatus(order.id, 'in_progress', { pickedUpAt: Date.now() }); });
+        } else if (order.status === 'in_progress' && isProductOrder) {
+            el.innerHTML = '<button class="otp-btn otp-btn-complete" id="otpBtnComplete">✅ Pesanan Sudah Diantar</button>';
+            document.getElementById('otpBtnComplete').addEventListener('click', function () {
+                if (!confirm('Konfirmasi pesanan sudah diantar ke pembeli?')) return;
+                updateOrderStatus(order.id, 'completed', { completedAt: Date.now() });
+            });
         } else if (order.status === 'on_the_way') {
             var arriveLabel = isAntar ? '📍 Sudah di Lokasi Jemput' : '📍 Sudah Tiba';
             el.innerHTML = '<button class="otp-btn otp-btn-arrive" id="otpBtnArrive">' + arriveLabel + '</button>';

@@ -779,14 +779,20 @@ function createProductOrder(product, store) {
                 action: 'createOrder',
                 id: orderId,
                 userId: session.id,
-                talentId: store.userId,
+                talentId: '',
+                sellerId: store.userId,
+                storeId: store.id || '',
+                storeName: store.name || '',
+                storeAddr: store.address || '',
                 skillType: 'js_food',
                 serviceType: product.name,
                 description: 'Produk dari ' + store.name,
-                price: price + deliveryFee,
+                price: price,
+                deliveryFee: deliveryFee,
                 fee: fee,
                 totalCost: totalCost,
                 paymentMethod: 'jspay',
+                status: 'pending_seller',
                 userLat: session.lat || 0,
                 userLng: session.lng || 0,
                 userAddr: session.address || '',
@@ -794,16 +800,18 @@ function createProductOrder(product, store) {
                 talentLng: store.lng || 0
             };
 
-            // Create order WITHOUT deducting balance.
-            // Payment will be processed when talent/penjual accepts the order.
+            // Create order — seller must accept and prepare first, then driver picks up.
+            // Balance is NOT deducted until driver accepts.
             return backendPost(orderData).then(function (res) {
                 if (res && res.success) {
                     var order = res.data || orderData;
-                    order.status = 'pending';
+                    order.status = 'pending_seller';
                     order.createdAt = Date.now();
-                    order.talentName = store.name;
+                    order.storeName = store.name;
                     order.userName = session.name;
-                    showToast('Pesanan berhasil! Menunggu konfirmasi penjual...', 'success');
+                    showToast('Pesanan berhasil! Menunggu penjual menyiapkan...', 'success');
+                    // Notify seller
+                    addNotifItem({ userId: store.userId, icon: '🛒', title: 'Pesanan Baru!', desc: product.name + ' - ' + formatRupiah(price), type: 'order', orderId: orderId });
                     document.getElementById('storeDetailPage').classList.add('hidden');
                     document.getElementById('storeListPage').classList.add('hidden');
                     openOrderTracking(order);
@@ -1315,17 +1323,31 @@ var _searchDriverExcluded = [];
 
 function _doSearchDriver(order) {
     if (_searchDriverAttempts >= _searchDriverMaxAttempts) {
-        showToast('Tidak ada driver tersedia saat ini. Pesanan dibatalkan.', 'error');
-        backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'cancelled', cancelledAt: Date.now(), cancelReason: 'no_driver' } });
-        addNotifItem({ icon: '❌', title: 'Driver Tidak Ditemukan', desc: 'Tidak ada driver tersedia untuk pesanan JS Antar Anda.', type: 'order', orderId: order.id });
+        showToast('Tidak ada driver tersedia saat ini.', 'error');
+        // For product orders, go back to preparing (don't cancel the whole order)
+        if (order.sellerId) {
+            backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'preparing' } });
+            addNotifItem({ icon: '⚠️', title: 'Driver Tidak Ditemukan', desc: 'Belum ada driver. Akan dicari lagi.', type: 'order', orderId: order.id });
+            if (order.sellerId) {
+                addNotifItem({ userId: order.sellerId, icon: '⚠️', title: 'Belum Ada Driver', desc: 'Driver belum tersedia. Coba kirim ulang nanti.', type: 'order', orderId: order.id });
+            }
+        } else {
+            backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'cancelled', cancelledAt: Date.now(), cancelReason: 'no_driver' } });
+            addNotifItem({ icon: '❌', title: 'Driver Tidak Ditemukan', desc: 'Tidak ada driver tersedia untuk pesanan Anda.', type: 'order', orderId: order.id });
+        }
         return;
     }
 
     _searchDriverAttempts++;
 
+    // For product orders: search drivers near STORE location (for pickup)
+    // For JS Antar: search drivers near USER location
+    var searchLat = order.sellerId ? (order.talentLat || order.userLat) : order.userLat;
+    var searchLng = order.sellerId ? (order.talentLng || order.userLng) : order.userLng;
+
     FB.get('findNearbyTalents', {
-        lat: order.userLat,
-        lng: order.userLng,
+        lat: searchLat,
+        lng: searchLng,
         skillType: 'js_antar',
         excludeUserId: order.userId,
         excludeTalentIds: _searchDriverExcluded
@@ -1340,6 +1362,11 @@ function _doSearchDriver(order) {
         // Found nearest talent — assign to order
         var nearest = res.data[0];
         var distText = nearest.distance < 1 ? (nearest.distance * 1000).toFixed(0) + 'm' : nearest.distance.toFixed(1) + 'km';
+        var isProduct = !!order.sellerId;
+        var notifTitle = isProduct ? '📦 Pesanan Ambil & Antar!' : '🏍️ Pesanan JS Antar Baru!';
+        var notifDesc = isProduct
+            ? 'Ambil di ' + (order.storeName || 'Toko') + ' (' + distText + ') - ' + formatRupiah(order.deliveryFee || order.price)
+            : 'Jarak ' + distText + ' - ' + formatRupiah(order.price);
 
         backendPost({
             action: 'updateOrder',
@@ -1349,9 +1376,9 @@ function _doSearchDriver(order) {
             // Notify the assigned talent
             addNotifItem({
                 userId: nearest.id,
-                icon: '🏍️',
-                title: 'Pesanan JS Antar Baru!',
-                desc: 'Jarak ' + distText + ' - ' + formatRupiah(order.price),
+                icon: isProduct ? '📦' : '🏍️',
+                title: notifTitle,
+                desc: notifDesc,
                 type: 'order',
                 orderId: order.id
             });
