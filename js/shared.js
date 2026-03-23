@@ -824,6 +824,31 @@ function updateOrderStatusBadge(status) {
 function renderOrderInfo(order, isTalent) {
     var el = document.getElementById('otpInfoContent');
     if (!el) return;
+
+    function resolveAvatarUrl(raw) {
+        if (!raw) return '';
+        var src = String(raw || '').trim();
+        if (!src) return '';
+        if (src.indexOf('http://') === 0 || src.indexOf('https://') === 0 || src.indexOf('data:') === 0 || src.indexOf('blob:') === 0) {
+            return src;
+        }
+        try {
+            if (window.FB && window.FB._sb && window.FB._sb.storage) {
+                var res = window.FB._sb.storage.from('avatars').getPublicUrl(src);
+                if (res && res.data && res.data.publicUrl) return res.data.publicUrl;
+            }
+        } catch (e) {}
+        return src;
+    }
+
+    function getAvatarHtml(photoSrc, initial) {
+        var safeInitial = String(initial || '?').charAt(0).toUpperCase();
+        var normalized = resolveAvatarUrl(photoSrc);
+        return '<div class="otp-driver-avatar" data-initial="' + _escapeHtml(safeInitial) + '">'
+            + (normalized ? '<img src="' + _escapeHtml(normalized) + '" alt="">' : '<span>' + _escapeHtml(safeInitial) + '</span>')
+            + '</div>';
+    }
+
     var users = getUsers();
     var session = getSession();
     var other = users.find(function (u) {
@@ -855,7 +880,7 @@ function renderOrderInfo(order, isTalent) {
         var vehicleLabel = isAntar ? '🏍️ JS Antar Motor' : ('🔧 ' + (order.serviceType || 'Talent'));
         var canChatDriver = session && session.id !== order.talentId;
         photoHtml = '<div class="otp-driver-card">'
-            + '<div class="otp-driver-avatar">' + (photoSrc ? '<img src="' + photoSrc + '" alt="">' : '<span>' + escapeHtml(initial) + '</span>') + '</div>'
+            + getAvatarHtml(photoSrc, initial)
             + '<div class="otp-driver-info">'
             + '<div class="otp-driver-name">' + escapeHtml(other.name || 'Driver') + '</div>'
             + '<div class="otp-driver-vehicle">' + vehicleLabel + '</div>'
@@ -871,7 +896,7 @@ function renderOrderInfo(order, isTalent) {
         var sellerPhoto = seller.photo || seller.foto_url || getProfilePhoto(seller.id) || '';
         var sellerInitial = (seller.name || '?').charAt(0).toUpperCase();
         sellerHtml = '<div class="otp-driver-card otp-seller-card">'
-            + '<div class="otp-driver-avatar">' + (sellerPhoto ? '<img src="' + sellerPhoto + '" alt="">' : '<span>' + escapeHtml(sellerInitial) + '</span>') + '</div>'
+            + getAvatarHtml(sellerPhoto, sellerInitial)
             + '<div class="otp-driver-info">'
             + '<div class="otp-driver-name">' + escapeHtml(seller.name || 'Penjual') + '</div>'
             + '<div class="otp-driver-vehicle">🏪 Penjual / Toko</div>'
@@ -891,6 +916,15 @@ function renderOrderInfo(order, isTalent) {
         + '<div class="otp-info-row otp-info-total"><span class="otp-info-label">Total Bayar</span><span class="otp-info-val">' + totalText + '</span></div>'
         + '<div class="otp-info-row"><span class="otp-info-label">Pembayaran</span><span class="otp-info-val">' + pmLabel + '</span></div>'
         + (order.proofPhoto ? '<div class="otp-proof"><img src="' + order.proofPhoto + '" alt="Bukti"></div>' : '');
+
+    el.querySelectorAll('.otp-driver-avatar img').forEach(function (imgEl) {
+        imgEl.addEventListener('error', function () {
+            var holder = imgEl.parentNode;
+            if (!holder) return;
+            var fallbackInitial = holder.getAttribute('data-initial') || '?';
+            holder.innerHTML = '<span>' + _escapeHtml(fallbackInitial) + '</span>';
+        });
+    });
 
     var driverChatBtn = document.getElementById('otpDriverChatBtn');
     if (driverChatBtn) {
