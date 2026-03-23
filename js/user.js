@@ -470,6 +470,26 @@ function fetchTalentRating(talentId, callback) {
         .catch(function () { callback({ avg: 0, count: 0 }); });
 }
 
+function fetchSellerRating(sellerId, callback) {
+    if (!sellerId) { callback({ avg: 0, count: 0 }); return; }
+    if (_sellerRatingsCache && _sellerRatingsCache[sellerId]) {
+        callback(_sellerRatingsCache[sellerId]);
+        return;
+    }
+    if (!isBackendConnected()) { callback({ avg: 0, count: 0 }); return; }
+    FB.get('getSellerRating', { sellerId: sellerId })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res.success && res.data) {
+                _sellerRatingsCache[sellerId] = res.data;
+                callback(res.data);
+            } else {
+                callback({ avg: 0, count: 0 });
+            }
+        })
+        .catch(function () { callback({ avg: 0, count: 0 }); });
+}
+
 // ══════════════════════════════════════════
 // ═══ CREATE NEW ORDER ═══
 // ══════════════════════════════════════════
@@ -645,6 +665,7 @@ function renderStoreCards(stores) {
         var icon = catIcons[s.category] || '🏪';
         var dist = (myLat && myLng && s.lat && s.lng) ? haversineDistance(myLat, myLng, s.lat, s.lng) : -1;
         var distText = dist >= 0 ? (dist < 1 ? (dist * 1000).toFixed(0) + ' m' : dist.toFixed(1) + ' km') : '';
+        var sellerRating = (_sellerRatingsCache && _sellerRatingsCache[s.userId]) || { avg: 0, count: 0 };
         var storeImgHtml = s.photo
             ? '<img src="' + s.photo + '" alt="' + escapeHtml(s.name) + '" style="width:100%;height:100%;object-fit:cover;">'
             : '<div class="stc-img-placeholder" style="font-size:36px">' + icon + '</div>';
@@ -656,9 +677,17 @@ function renderStoreCards(stores) {
             + (s.description ? '<div class="stc-desc">' + escapeHtml(s.description) + '</div>' : '')
             + '<div class="stc-bottom">'
             + '<span class="stc-price">' + icon + ' ' + (s.category === 'food' ? 'Makanan' : s.category === 'shop' ? 'Belanja' : s.category === 'medicine' ? 'Obat' : 'Lainnya') + '</span>'
-            + '<span class="stc-rating">' + (s.address ? '📍 ' + escapeHtml((s.address || '').split(',')[0]) : '') + '</span>'
+            + '<span class="stc-rating" id="slpSellerRating-' + s.id + '"><span class="stc-rating-star">⭐</span> ' + sellerRating.avg.toFixed(1) + ' <small class="stc-rating-count">(' + sellerRating.count + ')</small></span>'
             + '</div></div></div>';
     }).join('');
+
+    stores.forEach(function (s) {
+        fetchSellerRating(s.userId, function (r) {
+            var el = document.getElementById('slpSellerRating-' + s.id);
+            if (!el) return;
+            el.innerHTML = '<span class="stc-rating-star">⭐</span> ' + r.avg.toFixed(1) + ' <small class="stc-rating-count">(' + r.count + ')</small>';
+        });
+    });
 
     list.querySelectorAll('.stc').forEach(function (card) {
         card.addEventListener('click', function () {
@@ -681,6 +710,9 @@ function openStoreDetail(store) {
     var footerEl = document.getElementById('sdpFooter');
     if (titleEl) titleEl.textContent = store.name;
     if (subtitleEl) subtitleEl.textContent = (store.address || '').split(',')[0];
+    fetchSellerRating(store.userId, function (r) {
+        if (subtitleEl) subtitleEl.textContent = ((store.address || '').split(',')[0] || '-') + ' • ⭐ ' + r.avg.toFixed(1) + ' (' + r.count + ')';
+    });
     if (footerEl) footerEl.style.display = '';
 
     var productList = document.getElementById('sdpProductList');

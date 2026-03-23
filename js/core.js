@@ -36,6 +36,7 @@ var _ratingOrder = null;
 var _ratingValue = 0;
 var _ordersListData = [];
 var _talentRatingsCache = {};
+var _sellerRatingsCache = {};
 var _talentLastPendingIds = [];
 var _talentDashPollTimer = null;
 var _stpCurrentType = '';

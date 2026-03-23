@@ -173,6 +173,21 @@
             });
     }
 
+    function getSellerRating(sellerId) {
+        return sb.from('orders').select('data')
+            .filter('data->>sellerId', 'eq', sellerId)
+            .then(function (res) {
+                throwIfError(res);
+                var total = 0, count = 0;
+                (res.data || []).forEach(function (row) {
+                    var rating = Number((row.data && row.data.sellerRating) || 0);
+                    if (rating > 0) { total += rating; count++; }
+                });
+                var avg = count > 0 ? Math.round((total / count) * 10) / 10 : 0;
+                return ok({ avg: avg, count: count });
+            });
+    }
+
     function getSettings() {
         return sb.from('settings').select('data')
             .eq('key', 'config')
@@ -1127,6 +1142,7 @@
             case 'getOrdersByUser': return getOrdersByUser(p.userId);
             case 'getMessages': return getMessages(p.orderId);
             case 'getTalentRating': return getTalentRating(p.talentId);
+            case 'getSellerRating': return getSellerRating(p.sellerId);
             case 'getSettings': return getSettings();
             case 'getAllStores': return getAllStores();
             case 'getStoresByUser': return getStoresByUser(p.userId);

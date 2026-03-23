@@ -874,10 +874,40 @@ function openOrderTracking(order) {
 }
 
 function closeTrackingToHome() {
+    var orderSnapshot = _currentOrder ? Object.assign({}, _currentOrder) : null;
     var page = document.getElementById('orderTrackingPage');
     if (page) page.classList.add('hidden');
     stopPolling();
     resetBottomNavToHome();
+    maybePromptRatingAfterCompleted(orderSnapshot);
+}
+
+function maybePromptRatingAfterCompleted(order) {
+    if (!order) return;
+    var session = getSession();
+    if (!session || String(session.id) !== String(order.userId)) return;
+    if (order.status !== 'completed') return;
+    if (Number(order.rating) > 0) return;
+
+    var key = 'js_rating_prompt_seen_' + order.id;
+    try {
+        if (localStorage.getItem(key) === '1') return;
+        localStorage.setItem(key, '1');
+    } catch (e) {}
+
+    var promptMsg = order.sellerId
+        ? 'Pesanan selesai. Mau beri rating untuk driver dan penjual sekarang?'
+        : 'Pesanan selesai. Mau beri rating untuk driver sekarang?';
+
+    setTimeout(function () {
+        openModernConfirm({
+            title: 'Pesanan Selesai',
+            message: promptMsg
+        }).then(function (ok) {
+            if (!ok) return;
+            openRatingPage(order);
+        });
+    }, 250);
 }
 
 function updateOrderStatusBadge(status) {
@@ -1890,6 +1920,7 @@ function submitRating() {
         if (res && res.success) {
             showToast('Rating berhasil dikirim! Terima kasih 🎉', 'success');
             document.getElementById('ratingPage').classList.add('hidden');
+                try { localStorage.removeItem('js_rating_prompt_seen_' + _ratingOrder.id); } catch (e) {}
             if (_ratingOrder.talentId) delete _talentRatingsCache[_ratingOrder.talentId];
             if (_currentOrder && _currentOrder.id === _ratingOrder.id) {
                 _currentOrder.status = 'rated';
