@@ -983,7 +983,6 @@
             <div id="otpInfoContent"></div>
             <div class="otp-actions" id="otpActions"></div>
         </div>
-        <button class="otp-chat-fab" id="otpChatFab">💬</button>
     </div>
 
     <!-- ===== CHAT PAGE ===== -->
@@ -1018,6 +1017,15 @@
             </div>
             <p class="rating-label" id="ratingLabel">Ketuk bintang untuk menilai</p>
             <textarea id="ratingReview" class="rating-review" rows="3" placeholder="Tulis ulasan (opsional)..."></textarea>
+
+            <div id="ratingSellerSection" class="rating-seller hidden">
+                <h4>Rating Penjual: <span id="ratingSellerName">Penjual</span></h4>
+                <div class="rating-stars" id="ratingSellerStars">
+                    <span class="star" data-val="1">★</span><span class="star" data-val="2">★</span><span class="star" data-val="3">★</span><span class="star" data-val="4">★</span><span class="star" data-val="5">★</span>
+                </div>
+                <textarea id="ratingSellerReview" class="rating-review" rows="2" placeholder="Ulasan untuk penjual (opsional)..."></textarea>
+            </div>
+
             <button class="btn-primary" id="ratingSubmitBtn">Kirim Rating</button>
         </div>
     </div>

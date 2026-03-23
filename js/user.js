@@ -733,8 +733,19 @@ function renderStoreProducts(products) {
             + '<div class="stc-bottom">'
             + '<span class="stc-price">' + priceText + '</span>'
             + '<span class="stc-rating">Stok: ' + p.stock + '</span>'
+            + '<button class="stc-add-btn" data-add-idx="' + idx + '" title="Tambah ke keranjang">+</button>'
             + '</div></div></div>';
     }).join('');
+
+    list.querySelectorAll('.stc-add-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var idx = parseInt(this.getAttribute('data-add-idx'), 10);
+            if (!products[idx]) return;
+            addProductToShopCart(products[idx], 1);
+            showToast((products[idx].name || 'Produk') + ' ditambahkan ke keranjang', 'success');
+        });
+    });
 
     list.querySelectorAll('.stc').forEach(function (card) {
         card.addEventListener('click', function () {

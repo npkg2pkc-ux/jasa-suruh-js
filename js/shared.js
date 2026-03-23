@@ -765,9 +765,12 @@ function openOrderTracking(order) {
             page.classList.add('hidden');
             stopPolling();
         });
-        document.getElementById('otpChatFab').addEventListener('click', function () {
-            if (_currentOrder) openChat(_currentOrder);
-        });
+        var chatFab = document.getElementById('otpChatFab');
+        if (chatFab) {
+            chatFab.addEventListener('click', function () {
+                if (_currentOrder) openChat(_currentOrder);
+            });
+        }
     }
 
     startOrderPolling(order.id);
@@ -822,9 +825,11 @@ function renderOrderInfo(order, isTalent) {
     var el = document.getElementById('otpInfoContent');
     if (!el) return;
     var users = getUsers();
+    var session = getSession();
     var other = users.find(function (u) {
         return u.id === (isTalent ? order.userId : order.talentId);
     });
+    var seller = users.find(function (u) { return u.id === order.sellerId; });
     var otherName = other ? other.name : 'Mencari...';
     var priceText = order.price ? formatRupiah(Number(order.price)) : '-';
     var feeText = order.fee ? formatRupiah(Number(order.fee)) : '-';
@@ -833,10 +838,10 @@ function renderOrderInfo(order, isTalent) {
     var isAntar = order.skillType === 'js_antar';
     var pmLabel = order.paymentMethod === 'cod' ? '💵 Tunai (COD)' : '💳 JsPay';
 
-    // Driver/customer photo
+    // Driver/customer photo + quick chat actions
     var photoHtml = '';
     if (!isTalent && other && order.talentId) {
-        var photoSrc = other.photo || getProfilePhoto(other.id) || '';
+        var photoSrc = other.photo || other.foto_url || getProfilePhoto(other.id) || '';
         // Also check talent skill selfie
         if (!photoSrc) {
             var tSkills = getUserSkills(other.id);
@@ -848,16 +853,34 @@ function renderOrderInfo(order, isTalent) {
         }
         var initial = (other.name || '?').charAt(0).toUpperCase();
         var vehicleLabel = isAntar ? '🏍️ JS Antar Motor' : ('🔧 ' + (order.serviceType || 'Talent'));
+        var canChatDriver = session && session.id !== order.talentId;
         photoHtml = '<div class="otp-driver-card">'
             + '<div class="otp-driver-avatar">' + (photoSrc ? '<img src="' + photoSrc + '" alt="">' : '<span>' + escapeHtml(initial) + '</span>') + '</div>'
             + '<div class="otp-driver-info">'
             + '<div class="otp-driver-name">' + escapeHtml(other.name || 'Driver') + '</div>'
             + '<div class="otp-driver-vehicle">' + vehicleLabel + '</div>'
             + '</div>'
+            + (canChatDriver ? '<button class="otp-driver-chat-btn" id="otpDriverChatBtn" title="Chat driver">💬</button>' : '')
             + '</div>';
     }
 
-    el.innerHTML = photoHtml
+    // For product orders, user can also chat seller directly from info card
+    var sellerHtml = '';
+    var isProductOrder = !!order.sellerId;
+    if (isProductOrder && session && session.id === order.userId && seller) {
+        var sellerPhoto = seller.photo || seller.foto_url || getProfilePhoto(seller.id) || '';
+        var sellerInitial = (seller.name || '?').charAt(0).toUpperCase();
+        sellerHtml = '<div class="otp-driver-card otp-seller-card">'
+            + '<div class="otp-driver-avatar">' + (sellerPhoto ? '<img src="' + sellerPhoto + '" alt="">' : '<span>' + escapeHtml(sellerInitial) + '</span>') + '</div>'
+            + '<div class="otp-driver-info">'
+            + '<div class="otp-driver-name">' + escapeHtml(seller.name || 'Penjual') + '</div>'
+            + '<div class="otp-driver-vehicle">🏪 Penjual / Toko</div>'
+            + '</div>'
+            + '<button class="otp-driver-chat-btn" id="otpSellerChatBtn" title="Chat penjual">💬</button>'
+            + '</div>';
+    }
+
+    el.innerHTML = photoHtml + sellerHtml
         + (isTalent ? '<div class="otp-info-row"><span class="otp-info-label">Pelanggan</span><span class="otp-info-val">' + escapeHtml(otherName) + '</span></div>' : '')
         + '<div class="otp-info-row"><span class="otp-info-label">Layanan</span><span class="otp-info-val">' + escapeHtml(order.serviceType || '') + '</span></div>'
         + (isAntar ? '<div class="otp-info-row"><span class="otp-info-label">📍 Jemput</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>' : '<div class="otp-info-row"><span class="otp-info-label">Alamat</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>')
@@ -868,6 +891,19 @@ function renderOrderInfo(order, isTalent) {
         + '<div class="otp-info-row otp-info-total"><span class="otp-info-label">Total Bayar</span><span class="otp-info-val">' + totalText + '</span></div>'
         + '<div class="otp-info-row"><span class="otp-info-label">Pembayaran</span><span class="otp-info-val">' + pmLabel + '</span></div>'
         + (order.proofPhoto ? '<div class="otp-proof"><img src="' + order.proofPhoto + '" alt="Bukti"></div>' : '');
+
+    var driverChatBtn = document.getElementById('otpDriverChatBtn');
+    if (driverChatBtn) {
+        driverChatBtn.addEventListener('click', function () {
+            openChat(order, order.talentId);
+        });
+    }
+    var sellerChatBtn = document.getElementById('otpSellerChatBtn');
+    if (sellerChatBtn) {
+        sellerChatBtn.addEventListener('click', function () {
+            openChat(order, order.sellerId);
+        });
+    }
 }
 
 function renderOrderActions(order, isTalent, isUser) {
@@ -1055,10 +1091,21 @@ function renderOrderActions(order, isTalent, isUser) {
             el.innerHTML = '<button class="otp-btn otp-btn-start" id="otpBtnStart">🛍️ Ambil Pesanan & Antar</button>';
             document.getElementById('otpBtnStart').addEventListener('click', function () { updateOrderStatus(order.id, 'in_progress', { pickedUpAt: Date.now() }); });
         } else if (order.status === 'in_progress' && isProductOrder) {
-            el.innerHTML = '<button class="otp-btn otp-btn-complete" id="otpBtnComplete">✅ Pesanan Sudah Diantar</button>';
+            el.innerHTML = '<button class="otp-btn otp-btn-complete" id="otpBtnComplete">✅ Selesai + Upload Bukti</button><input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">';
             document.getElementById('otpBtnComplete').addEventListener('click', function () {
-                if (!confirm('Konfirmasi pesanan sudah diantar ke pembeli?')) return;
-                updateOrderStatus(order.id, 'completed', { completedAt: Date.now() });
+                document.getElementById('otpProofInput').click();
+            });
+            document.getElementById('otpProofInput').addEventListener('change', function () {
+                var file = this.files[0];
+                if (!file) return;
+                var reader = new FileReader();
+                reader.onload = function () {
+                    compressThumbnail(reader.result, function (proofThumb) {
+                        updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb });
+                    });
+                };
+                reader.readAsDataURL(file);
+                this.value = '';
             });
         } else if (order.status === 'on_the_way') {
             var arriveLabel = isAntar ? '📍 Sudah di Lokasi Jemput' : '📍 Sudah Tiba';
@@ -1403,7 +1450,7 @@ function startTalentLocationBroadcast(orderId) {
 // ══════════════════════════════════════════
 // ═══ CHAT SYSTEM ═══
 // ══════════════════════════════════════════
-function openChat(order) {
+function openChat(order, preferredTargetId) {
     _chatOrderId = order.id;
     _chatMessages = [];
     _chatPageOpen = true;
@@ -1413,8 +1460,17 @@ function openChat(order) {
 
     var session = getSession();
     var users = getUsers();
-    var isTalent = session && session.id === order.talentId;
-    var other = users.find(function (u) { return u.id === (isTalent ? order.userId : order.talentId); });
+    var targetId = preferredTargetId || '';
+    if (!targetId && session) {
+        if (session.id === order.userId) {
+            targetId = order.talentId || order.sellerId || '';
+        } else if (session.id === order.sellerId) {
+            targetId = order.talentId || order.userId || '';
+        } else if (session.id === order.talentId) {
+            targetId = order.userId || order.sellerId || '';
+        }
+    }
+    var other = users.find(function (u) { return u.id === targetId; });
     document.getElementById('chatTitle').textContent = other ? other.name : 'Chat';
     document.getElementById('chatSubtitle').textContent = order.serviceType || '';
     document.getElementById('chatMessages').innerHTML = '<div class="chat-system">Chat pesanan #' + order.id.substr(0, 8) + '</div>';
@@ -1549,6 +1605,22 @@ function openRatingPage(order) {
     document.getElementById('ratingEmoji').textContent = '⭐';
     document.getElementById('ratingLabel').textContent = 'Ketuk bintang untuk menilai';
     document.getElementById('ratingReview').value = '';
+    var sellerWrap = document.getElementById('ratingSellerSection');
+    var sellerNameEl = document.getElementById('ratingSellerName');
+    var sellerReviewEl = document.getElementById('ratingSellerReview');
+    _ratingSellerValue = 0;
+
+    if (sellerWrap) {
+        if (order.sellerId) {
+            var seller = users.find(function (u) { return u.id === order.sellerId; });
+            sellerWrap.classList.remove('hidden');
+            if (sellerNameEl) sellerNameEl.textContent = seller ? seller.name : 'Penjual';
+            if (sellerReviewEl) sellerReviewEl.value = '';
+            document.querySelectorAll('#ratingSellerStars .star').forEach(function (s) { s.classList.remove('active'); });
+        } else {
+            sellerWrap.classList.add('hidden');
+        }
+    }
 
     document.querySelectorAll('#ratingStars .star').forEach(function (s) { s.classList.remove('active'); });
 
@@ -1571,9 +1643,19 @@ function openRatingPage(order) {
                 });
             });
         });
+        document.querySelectorAll('#ratingSellerStars .star').forEach(function (star) {
+            star.addEventListener('click', function () {
+                _ratingSellerValue = parseInt(this.dataset.val, 10);
+                document.querySelectorAll('#ratingSellerStars .star').forEach(function (s) {
+                    s.classList.toggle('active', parseInt(s.dataset.val, 10) <= _ratingSellerValue);
+                });
+            });
+        });
         document.getElementById('ratingSubmitBtn').addEventListener('click', function () { submitRating(); });
     }
 }
+
+var _ratingSellerValue = 0;
 
 function submitRating() {
     if (!_ratingOrder || _ratingValue < 1) { showToast('Pilih rating terlebih dahulu', 'error'); return; }
@@ -1583,15 +1665,12 @@ function submitRating() {
     var sellerReview = '';
     var isProductOrder = !!_ratingOrder.sellerId;
     if (isProductOrder) {
-        var sr = prompt('Beri rating untuk Penjual (1-5):', '5');
-        if (sr === null) return;
-        sellerRating = Number(sr);
+        sellerRating = Number(_ratingSellerValue) || 0;
         if (!sellerRating || sellerRating < 1 || sellerRating > 5) {
-            showToast('Rating penjual harus antara 1 sampai 5', 'error');
+            showToast('Silakan beri rating untuk penjual', 'error');
             return;
         }
-        var srev = prompt('Ulasan untuk Penjual (opsional):', '');
-        sellerReview = srev === null ? '' : String(srev).trim();
+        sellerReview = (document.getElementById('ratingSellerReview').value || '').trim();
     }
 
     backendPost({
