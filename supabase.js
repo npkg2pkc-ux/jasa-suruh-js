@@ -923,6 +923,10 @@
         var excludeUserId = body.excludeUserId || '';
         var excludeTalentIds = body.excludeTalentIds || [];
 
+        if (!isFinite(userLat) || !isFinite(userLng)) {
+            return ok([]);
+        }
+
         // Get all users + skills
         return Promise.all([
             sb.from('users').select('data'),
@@ -940,21 +944,45 @@
 
             var talents = [];
             (usersRes.data || []).forEach(function (row) {
-                var u = row.data;
+                var raw = row.data || {};
+                if (typeof raw === 'string') {
+                    try { raw = JSON.parse(raw); } catch (e) { raw = {}; }
+                }
+
+                // Some user records (especially from OTP flow) keep key fields in table columns,
+                // while some keep them in data JSON. Normalize first before filtering.
+                var u = {
+                    id: row.id || raw.id || '',
+                    role: row.role || raw.role || '',
+                    name: row.nama || raw.name || raw.nama || '',
+                    lat: (raw.lat !== undefined && raw.lat !== null) ? raw.lat : row.lat,
+                    lng: (raw.lng !== undefined && raw.lng !== null) ? raw.lng : row.lng,
+                    isOnline: (raw.isOnline !== undefined) ? raw.isOnline : row.isOnline
+                };
+
                 if (!u || u.role !== 'talent') return;
                 if (u.id === excludeUserId) return;
                 if (excludeTalentIds.indexOf(u.id) >= 0) return;
-                if (!u.isOnline) return;
-                if (!u.lat || !u.lng) return;
+                // Check online status — consider talent online if isOnline is true
+                // or if isOnline is not explicitly set to false (for backward compatibility)
+                if (u.isOnline === false) return;
 
-                // Check if talent has the required skill
+                var tLat = Number(u.lat);
+                var tLng = Number(u.lng);
+                if (!isFinite(tLat) || !isFinite(tLng)) return;
+                if (tLat === 0 && tLng === 0) return;
+
+                // Check if talent has the required skill OR any delivery-related skill
                 var tSkills = skillMap[u.id] || [];
-                var hasSkill = tSkills.some(function (s) { return s.type === skillType; });
-                if (!hasSkill) return;
+                var hasSkill = tSkills.some(function (s) {
+                    return s.type === skillType || s.type === 'js_antar' || s.type === 'driver' || s.type === 'delivery';
+                });
+                // If talent has no skills registered at all, still allow them (they just need to be online)
+                if (tSkills.length > 0 && !hasSkill) return;
 
                 // Calculate distance (Haversine)
-                var dist = haversine(userLat, userLng, Number(u.lat), Number(u.lng));
-                talents.push({ id: u.id, name: u.name, lat: u.lat, lng: u.lng, distance: dist });
+                var dist = haversine(userLat, userLng, tLat, tLng);
+                talents.push({ id: u.id, name: u.name, lat: tLat, lng: tLng, distance: dist });
             });
 
             // Sort by distance

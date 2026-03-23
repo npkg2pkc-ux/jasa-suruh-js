@@ -372,6 +372,30 @@ function setupTalentToggle() {
     var toggle = document.getElementById('talentOnlineToggle');
     var label = document.getElementById('talentStatusLabel');
     if (!toggle || !label) return;
+
+    function hasValidLocation(session) {
+        if (!session) return false;
+        var lat = Number(session.lat);
+        var lng = Number(session.lng);
+        return isFinite(lat) && isFinite(lng) && !(lat === 0 && lng === 0);
+    }
+
+    function syncTalentLocation(session) {
+        return getCurrentPosition().then(function (pos) {
+            return reverseGeocode(pos.lat, pos.lng).then(function (address) {
+                var latest = getSession();
+                if (latest && latest.id === session.id) {
+                    latest.lat = pos.lat;
+                    latest.lng = pos.lng;
+                    latest.address = address;
+                    setSession(latest);
+                    displayUserAddress(latest);
+                }
+                backendPost({ action: 'updateLocation', userId: session.id, lat: pos.lat, lng: pos.lng, address: address });
+            });
+        });
+    }
+
     toggle.addEventListener('change', function () {
         var session = getSession();
         if (this.checked) {
@@ -386,10 +410,34 @@ function setupTalentToggle() {
                 }, 300);
                 return;
             }
-            label.textContent = 'Online';
-            label.classList.add('online');
-            showToast('Anda sekarang Online! ✅', 'success');
-            if (session) backendPost({ action: 'setOnlineStatus', userId: session.id, isOnline: true });
+            if (!session) return;
+
+            var goOnline = function () {
+                label.textContent = 'Online';
+                label.classList.add('online');
+                showToast('Anda sekarang Online! ✅', 'success');
+                backendPost({ action: 'setOnlineStatus', userId: session.id, isOnline: true });
+            };
+
+            if (!hasValidLocation(session)) {
+                toggle.disabled = true;
+                label.textContent = 'Memuat lokasi...';
+                syncTalentLocation(session).then(function () {
+                    toggle.disabled = false;
+                    goOnline();
+                }).catch(function () {
+                    toggle.disabled = false;
+                    toggle.checked = false;
+                    label.textContent = 'Offline';
+                    label.classList.remove('online');
+                    showToast('Aktifkan izin lokasi agar bisa Online.', 'error');
+                });
+                return;
+            }
+
+            // Refresh location in background when going online, but don't block UI.
+            syncTalentLocation(session).then(function () {}).catch(function () {});
+            goOnline();
         } else {
             label.textContent = 'Offline';
             label.classList.remove('online');
