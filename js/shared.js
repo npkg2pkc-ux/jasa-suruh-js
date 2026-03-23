@@ -581,10 +581,13 @@ function _checkOrderMessages(order, session) {
                 if (!m) return false;
                 var fromOther = String(m.senderId) !== String(session.id);
                 if (!fromOther) return false;
-                // New format: only notify if addressed to this session.
+
+                // Primary rule: only notify if explicitly addressed to this session.
                 if (m.recipientId) {
                     return String(m.recipientId) === String(session.id);
                 }
+
+                // Secondary rule for transition data: allow only if conversation key includes this user.
                 if (m.conversationKey) {
                     var mine = String(session.id);
                     return String(m.conversationKey).indexOf('::') >= 0
@@ -592,10 +595,10 @@ function _checkOrderMessages(order, session) {
                         && (String(m.conversationKey).indexOf('::' + mine + '__') >= 0
                             || String(m.conversationKey).indexOf('__' + mine) >= 0);
                 }
-                // Legacy ambiguous message in 3-party order: skip to prevent cross-thread leak.
-                if (order && order.userId && order.sellerId && order.talentId) return false;
-                // Legacy format without recipient info.
-                return true;
+
+                // Legacy message without recipient/conversation metadata is ambiguous.
+                // Do not increase badge to avoid cross-role badge leaks.
+                return false;
             }
 
             if (prevCount > 0 && currentCount > prevCount) {
