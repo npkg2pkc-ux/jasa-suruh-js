@@ -669,14 +669,14 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 /* ========== ORDER TRACKING PAGE ========== */
 .otp-map { width:100%; height:45vh; min-height:200px; z-index:1; }
 .otp-map.hidden { display:none; }
-.otp-progress-wrap { padding:14px 14px 0; background:linear-gradient(180deg,#fff 0%,#FFF8F1 100%); }
+.otp-progress-wrap { padding:14px 14px 16px; background:linear-gradient(180deg,#fff 0%,#FFF8F1 100%); }
 .otp-progress-wrap.hidden { display:none; }
-.otp-progress-card { background:#fff; border:1px solid #FFE2CB; border-radius:16px; padding:14px 12px 12px; box-shadow:0 8px 20px rgba(255,107,0,.09); }
-.otp-progress-title { font-size:13px; font-weight:800; color:#B45309; margin-bottom:10px; letter-spacing:.2px; }
-.otp-progress-row { display:flex; align-items:stretch; gap:8px; overflow-x:auto; overflow-y:hidden; padding:2px 2px 6px; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; }
+.otp-progress-card { background:#fff; border:1px solid #FFE2CB; border-radius:18px; padding:14px 12px 14px; box-shadow:0 12px 28px rgba(255,107,0,.11); }
+.otp-progress-title { font-size:13px; font-weight:800; color:#B45309; margin-bottom:11px; letter-spacing:.2px; }
+.otp-progress-row { display:flex; align-items:stretch; gap:8px; overflow-x:auto; overflow-y:hidden; padding:2px 2px 8px; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; }
 .otp-progress-row::-webkit-scrollbar { height:4px; }
 .otp-progress-row::-webkit-scrollbar-thumb { background:#FED7AA; border-radius:999px; }
-.otp-progress-step { min-width:122px; max-width:132px; display:flex; flex-direction:column; align-items:flex-start; gap:7px; padding:10px 10px; border-radius:12px; background:#FFF9F4; border:1px solid #FDE7D6; position:relative; scroll-snap-align:start; flex-shrink:0; }
+.otp-progress-step { min-width:122px; max-width:132px; display:flex; flex-direction:column; align-items:flex-start; gap:7px; padding:10px 10px; border-radius:13px; background:#FFF9F4; border:1px solid #FDE7D6; position:relative; scroll-snap-align:start; flex-shrink:0; }
 .otp-progress-dot { width:24px; height:24px; border-radius:50%; background:#FFE8D6; color:#D97706; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
 .otp-progress-line { width:22px; min-width:22px; align-self:center; background:linear-gradient(90deg,#F3F4F6,#E5E7EB); border-radius:999px; height:2px; margin-top:22px; flex-shrink:0; }
 .otp-progress-text { font-size:11px; line-height:1.35; color:#6B7280; font-weight:650; white-space:normal; }
@@ -687,6 +687,13 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .otp-progress-step.active { background:#FFF3E8; border-color:#FDBA74; box-shadow:0 0 0 2px rgba(255,107,0,.1); }
 .otp-progress-step.active .otp-progress-text { color:#111827; font-weight:700; }
 .otp-progress-step.active::after { content:''; position:absolute; left:8px; right:8px; bottom:6px; height:1px; background:linear-gradient(90deg,transparent 0%,rgba(255,107,0,.55) 45%,transparent 100%); animation:otpShimmer 1.4s linear infinite; }
+
+/* Keep info panel separated when progress is shown (map hidden). */
+.otp-map.hidden + .otp-info-panel {
+    margin-top:0;
+    border-radius:18px 18px 0 0;
+    box-shadow:0 -1px 10px rgba(2,6,23,.04);
+}
 
 @keyframes otpPulse {
     0% { box-shadow:0 0 0 0 rgba(255,107,0,.38); }
