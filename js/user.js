@@ -1155,6 +1155,8 @@ function createProductOrder(cartItems, store, paymentMethod, pricing, checkoutMo
         userLat: session.lat || 0,
         userLng: session.lng || 0,
         userAddr: session.address || '',
+        storeLat: store.lat || 0,
+        storeLng: store.lng || 0,
         talentLat: store.lat || 0,
         talentLng: store.lng || 0
     };

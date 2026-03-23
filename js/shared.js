@@ -885,7 +885,138 @@ function openOrderTracking(order) {
 
 function shouldShowTrackingMap(order) {
     if (!order) return false;
-    return ['on_the_way', 'arrived', 'in_progress', 'completed', 'rated'].indexOf(order.status) >= 0;
+    var session = getSession();
+    var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
+    var baseStatuses = ['on_the_way', 'arrived', 'in_progress', 'completed', 'rated'];
+
+    if (!isProductOrder) {
+        return baseStatuses.indexOf(order.status) >= 0;
+    }
+
+    var isDriver = !!(session && session.id === order.talentId);
+    var isSeller = !!(session && session.id === order.sellerId);
+    var isBuyer = !!(session && session.id === order.userId);
+
+    if (isBuyer) {
+        return ['in_progress', 'completed', 'rated'].indexOf(order.status) >= 0;
+    }
+    if (isSeller) {
+        return ['on_the_way', 'arrived'].indexOf(order.status) >= 0;
+    }
+    if (isDriver) {
+        return ['on_the_way', 'arrived', 'in_progress', 'completed', 'rated'].indexOf(order.status) >= 0;
+    }
+
+    return baseStatuses.indexOf(order.status) >= 0;
+}
+
+function isValidLatLng(lat, lng) {
+    var nLat = Number(lat);
+    var nLng = Number(lng);
+    if (!isFinite(nLat) || !isFinite(nLng)) return false;
+    if (Math.abs(nLat) > 90 || Math.abs(nLng) > 180) return false;
+    if (nLat === 0 && nLng === 0) return false;
+    return true;
+}
+
+function getOrderStoreCoords(order) {
+    if (!order) return null;
+    var lat = Number(order.storeLat);
+    var lng = Number(order.storeLng);
+    if (isValidLatLng(lat, lng)) {
+        return { lat: lat, lng: lng };
+    }
+
+    var sellerId = order.sellerId;
+    if (!sellerId) return null;
+    var seller = getUsers().find(function (u) { return String(u.id) === String(sellerId); });
+    if (!seller) return null;
+    lat = Number(seller.lat);
+    lng = Number(seller.lng);
+    if (isValidLatLng(lat, lng)) {
+        return { lat: lat, lng: lng };
+    }
+    return null;
+}
+
+function getTrackingRouteEndpoints(order) {
+    if (!order) return null;
+
+    var userLat = Number(order.userLat);
+    var userLng = Number(order.userLng);
+    var driverLat = Number(order.talentLat);
+    var driverLng = Number(order.talentLng);
+    var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
+    var isAntar = order.skillType === 'js_antar';
+    var storeCoords = isProductOrder ? getOrderStoreCoords(order) : null;
+
+    if (!isValidLatLng(driverLat, driverLng)) {
+        if (storeCoords) {
+            driverLat = Number(storeCoords.lat);
+            driverLng = Number(storeCoords.lng);
+        } else if (isValidLatLng(userLat, userLng)) {
+            driverLat = userLat;
+            driverLng = userLng;
+        }
+    }
+
+    if (!isValidLatLng(driverLat, driverLng)) return null;
+
+    if (isProductOrder) {
+        var goingToBuyer = ['in_progress', 'completed', 'rated'].indexOf(order.status) >= 0;
+        if (goingToBuyer && isValidLatLng(userLat, userLng)) {
+            return {
+                fromLat: driverLat,
+                fromLng: driverLng,
+                toLat: userLat,
+                toLng: userLng,
+                phase: 'to_buyer'
+            };
+        }
+        if (storeCoords && isValidLatLng(storeCoords.lat, storeCoords.lng)) {
+            return {
+                fromLat: driverLat,
+                fromLng: driverLng,
+                toLat: Number(storeCoords.lat),
+                toLng: Number(storeCoords.lng),
+                phase: 'to_store'
+            };
+        }
+        if (isValidLatLng(userLat, userLng)) {
+            return {
+                fromLat: driverLat,
+                fromLng: driverLng,
+                toLat: userLat,
+                toLng: userLng,
+                phase: 'to_buyer'
+            };
+        }
+        return null;
+    }
+
+    if (isAntar) {
+        var destLat = Number(order.destLat);
+        var destLng = Number(order.destLng);
+        var goingToDestination = ['in_progress', 'completed', 'rated'].indexOf(order.status) >= 0;
+        if (goingToDestination && isValidLatLng(destLat, destLng)) {
+            return {
+                fromLat: driverLat,
+                fromLng: driverLng,
+                toLat: destLat,
+                toLng: destLng,
+                phase: 'to_destination'
+            };
+        }
+    }
+
+    if (!isValidLatLng(userLat, userLng)) return null;
+    return {
+        fromLat: driverLat,
+        fromLng: driverLng,
+        toLat: userLat,
+        toLng: userLng,
+        phase: 'to_user'
+    };
 }
 
 function buildTrackingProgressSteps(order) {
@@ -983,6 +1114,7 @@ function destroyTrackingMap() {
     if (_otpMap) { _otpMap.remove(); _otpMap = null; }
     _otpTalentMarker = null;
     _otpUserMarker = null;
+    _otpStoreMarker = null;
     _otpRouteLine = null;
 }
 
@@ -1275,6 +1407,108 @@ function renderOrderInfo(order, isTalent) {
     }
 }
 
+function shouldShowDriverNavButtons(order) {
+    if (!order) return false;
+    return ['on_the_way', 'arrived', 'in_progress'].indexOf(order.status) >= 0;
+}
+
+function buildDriverNavButtonsHtml(order) {
+    if (!shouldShowDriverNavButtons(order)) return '';
+
+    var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
+    var hasUser = isValidLatLng(order.userLat, order.userLng);
+    var storeCoords = getOrderStoreCoords(order);
+    var hasStore = !!(storeCoords && isValidLatLng(storeCoords.lat, storeCoords.lng));
+
+    if (isProductOrder) {
+        if (!hasStore && !hasUser) return '';
+        return '<div class="otp-btn-row">'
+            + (hasStore ? '<button class="otp-btn otp-btn-secondary" id="otpBtnNavStore">🗺️ Buka Google Maps ke Toko</button>' : '')
+            + (hasUser ? '<button class="otp-btn otp-btn-secondary" id="otpBtnNavBuyer">🗺️ Buka Google Maps ke Pembeli</button>' : '')
+            + '</div>';
+    }
+
+    if (!hasUser) return '';
+    return '<button class="otp-btn otp-btn-secondary" id="otpBtnNavUser">🗺️ Buka Google Maps</button>';
+}
+
+function resolveDriverNavigationTarget(order, targetType) {
+    if (!order) return null;
+    if (targetType === 'store') {
+        var storeCoords = getOrderStoreCoords(order);
+        if (storeCoords && isValidLatLng(storeCoords.lat, storeCoords.lng)) {
+            return { lat: Number(storeCoords.lat), lng: Number(storeCoords.lng), label: 'toko' };
+        }
+        return null;
+    }
+    if (targetType === 'buyer') {
+        if (isValidLatLng(order.userLat, order.userLng)) {
+            return { lat: Number(order.userLat), lng: Number(order.userLng), label: 'pembeli' };
+        }
+        return null;
+    }
+    if (targetType === 'user') {
+        if (isValidLatLng(order.userLat, order.userLng)) {
+            return { lat: Number(order.userLat), lng: Number(order.userLng), label: 'tujuan' };
+        }
+        return null;
+    }
+    return null;
+}
+
+function openDriverGoogleMaps(order, targetType) {
+    var target = resolveDriverNavigationTarget(order, targetType);
+    if (!target) {
+        showToast('Koordinat tujuan belum tersedia', 'error');
+        return;
+    }
+
+    function openWith(originLat, originLng) {
+        var url = 'https://www.google.com/maps/dir/?api=1'
+            + '&origin=' + encodeURIComponent(String(originLat) + ',' + String(originLng))
+            + '&destination=' + encodeURIComponent(String(target.lat) + ',' + String(target.lng))
+            + '&travelmode=driving'
+            + '&dir_action=navigate';
+        var win = window.open(url, '_blank');
+        if (!win) window.location.href = url;
+    }
+
+    getCurrentPosition()
+        .then(function (pos) { openWith(pos.lat, pos.lng); })
+        .catch(function () {
+            var fallbackLat = Number(order.talentLat);
+            var fallbackLng = Number(order.talentLng);
+            if (!isValidLatLng(fallbackLat, fallbackLng)) {
+                fallbackLat = target.lat;
+                fallbackLng = target.lng;
+            }
+            openWith(fallbackLat, fallbackLng);
+        });
+}
+
+function bindDriverNavButtons(order) {
+    var btnStore = document.getElementById('otpBtnNavStore');
+    if (btnStore) {
+        btnStore.addEventListener('click', function () {
+            openDriverGoogleMaps(order, 'store');
+        });
+    }
+
+    var btnBuyer = document.getElementById('otpBtnNavBuyer');
+    if (btnBuyer) {
+        btnBuyer.addEventListener('click', function () {
+            openDriverGoogleMaps(order, 'buyer');
+        });
+    }
+
+    var btnUser = document.getElementById('otpBtnNavUser');
+    if (btnUser) {
+        btnUser.addEventListener('click', function () {
+            openDriverGoogleMaps(order, 'user');
+        });
+    }
+}
+
 function renderOrderActions(order, isTalent, isUser) {
     var el = document.getElementById('otpActions');
     if (!el) return;
@@ -1385,8 +1619,9 @@ function renderOrderActions(order, isTalent, isUser) {
 
     // ── TALENT/DRIVER: Accept/Reject on pending ──
     if (isTalent) {
+        var driverNavHtml = buildDriverNavButtonsHtml(order);
         if (order.status === 'pending') {
-            el.innerHTML = '<div class="otp-btn-row"><button class="otp-btn otp-btn-accept" id="otpBtnAccept">✅ Terima Pesanan</button><button class="otp-btn otp-btn-reject" id="otpBtnReject">❌ Tolak</button></div>';
+            el.innerHTML = driverNavHtml + '<div class="otp-btn-row"><button class="otp-btn otp-btn-accept" id="otpBtnAccept">✅ Terima Pesanan</button><button class="otp-btn otp-btn-reject" id="otpBtnReject">❌ Tolak</button></div>';
             document.getElementById('otpBtnAccept').addEventListener('click', function () {
                 var btn = this;
                 btn.disabled = true;
@@ -1458,16 +1693,16 @@ function renderOrderActions(order, isTalent, isUser) {
             });
         } else if (order.status === 'accepted') {
             var otwLabel = isAntar ? '🏍️ Menuju Lokasi Jemput' : '🏍️ Menuju Lokasi';
-            el.innerHTML = '<button class="otp-btn otp-btn-otw" id="otpBtnOtw">' + otwLabel + '</button>';
+            el.innerHTML = driverNavHtml + '<button class="otp-btn otp-btn-otw" id="otpBtnOtw">' + otwLabel + '</button>';
             document.getElementById('otpBtnOtw').addEventListener('click', function () { updateOrderStatus(order.id, 'on_the_way', {}); startTalentLocationBroadcast(order.id); });
         } else if (order.status === 'on_the_way' && isProductOrder) {
-            el.innerHTML = '<button class="otp-btn otp-btn-arrive" id="otpBtnArrive">📍 Sampai di Toko</button>';
+            el.innerHTML = driverNavHtml + '<button class="otp-btn otp-btn-arrive" id="otpBtnArrive">📍 Sampai di Toko</button>';
             document.getElementById('otpBtnArrive').addEventListener('click', function () { updateOrderStatus(order.id, 'arrived', {}); });
         } else if (order.status === 'arrived' && isProductOrder) {
-            el.innerHTML = '<button class="otp-btn otp-btn-start" id="otpBtnStart">🛍️ Ambil Pesanan & Antar</button>';
+            el.innerHTML = driverNavHtml + '<button class="otp-btn otp-btn-start" id="otpBtnStart">🛍️ Ambil Pesanan & Antar</button>';
             document.getElementById('otpBtnStart').addEventListener('click', function () { updateOrderStatus(order.id, 'in_progress', { pickedUpAt: Date.now() }); });
         } else if (order.status === 'in_progress' && isProductOrder) {
-            el.innerHTML = '<button class="otp-btn otp-btn-complete" id="otpBtnComplete">✅ Selesai + Upload Bukti</button><input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">';
+            el.innerHTML = driverNavHtml + '<button class="otp-btn otp-btn-complete" id="otpBtnComplete">✅ Selesai + Upload Bukti</button><input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">';
             document.getElementById('otpBtnComplete').addEventListener('click', function () {
                 document.getElementById('otpProofInput').click();
             });
@@ -1485,15 +1720,15 @@ function renderOrderActions(order, isTalent, isUser) {
             });
         } else if (order.status === 'on_the_way') {
             var arriveLabel = isAntar ? '📍 Sudah di Lokasi Jemput' : '📍 Sudah Tiba';
-            el.innerHTML = '<button class="otp-btn otp-btn-arrive" id="otpBtnArrive">' + arriveLabel + '</button>';
+            el.innerHTML = driverNavHtml + '<button class="otp-btn otp-btn-arrive" id="otpBtnArrive">' + arriveLabel + '</button>';
             document.getElementById('otpBtnArrive').addEventListener('click', function () { updateOrderStatus(order.id, 'arrived', {}); });
         } else if (order.status === 'arrived') {
             var startLabel = isAntar ? '🚀 Mulai Perjalanan' : '🔨 Mulai Mengerjakan';
-            el.innerHTML = '<button class="otp-btn otp-btn-start" id="otpBtnStart">' + startLabel + '</button>';
+            el.innerHTML = driverNavHtml + '<button class="otp-btn otp-btn-start" id="otpBtnStart">' + startLabel + '</button>';
             document.getElementById('otpBtnStart').addEventListener('click', function () { updateOrderStatus(order.id, 'in_progress', { startedAt: Date.now() }); });
         } else if (order.status === 'in_progress') {
             var completeLabel = isAntar ? '🏁 Sampai Tujuan' : '✅ Selesai + Upload Bukti';
-            el.innerHTML = '<button class="otp-btn otp-btn-complete" id="otpBtnComplete">' + completeLabel + '</button>' + (isAntar ? '' : '<input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">');
+            el.innerHTML = driverNavHtml + '<button class="otp-btn otp-btn-complete" id="otpBtnComplete">' + completeLabel + '</button>' + (isAntar ? '' : '<input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">');
             if (isAntar) {
                 // JS Antar: no photo proof needed, just mark complete
                 document.getElementById('otpBtnComplete').addEventListener('click', function () {
@@ -1518,6 +1753,8 @@ function renderOrderActions(order, isTalent, isUser) {
                 });
             }
         }
+
+        if (driverNavHtml) bindDriverNavButtons(order);
     }
 
     if (isUser && order.status === 'completed') {
@@ -1646,13 +1883,34 @@ function initTrackingMap(order) {
 
     if (_otpMap) { _otpMap.remove(); _otpMap = null; }
 
-    var userLat = Number(order.userLat) || -6.2;
-    var userLng = Number(order.userLng) || 106.8;
-    var talentLat = Number(order.talentLat) || userLat;
-    var talentLng = Number(order.talentLng) || userLng;
+    var userLat = Number(order.userLat);
+    var userLng = Number(order.userLng);
+    if (!isValidLatLng(userLat, userLng)) {
+        userLat = -6.2;
+        userLng = 106.8;
+    }
+
+    var talentLat = Number(order.talentLat);
+    var talentLng = Number(order.talentLng);
+    var storeCoords = getOrderStoreCoords(order);
+    if (!isValidLatLng(talentLat, talentLng)) {
+        if (storeCoords) {
+            talentLat = Number(storeCoords.lat);
+            talentLng = Number(storeCoords.lng);
+        } else {
+            talentLat = userLat;
+            talentLng = userLng;
+        }
+    }
+
+    var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
     var isAntar = order.skillType === 'js_antar';
-    var destLat = isAntar && order.destLat ? Number(order.destLat) : null;
-    var destLng = isAntar && order.destLng ? Number(order.destLng) : null;
+    var destLat = isAntar ? Number(order.destLat) : null;
+    var destLng = isAntar ? Number(order.destLng) : null;
+    if (!isValidLatLng(destLat, destLng)) {
+        destLat = null;
+        destLng = null;
+    }
 
     var centerLat = (userLat + talentLat) / 2;
     var centerLng = (userLng + talentLng) / 2;
@@ -1672,7 +1930,7 @@ function initTrackingMap(order) {
         popupAnchor: [0, -46],
         className: 'gm-pin-wrapper'
     });
-    _otpUserMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(_otpMap).bindPopup(isAntar ? 'Titik Jemput' : 'Lokasi Anda');
+    _otpUserMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(_otpMap).bindPopup(isProductOrder ? 'Lokasi Pembeli' : (isAntar ? 'Titik Jemput' : 'Lokasi Anda'));
 
     var talentIcon = L.divIcon({
         html: '<div class="gm-pin gm-pin-orange"><div class="gm-pin-head">🏍️</div><div class="gm-pin-tail"></div></div>',
@@ -1684,7 +1942,20 @@ function initTrackingMap(order) {
     _otpTalentMarker = L.marker([talentLat, talentLng], { icon: talentIcon }).addTo(_otpMap).bindPopup('Driver');
 
     var points = [[userLat, userLng], [talentLat, talentLng]];
-    if (isAntar && destLat && destLng) {
+    _otpStoreMarker = null;
+    if (isProductOrder && storeCoords && isValidLatLng(storeCoords.lat, storeCoords.lng)) {
+        var storeIcon = L.divIcon({
+            html: '<div class="gm-pin gm-pin-red"><div class="gm-pin-head">🏪</div><div class="gm-pin-tail"></div></div>',
+            iconSize: [36, 46],
+            iconAnchor: [18, 46],
+            popupAnchor: [0, -46],
+            className: 'gm-pin-wrapper'
+        });
+        _otpStoreMarker = L.marker([Number(storeCoords.lat), Number(storeCoords.lng)], { icon: storeIcon }).addTo(_otpMap).bindPopup('Lokasi Toko');
+        points.push([Number(storeCoords.lat), Number(storeCoords.lng)]);
+    }
+
+    if (isAntar && destLat !== null && destLng !== null) {
         var destIcon = L.divIcon({
             html: '<div class="gm-pin gm-pin-red"><div class="gm-pin-head">🏁</div><div class="gm-pin-tail"></div></div>',
             iconSize: [36, 46],
@@ -1699,9 +1970,22 @@ function initTrackingMap(order) {
     var bounds = L.latLngBounds(points);
     _otpMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
 
-    fetchAndDrawRoute(talentLat, talentLng, userLat, userLng);
+    updateTrackingRoute(order, false);
 
     setTimeout(function () { if (_otpMap) _otpMap.invalidateSize(); }, 300);
+}
+
+function updateTrackingRoute(order, shouldFitBounds) {
+    if (!_otpMap || !order) return;
+    var endpoints = getTrackingRouteEndpoints(order);
+    if (!endpoints) return;
+
+    fetchAndDrawRoute(endpoints.fromLat, endpoints.fromLng, endpoints.toLat, endpoints.toLng);
+
+    if (!shouldFitBounds) return;
+    var points = [[endpoints.fromLat, endpoints.fromLng], [endpoints.toLat, endpoints.toLng]];
+    var bounds = L.latLngBounds(points);
+    _otpMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
 }
 
 function fetchAndDrawRoute(fromLat, fromLng, toLat, toLng) {
@@ -1730,7 +2014,9 @@ function updateTalentMarkerPosition(lat, lng) {
         _otpTalentMarker.setLatLng([lat, lng]);
     }
     if (_currentOrder) {
-        fetchAndDrawRoute(lat, lng, Number(_currentOrder.userLat), Number(_currentOrder.userLng));
+        _currentOrder.talentLat = lat;
+        _currentOrder.talentLng = lng;
+        updateTrackingRoute(_currentOrder, false);
     }
 }
 

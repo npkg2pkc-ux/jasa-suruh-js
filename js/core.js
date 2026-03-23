@@ -22,6 +22,7 @@ var _currentOrder = null;
 var _otpMap = null;
 var _otpTalentMarker = null;
 var _otpUserMarker = null;
+var _otpStoreMarker = null;
 var _otpRouteLine = null;
 var _locationPollTimer = null;
 var _chatPollTimer = null;
