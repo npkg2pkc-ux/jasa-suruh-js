@@ -1014,6 +1014,22 @@ function closeTrackingToHome() {
     maybePromptRatingAfterCompleted(orderSnapshot);
 }
 
+function isTrackingTerminalStatus(status) {
+    return ['completed', 'rated', 'cancelled', 'rejected'].indexOf(status) >= 0;
+}
+
+function refreshTrackingUIFromCurrentOrder() {
+    if (!_currentOrder) return;
+    var session = getSession();
+    var isTalent = session && session.id === _currentOrder.talentId;
+    var isUser = session && session.id === _currentOrder.userId;
+
+    updateOrderStatusBadge(_currentOrder.status);
+    renderOrderActions(_currentOrder, isTalent, isUser);
+    renderOrderInfo(_currentOrder, isTalent);
+    updateTrackingVisualState(_currentOrder);
+}
+
 function maybePromptRatingAfterCompleted(order) {
     if (!order) return;
     var session = getSession();
@@ -1289,8 +1305,7 @@ function renderOrderActions(order, isTalent, isUser) {
                 backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'cancelled', cancelledAt: Date.now(), cancelledBy: 'user' } }).then(function (res) {
                     if (res && res.success) {
                         if (_currentOrder) _currentOrder.status = 'cancelled';
-                        updateOrderStatusBadge('cancelled');
-                        renderOrderActions(order, false, true);
+                        refreshTrackingUIFromCurrentOrder();
                         showToast('Pesanan dibatalkan', 'success');
                         addNotifItem({ icon: '❌', title: 'Pesanan Dibatalkan', desc: (order.serviceType || 'Pesanan') + ' - dibatalkan oleh Anda', type: 'order', orderId: order.id });
                         // Notify talent if assigned
@@ -1311,6 +1326,7 @@ function renderOrderActions(order, isTalent, isUser) {
                             addNotifItem({ userId: order.userId, icon: '💰', title: 'Refund Berhasil', desc: 'Saldo ' + formatRupiah(paidAmount) + ' dikembalikan karena pembatalan', type: 'refund', orderId: order.id });
                             showToast('Saldo ' + formatRupiah(paidAmount) + ' dikembalikan', 'success');
                         }
+                        setTimeout(function () { closeTrackingToHome(); }, 450);
                     }
                 });
             });
@@ -1326,8 +1342,7 @@ function renderOrderActions(order, isTalent, isUser) {
                 backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'preparing', sellerAcceptedAt: Date.now() } }).then(function (res) {
                     if (res && res.success) {
                         if (_currentOrder) _currentOrder.status = 'preparing';
-                        updateOrderStatusBadge('preparing');
-                        renderOrderActions(order, false, false);
+                        refreshTrackingUIFromCurrentOrder();
                         showToast('Pesanan diterima! Segera siapkan.', 'success');
                         addNotifItem({ userId: order.userId, icon: '👨‍🍳', title: 'Penjual Menyiapkan', desc: (order.serviceType || 'Pesanan') + ' sedang disiapkan', type: 'order', orderId: order.id });
                     }
@@ -1342,10 +1357,10 @@ function renderOrderActions(order, isTalent, isUser) {
                     backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'cancelled', cancelledAt: Date.now(), cancelledBy: 'seller' } }).then(function (res) {
                         if (res && res.success) {
                             if (_currentOrder) _currentOrder.status = 'cancelled';
-                            updateOrderStatusBadge('cancelled');
-                            renderOrderActions(order, false, false);
+                            refreshTrackingUIFromCurrentOrder();
                             showToast('Pesanan ditolak', 'success');
                             addNotifItem({ userId: order.userId, icon: '❌', title: 'Penjual Menolak', desc: (order.storeName || 'Toko') + ' menolak pesanan Anda', type: 'order', orderId: order.id });
+                            setTimeout(function () { closeTrackingToHome(); }, 450);
                         }
                     });
                 });
@@ -1356,8 +1371,7 @@ function renderOrderActions(order, isTalent, isUser) {
                 backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'searching', sellerReadyAt: Date.now() } }).then(function (res) {
                     if (res && res.success) {
                         if (_currentOrder) _currentOrder.status = 'searching';
-                        updateOrderStatusBadge('searching');
-                        renderOrderActions(order, false, false);
+                        refreshTrackingUIFromCurrentOrder();
                         showToast('Menunggu driver mengambil pesanan...', 'success');
                         addNotifItem({ userId: order.userId, icon: '📦', title: 'Pesanan Siap!', desc: 'Sedang mencari driver untuk mengambil pesanan', type: 'order', orderId: order.id });
                         // Trigger driver search from user side
@@ -1431,8 +1445,7 @@ function renderOrderActions(order, isTalent, isUser) {
                     if (res && res.success) {
                         showToast('Pesanan ditolak', 'success');
                         if (_currentOrder) _currentOrder.status = 'rejected';
-                        updateOrderStatusBadge('rejected');
-                        renderOrderActions(order, true, false);
+                        refreshTrackingUIFromCurrentOrder();
                         // Notify user
                         addNotifItem({ userId: order.userId, icon: '❌', title: 'Driver Menolak', desc: 'Sedang mencari driver lain...', type: 'order', orderId: order.id });
                         // Re-search for another driver (via user-side function not available here, use backend update)
@@ -1539,14 +1552,10 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
     fields.status = newStatus;
     backendPost({ action: 'updateOrder', orderId: orderId, fields: fields }).then(function (res) {
         if (res && res.success) {
-            if (_currentOrder && _currentOrder.id === orderId) {
+            if (_currentOrder && String(_currentOrder.id) === String(orderId)) {
                 _currentOrder.status = newStatus;
                 for (var k in extraFields) _currentOrder[k] = extraFields[k];
-                updateOrderStatusBadge(newStatus);
-                var session = getSession();
-                renderOrderActions(_currentOrder, session && session.id === _currentOrder.talentId, session && session.id === _currentOrder.userId);
-                renderOrderInfo(_currentOrder, session && session.id === _currentOrder.talentId);
-                updateTrackingVisualState(_currentOrder);
+                refreshTrackingUIFromCurrentOrder();
             }
             showToast('Status diperbarui!', 'success');
 
@@ -1617,7 +1626,7 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                     });
             }
 
-            if (newStatus === 'completed' || newStatus === 'rated') {
+            if (isTrackingTerminalStatus(newStatus)) {
                 setTimeout(function () {
                     closeTrackingToHome();
                 }, 900);
@@ -1733,22 +1742,18 @@ function startOrderPolling(orderId) {
     var session = getSession();
     if (typeof FB !== 'undefined' && FB.isReady()) {
         _fbOrderUnsub = FB.onOrder(orderId, function (order) {
-            if (!order || !_currentOrder || _currentOrder.id !== orderId) return;
+            if (!order || !_currentOrder || String(_currentOrder.id) !== String(orderId)) return;
             var oldStatus = _currentOrder.status;
             for (var key in order) { _currentOrder[key] = order[key]; }
             if (oldStatus !== order.status) {
-                updateOrderStatusBadge(order.status);
-                var session = getSession();
-                var isTalent = session && session.id === _currentOrder.talentId;
-                var isUser = session && session.id === _currentOrder.userId;
-                renderOrderActions(_currentOrder, isTalent, isUser);
-                renderOrderInfo(_currentOrder, isTalent);
-                updateTrackingVisualState(_currentOrder);
+                refreshTrackingUIFromCurrentOrder();
 
-                if (order.status === 'completed' || order.status === 'rated') {
+                if (isTrackingTerminalStatus(order.status)) {
                     setTimeout(function () {
                         closeTrackingToHome();
-                        showToast('Pesanan selesai. Kembali ke beranda.', 'success');
+                        if (order.status === 'cancelled') showToast('Pesanan dibatalkan. Kembali ke beranda.', 'success');
+                        else if (order.status === 'rejected') showToast('Pesanan ditolak. Kembali ke beranda.', 'error');
+                        else showToast('Pesanan selesai. Kembali ke beranda.', 'success');
                     }, 900);
                 }
 
@@ -1787,22 +1792,20 @@ function pollOrderUpdate(orderId) {
         .then(function (r) { return r.json(); })
         .then(function (res) {
             if (res.success && res.data) {
-                var order = res.data.find(function (o) { return o.id === orderId; });
-                if (order && _currentOrder && _currentOrder.id === orderId) {
+                var order = res.data.find(function (o) { return String(o.id) === String(orderId); });
+                if (order && _currentOrder && String(_currentOrder.id) === String(orderId)) {
                     var oldStatus = _currentOrder.status;
                     for (var key in order) _currentOrder[key] = order[key];
 
                     if (oldStatus !== order.status) {
-                        updateOrderStatusBadge(order.status);
-                        var session = getSession();
-                        renderOrderActions(_currentOrder, session && session.id === _currentOrder.talentId, session && session.id === _currentOrder.userId);
-                        renderOrderInfo(_currentOrder, session && session.id === _currentOrder.talentId);
-                        updateTrackingVisualState(_currentOrder);
+                        refreshTrackingUIFromCurrentOrder();
 
-                        if (order.status === 'completed' || order.status === 'rated') {
+                        if (isTrackingTerminalStatus(order.status)) {
                             setTimeout(function () {
                                 closeTrackingToHome();
-                                showToast('Pesanan selesai. Kembali ke beranda.', 'success');
+                                if (order.status === 'cancelled') showToast('Pesanan dibatalkan. Kembali ke beranda.', 'success');
+                                else if (order.status === 'rejected') showToast('Pesanan ditolak. Kembali ke beranda.', 'error');
+                                else showToast('Pesanan selesai. Kembali ke beranda.', 'success');
                             }, 900);
                         }
                     }
