@@ -752,7 +752,7 @@ function createProductOrder(product, store) {
 
     var price = Number(product.price) || 0;
 
-    showToast('Memproses pembayaran...', 'success');
+    showToast('Memproses pesanan...', 'success');
 
     // Fetch settings for dynamic fee
     FB.get('getSettings')

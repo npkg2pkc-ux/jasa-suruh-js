@@ -1135,7 +1135,9 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                                 action: 'walletCompleteOrder',
                                 orderId: order.id,
                                 talentId: order.talentId,
+                                sellerId: order.sellerId || '',
                                 price: order.price,
+                                deliveryFee: order.deliveryFee || 0,
                                 fee: order.fee,
                                 commissionPercent: commPercent,
                                 serviceType: order.serviceType || order.skillType || ''

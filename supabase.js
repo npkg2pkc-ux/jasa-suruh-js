@@ -132,7 +132,8 @@
     function getOrdersByUser(userId) {
         return Promise.all([
             sb.from('orders').select('data').eq('user_id', userId),
-            sb.from('orders').select('data').eq('talent_id', userId)
+            sb.from('orders').select('data').eq('talent_id', userId),
+            sb.from('orders').select('data').filter('data->>sellerId', 'eq', userId)
         ]).then(function (results) {
             var seen = {};
             var orders = [];
@@ -698,61 +699,97 @@
     }
 
     function doWalletCompleteOrder(body) {
-        // Called when order is completed — distribute funds to talent/penjual + owner commission
+        // Called when order is completed — distribute funds
         var orderId = body.orderId;
         var talentId = body.talentId;
+        var sellerId = body.sellerId || '';
         var price = Number(body.price) || 0;
+        var deliveryFee = Number(body.deliveryFee) || 0;
         var fee = Number(body.fee) || 0;
         var commissionPercent = Number(body.commissionPercent) || 10;
         var serviceType = body.serviceType || '';
 
-        // Commission from price goes to owner
-        var commission = Math.round(price * commissionPercent / 100);
-        var talentEarning = price - commission;
+        var promises = [];
 
-        // Fee always goes to owner (platform fee)
-        var ownerTotal = fee + commission;
+        if (sellerId && talentId !== sellerId) {
+            // 3-party order (product): seller gets price, driver gets deliveryFee, owner gets fee + commission
+            var commission = Math.round(price * commissionPercent / 100);
+            var sellerEarning = price - commission;
+            var driverEarning = deliveryFee;
+            var ownerTotal = fee + commission;
 
-        // Credit talent/penjual
-        var creditTalent = doWalletCredit({
-            userId: talentId,
-            amount: talentEarning,
-            orderId: orderId,
-            type: 'earning',
-            description: 'Pendapatan dari pesanan #' + orderId.substr(0, 8)
-        });
-
-        // Credit owner (find owner user)
-        var creditOwner = sb.from('users').select('data').then(function (res) {
-            if (res.error || !res.data) return ok(null);
-            var ownerRow = res.data.find(function (r) {
-                return r.data && r.data.role === 'owner';
-            });
-            if (!ownerRow || !ownerRow.data) return ok(null);
-            var ownerId = ownerRow.data.id;
-            return doWalletCredit({
-                userId: ownerId,
-                amount: ownerTotal,
+            // Credit seller (product price minus commission)
+            promises.push(doWalletCredit({
+                userId: sellerId,
+                amount: sellerEarning,
                 orderId: orderId,
-                type: 'commission',
-                description: 'Komisi dari pesanan #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')'
-            }).then(function (res) {
-                // Notify owner about incoming funds
-                doAddNotification({
-                    userId: ownerId,
-                    icon: '💰',
-                    title: 'Dana Masuk Rp ' + ownerTotal.toLocaleString('id-ID'),
-                    desc: 'Komisi pesanan #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')',
-                    type: 'earning',
-                    orderId: orderId
-                });
-                return res;
-            });
-        });
+                type: 'earning',
+                description: 'Penjualan produk #' + orderId.substr(0, 8)
+            }));
 
-        return Promise.all([creditTalent, creditOwner]).then(function () {
-            return ok({ talentEarning: talentEarning, ownerTotal: ownerTotal, commission: commission });
-        });
+            // Credit driver (delivery fee)
+            if (talentId && driverEarning > 0) {
+                promises.push(doWalletCredit({
+                    userId: talentId,
+                    amount: driverEarning,
+                    orderId: orderId,
+                    type: 'earning',
+                    description: 'Ongkir antar pesanan #' + orderId.substr(0, 8)
+                }));
+            }
+
+            // Credit owner (platform fee + commission)
+            promises.push(sb.from('users').select('data').then(function (res) {
+                if (res.error || !res.data) return ok(null);
+                var ownerRow = res.data.find(function (r) { return r.data && r.data.role === 'owner'; });
+                if (!ownerRow || !ownerRow.data) return ok(null);
+                var ownerId = ownerRow.data.id;
+                return doWalletCredit({
+                    userId: ownerId,
+                    amount: ownerTotal,
+                    orderId: orderId,
+                    type: 'commission',
+                    description: 'Komisi produk #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')'
+                });
+            }));
+
+            return Promise.all(promises).then(function () {
+                return ok({ sellerEarning: sellerEarning, driverEarning: driverEarning, ownerTotal: ownerTotal });
+            });
+        } else {
+            // 2-party order (talent service): talent gets price minus commission, owner gets fee + commission
+            var commission = Math.round(price * commissionPercent / 100);
+            var talentEarning = price - commission;
+            var ownerTotal = fee + commission;
+
+            // Credit talent
+            promises.push(doWalletCredit({
+                userId: talentId,
+                amount: talentEarning,
+                orderId: orderId,
+                type: 'earning',
+                description: 'Pendapatan dari pesanan #' + orderId.substr(0, 8)
+            }));
+
+            // Credit owner
+            promises.push(sb.from('users').select('data').then(function (res) {
+                if (res.error || !res.data) return ok(null);
+                var ownerRow = res.data.find(function (r) { return r.data && r.data.role === 'owner'; });
+                if (!ownerRow || !ownerRow.data) return ok(null);
+                var ownerId = ownerRow.data.id;
+                return doWalletCredit({
+                    userId: ownerId,
+                    amount: ownerTotal,
+                    orderId: orderId,
+                    type: 'commission',
+                    description: 'Komisi pesanan #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')'
+                });
+            }));
+
+            return Promise.all(promises).then(function () {
+                return ok({ talentEarning: talentEarning, ownerTotal: ownerTotal, commission: commission });
+            });
+        }
     }
 
     function doWalletCompleteOrderCOD(body) {
