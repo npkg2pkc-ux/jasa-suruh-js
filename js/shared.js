@@ -909,15 +909,37 @@ function buildTrackingProgressSteps(order) {
     ];
 }
 
+function animateTrackingProgressRow(rowEl, activeStepEl, shouldAnimate) {
+    if (!rowEl || !activeStepEl) return;
+
+    var targetLeft = activeStepEl.offsetLeft - Math.max(0, (rowEl.clientWidth - activeStepEl.offsetWidth) / 2);
+    var maxLeft = Math.max(0, rowEl.scrollWidth - rowEl.clientWidth);
+    if (targetLeft < 0) targetLeft = 0;
+    if (targetLeft > maxLeft) targetLeft = maxLeft;
+
+    if (shouldAnimate && typeof rowEl.scrollTo === 'function') {
+        rowEl.classList.add('moving-next');
+        rowEl.scrollTo({ left: targetLeft, behavior: 'smooth' });
+        setTimeout(function () { rowEl.classList.remove('moving-next'); }, 420);
+    } else {
+        rowEl.scrollLeft = targetLeft;
+    }
+}
+
 function renderTrackingProgress(order) {
     var wrap = document.getElementById('otpProgressWrap');
     var track = document.getElementById('otpProgressTrack');
     if (!wrap || !track || !order) return;
 
     var steps = buildTrackingProgressSteps(order);
+    var prevStatus = track.getAttribute('data-progress-status') || '';
     var activeIdx = 0;
+    var prevIdx = -1;
     for (var i = 0; i < steps.length; i++) {
         if (steps[i].key === order.status) { activeIdx = i; break; }
+    }
+    for (var pi = 0; pi < steps.length; pi++) {
+        if (steps[pi].key === prevStatus) { prevIdx = pi; break; }
     }
 
     var html = '<div class="otp-progress-title">Progress Pesanan</div><div class="otp-progress-row">';
@@ -934,6 +956,27 @@ function renderTrackingProgress(order) {
     }
     html += '</div>';
     track.innerHTML = html;
+    track.setAttribute('data-progress-status', order.status || '');
+
+    var rowEl = track.querySelector('.otp-progress-row');
+    var activeStepEl = rowEl ? rowEl.querySelector('.otp-progress-step.active') : null;
+    var shouldAnimate = !!prevStatus && prevStatus !== order.status;
+
+    if (rowEl) {
+        var stepEls = rowEl.querySelectorAll('.otp-progress-step');
+        if (prevIdx >= 0 && prevIdx < activeIdx && stepEls[prevIdx]) {
+            stepEls[prevIdx].classList.add('just-passed');
+            setTimeout((function (el) {
+                return function () { el.classList.remove('just-passed'); };
+            })(stepEls[prevIdx]), 520);
+        }
+        if (activeStepEl && shouldAnimate) {
+            activeStepEl.classList.add('just-arrived');
+            setTimeout(function () { activeStepEl.classList.remove('just-arrived'); }, 520);
+        }
+    }
+
+    animateTrackingProgressRow(rowEl, activeStepEl, shouldAnimate);
 }
 
 function destroyTrackingMap() {
