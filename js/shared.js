@@ -776,6 +776,13 @@ function openOrderTracking(order) {
     startOrderPolling(order.id);
 }
 
+function closeTrackingToHome() {
+    var page = document.getElementById('orderTrackingPage');
+    if (page) page.classList.add('hidden');
+    stopPolling();
+    resetBottomNavToHome();
+}
+
 function updateOrderStatusBadge(status) {
     var badge = document.getElementById('otpStatus');
     if (!badge) return;
@@ -849,12 +856,52 @@ function renderOrderInfo(order, isTalent) {
             + '</div>';
     }
 
+    function getUserPhoto(u, preferSkillSelfie) {
+        if (!u) return '';
+        var p = u.photo || u.foto_url || getProfilePhoto(u.id) || '';
+        if (!p && preferSkillSelfie) {
+            var tSkills = getUserSkills(u.id);
+            if (tSkills && tSkills.length > 0) {
+                for (var si = 0; si < tSkills.length; si++) {
+                    if (tSkills[si].selfieThumb) {
+                        p = tSkills[si].selfieThumb;
+                        break;
+                    }
+                }
+            }
+        }
+        return p;
+    }
+
+    function buildContactCard(opts) {
+        if (!opts || !opts.user) return '';
+        var u = opts.user;
+        var name = opts.name || u.name || 'Kontak';
+        var subtitle = opts.subtitle || '';
+        var roleClass = opts.roleClass || '';
+        var chatBtnId = opts.chatBtnId || '';
+        var photo = getUserPhoto(u, !!opts.preferSkillSelfie);
+        var initial = (name || '?').charAt(0).toUpperCase();
+
+        return '<div class="otp-driver-card ' + roleClass + '">' 
+            + getAvatarHtml(photo, initial)
+            + '<div class="otp-driver-info">'
+            + '<div class="otp-driver-name">' + escapeHtml(name) + '</div>'
+            + '<div class="otp-driver-vehicle">' + escapeHtml(subtitle) + '</div>'
+            + '</div>'
+            + (chatBtnId ? '<button class="otp-driver-chat-btn" id="' + chatBtnId + '" title="Buka chat">💬</button>' : '')
+            + '</div>';
+    }
+
     var users = getUsers();
     var session = getSession();
+    var isSeller = session && session.id === order.sellerId;
+    var isUser = session && session.id === order.userId;
     var other = users.find(function (u) {
         return u.id === (isTalent ? order.userId : order.talentId);
     });
     var seller = users.find(function (u) { return u.id === order.sellerId; });
+    var buyer = users.find(function (u) { return u.id === order.userId; });
     var otherName = other ? other.name : 'Mencari...';
     var priceText = order.price ? formatRupiah(Number(order.price)) : '-';
     var feeText = order.fee ? formatRupiah(Number(order.fee)) : '-';
@@ -862,50 +909,42 @@ function renderOrderInfo(order, isTalent) {
     var addrText = order.userAddr || 'Tidak tersedia';
     var isAntar = order.skillType === 'js_antar';
     var pmLabel = order.paymentMethod === 'cod' ? '💵 Tunai (COD)' : '💳 JsPay';
-
-    // Driver/customer photo + quick chat actions
-    var photoHtml = '';
-    if (!isTalent && other && order.talentId) {
-        var photoSrc = other.photo || other.foto_url || getProfilePhoto(other.id) || '';
-        // Also check talent skill selfie
-        if (!photoSrc) {
-            var tSkills = getUserSkills(other.id);
-            if (tSkills && tSkills.length > 0) {
-                for (var si = 0; si < tSkills.length; si++) {
-                    if (tSkills[si].selfieThumb) { photoSrc = tSkills[si].selfieThumb; break; }
-                }
-            }
-        }
-        var initial = (other.name || '?').charAt(0).toUpperCase();
-        var vehicleLabel = isAntar ? '🏍️ JS Antar Motor' : ('🔧 ' + (order.serviceType || 'Talent'));
-        var canChatDriver = session && session.id !== order.talentId;
-        photoHtml = '<div class="otp-driver-card">'
-            + getAvatarHtml(photoSrc, initial)
-            + '<div class="otp-driver-info">'
-            + '<div class="otp-driver-name">' + escapeHtml(other.name || 'Driver') + '</div>'
-            + '<div class="otp-driver-vehicle">' + vehicleLabel + '</div>'
-            + '</div>'
-            + (canChatDriver ? '<button class="otp-driver-chat-btn" id="otpDriverChatBtn" title="Chat driver">💬</button>' : '')
-            + '</div>';
-    }
-
-    // For product orders, user can also chat seller directly from info card
-    var sellerHtml = '';
     var isProductOrder = !!order.sellerId;
-    if (isProductOrder && session && session.id === order.userId && seller) {
-        var sellerPhoto = seller.photo || seller.foto_url || getProfilePhoto(seller.id) || '';
-        var sellerInitial = (seller.name || '?').charAt(0).toUpperCase();
-        sellerHtml = '<div class="otp-driver-card otp-seller-card">'
-            + getAvatarHtml(sellerPhoto, sellerInitial)
-            + '<div class="otp-driver-info">'
-            + '<div class="otp-driver-name">' + escapeHtml(seller.name || 'Penjual') + '</div>'
-            + '<div class="otp-driver-vehicle">🏪 Penjual / Toko</div>'
-            + '</div>'
-            + '<button class="otp-driver-chat-btn" id="otpSellerChatBtn" title="Chat penjual">💬</button>'
-            + '</div>';
+
+    var driverHtml = '';
+    if (!isTalent && other && order.talentId) {
+        var vehicleLabel = isAntar ? '🏍️ Driver Antar Motor' : ('🔧 ' + (order.serviceType || 'Driver'));
+        var canChatDriver = session && session.id !== order.talentId;
+        driverHtml = buildContactCard({
+            user: other,
+            subtitle: vehicleLabel,
+            roleClass: 'otp-driver-role',
+            chatBtnId: canChatDriver ? 'otpDriverChatBtn' : '',
+            preferSkillSelfie: true
+        });
     }
 
-    el.innerHTML = photoHtml + sellerHtml
+    var sellerHtml = '';
+    if (isProductOrder && isUser && seller) {
+        sellerHtml = buildContactCard({
+            user: seller,
+            subtitle: '🏪 Penjual / Toko',
+            roleClass: 'otp-seller-card otp-seller-role',
+            chatBtnId: 'otpSellerChatBtn'
+        });
+    }
+
+    var buyerHtml = '';
+    if (isProductOrder && isSeller && buyer) {
+        buyerHtml = buildContactCard({
+            user: buyer,
+            subtitle: '🛒 Pembeli',
+            roleClass: 'otp-buyer-card otp-buyer-role',
+            chatBtnId: 'otpBuyerChatBtn'
+        });
+    }
+
+    el.innerHTML = buyerHtml + driverHtml + sellerHtml
         + (isTalent ? '<div class="otp-info-row"><span class="otp-info-label">Pelanggan</span><span class="otp-info-val">' + escapeHtml(otherName) + '</span></div>' : '')
         + '<div class="otp-info-row"><span class="otp-info-label">Layanan</span><span class="otp-info-val">' + escapeHtml(order.serviceType || '') + '</span></div>'
         + (isAntar ? '<div class="otp-info-row"><span class="otp-info-label">📍 Jemput</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>' : '<div class="otp-info-row"><span class="otp-info-label">Alamat</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>')
@@ -936,6 +975,12 @@ function renderOrderInfo(order, isTalent) {
     if (sellerChatBtn) {
         sellerChatBtn.addEventListener('click', function () {
             openChat(order, order.sellerId);
+        });
+    }
+    var buyerChatBtn = document.getElementById('otpBuyerChatBtn');
+    if (buyerChatBtn) {
+        buyerChatBtn.addEventListener('click', function () {
+            openChat(order, order.userId);
         });
     }
 }
@@ -1286,6 +1331,12 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                         }
                     });
             }
+
+            if (newStatus === 'completed' || newStatus === 'rated') {
+                setTimeout(function () {
+                    closeTrackingToHome();
+                }, 900);
+            }
         } else {
             showToast('Gagal update status', 'error');
         }
@@ -1408,6 +1459,13 @@ function startOrderPolling(orderId) {
                 renderOrderActions(_currentOrder, isTalent, isUser);
                 renderOrderInfo(_currentOrder, isTalent);
 
+                if (order.status === 'completed' || order.status === 'rated') {
+                    setTimeout(function () {
+                        closeTrackingToHome();
+                        showToast('Pesanan selesai. Kembali ke beranda.', 'success');
+                    }, 900);
+                }
+
                 // If order went back to 'searching' (talent rejected), re-search from user side
                 if (isUser && order.status === 'searching' && typeof searchNearbyDriver === 'function') {
                     searchNearbyDriver(_currentOrder);
@@ -1453,6 +1511,13 @@ function pollOrderUpdate(orderId) {
                         var session = getSession();
                         renderOrderActions(_currentOrder, session && session.id === _currentOrder.talentId, session && session.id === _currentOrder.userId);
                         renderOrderInfo(_currentOrder, session && session.id === _currentOrder.talentId);
+
+                        if (order.status === 'completed' || order.status === 'rated') {
+                            setTimeout(function () {
+                                closeTrackingToHome();
+                                showToast('Pesanan selesai. Kembali ke beranda.', 'success');
+                            }, 900);
+                        }
                     }
 
                     if (order.talentLat && order.talentLng) {
