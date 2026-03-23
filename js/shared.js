@@ -585,6 +585,15 @@ function _checkOrderMessages(order, session) {
                 if (m.recipientId) {
                     return String(m.recipientId) === String(session.id);
                 }
+                if (m.conversationKey) {
+                    var mine = String(session.id);
+                    return String(m.conversationKey).indexOf('::') >= 0
+                        && String(m.conversationKey).indexOf('__') >= 0
+                        && (String(m.conversationKey).indexOf('::' + mine + '__') >= 0
+                            || String(m.conversationKey).indexOf('__' + mine) >= 0);
+                }
+                // Legacy ambiguous message in 3-party order: skip to prevent cross-thread leak.
+                if (order && order.userId && order.sellerId && order.talentId) return false;
                 // Legacy format without recipient info.
                 return true;
             }
@@ -2163,12 +2172,20 @@ function isMessageInActiveChatThread(m, sessionId, targetUserId) {
     if (recipient) {
         return (sender === me && recipient === peer) || (sender === peer && recipient === me);
     }
+
+    // Legacy message without recipient/conversation key is ambiguous in 3-party orders.
+    // Keep only own legacy messages so old driver/seller/buyer threads don't bleed into each other.
+    if (_chatOrderHasThreeParty) {
+        return sender === me;
+    }
+
     return sender === me || sender === peer;
 }
 
 function openChat(order, preferredTargetId) {
     _chatOrderId = order.id;
     _chatTargetUserId = '';
+    _chatOrderHasThreeParty = false;
     _chatMessages = [];
     _chatPageOpen = true;
     clearChatBadge();
@@ -2188,6 +2205,7 @@ function openChat(order, preferredTargetId) {
         }
     }
     _chatTargetUserId = targetId || '';
+    _chatOrderHasThreeParty = !!(order && order.userId && order.sellerId && order.talentId);
     var other = users.find(function (u) { return u.id === targetId; });
     document.getElementById('chatTitle').textContent = other ? other.name : 'Chat';
     document.getElementById('chatSubtitle').textContent = order.serviceType || '';
@@ -2220,6 +2238,7 @@ function openChat(order, preferredTargetId) {
             page.classList.add('hidden');
             _chatPageOpen = false;
             _chatTargetUserId = '';
+            _chatOrderHasThreeParty = false;
             if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
             if (_fbMsgUnsub) { _fbMsgUnsub(); _fbMsgUnsub = null; }
         });

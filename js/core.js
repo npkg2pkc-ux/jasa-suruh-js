@@ -33,6 +33,7 @@ var _fbTalentOrdersUnsub = null;
 var _fbPenjualOrdersUnsub = null;
 var _chatOrderId = null;
 var _chatTargetUserId = '';
+var _chatOrderHasThreeParty = false;
 var _chatMessages = [];
 var _ratingOrder = null;
 var _ratingValue = 0;
