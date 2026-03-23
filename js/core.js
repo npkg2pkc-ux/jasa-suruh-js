@@ -32,6 +32,7 @@ var _fbMsgUnsub = null;
 var _fbTalentOrdersUnsub = null;
 var _fbPenjualOrdersUnsub = null;
 var _chatOrderId = null;
+var _chatTargetUserId = '';
 var _chatMessages = [];
 var _ratingOrder = null;
 var _ratingValue = 0;

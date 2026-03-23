@@ -367,6 +367,8 @@
         var msgData = {
             orderId: body.orderId,
             senderId: body.senderId,
+            recipientId: body.recipientId || '',
+            conversationKey: body.conversationKey || '',
             senderName: body.senderName,
             text: body.text || '',
             photo: body.photo || '',

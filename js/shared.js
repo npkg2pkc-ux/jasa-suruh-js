@@ -577,16 +577,26 @@ function _checkOrderMessages(order, session) {
             var currentCount = msgs.length;
             var fromOthers = [];
 
+            function isIncomingForSession(m) {
+                if (!m) return false;
+                var fromOther = String(m.senderId) !== String(session.id);
+                if (!fromOther) return false;
+                // New format: only notify if addressed to this session.
+                if (m.recipientId) {
+                    return String(m.recipientId) === String(session.id);
+                }
+                // Legacy format without recipient info.
+                return true;
+            }
+
             if (prevCount > 0 && currentCount > prevCount) {
                 // Find new messages not from self
                 var newMsgs = msgs.slice(prevCount);
-                fromOthers = newMsgs.filter(function (m) {
-                    return String(m.senderId) !== String(session.id);
-                });
+                fromOthers = newMsgs.filter(isIncomingForSession);
             } else if (prevCount === 0 && currentCount > 0) {
                 // Handle first poll race: count only messages created after listener started.
                 fromOthers = msgs.filter(function (m) {
-                    var fromOther = String(m.senderId) !== String(session.id);
+                    var fromOther = isIncomingForSession(m);
                     var createdAt = Number(m.createdAt) || 0;
                     return fromOther && createdAt >= (_msgListenerStartedAt - 500);
                 });
@@ -1029,7 +1039,11 @@ function buildTrackingProgressSteps(order) {
             { key: 'searching', icon: '🔎', text: 'Mencari driver terdekat' },
             { key: 'pending', icon: '📲', text: 'Menunggu driver menerima order' },
             { key: 'accepted', icon: '✅', text: 'Driver menerima pesanan' },
-            { key: 'on_the_way', icon: '🏍️', text: 'Driver menuju lokasi tujuan' }
+            { key: 'on_the_way', icon: '🏍️', text: 'Driver menuju lokasi toko' },
+            { key: 'arrived', icon: '🏪', text: 'Driver tiba di toko' },
+            { key: 'in_progress', icon: '🛵', text: 'Driver mengantar ke pembeli' },
+            { key: 'completed', icon: '📦', text: 'Pesanan sampai ke pembeli' },
+            { key: 'rated', icon: '⭐', text: 'Pesanan selesai dinilai' }
         ];
     }
     return [
@@ -2125,8 +2139,36 @@ function startTalentLocationBroadcast(orderId) {
 // ══════════════════════════════════════════
 // ═══ CHAT SYSTEM ═══
 // ══════════════════════════════════════════
+function buildChatConversationKey(orderId, userA, userB) {
+    var a = String(userA || '');
+    var b = String(userB || '');
+    if (!a || !b) return '';
+    return String(orderId || '') + '::' + [a, b].sort().join('__');
+}
+
+function isMessageInActiveChatThread(m, sessionId, targetUserId) {
+    if (!m) return false;
+    var me = String(sessionId || '');
+    var peer = String(targetUserId || '');
+    if (!me || !peer) return true;
+
+    var activeKey = buildChatConversationKey(_chatOrderId, me, peer);
+    if (m.conversationKey) {
+        return String(m.conversationKey) === String(activeKey);
+    }
+
+    // Legacy message fallback: infer by sender/recipient pair.
+    var sender = String(m.senderId || '');
+    var recipient = String(m.recipientId || '');
+    if (recipient) {
+        return (sender === me && recipient === peer) || (sender === peer && recipient === me);
+    }
+    return sender === me || sender === peer;
+}
+
 function openChat(order, preferredTargetId) {
     _chatOrderId = order.id;
+    _chatTargetUserId = '';
     _chatMessages = [];
     _chatPageOpen = true;
     clearChatBadge();
@@ -2145,6 +2187,7 @@ function openChat(order, preferredTargetId) {
             targetId = order.userId || order.sellerId || '';
         }
     }
+    _chatTargetUserId = targetId || '';
     var other = users.find(function (u) { return u.id === targetId; });
     document.getElementById('chatTitle').textContent = other ? other.name : 'Chat';
     document.getElementById('chatSubtitle').textContent = order.serviceType || '';
@@ -2158,13 +2201,17 @@ function openChat(order, preferredTargetId) {
     if (typeof FB !== 'undefined' && FB.isReady()) {
         _fbMsgUnsub = FB.onMessages(order.id, function (res) {
             if (res.success && res.data) {
-                _chatMessages = res.data;
+                var sessionNow = getSession();
+                var me = sessionNow ? sessionNow.id : '';
+                _chatMessages = res.data.filter(function (m) {
+                    return isMessageInActiveChatThread(m, me, _chatTargetUserId);
+                });
                 renderChatMessages();
             }
         });
     } else {
-        fetchChatMessages(order.id);
-        _chatPollTimer = setInterval(function () { fetchChatMessages(order.id); }, 5000);
+        fetchChatMessages(order.id, _chatTargetUserId);
+        _chatPollTimer = setInterval(function () { fetchChatMessages(order.id, _chatTargetUserId); }, 5000);
     }
 
     if (!page._eventsSetup) {
@@ -2172,6 +2219,7 @@ function openChat(order, preferredTargetId) {
         document.getElementById('chatBtnBack').addEventListener('click', function () {
             page.classList.add('hidden');
             _chatPageOpen = false;
+            _chatTargetUserId = '';
             if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
             if (_fbMsgUnsub) { _fbMsgUnsub(); _fbMsgUnsub = null; }
         });
@@ -2197,13 +2245,18 @@ function openChat(order, preferredTargetId) {
     }
 }
 
-function fetchChatMessages(orderId) {
+function fetchChatMessages(orderId, targetUserId) {
     if (!isBackendConnected()) return;
     FB.get('getMessages', { orderId: orderId })
         .then(function (r) { return r.json(); })
         .then(function (res) {
             if (res.success && res.data) {
-                _chatMessages = res.data;
+                var sessionNow = getSession();
+                var me = sessionNow ? sessionNow.id : '';
+                var target = targetUserId || _chatTargetUserId || '';
+                _chatMessages = res.data.filter(function (m) {
+                    return isMessageInActiveChatThread(m, me, target);
+                });
                 renderChatMessages();
             }
         })
@@ -2237,14 +2290,22 @@ function renderChatMessages() {
 function sendChatMessage(photo) {
     var session = getSession();
     if (!session || !_chatOrderId) return;
+    if (!_chatTargetUserId) {
+        showToast('Lawan chat tidak ditemukan', 'error');
+        return;
+    }
     var input = document.getElementById('chatInput');
     var text = (input.value || '').trim();
     if (!text && !photo) return;
+
+    var conversationKey = buildChatConversationKey(_chatOrderId, session.id, _chatTargetUserId);
 
     var msgData = {
         action: 'sendMessage',
         orderId: _chatOrderId,
         senderId: session.id,
+        recipientId: _chatTargetUserId,
+        conversationKey: conversationKey,
         senderName: session.name,
         text: text,
         photo: photo || ''
@@ -2254,6 +2315,8 @@ function sendChatMessage(photo) {
 
     _chatMessages.push({
         senderId: session.id,
+        recipientId: _chatTargetUserId,
+        conversationKey: conversationKey,
         senderName: session.name,
         text: text,
         photo: photo || '',
