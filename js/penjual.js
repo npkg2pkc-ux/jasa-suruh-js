@@ -3,6 +3,9 @@
    Store Form, Products CRUD, Orders, Polling
    ======================================== */
 
+var _penjualLastPendingIds = [];
+var _penjualPendingOwnerId = '';
+
 // ══════════════════════════════════════════
 // ═══ PENJUAL DASHBOARD ═══
 // ══════════════════════════════════════════
@@ -396,8 +399,70 @@ function loadPenjualOrders() {
             if (res.success && res.data) {
                 renderPenjualOrders(res.data, session);
                 updatePenjualStats(res.data, session);
+                checkNewPenjualOrders(res.data, session);
             }
         }).catch(function () {});
+}
+
+function checkNewPenjualOrders(orders, session) {
+    if (!session) return;
+    if (_penjualPendingOwnerId !== session.id) {
+        _penjualPendingOwnerId = session.id;
+        _penjualLastPendingIds = [];
+    }
+
+    var pending = orders.filter(function (o) {
+        return o.sellerId === session.id && o.status === 'pending_seller';
+    });
+    var pendingIds = pending.map(function (o) { return o.id; });
+    var newOrders = pending.filter(function (o) { return _penjualLastPendingIds.indexOf(o.id) < 0; });
+
+    if (newOrders.length > 0) {
+        showPenjualOrderNotification(newOrders[0]);
+    }
+
+    _penjualLastPendingIds = pendingIds;
+}
+
+function showPenjualOrderNotification(order) {
+    var popup = document.getElementById('orderNotifPopup');
+    if (!popup) return;
+
+    var users = getUsers();
+    var user = users.find(function (u) { return u.id === order.userId; });
+    var userName = user ? user.name : 'Pembeli';
+    var priceText = order.totalCost ? 'Rp ' + Number(order.totalCost).toLocaleString('id-ID') : '';
+
+    document.getElementById('notifTitle').textContent = '🛒 Pesanan Baru!';
+    document.getElementById('notifDesc').textContent = userName + ' memesan ' + (order.serviceType || 'produk') + (priceText ? ' - ' + priceText : '');
+
+    popup.classList.remove('hidden');
+    if (typeof playBellSound === 'function') playBellSound();
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
+    addNotifItem({
+        icon: '🛒',
+        title: 'Pesanan Baru dari ' + userName,
+        desc: (order.serviceType || 'Pesanan Produk') + (priceText ? ' - ' + priceText : ''),
+        type: 'order',
+        orderId: order.id
+    });
+
+    var dismissBtn = document.getElementById('notifBtnDismiss');
+    var acceptBtn = document.getElementById('notifBtnAccept');
+
+    var newDismiss = dismissBtn.cloneNode(true);
+    dismissBtn.parentNode.replaceChild(newDismiss, dismissBtn);
+    newDismiss.addEventListener('click', function () {
+        popup.classList.add('hidden');
+    });
+
+    var newAccept = acceptBtn.cloneNode(true);
+    acceptBtn.parentNode.replaceChild(newAccept, acceptBtn);
+    newAccept.addEventListener('click', function () {
+        popup.classList.add('hidden');
+        openOrderTracking(order);
+    });
 }
 
 function renderPenjualOrders(orders, session) {
@@ -459,6 +524,7 @@ function startPenjualDashboardPolling() {
             if (s && s.role === 'penjual' && res.success && res.data) {
                 renderPenjualOrders(res.data, s);
                 updatePenjualStats(res.data, s);
+                checkNewPenjualOrders(res.data, s);
             }
         });
     } else {
