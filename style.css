@@ -477,6 +477,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 
 /* Chat badge on bottom nav */
 .chat-badge { position:absolute; top:-2px; right:2px; background:var(--orange); color:var(--white); font-size:9px; font-weight:700; min-width:16px; height:16px; padding:0 4px; border-radius:8px; display:flex; align-items:center; justify-content:center; border:2px solid var(--white); line-height:1; z-index:1; }
+.chat-header-badge { position:absolute; top:-4px; right:-4px; background:#F44336; color:#fff; font-size:9px; font-weight:800; min-width:16px; height:16px; padding:0 4px; border-radius:8px; display:flex; align-items:center; justify-content:center; border:2px solid rgba(255,255,255,.95); line-height:1; z-index:2; box-shadow:0 2px 8px rgba(244,67,54,.35); }
 
 /* ========== LOGOUT BUTTON ========== */
 .btn-logout { width:100%; padding:14px; background:var(--white); color:var(--red); border:1.5px solid var(--red); border-radius:var(--r-md); font-family:var(--font); font-size:14px; font-weight:600; cursor:pointer; transition:var(--tr); margin-top:16px; }
@@ -865,6 +866,14 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .order-notif-content p { font-size:14px; color:var(--gray-600); margin-bottom:20px; line-height:1.5; }
 .order-notif-actions { display:flex; flex-direction:column; gap:10px; }
 .otp-btn-secondary { width:100%; padding:14px; background:var(--gray-100); color:var(--black); border:none; border-radius:var(--r-lg); font-size:15px; font-weight:700; font-family:var(--font); cursor:pointer; }
+
+/* Modern confirm modal for destructive actions */
+.js-confirm-overlay { position:fixed; inset:0; background:rgba(15,23,42,.48); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; animation:fadeIn .2s ease; }
+.js-confirm-card { width:100%; max-width:360px; background:#fff; border-radius:20px; padding:20px 18px 16px; box-shadow:0 18px 40px rgba(2,6,23,.26); animation:popIn .2s ease; }
+.js-confirm-icon { width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center; margin:0 auto 10px; background:#FFF3E8; font-size:24px; }
+.js-confirm-title { font-size:18px; font-weight:800; color:var(--black); text-align:center; margin:0; }
+.js-confirm-desc { font-size:13px; color:var(--gray-600); text-align:center; margin:8px 0 14px; line-height:1.45; }
+.js-confirm-actions { display:flex; gap:10px; }
 @keyframes bellShake { 0%,100%{transform:rotate(0)} 15%{transform:rotate(12deg)} 30%{transform:rotate(-12deg)} 45%{transform:rotate(8deg)} 60%{transform:rotate(-8deg)} 75%{transform:rotate(3deg)} }
 @keyframes popIn { 0%{transform:scale(.8);opacity:0} 100%{transform:scale(1);opacity:1} }
 @keyframes fadeIn { 0%{opacity:0} 100%{opacity:1} }

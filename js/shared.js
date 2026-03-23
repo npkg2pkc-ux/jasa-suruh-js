@@ -460,6 +460,25 @@ function updateChatBadges() {
             if (badge) badge.style.display = 'none';
         }
     });
+
+    // Also show chat unread badge on header notif buttons (useful for roles/pages without chat tab).
+    ['userNotifBtn', 'talentNotifBtn', 'penjualNotifBtn', 'csNotifBtn', 'ownerNotifBtn'].forEach(function (btnId) {
+        var btn = document.getElementById(btnId);
+        if (!btn) return;
+        var hb = btn.querySelector('.chat-header-badge');
+        if (_unreadChatCount > 0) {
+            if (!hb) {
+                hb = document.createElement('span');
+                hb.className = 'chat-header-badge';
+                btn.appendChild(hb);
+            }
+            hb.textContent = _unreadChatCount > 9 ? '9+' : _unreadChatCount;
+            hb.style.display = '';
+        } else if (hb) {
+            hb.style.display = 'none';
+        }
+    });
+
     // Update floating chat FAB badge on order tracking page
     var fab = document.getElementById('otpChatFab');
     if (fab) {
@@ -748,6 +767,39 @@ function _timeAgo(ts) {
     if (diff < 3600000) return Math.floor(diff / 60000) + ' menit lalu';
     if (diff < 86400000) return Math.floor(diff / 3600000) + ' jam lalu';
     return Math.floor(diff / 86400000) + ' hari lalu';
+}
+
+function openModernConfirm(options) {
+    options = options || {};
+    return new Promise(function (resolve) {
+        var existing = document.getElementById('jsConfirmModal');
+        if (existing) existing.remove();
+
+        var overlay = document.createElement('div');
+        overlay.id = 'jsConfirmModal';
+        overlay.className = 'js-confirm-overlay';
+        overlay.innerHTML = '<div class="js-confirm-card">'
+            + '<div class="js-confirm-icon">⚠️</div>'
+            + '<h3 class="js-confirm-title">' + _escapeHtml(options.title || 'Konfirmasi') + '</h3>'
+            + '<p class="js-confirm-desc">' + _escapeHtml(options.message || 'Apakah Anda yakin?') + '</p>'
+            + '<div class="js-confirm-actions">'
+            + '<button class="otp-btn otp-btn-secondary" id="jsConfirmCancel">Batal</button>'
+            + '<button class="otp-btn otp-btn-reject" id="jsConfirmOk">Ya, Lanjutkan</button>'
+            + '</div>'
+            + '</div>';
+
+        function close(val) {
+            overlay.remove();
+            resolve(!!val);
+        }
+
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) close(false);
+        });
+        document.getElementById('jsConfirmCancel').addEventListener('click', function () { close(false); });
+        document.getElementById('jsConfirmOk').addEventListener('click', function () { close(true); });
+    });
 }
 
 // ══════════════════════════════════════════
@@ -1071,15 +1123,20 @@ function renderOrderActions(order, isTalent, isUser) {
                 });
             });
             document.getElementById('otpBtnSellerReject').addEventListener('click', function () {
-                if (!confirm('Tolak pesanan ini?')) return;
-                backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'cancelled', cancelledAt: Date.now(), cancelledBy: 'seller' } }).then(function (res) {
-                    if (res && res.success) {
-                        if (_currentOrder) _currentOrder.status = 'cancelled';
-                        updateOrderStatusBadge('cancelled');
-                        renderOrderActions(order, false, false);
-                        showToast('Pesanan ditolak', 'success');
-                        addNotifItem({ userId: order.userId, icon: '❌', title: 'Penjual Menolak', desc: (order.storeName || 'Toko') + ' menolak pesanan Anda', type: 'order', orderId: order.id });
-                    }
+                openModernConfirm({
+                    title: 'Tolak Pesanan?',
+                    message: 'Pesanan akan dibatalkan dan pembeli akan mendapat notifikasi.'
+                }).then(function (ok) {
+                    if (!ok) return;
+                    backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'cancelled', cancelledAt: Date.now(), cancelledBy: 'seller' } }).then(function (res) {
+                        if (res && res.success) {
+                            if (_currentOrder) _currentOrder.status = 'cancelled';
+                            updateOrderStatusBadge('cancelled');
+                            renderOrderActions(order, false, false);
+                            showToast('Pesanan ditolak', 'success');
+                            addNotifItem({ userId: order.userId, icon: '❌', title: 'Penjual Menolak', desc: (order.storeName || 'Toko') + ' menolak pesanan Anda', type: 'order', orderId: order.id });
+                        }
+                    });
                 });
             });
         } else if (order.status === 'preparing') {
