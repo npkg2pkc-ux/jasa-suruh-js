@@ -920,7 +920,7 @@ function renderTrackingProgress(order) {
         if (steps[i].key === order.status) { activeIdx = i; break; }
     }
 
-    var html = '<div class="otp-progress-title">Progress Pesanan</div>';
+    var html = '<div class="otp-progress-title">Progress Pesanan</div><div class="otp-progress-row">';
     for (var si = 0; si < steps.length; si++) {
         var step = steps[si];
         var cls = '';
@@ -932,6 +932,7 @@ function renderTrackingProgress(order) {
             + '</div>'
             + (si < steps.length - 1 ? '<div class="otp-progress-line"></div>' : '');
     }
+    html += '</div>';
     track.innerHTML = html;
 }
 
