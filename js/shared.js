@@ -443,6 +443,12 @@ var _chatPageOpen = false;
 var _msgPollTimer = null;
 var _msgListenerStartedAt = 0;
 
+function isChatPageActive() {
+    var cp = document.getElementById('chatPage');
+    if (!cp) return false;
+    return !cp.classList.contains('hidden');
+}
+
 function updateChatBadges() {
     // Update bottom nav chat badges
     document.querySelectorAll('.bottom-nav .nav-item[data-page="chat"]').forEach(function (btn) {
@@ -478,6 +484,27 @@ function updateChatBadges() {
             hb.style.display = 'none';
         }
     });
+
+    // Show mini unread badge on quick-chat buttons in order tracking card.
+    ['otpDriverChatBtn', 'otpSellerChatBtn', 'otpBuyerChatBtn'].forEach(function (btnId) {
+        var btn = document.getElementById(btnId);
+        if (!btn) return;
+        var b = btn.querySelector('.chat-mini-badge');
+        if (_unreadChatCount > 0) {
+            if (!b) {
+                b = document.createElement('span');
+                b.className = 'chat-mini-badge';
+                btn.appendChild(b);
+            }
+            b.textContent = _unreadChatCount > 9 ? '9+' : _unreadChatCount;
+            b.style.display = '';
+        } else if (b) {
+            b.style.display = 'none';
+        }
+    });
+
+    // Keep header badge synced when unread chat changes.
+    updateNotifBadges();
 
     // Update floating chat FAB badge on order tracking page
     var fab = document.getElementById('otpChatFab');
@@ -565,7 +592,7 @@ function _checkOrderMessages(order, session) {
                 });
             }
 
-            if (fromOthers.length > 0 && !_chatPageOpen) {
+            if (fromOthers.length > 0 && !isChatPageActive()) {
                 _unreadChatCount += fromOthers.length;
                 updateChatBadges();
                 playMessageSound();
@@ -589,6 +616,7 @@ function _checkOrderMessages(order, session) {
 function clearChatBadge() {
     _unreadChatCount = 0;
     updateChatBadges();
+    updateNotifBadges();
 }
 window.clearChatBadge = clearChatBadge;
 
@@ -683,7 +711,8 @@ function addNotifItem(item) {
 window.addNotifItem = addNotifItem;
 
 function updateNotifBadges() {
-    var count = _notifItems.filter(function (n) { return n.unread; }).length;
+    var notifCount = _notifItems.filter(function (n) { return n.unread; }).length;
+    var count = notifCount + (Number(_unreadChatCount) || 0);
     ['userHeaderBadge', 'talentHeaderBadge', 'penjualHeaderBadge', 'ownerHeaderBadge', 'csHeaderBadge'].forEach(function (id) {
         var badge = document.getElementById(id);
         if (badge) {
