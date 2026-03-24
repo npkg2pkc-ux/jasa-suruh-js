@@ -315,8 +315,8 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 @keyframes regSpin { to { transform:rotate(360deg); } }
 
 /* ========== HEADER (shared) ========== */
-.header { background:linear-gradient(135deg,var(--orange),var(--orange-light)); padding:52px 20px 24px; position:relative; z-index:10; border-radius:0 0 24px 24px; box-shadow:0 4px 20px rgba(255,107,0,.25); }
-.header-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.header { background:linear-gradient(135deg,var(--orange),var(--orange-light)); padding:calc(14px + env(safe-area-inset-top, 0px)) 20px 14px; position:sticky; top:0; z-index:25; border-radius:0 0 22px 22px; box-shadow:0 4px 20px rgba(255,107,0,.25); }
+.header-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
 .greeting-text { display:flex; flex-direction:column; gap:2px; }
 .greeting-hi { font-size:14px; color:rgba(255,255,255,.85); font-weight:500; }
 .greeting-question { font-size:18px; font-weight:700; color:var(--white); }
@@ -2051,10 +2051,10 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
    ======================================== */
 
 /* ─── Header ─── */
-.od-header { position:relative; overflow:hidden; border-radius:0 0 24px 24px; }
+.od-header { position:sticky; top:0; z-index:25; overflow:hidden; border-radius:0 0 22px 22px; }
 .od-header-bg { position:absolute; inset:0; background:linear-gradient(135deg,#FF6B00 0%,#FF9A3C 50%,#FFB366 100%); z-index:0; }
-.od-header-content { position:relative; z-index:1; padding:20px 20px 18px; }
-.od-header-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:16px; }
+.od-header-content { position:relative; z-index:1; padding:calc(12px + env(safe-area-inset-top, 0px)) 20px 12px; }
+.od-header-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:10px; }
 .od-greeting { display:flex; flex-direction:column; gap:2px; }
 .od-greeting-hi { font-size:18px; font-weight:800; color:var(--white); }
 .od-greeting-sub { font-size:12px; font-weight:500; color:rgba(255,255,255,.8); }
@@ -2073,7 +2073,7 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .od-pill.active { background:var(--white); color:var(--orange); box-shadow:0 2px 8px rgba(0,0,0,.1); }
 
 /* ─── Main Content ─── */
-.od-main { padding:16px 16px 0; margin-top:-4px; }
+.od-main { padding:14px 16px 0; margin-top:0; }
 
 /* ─── KPI Cards Grid ─── */
 .od-kpi-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:20px; animation:odFadeInUp .5s ease-out both; }
