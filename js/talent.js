@@ -11,6 +11,7 @@ function setupTalentSkills() {
     var btnOpen = document.getElementById('btnOpenSkillModal');
     var modal = document.getElementById('skillModal');
     var btnClose = document.getElementById('btnCloseSkillModal');
+    var dragHandle = document.getElementById('skillModalDragHandle');
     var modalContainer = modal ? modal.querySelector('.talent-skill-modal-container') : null;
     var formModal = document.getElementById('skillFormModal');
     var btnCloseForm = document.getElementById('btnCloseSkillForm');
@@ -46,12 +47,12 @@ function setupTalentSkills() {
     modal.addEventListener('click', function (e) { if (e.target === modal) closeSkillModal(); });
 
     // Swipe down to close skill modal (mobile UX).
-    if (modalContainer) {
+    if (modalContainer && dragHandle) {
         var dragStartY = 0;
         var dragDeltaY = 0;
         var dragging = false;
 
-        modalContainer.addEventListener('touchstart', function (e) {
+        dragHandle.addEventListener('touchstart', function (e) {
             if (!modal || modal.classList.contains('hidden')) return;
             if (!e.touches || e.touches.length !== 1) return;
             dragStartY = e.touches[0].clientY;
@@ -60,7 +61,7 @@ function setupTalentSkills() {
             modalContainer.style.transition = 'none';
         }, { passive: true });
 
-        modalContainer.addEventListener('touchmove', function (e) {
+        dragHandle.addEventListener('touchmove', function (e) {
             if (!dragging || !e.touches || e.touches.length !== 1) return;
             dragDeltaY = e.touches[0].clientY - dragStartY;
             if (dragDeltaY > 0) {
@@ -68,7 +69,7 @@ function setupTalentSkills() {
             }
         }, { passive: true });
 
-        modalContainer.addEventListener('touchend', function () {
+        dragHandle.addEventListener('touchend', function () {
             if (!dragging) return;
             dragging = false;
             modalContainer.style.transition = 'transform .2s ease';
@@ -81,6 +82,13 @@ function setupTalentSkills() {
                     modalContainer.style.transition = '';
                 }, 220);
             }
+        });
+
+        dragHandle.addEventListener('touchcancel', function () {
+            if (!dragging) return;
+            dragging = false;
+            modalContainer.style.transform = '';
+            modalContainer.style.transition = '';
         });
     }
 

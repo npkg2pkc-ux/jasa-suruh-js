@@ -665,11 +665,20 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     padding-top:18px;
     padding-bottom:12px;
 }
-.talent-skill-modal-header::after {
+.talent-skill-drag-handle {
+    position:absolute;
+    left:50%;
+    top:2px;
+    transform:translateX(-50%);
+    width:94px;
+    height:22px;
+    z-index:3;
+}
+.talent-skill-drag-handle::after {
     content:'';
     position:absolute;
     left:50%;
-    top:8px;
+    top:6px;
     transform:translateX(-50%);
     width:58px;
     height:5px;
