@@ -1,4 +1,4 @@
-const CACHE_NAME = 'js-app-v18';
+const CACHE_NAME = 'js-app-v19';
 const ASSETS = [
     '/',
     '/index.html',
@@ -19,7 +19,6 @@ const ASSETS = [
     '/js/app.js',
     '/manifest.json',
     '/favicon.png',
-    '/public/sound/Notification.mp3',
     '/icons/icon-72.png',
     '/icons/icon-96.png',
     '/icons/icon-128.png',

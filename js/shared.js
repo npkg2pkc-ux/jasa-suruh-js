@@ -15,10 +15,20 @@ var _notificationAudioContext = null;
 var _notificationBlobUrl = '';
 var _notificationSourceResolved = false;
 var _notificationResolvingPromise = null;
-var _notificationSoundCandidates = [
-    '/public/sound/Notification.mp3',
-    'public/sound/Notification.mp3'
-];
+var _notificationSoundCandidates = (function () {
+    var candidates = [
+        '/public/sound/Notification.mp3',
+        './public/sound/Notification.mp3',
+        'public/sound/Notification.mp3'
+    ];
+
+    try {
+        var basePath = String((window.location && window.location.pathname) || '/').replace(/[^\/]*$/, '');
+        if (basePath) candidates.push(basePath + 'public/sound/Notification.mp3');
+    } catch (e) {}
+
+    return Array.from(new Set(candidates));
+})();
 var _notificationSoundSrc = _notificationSoundCandidates[0];
 var _notificationCandidateIndex = 0;
 
