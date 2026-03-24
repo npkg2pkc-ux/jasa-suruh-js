@@ -17,9 +17,9 @@ function setupTalentSkills() {
     var priceInput = document.getElementById('sfPrice');
     var feeInfo = document.getElementById('sfFeeInfo');
 
-    if (!btnOpen || !modal) return;
+    if (!modal) return;
 
-    btnOpen.addEventListener('click', function () { openSkillModal(); });
+    if (btnOpen) btnOpen.addEventListener('click', function () { openSkillModal(); });
     btnClose.addEventListener('click', function () { modal.classList.add('hidden'); });
     modal.addEventListener('click', function (e) { if (e.target === modal) modal.classList.add('hidden'); });
 

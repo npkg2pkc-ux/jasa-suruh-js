@@ -645,6 +645,94 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .btn-close-modal { background:none; border:none; font-size:28px; color:var(--gray-600); cursor:pointer; line-height:1; padding:0; }
 .modal-body { overflow-y:auto; padding:16px 20px 24px; flex:1; }
 
+/* Talent Skills Modal (navbar) */
+.talent-skill-modal-container {
+    width:calc(100% - 14px);
+    max-height:92vh;
+    margin:0 7px 8px;
+    border-radius:28px 28px 0 0;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,.62);
+    box-shadow:0 24px 46px rgba(15,23,42,.22), 0 8px 24px rgba(14,165,233,.14);
+}
+.talent-skill-modal-header {
+    position:relative;
+    background:
+        radial-gradient(circle at 10% 0%, rgba(14,165,233,.2) 0, rgba(14,165,233,0) 54%),
+        linear-gradient(180deg,#F2FBFF 0%, #EAF7FF 100%);
+    border-bottom:1px solid rgba(14,165,233,.2);
+    border-radius:28px 28px 0 0;
+    padding-top:18px;
+    padding-bottom:12px;
+}
+.talent-skill-modal-header::after {
+    content:'';
+    position:absolute;
+    left:50%;
+    top:8px;
+    transform:translateX(-50%);
+    width:58px;
+    height:5px;
+    border-radius:999px;
+    background:rgba(14,165,233,.36);
+}
+.talent-skill-modal-header h3 {
+    font-size:22px;
+    font-weight:800;
+    letter-spacing:-.2px;
+    color:#0F172A;
+}
+.talent-skill-modal-header .btn-close-modal {
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    background:rgba(15,23,42,.08);
+    color:#334155;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:30px;
+    line-height:1;
+}
+.talent-skill-modal-body {
+    padding:14px 16px 26px;
+    background:
+        radial-gradient(circle at 90% -6%, rgba(14,165,233,.1) 0, rgba(14,165,233,0) 52%),
+        linear-gradient(180deg,#F8FDFF 0%, #EFF8FF 100%);
+}
+.talent-skill-modal-body .skill-option-card {
+    border-radius:16px;
+    margin-bottom:10px;
+    background:#FFFFFF;
+    border:1px solid rgba(148,163,184,.2);
+    box-shadow:0 10px 20px rgba(15,23,42,.06);
+}
+.talent-skill-modal-body .skill-option-card.active {
+    background:linear-gradient(135deg, #ECFEFF 0%, #F0F9FF 100%);
+    border-color:rgba(14,165,233,.52);
+    box-shadow:0 12px 24px rgba(14,165,233,.16);
+}
+.talent-skill-modal-body .skill-option-name {
+    font-size:14px;
+    color:#0F172A;
+}
+.talent-skill-modal-body .skill-option-desc {
+    color:#64748B;
+}
+.talent-skill-modal-body .btn-skill-activate {
+    background:linear-gradient(135deg,#0284C7,#0EA5E9);
+}
+.talent-skill-modal-body .btn-skill-activate.btn-form {
+    background:linear-gradient(135deg,#2563EB,#0EA5E9);
+}
+.talent-skill-modal-body .btn-skill-edit {
+    border-color:#0284C7;
+    color:#0284C7;
+}
+.talent-skill-modal-body .skill-status-active {
+    color:#0369A1;
+}
+
 /* Skill Option Cards (in modal) */
 .skill-option-card { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:var(--gray-100); border-radius:var(--r-md); margin-bottom:10px; cursor:pointer; transition:var(--tr); border:2px solid transparent; }
 .skill-option-card.active { background:var(--orange-subtle); border-color:var(--orange); }

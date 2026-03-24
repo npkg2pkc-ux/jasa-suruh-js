@@ -2957,6 +2957,13 @@ function setupBottomNav() {
                 } else if (page === 'chat') {
                     clearChatBadge();
                     openOrdersList();
+                } else if (page === 'skills') {
+                    var sessionSkills = typeof getSession === 'function' ? getSession() : null;
+                    if (sessionSkills && sessionSkills.role === 'talent' && typeof openSkillModal === 'function') {
+                        openSkillModal();
+                    } else {
+                        showToast('Menu keahlian khusus Talent', 'info');
+                    }
                 } else if (page === 'tickets' || page === 'reports') {
                     openAdminTransactions();
                 } else if (page === 'products') {
