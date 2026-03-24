@@ -17,10 +17,7 @@ var _notificationSourceResolved = false;
 var _notificationResolvingPromise = null;
 var _notificationSoundCandidates = [
     '/public/sound/Notification.mp3',
-    '/sound/Notification.mp3',
-    '/public/sound/notification.mp3',
-    '/sound/notification.mp3',
-    '/notification.mp3'
+    'public/sound/Notification.mp3'
 ];
 var _notificationSoundSrc = _notificationSoundCandidates[0];
 var _notificationCandidateIndex = 0;
