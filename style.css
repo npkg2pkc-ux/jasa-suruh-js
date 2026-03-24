@@ -640,6 +640,10 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:300; display:flex; align-items:flex-end; justify-content:center; animation:fadeIn .2s ease; }
 .modal-container { width:100%; max-width:480px; max-height:85vh; background:var(--white); border-radius:var(--r-xl) var(--r-xl) 0 0; display:flex; flex-direction:column; animation:slideUp .3s ease; }
 @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+.skill-modal-open {
+    overflow:hidden;
+    overscroll-behavior:none;
+}
 .modal-header { display:flex; justify-content:space-between; align-items:center; padding:20px 20px 12px; border-bottom:1px solid var(--gray-200); }
 .modal-header h3 { font-size:18px; font-weight:700; }
 .btn-close-modal { background:none; border:none; font-size:28px; color:var(--gray-600); cursor:pointer; line-height:1; padding:0; }
@@ -673,6 +677,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     width:94px;
     height:22px;
     z-index:3;
+    touch-action:none;
 }
 .talent-skill-drag-handle::after {
     content:'';
@@ -705,6 +710,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 }
 .talent-skill-modal-body {
     padding:14px 16px 26px;
+    overscroll-behavior:contain;
     background:
         radial-gradient(circle at 90% -6%, rgba(14,165,233,.1) 0, rgba(14,165,233,0) 52%),
         linear-gradient(180deg,#F8FDFF 0%, #EFF8FF 100%);

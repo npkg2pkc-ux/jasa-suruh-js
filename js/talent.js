@@ -33,6 +33,7 @@ function setupTalentSkills() {
     function closeSkillModal() {
         if (!modal) return;
         modal.classList.add('hidden');
+        document.body.classList.remove('skill-modal-open');
         if (modalContainer) {
             modalContainer.style.transform = '';
             modalContainer.style.transition = '';
@@ -63,24 +64,28 @@ function setupTalentSkills() {
 
         dragHandle.addEventListener('touchmove', function (e) {
             if (!dragging || !e.touches || e.touches.length !== 1) return;
+            e.preventDefault();
             dragDeltaY = e.touches[0].clientY - dragStartY;
             if (dragDeltaY > 0) {
-                modalContainer.style.transform = 'translateY(' + Math.min(dragDeltaY, 220) + 'px)';
+                modalContainer.style.transform = 'translateY(' + Math.min(dragDeltaY, window.innerHeight) + 'px)';
             }
-        }, { passive: true });
+        }, { passive: false });
 
         dragHandle.addEventListener('touchend', function () {
             if (!dragging) return;
             dragging = false;
-            modalContainer.style.transition = 'transform .2s ease';
+            modalContainer.style.transition = 'transform .26s cubic-bezier(.22,.9,.24,1)';
             if (dragDeltaY > 90) {
-                closeSkillModal();
+                modalContainer.style.transform = 'translateY(calc(100% + 40px))';
+                setTimeout(function () {
+                    closeSkillModal();
+                }, 260);
             } else {
                 modalContainer.style.transform = 'translateY(0)';
                 setTimeout(function () {
                     modalContainer.style.transform = '';
                     modalContainer.style.transition = '';
-                }, 220);
+                }, 260);
             }
         });
 
@@ -309,6 +314,8 @@ function openSkillModal() {
     var modal = document.getElementById('skillModal');
     var body = document.getElementById('skillModalBody');
     if (!modal || !body) return;
+
+    document.body.classList.add('skill-modal-open');
 
     var skills = getUserSkills(session.id);
     var activeTypes = skills.map(function (s) { return s.type; });
