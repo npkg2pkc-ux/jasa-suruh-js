@@ -2385,6 +2385,9 @@ function openRatingPage(order) {
     document.querySelectorAll('#ratingStars .star').forEach(function (s) { s.classList.remove('active'); });
 
     page.classList.remove('hidden');
+    page.scrollTop = 0;
+    var ratingContent = page.querySelector('.rating-content');
+    if (ratingContent) ratingContent.scrollTop = 0;
 
     if (!page._eventsSetup) {
         page._eventsSetup = true;

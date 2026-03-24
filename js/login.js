@@ -12,6 +12,8 @@ var LoginPage = (function () {
     var _otpSeconds = 60;
 
     var LAST_PHONE_KEY = 'js_last_phone';
+    var PENDING_OTP_KEY = 'js_login_pending_otp';
+    var OTP_PENDING_TTL_MS = 10 * 60 * 1000;
 
     function $(id) { return document.getElementById(id); }
 
@@ -28,8 +30,11 @@ var LoginPage = (function () {
         var lastPhone = localStorage.getItem(LAST_PHONE_KEY);
         if (lastPhone) {
             $('loginPhoneInput').value = lastPhone;
+            _phoneRaw = lastPhone;
             _validatePhone();
         }
+
+        _restorePendingOTP();
     }
 
     // ═══════════════════════════════════
@@ -99,6 +104,7 @@ var LoginPage = (function () {
             }
 
             // Show OTP step
+            _savePendingOTP();
             _showOTPStep(displayPhone);
         })
         .catch(function (err) {
@@ -200,11 +206,12 @@ var LoginPage = (function () {
         setTimeout(function () { $('loginOtp0').focus(); }, 150);
 
         // Start timer
-        _startResendTimer();
+        _startResendTimer(_getRemainingResendSeconds());
     }
 
     function _goBackToPhone() {
         _stopResendTimer();
+        _clearPendingOTP();
         $('loginStep2').classList.add('hidden');
         $('loginStep1').classList.remove('hidden');
         $('loginPhoneInput').focus();
@@ -268,6 +275,7 @@ var LoginPage = (function () {
             }
 
             _stopResendTimer();
+            _clearPendingOTP();
 
             // OTP verified — check if user exists in DB
             _checkUserExists();
@@ -430,12 +438,18 @@ var LoginPage = (function () {
     }
 
     // ─── Timer ───
-    function _startResendTimer() {
+    function _startResendTimer(initialSeconds) {
         _stopResendTimer();
-        _otpSeconds = 60;
+        _otpSeconds = typeof initialSeconds === 'number' ? Math.max(0, Math.min(60, Math.floor(initialSeconds))) : 60;
         $('loginResendTimer').classList.remove('hidden');
         $('loginBtnResend').classList.add('hidden');
         _updateTimerDisplay();
+
+        if (_otpSeconds <= 0) {
+            $('loginResendTimer').classList.add('hidden');
+            $('loginBtnResend').classList.remove('hidden');
+            return;
+        }
 
         _otpTimer = setInterval(function () {
             _otpSeconds--;
@@ -457,6 +471,55 @@ var LoginPage = (function () {
         if (el) el.innerHTML = 'Kirim ulang dalam <strong>' + _otpSeconds + '</strong>s';
     }
 
+    function _savePendingOTP() {
+        var now = Date.now();
+        var payload = {
+            phone: _phone,
+            phoneRaw: _phoneRaw,
+            sentAt: now,
+            expiresAt: now + OTP_PENDING_TTL_MS
+        };
+        localStorage.setItem(PENDING_OTP_KEY, JSON.stringify(payload));
+    }
+
+    function _clearPendingOTP() {
+        localStorage.removeItem(PENDING_OTP_KEY);
+    }
+
+    function _getPendingOTP() {
+        try {
+            var raw = localStorage.getItem(PENDING_OTP_KEY);
+            if (!raw) return null;
+            var parsed = JSON.parse(raw);
+            if (!parsed || !parsed.phone || !parsed.phoneRaw || !parsed.sentAt || !parsed.expiresAt) return null;
+            if (Date.now() > Number(parsed.expiresAt)) {
+                _clearPendingOTP();
+                return null;
+            }
+            return parsed;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function _getRemainingResendSeconds() {
+        var pending = _getPendingOTP();
+        if (!pending) return 60;
+        var elapsed = Math.floor((Date.now() - Number(pending.sentAt)) / 1000);
+        return Math.max(0, 60 - elapsed);
+    }
+
+    function _restorePendingOTP() {
+        var pending = _getPendingOTP();
+        if (!pending) return;
+
+        _phone = pending.phone;
+        _phoneRaw = pending.phoneRaw;
+        $('loginPhoneInput').value = _phoneRaw;
+        _validatePhone();
+        _showOTPStep('0' + _phoneRaw);
+    }
+
     // ─── Supabase client ───
     function _getSb() {
         if (typeof window.FB !== 'undefined' && window.FB._sb) return window.FB._sb;
@@ -475,6 +538,7 @@ var LoginPage = (function () {
             _phoneRaw = lastPhone;
             _validatePhone();
         }
+        _restorePendingOTP();
     }
 
     return {
