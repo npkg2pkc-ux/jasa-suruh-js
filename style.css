@@ -462,6 +462,10 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     color:var(--white);
     box-shadow:0 14px 28px rgba(30,41,59,.22);
 }
+.se-header-card {
+    background:linear-gradient(135deg,#0F766E 0%, #0D9488 55%, #14B8A6 100%);
+    box-shadow:0 14px 28px rgba(13,148,136,.24);
+}
 .te-header-label { font-size:12px; color:rgba(255,255,255,.7); letter-spacing:.2px; }
 .te-header-total { font-size:30px; font-weight:800; margin-top:6px; line-height:1.15; letter-spacing:-.4px; }
 .te-header-sub { font-size:12px; color:rgba(255,255,255,.8); margin-top:8px; }

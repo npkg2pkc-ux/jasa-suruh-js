@@ -2785,6 +2785,163 @@ function openTalentEarningsModal() {
 }
 window.openTalentEarningsModal = openTalentEarningsModal;
 
+function _buildSellerEarningsData(orders, sellerId) {
+    var completed = orders.filter(function (o) {
+        return String(o.sellerId || '') === String(sellerId || '')
+            && (o.status === 'completed' || o.status === 'rated');
+    });
+
+    completed.sort(function (a, b) { return _talentOrderTimestamp(b) - _talentOrderTimestamp(a); });
+
+    var now = new Date();
+    var startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    var startWeek = startToday - (6 * 24 * 60 * 60 * 1000);
+
+    var total = 0;
+    var today = 0;
+    var week = 0;
+    var grouped = {};
+
+    completed.forEach(function (o) {
+        var amount = Number(o.price) || 0;
+        var ts = _talentOrderTimestamp(o);
+        var service = o.serviceType || 'Pesanan Toko';
+
+        total += amount;
+        if (ts >= startToday) today += amount;
+        if (ts >= startWeek) week += amount;
+
+        if (!grouped[service]) grouped[service] = { name: service, amount: 0, count: 0 };
+        grouped[service].amount += amount;
+        grouped[service].count += 1;
+    });
+
+    var summary = Object.keys(grouped).map(function (k) { return grouped[k]; })
+        .sort(function (a, b) { return b.amount - a.amount; })
+        .slice(0, 3);
+
+    return {
+        total: total,
+        today: today,
+        week: week,
+        jobs: completed.length,
+        avg: completed.length ? Math.round(total / completed.length) : 0,
+        services: summary,
+        recent: completed.slice(0, 20)
+    };
+}
+
+function _closeSellerEarningsModal() {
+    var modal = document.getElementById('sellerEarningModal');
+    if (modal) modal.remove();
+    resetBottomNavToHome();
+}
+
+function _renderSellerEarningsModalContent(container, stats) {
+    var servicesHtml = '';
+    if (stats.services.length > 0) {
+        servicesHtml = stats.services.map(function (s) {
+            return '<div class="te-service-item">'
+                + '<div class="te-service-main">'
+                + '<div class="te-service-name">' + escapeHtml(s.name) + '</div>'
+                + '<div class="te-service-count">' + s.count + ' transaksi</div>'
+                + '</div>'
+                + '<div class="te-service-amount">' + formatRupiah(s.amount) + '</div>'
+                + '</div>';
+        }).join('');
+    } else {
+        servicesHtml = '<div class="te-empty-inline">Belum ada penjualan selesai.</div>';
+    }
+
+    var recentHtml = '';
+    if (stats.recent.length > 0) {
+        recentHtml = stats.recent.map(function (o) {
+            var amount = Number(o.price) || 0;
+            var status = o.status === 'rated' ? 'Dinilai pembeli' : 'Selesai';
+            return '<div class="te-tx-item">'
+                + '<div class="te-tx-left">'
+                + '<div class="te-tx-title">' + escapeHtml(o.serviceType || 'Pesanan Produk') + '</div>'
+                + '<div class="te-tx-meta">' + _formatTalentOrderDate(_talentOrderTimestamp(o)) + ' • ' + status + '</div>'
+                + '</div>'
+                + '<div class="te-tx-amount">' + formatRupiah(amount) + '</div>'
+                + '</div>';
+        }).join('');
+    } else {
+        recentHtml = '<div class="te-empty">'
+            + '<div class="te-empty-icon">🏪</div>'
+            + '<p>Belum ada penjualan selesai.</p>'
+            + '</div>';
+    }
+
+    container.innerHTML = '<div class="te-header-card se-header-card">'
+        + '<div class="te-header-label">Total Pendapatan Toko</div>'
+        + '<div class="te-header-total">' + formatRupiah(stats.total) + '</div>'
+        + '<div class="te-header-sub">' + stats.jobs + ' transaksi selesai • Rata-rata ' + formatRupiah(stats.avg) + '/transaksi</div>'
+        + '</div>'
+        + '<div class="te-kpi-grid">'
+        + '<div class="te-kpi"><span class="te-kpi-label">Hari Ini</span><strong>' + formatRupiah(stats.today) + '</strong></div>'
+        + '<div class="te-kpi"><span class="te-kpi-label">7 Hari</span><strong>' + formatRupiah(stats.week) + '</strong></div>'
+        + '</div>'
+        + '<div class="te-section">'
+        + '<h4>Kategori Penjualan Teratas</h4>'
+        + '<div class="te-service-list">' + servicesHtml + '</div>'
+        + '</div>'
+        + '<div class="te-section">'
+        + '<h4>Riwayat Penjualan</h4>'
+        + '<div class="te-tx-list">' + recentHtml + '</div>'
+        + '</div>';
+}
+
+function openSellerEarningsModal() {
+    var session = getSession();
+    if (!session || session.role !== 'penjual') {
+        showToast('Menu ini khusus untuk akun Penjual', 'error');
+        return;
+    }
+
+    var existing = document.getElementById('sellerEarningModal');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'sellerEarningModal';
+    overlay.className = 'wallet-modal-overlay';
+    overlay.innerHTML = '<div class="wallet-modal te-modal">'
+        + '<div class="wallet-modal-header te-modal-header">'
+        + '<h3>🏪 Pendapatan Penjual</h3>'
+        + '<button class="wallet-modal-close" id="sellerEarningClose">&times;</button>'
+        + '</div>'
+        + '<div class="wallet-modal-body te-modal-body" id="sellerEarningBody">'
+        + '<div class="te-loading">Memuat data pendapatan...</div>'
+        + '</div>'
+        + '</div>';
+
+    document.body.appendChild(overlay);
+
+    var closeBtn = document.getElementById('sellerEarningClose');
+    if (closeBtn) closeBtn.addEventListener('click', _closeSellerEarningsModal);
+    overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) _closeSellerEarningsModal();
+    });
+
+    FB.get('getOrdersByUser', { userId: session.id })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            var body = document.getElementById('sellerEarningBody');
+            if (!body) return;
+            if (!res || !res.success || !Array.isArray(res.data)) {
+                body.innerHTML = '<div class="te-loading">Gagal memuat data pendapatan.</div>';
+                return;
+            }
+            var stats = _buildSellerEarningsData(res.data, session.id);
+            _renderSellerEarningsModalContent(body, stats);
+        })
+        .catch(function () {
+            var body = document.getElementById('sellerEarningBody');
+            if (body) body.innerHTML = '<div class="te-loading">Koneksi bermasalah. Coba lagi.</div>';
+        });
+}
+window.openSellerEarningsModal = openSellerEarningsModal;
+
 // ══════════════════════════════════════════
 // ═══ BOTTOM NAV ═══
 // ══════════════════════════════════════════
@@ -2809,8 +2966,10 @@ function setupBottomNav() {
                     var session3 = typeof getSession === 'function' ? getSession() : null;
                     if (session3 && session3.role === 'talent') {
                         openTalentEarningsModal();
+                    } else if (session3 && session3.role === 'penjual') {
+                        openSellerEarningsModal();
                     } else {
-                        showToast('Menu pendapatan khusus Talent', 'info');
+                        showToast('Menu pendapatan khusus Talent/Penjual', 'info');
                     }
                 } else if (page === 'home') {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
