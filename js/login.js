@@ -313,7 +313,20 @@ var LoginPage = (function () {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone: _phone, code: code })
         })
-        .then(function (r) { return r.json(); })
+        .then(function (r) {
+            return r.text().then(function (raw) {
+                var txt = String(raw || '').trim();
+                if (!txt) throw new Error('Server tidak merespons valid (' + r.status + ')');
+                var parsed;
+                try {
+                    parsed = JSON.parse(txt);
+                } catch (e) {
+                    throw new Error('Respons server tidak valid (' + r.status + ')');
+                }
+                if (!r.ok) throw new Error(parsed.message || ('Request gagal (' + r.status + ')'));
+                return parsed;
+            });
+        })
         .then(function (result) {
             btn.disabled = false;
             text.textContent = 'Verifikasi';

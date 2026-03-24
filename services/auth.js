@@ -41,6 +41,26 @@ var AuthService = (function () {
         return err;
     }
 
+    function parseApiJson(response) {
+        if (!response) return Promise.reject(new Error('Tidak ada respons server'));
+        return response.text().then(function (raw) {
+            var text = String(raw || '').trim();
+            if (!text) {
+                throw new Error('Server mengembalikan respons kosong (' + response.status + ')');
+            }
+            var data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                throw new Error('Respons server tidak valid (' + response.status + ')');
+            }
+            if (!response.ok) {
+                throw new Error((data && data.message) || ('Request gagal (' + response.status + ')'));
+            }
+            return data;
+        });
+    }
+
     function checkDeletionCooldown(phone) {
         var formatted = formatPhone(phone || '');
 
@@ -81,7 +101,7 @@ var AuthService = (function () {
                     body: JSON.stringify({ phone: formatted })
                 });
             })
-            .then(function (r) { return r.json(); })
+            .then(parseApiJson)
             .then(function (result) {
                 if (!result.success) throw new Error(result.message || 'Gagal mengirim OTP');
                 return { success: true, phone: formatted };
@@ -96,7 +116,7 @@ var AuthService = (function () {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone: formatted, code: otp })
         })
-        .then(function (r) { return r.json(); })
+        .then(parseApiJson)
         .then(function (result) {
             if (!result.success) throw new Error(result.message || 'Kode OTP salah');
             return {
