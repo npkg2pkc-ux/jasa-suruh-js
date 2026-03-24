@@ -11,17 +11,78 @@ function setupTalentSkills() {
     var btnOpen = document.getElementById('btnOpenSkillModal');
     var modal = document.getElementById('skillModal');
     var btnClose = document.getElementById('btnCloseSkillModal');
+    var modalContainer = modal ? modal.querySelector('.talent-skill-modal-container') : null;
     var formModal = document.getElementById('skillFormModal');
     var btnCloseForm = document.getElementById('btnCloseSkillForm');
     var detailForm = document.getElementById('skillDetailForm');
     var priceInput = document.getElementById('sfPrice');
     var feeInfo = document.getElementById('sfFeeInfo');
 
+    function resetTalentNavToHome() {
+        var pageTalent = document.getElementById('page-talent');
+        if (!pageTalent || pageTalent.classList.contains('hidden')) return;
+
+        var nav = pageTalent.querySelector('.bottom-nav');
+        if (!nav) return;
+        nav.querySelectorAll('.nav-item').forEach(function (item) {
+            item.classList.toggle('active', item.dataset.page === 'home');
+        });
+    }
+
+    function closeSkillModal() {
+        if (!modal) return;
+        modal.classList.add('hidden');
+        if (modalContainer) {
+            modalContainer.style.transform = '';
+            modalContainer.style.transition = '';
+        }
+        resetTalentNavToHome();
+    }
+
     if (!modal) return;
 
     if (btnOpen) btnOpen.addEventListener('click', function () { openSkillModal(); });
-    btnClose.addEventListener('click', function () { modal.classList.add('hidden'); });
-    modal.addEventListener('click', function (e) { if (e.target === modal) modal.classList.add('hidden'); });
+    btnClose.addEventListener('click', function () { closeSkillModal(); });
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeSkillModal(); });
+
+    // Swipe down to close skill modal (mobile UX).
+    if (modalContainer) {
+        var dragStartY = 0;
+        var dragDeltaY = 0;
+        var dragging = false;
+
+        modalContainer.addEventListener('touchstart', function (e) {
+            if (!modal || modal.classList.contains('hidden')) return;
+            if (!e.touches || e.touches.length !== 1) return;
+            dragStartY = e.touches[0].clientY;
+            dragDeltaY = 0;
+            dragging = true;
+            modalContainer.style.transition = 'none';
+        }, { passive: true });
+
+        modalContainer.addEventListener('touchmove', function (e) {
+            if (!dragging || !e.touches || e.touches.length !== 1) return;
+            dragDeltaY = e.touches[0].clientY - dragStartY;
+            if (dragDeltaY > 0) {
+                modalContainer.style.transform = 'translateY(' + Math.min(dragDeltaY, 220) + 'px)';
+            }
+        }, { passive: true });
+
+        modalContainer.addEventListener('touchend', function () {
+            if (!dragging) return;
+            dragging = false;
+            modalContainer.style.transition = 'transform .2s ease';
+            if (dragDeltaY > 90) {
+                closeSkillModal();
+            } else {
+                modalContainer.style.transform = 'translateY(0)';
+                setTimeout(function () {
+                    modalContainer.style.transform = '';
+                    modalContainer.style.transition = '';
+                }, 220);
+            }
+        });
+    }
 
     if (btnCloseForm) btnCloseForm.addEventListener('click', function () { formModal.classList.add('hidden'); });
     if (formModal) formModal.addEventListener('click', function (e) { if (e.target === formModal) formModal.classList.add('hidden'); });
@@ -169,17 +230,8 @@ function setupTalentSkills() {
 // ══════════════════════════════════════════
 // ═══ SKILL MODAL & FORM HELPERS ═══
 // ══════════════════════════════════════════
-function openSkillModal() {
-    var session = getSession();
-    if (!session) return;
-
-    var modal = document.getElementById('skillModal');
-    var body = document.getElementById('skillModalBody');
-    if (!modal || !body) return;
-
-    var skills = getUserSkills(session.id);
-    var activeTypes = skills.map(function (s) { return s.type; });
-    var sortedDefs = SKILL_DEFS.slice().sort(function (a, b) {
+function getOrderedSkillDefs() {
+    return SKILL_DEFS.slice().sort(function (a, b) {
         function rank(type) {
             if (type === 'js_clean') return 2;
             if (type === 'js_service') return 3;
@@ -190,37 +242,96 @@ function openSkillModal() {
         if (ra !== rb) return ra - rb;
         return a.name.localeCompare(b.name);
     });
+}
 
-    var activeCount = sortedDefs.filter(function (def) { return activeTypes.indexOf(def.type) >= 0; }).length;
-    var inactiveCount = sortedDefs.length - activeCount;
+function openSkillAddPicker(sortedDefs, activeTypes) {
+    var body = document.getElementById('skillModalBody');
+    if (!body) return;
+
+    var inactiveDefs = sortedDefs.filter(function (def) { return activeTypes.indexOf(def.type) < 0; });
+    body.innerHTML = '<div class="skill-modal-topbar">'
+        + '<button type="button" class="skill-modal-back-btn" id="btnSkillBack">← Kembali</button>'
+        + '<div class="skill-modal-summary"><strong>' + inactiveDefs.length + ' tersedia</strong> • siap ditambahkan</div>'
+        + '</div>'
+        + (inactiveDefs.length === 0
+            ? '<div class="skill-modal-empty">Semua keahlian sudah ditambahkan.</div>'
+            : inactiveDefs.map(function (def) {
+                return '<div class="skill-option-card" data-type="' + def.type + '" data-hasform="' + def.hasForm + '">'
+                    + '<div class="skill-option-left">'
+                    + '<span class="skill-option-icon">' + def.icon + '</span>'
+                    + '<div class="skill-option-info">'
+                    + '<span class="skill-option-name">' + escapeHtml(def.name) + '</span>'
+                    + '<span class="skill-option-desc">' + escapeHtml(def.desc) + '</span>'
+                    + '</div>'
+                    + '</div>'
+                    + '<div class="skill-option-right">'
+                    + '<span class="skill-status-pill is-inactive">Tidak Aktif</span>'
+                    + '<div class="skill-option-actions">'
+                    + (def.hasForm ? '<button class="btn-skill-activate btn-form">Tambah</button>' : '<button class="btn-skill-activate">Aktifkan</button>')
+                    + '</div>'
+                    + '</div>'
+                    + '</div>';
+            }).join(''));
+
+    var btnBack = document.getElementById('btnSkillBack');
+    if (btnBack) btnBack.addEventListener('click', function () { openSkillModal(); });
+
+    body.querySelectorAll('.skill-option-card').forEach(function (card) {
+        var type = card.dataset.type;
+        var hasForm = card.dataset.hasform === 'true';
+        var btnActivate = card.querySelector('.btn-skill-activate');
+        if (btnActivate) {
+            btnActivate.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (hasForm) {
+                    openSkillForm(type);
+                } else {
+                    activateSimpleSkill(type);
+                    openSkillModal();
+                }
+            });
+        }
+    });
+}
+
+function openSkillModal() {
+    var session = getSession();
+    if (!session) return;
+
+    var modal = document.getElementById('skillModal');
+    var body = document.getElementById('skillModalBody');
+    if (!modal || !body) return;
+
+    var skills = getUserSkills(session.id);
+    var activeTypes = skills.map(function (s) { return s.type; });
+    var sortedDefs = getOrderedSkillDefs();
+
+    var activeDefs = sortedDefs.filter(function (def) { return activeTypes.indexOf(def.type) >= 0; });
+    var inactiveCount = sortedDefs.length - activeDefs.length;
 
     body.innerHTML = '<div class="skill-modal-topbar">'
         + '<div class="skill-modal-summary">'
-        + '<strong>' + activeCount + ' aktif</strong> • ' + inactiveCount + ' tidak aktif'
+        + '<strong>' + activeDefs.length + ' aktif</strong> • ' + inactiveCount + ' belum ditambahkan'
         + '</div>'
         + '<button type="button" class="btn-primary skill-modal-add-btn" id="btnSkillAddQuick">+ Tambah</button>'
         + '</div>'
-        + sortedDefs.map(function (def) {
-        var isActive = activeTypes.indexOf(def.type) >= 0;
-        var rightHtml;
-        if (isActive && def.hasForm) {
-            rightHtml = '<span class="skill-status-pill is-active">Aktif</span>'
-                + '<div class="skill-option-actions">'
-                + '<button class="btn-skill-edit">✏️ Edit</button>'
-                + '<button class="btn-skill-toggle is-active">Nonaktifkan</button>'
-                + '</div>';
-        } else if (isActive) {
-            rightHtml = '<span class="skill-status-pill is-active">Aktif</span>'
-                + '<div class="skill-option-actions">'
-                + '<button class="btn-skill-toggle is-active">Nonaktifkan</button>'
-                + '</div>';
-        } else {
-            rightHtml = '<span class="skill-status-pill is-inactive">Tidak Aktif</span>'
-                + '<div class="skill-option-actions">'
-                + (def.hasForm ? '<button class="btn-skill-activate btn-form">Tambah</button>' : '<button class="btn-skill-activate">Aktifkan</button>')
-                + '</div>';
-        }
-        return '<div class="skill-option-card ' + (isActive ? 'active' : '') + '" data-type="' + def.type + '" data-hasform="' + def.hasForm + '">'
+        + (activeDefs.length === 0
+            ? '<div class="skill-modal-empty">Belum ada keahlian aktif. Klik <strong>+ Tambah</strong> untuk menambahkan.</div>'
+            : activeDefs.map(function (def) {
+                var rightHtml;
+                if (def.hasForm) {
+                    rightHtml = '<span class="skill-status-pill is-active">Aktif</span>'
+                        + '<div class="skill-option-actions">'
+                        + '<button class="btn-skill-edit">✏️ Edit</button>'
+                        + '<button class="btn-skill-toggle is-active">Nonaktifkan</button>'
+                        + '</div>';
+                } else {
+                    rightHtml = '<span class="skill-status-pill is-active">Aktif</span>'
+                        + '<div class="skill-option-actions">'
+                        + '<button class="btn-skill-toggle is-active">Nonaktifkan</button>'
+                        + '</div>';
+                }
+                return '<div class="skill-option-card active" data-type="' + def.type + '" data-hasform="' + def.hasForm + '">'
             + '<div class="skill-option-left">'
             + '<span class="skill-option-icon">' + def.icon + '</span>'
             + '<div class="skill-option-info">'
@@ -230,22 +341,12 @@ function openSkillModal() {
             + '</div>'
             + '<div class="skill-option-right">' + rightHtml + '</div>'
             + '</div>';
-    }).join('');
+            }).join(''));
 
     var addQuickBtn = document.getElementById('btnSkillAddQuick');
     if (addQuickBtn) {
         addQuickBtn.addEventListener('click', function () {
-            var firstInactive = sortedDefs.find(function (d) { return activeTypes.indexOf(d.type) < 0; });
-            if (!firstInactive) {
-                showToast('Semua keahlian sudah aktif', 'info');
-                return;
-            }
-            if (firstInactive.hasForm) {
-                openSkillForm(firstInactive.type);
-            } else {
-                activateSimpleSkill(firstInactive.type);
-                openSkillModal();
-            }
+            openSkillAddPicker(sortedDefs, activeTypes);
         });
     }
 
