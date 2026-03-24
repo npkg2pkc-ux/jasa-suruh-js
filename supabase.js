@@ -857,6 +857,32 @@
             });
     }
 
+    function resolveOwnerUserId() {
+        return sb.from('users').select('id, role, data')
+            .then(function (res) {
+                if (res.error || !res.data) return '';
+
+                var ownerRow = null;
+
+                ownerRow = res.data.find(function (row) {
+                    return String(row.role || '').toLowerCase() === 'owner';
+                }) || null;
+
+                if (!ownerRow) {
+                    ownerRow = res.data.find(function (row) {
+                        var d = row.data;
+                        if (typeof d === 'string') {
+                            try { d = JSON.parse(d); } catch (e) { d = {}; }
+                        }
+                        return d && String(d.role || '').toLowerCase() === 'owner';
+                    }) || null;
+                }
+
+                return ownerRow && ownerRow.id ? ownerRow.id : '';
+            })
+            .catch(function () { return ''; });
+    }
+
     function doWalletCompleteOrder(body) {
         // Called when order is completed — distribute funds
         var orderId = body.orderId;
@@ -898,11 +924,8 @@
             }
 
             // Credit owner (platform fee + commission)
-            promises.push(sb.from('users').select('data').then(function (res) {
-                if (res.error || !res.data) return ok(null);
-                var ownerRow = res.data.find(function (r) { return r.data && r.data.role === 'owner'; });
-                if (!ownerRow || !ownerRow.data) return ok(null);
-                var ownerId = ownerRow.data.id;
+            promises.push(resolveOwnerUserId().then(function (ownerId) {
+                if (!ownerId) return ok(null);
                 return doWalletCredit({
                     userId: ownerId,
                     amount: ownerTotal,
@@ -931,11 +954,8 @@
             }));
 
             // Credit owner
-            promises.push(sb.from('users').select('data').then(function (res) {
-                if (res.error || !res.data) return ok(null);
-                var ownerRow = res.data.find(function (r) { return r.data && r.data.role === 'owner'; });
-                if (!ownerRow || !ownerRow.data) return ok(null);
-                var ownerId = ownerRow.data.id;
+            promises.push(resolveOwnerUserId().then(function (ownerId) {
+                if (!ownerId) return ok(null);
                 return doWalletCredit({
                     userId: ownerId,
                     amount: ownerTotal,
@@ -972,13 +992,8 @@
         });
 
         // Credit owner
-        var creditOwner = sb.from('users').select('data').then(function (res) {
-            if (res.error || !res.data) return ok(null);
-            var ownerRow = res.data.find(function (r) {
-                return r.data && r.data.role === 'owner';
-            });
-            if (!ownerRow || !ownerRow.data) return ok(null);
-            var ownerId = ownerRow.data.id;
+        var creditOwner = resolveOwnerUserId().then(function (ownerId) {
+            if (!ownerId) return ok(null);
             return doWalletCredit({
                 userId: ownerId,
                 amount: platformCut,
