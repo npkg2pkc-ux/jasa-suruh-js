@@ -8,6 +8,8 @@ var _penjualPendingOwnerId = '';
 var _penjualPendingInitialized = false;
 var _sellerStoreModalEventsSetup = false;
 var _penjualProductsModalEventsSetup = false;
+var _penjualProductFeeEventsSetup = false;
+var _penjualSettingsCache = null;
 var PENJUAL_SEEN_PENDING_KEY = 'js_penjual_seen_pending_orders';
 
 function normalizeProductCategory(category) {
@@ -16,6 +18,70 @@ function normalizeProductCategory(category) {
     if (c === 'other' || c === 'lainnya') return 'shop';
     if (c === 'food' || c === 'drink' || c === 'snack' || c === 'shop' || c === 'medicine') return c;
     return 'shop';
+}
+
+function _formatCurrencyIdr(amount) {
+    var n = Number(amount) || 0;
+    if (typeof formatRupiah === 'function') return formatRupiah(n);
+    return 'Rp ' + n.toLocaleString('id-ID');
+}
+
+function _getPenjualCommissionPercent() {
+    var s = _penjualSettingsCache || {};
+    var v = Number(s.commission_penjual_percent);
+    return isFinite(v) && v >= 0 ? v : 10;
+}
+
+function loadPenjualSettings(forceRefresh) {
+    if (_penjualSettingsCache && !forceRefresh) {
+        return Promise.resolve(_penjualSettingsCache);
+    }
+    if (!isBackendConnected()) {
+        _penjualSettingsCache = {};
+        return Promise.resolve(_penjualSettingsCache);
+    }
+    return FB.get('getSettings')
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            _penjualSettingsCache = (res && res.success && res.data) ? res.data : {};
+            return _penjualSettingsCache;
+        })
+        .catch(function () {
+            _penjualSettingsCache = {};
+            return _penjualSettingsCache;
+        });
+}
+
+function updateProductNetEstimate() {
+    var priceEl = document.getElementById('prodFormPrice');
+    var hintEl = document.getElementById('prodNetEstimate');
+    if (!priceEl || !hintEl) return;
+
+    var price = Math.max(0, parseInt(priceEl.value, 10) || 0);
+    var commPercent = _getPenjualCommissionPercent();
+    var commission = Math.round(price * commPercent / 100);
+    var sellerNet = Math.max(0, price - commission);
+
+    if (price <= 0) {
+        hintEl.textContent = 'Estimasi diterima seller setelah komisi ' + commPercent + '%: ' + _formatCurrencyIdr(0);
+        return;
+    }
+
+    hintEl.textContent = 'Estimasi diterima seller: ' + _formatCurrencyIdr(sellerNet)
+        + ' (potongan komisi ' + commPercent + '%: ' + _formatCurrencyIdr(commission) + ')';
+}
+
+function setupProductFeePreview() {
+    if (_penjualProductFeeEventsSetup) return;
+    var priceEl = document.getElementById('prodFormPrice');
+    if (!priceEl) return;
+
+    _penjualProductFeeEventsSetup = true;
+    priceEl.addEventListener('input', updateProductNetEstimate);
+
+    loadPenjualSettings(false).then(function () {
+        updateProductNetEstimate();
+    });
 }
 
 function _readSeenPendingMap() {
@@ -404,6 +470,10 @@ function openAddProductModal() {
     document.getElementById('prodPhotoImg').dataset.newUpload = '';
     document.getElementById('prodPhotoPreview').style.display = 'none';
     document.getElementById('prodBtnUpload').style.display = '';
+    updateProductNetEstimate();
+    loadPenjualSettings(false).then(function () {
+        updateProductNetEstimate();
+    });
     modal.classList.remove('hidden');
 }
 
@@ -433,6 +503,10 @@ function openEditProductModal(productId) {
         document.getElementById('prodPhotoPreview').style.display = 'none';
         document.getElementById('prodBtnUpload').style.display = '';
     }
+    updateProductNetEstimate();
+    loadPenjualSettings(false).then(function () {
+        updateProductNetEstimate();
+    });
     modal.classList.remove('hidden');
 }
 

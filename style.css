@@ -895,6 +895,17 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     min-height:88px;
     padding:11px 14px;
 }
+.prod-net-estimate {
+    margin-top:8px;
+    font-size:12px;
+    font-weight:700;
+    color:#0F766E;
+    background:#ECFDF5;
+    border:1px solid #BBF7D0;
+    border-radius:12px;
+    padding:8px 10px;
+    line-height:1.35;
+}
 .add-product-top-grid {
     display:grid;
     grid-template-columns:1fr;

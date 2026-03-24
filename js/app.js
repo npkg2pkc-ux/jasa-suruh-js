@@ -30,6 +30,7 @@ function init() {
     setupBottomNav();
     setupCSDashboard();
     setupProductPhotoUpload();
+    setupProductFeePreview();
     setupStorePhotoUpload();
 
     // Penjual: store form
