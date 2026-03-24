@@ -10,6 +10,14 @@ var _sellerStoreModalEventsSetup = false;
 var _penjualProductsModalEventsSetup = false;
 var PENJUAL_SEEN_PENDING_KEY = 'js_penjual_seen_pending_orders';
 
+function normalizeProductCategory(category) {
+    var c = String(category || '').toLowerCase();
+    if (c === 'grocery' || c === 'groceries') return 'shop';
+    if (c === 'other' || c === 'lainnya') return 'shop';
+    if (c === 'food' || c === 'drink' || c === 'snack' || c === 'shop' || c === 'medicine') return c;
+    return 'shop';
+}
+
 function _readSeenPendingMap() {
     try { return JSON.parse(localStorage.getItem(PENJUAL_SEEN_PENDING_KEY) || '{}') || {}; }
     catch (e) { return {}; }
@@ -407,7 +415,7 @@ function openEditProductModal(productId) {
     document.getElementById('addProductTitle').textContent = 'Edit Produk';
     document.getElementById('editProductId').value = productId;
     document.getElementById('prodFormName').value = product.name || '';
-    document.getElementById('prodFormCategory').value = product.category || 'food';
+    document.getElementById('prodFormCategory').value = normalizeProductCategory(product.category);
     document.getElementById('prodFormDesc').value = product.description || '';
     document.getElementById('prodFormPrice').value = product.price || '';
     var isAvailable = (product.isAvailable !== undefined)
@@ -434,7 +442,7 @@ function handleProductFormSubmit(e) {
 
     var productId = document.getElementById('editProductId').value;
     var name = (document.getElementById('prodFormName').value || '').trim();
-    var category = document.getElementById('prodFormCategory').value;
+    var category = normalizeProductCategory(document.getElementById('prodFormCategory').value);
     var desc = (document.getElementById('prodFormDesc').value || '').trim();
     var price = parseInt(document.getElementById('prodFormPrice').value) || 0;
     var availability = document.getElementById('prodFormAvailability').value;

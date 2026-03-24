@@ -1195,26 +1195,43 @@
 
     <!-- ===== ADD PRODUCT MODAL ===== -->
     <div id="addProductModal" class="modal-overlay hidden">
-        <div class="modal-container">
-            <div class="modal-header">
+        <div class="modal-container add-product-modal-container">
+            <div class="modal-header add-product-modal-header">
                 <h3 id="addProductTitle">Tambah Produk</h3>
                 <button type="button" class="btn-close-modal" id="btnCloseProductModal">&times;</button>
             </div>
-            <div class="modal-body">
-                <form id="addProductForm">
+            <div class="modal-body add-product-modal-body">
+                <form id="addProductForm" class="add-product-form">
                     <input type="hidden" id="editProductId" value="">
-                    <div class="form-group"><label>Nama Produk</label><div class="input-wrap"><input type="text" id="prodFormName" placeholder="cth: Nasi Goreng Spesial" required></div></div>
-                    <div class="form-group">
-                        <label>Kategori</label>
-                        <div class="input-wrap">
-                            <select id="prodFormCategory" style="background:none;border:none;outline:none;font-family:var(--font);font-size:14px;color:var(--black);width:100%;">
-                                <option value="food">🍔 Makanan</option>
-                                <option value="drink">🥤 Minuman</option>
-                                <option value="snack">🍟 Snack</option>
-                                <option value="grocery">🛒 Groceries</option>
-                                <option value="medicine">💊 Obat</option>
-                                <option value="other">📦 Lainnya</option>
-                            </select>
+                    <div class="add-product-top-grid">
+                        <div class="form-group add-product-media-group">
+                            <label>Foto Produk</label>
+                            <div class="photo-upload-area add-product-photo-area" id="prodPhotoArea">
+                                <input type="file" id="prodPhoto" accept="image/*" capture="environment" style="display:none">
+                                <div class="photo-preview add-product-photo-preview" id="prodPhotoPreview" style="display:none">
+                                    <img id="prodPhotoImg" src="" alt="Preview">
+                                    <button type="button" class="btn-remove-photo" id="prodRemovePhoto">&times;</button>
+                                </div>
+                                <button type="button" class="btn-upload-photo add-product-upload-btn" id="prodBtnUpload">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/></svg>
+                                    <span>Upload Foto Produk</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="add-product-identity-group">
+                            <div class="form-group"><label>Nama Produk</label><div class="input-wrap"><input type="text" id="prodFormName" placeholder="cth: Nasi Goreng Spesial" required></div></div>
+                            <div class="form-group">
+                                <label>Kategori</label>
+                                <div class="input-wrap">
+                                    <select id="prodFormCategory" style="background:none;border:none;outline:none;font-family:var(--font);font-size:14px;color:var(--black);width:100%;">
+                                        <option value="shop">🛒 JS Shop</option>
+                                        <option value="food">🍔 JS Food - Makanan</option>
+                                        <option value="drink">🥤 JS Food - Minuman</option>
+                                        <option value="snack">🍟 JS Food - Snack</option>
+                                        <option value="medicine">💊 JS Medicine</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="form-group"><label>Deskripsi</label><textarea id="prodFormDesc" class="form-textarea" rows="2" placeholder="Deskripsi produk..."></textarea></div>
@@ -1226,20 +1243,6 @@
                                 <option value="available">✅ Tersedia</option>
                                 <option value="sold_out">⛔ Habis</option>
                             </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Foto Produk</label>
-                        <div class="photo-upload-area" id="prodPhotoArea">
-                            <input type="file" id="prodPhoto" accept="image/*" capture="environment" style="display:none">
-                            <div class="photo-preview" id="prodPhotoPreview" style="display:none">
-                                <img id="prodPhotoImg" src="" alt="Preview">
-                                <button type="button" class="btn-remove-photo" id="prodRemovePhoto">&times;</button>
-                            </div>
-                            <button type="button" class="btn-upload-photo" id="prodBtnUpload">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/></svg>
-                                <span>Ambil Foto / Pilih dari Galeri</span>
-                            </button>
                         </div>
                     </div>
                     <button type="submit" class="btn-primary">💾 Simpan Produk</button>
