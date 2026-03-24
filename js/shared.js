@@ -10,32 +10,23 @@
 var _audioUnlocked = false;
 var _notificationAudio = null;
 var _notificationSoundCandidates = [
-    '/public/sound/notification.mp3',
     '/public/sound/Notification.mp3',
-    'public/sound/notification.mp3',
     'public/sound/Notification.mp3',
-    '/sound/notification.mp3',
-    '/sound/Notification.mp3'
+    '/sound/Notification.mp3',
+    '/public/sound/notification.mp3',
+    'public/sound/notification.mp3',
+    '/sound/notification.mp3'
 ];
 var _notificationSoundSrc = _notificationSoundCandidates[0];
-var _notificationSourceResolved = false;
+var _notificationCandidateIndex = 0;
 
-function _setNextAudioSource(audio, startIndex) {
-    var idx = Number(startIndex || 0);
-    if (idx >= _notificationSoundCandidates.length) return;
+function _setAudioSourceByIndex(audio, idx) {
+    if (idx < 0 || idx >= _notificationSoundCandidates.length) return false;
+    _notificationCandidateIndex = idx;
     _notificationSoundSrc = _notificationSoundCandidates[idx];
     audio.src = _notificationSoundSrc;
     audio.load();
-    audio.onloadeddata = function () {
-        _notificationSourceResolved = true;
-        audio.onloadeddata = null;
-        audio.onerror = null;
-    };
-    audio.onerror = function () {
-        audio.onloadeddata = null;
-        audio.onerror = null;
-        _setNextAudioSource(audio, idx + 1);
-    };
+    return true;
 }
 
 function _getNotificationAudio() {
@@ -43,19 +34,31 @@ function _getNotificationAudio() {
         _notificationAudio = new Audio();
         _notificationAudio.preload = 'auto';
         _notificationAudio.volume = 1;
-        _setNextAudioSource(_notificationAudio, 0);
+        _notificationAudio.setAttribute('playsinline', '');
+        _setAudioSourceByIndex(_notificationAudio, 0);
     }
     return _notificationAudio;
+}
+
+function _switchToNextNotificationSource(sound) {
+    var next = _notificationCandidateIndex + 1;
+    if (next >= _notificationSoundCandidates.length) return false;
+    return _setAudioSourceByIndex(sound, next);
 }
 
 function _playNotificationSound(vibratePattern) {
     try {
         var sound = _getNotificationAudio();
-        // If source probing has not finished yet, still try current candidate.
-        if (!_notificationSourceResolved && !sound.src) _setNextAudioSource(sound, 0);
+        if (!sound.src) _setAudioSourceByIndex(sound, _notificationCandidateIndex);
         sound.pause();
         try { sound.currentTime = 0; } catch (e) {}
         sound.play().catch(function () {
+            if (_switchToNextNotificationSource(sound)) {
+                sound.play().catch(function () {
+                    if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
+                });
+                return;
+            }
             if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
         });
     } catch (e) {
