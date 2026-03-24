@@ -13,6 +13,12 @@ var OwnerDashboard = (function () {
     var _ordersCache = [];
     var _currentRange = 'all'; // today, week, month, all
     var _currentRole = 'owner'; // 'owner' or 'admin'
+    var _ownerPanelConfig = {
+        home: { title: 'Home', subtitle: 'Ringkasan performa platform' },
+        activity: { title: 'Aktivitas Terbaru', subtitle: 'Update order dan user terbaru' },
+        users: { title: 'Pengguna', subtitle: 'Kelola akun dan role platform' },
+        settings: { title: 'Pengaturan', subtitle: 'Atur komisi dan parameter platform' }
+    };
 
     function $(id) { return document.getElementById(id); }
     function $$(sel) { return document.querySelectorAll(sel); }
@@ -34,6 +40,49 @@ var OwnerDashboard = (function () {
     }
 
     function _isOwner() { return _currentRole === 'owner'; }
+
+    function _setActiveOwnerNav(panel) {
+        $$('.od-nav-item[data-owner-panel]').forEach(function (btn) {
+            btn.classList.toggle('active', btn.dataset.ownerPanel === panel);
+        });
+    }
+
+    function _openOwnerPanel(panel) {
+        var cfg = _ownerPanelConfig[panel] || _ownerPanelConfig.home;
+        var modal = $('ownerPanelModal');
+        if (!modal) return;
+
+        if (panel === 'settings' && !_isOwner()) {
+            if (typeof showToast === 'function') showToast('Hanya owner yang bisa membuka pengaturan', 'error');
+            return;
+        }
+
+        _setActiveOwnerNav(panel);
+
+        var titleEl = $('ownerPanelTitle');
+        var subtitleEl = $('ownerPanelSubtitle');
+        if (titleEl) titleEl.textContent = cfg.title;
+        if (subtitleEl) subtitleEl.textContent = cfg.subtitle;
+
+        $$('.od-panel-view[data-owner-panel-view]').forEach(function (view) {
+            view.classList.toggle('hidden', view.dataset.ownerPanelView !== panel);
+        });
+
+        modal.classList.remove('hidden');
+
+        if (panel === 'home') {
+            var chartDays = parseInt(($('ownerChartRange') && $('ownerChartRange').value) || '7', 10);
+            _renderChart(_ordersCache, chartDays);
+        }
+        if (panel === 'settings' && _isOwner()) {
+            loadOwnerCommissionSettings();
+        }
+    }
+
+    function _closeOwnerPanel() {
+        var modal = $('ownerPanelModal');
+        if (modal) modal.classList.add('hidden');
+    }
 
     // ─── Init ───
     function init() {
@@ -69,6 +118,19 @@ var OwnerDashboard = (function () {
             _renderChart(_ordersCache, parseInt(this.value, 10));
         });
 
+        // Owner bottom nav modal panels
+        $$('.od-nav-item[data-owner-panel]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                _openOwnerPanel(this.dataset.ownerPanel || 'home');
+            });
+        });
+
+        var panelCloseBtn = $('ownerPanelClose');
+        if (panelCloseBtn) panelCloseBtn.addEventListener('click', _closeOwnerPanel);
+
+        var panelBackdrop = $('ownerPanelBackdrop');
+        if (panelBackdrop) panelBackdrop.addEventListener('click', _closeOwnerPanel);
+
         // Quick actions
         $$('.od-quick-btn').forEach(function (qbtn) {
             qbtn.addEventListener('click', function () {
@@ -84,12 +146,6 @@ var OwnerDashboard = (function () {
         var txBtn = $('ownerBtnTransactions');
         if (txBtn) txBtn.addEventListener('click', function () {
             if (typeof openAdminTransactions === 'function') openAdminTransactions();
-        });
-
-        // Settings page (commission) back button
-        var backBtn = $('ownerSettingsBack');
-        if (backBtn) backBtn.addEventListener('click', function () {
-            $('ownerSettingsPage').classList.add('hidden');
         });
 
         // Owner logout button
@@ -127,6 +183,7 @@ var OwnerDashboard = (function () {
         _loadOrdersAndRevenue();
         if (_isOwner()) loadOwnerCommissionSettings();
         if (typeof initNotifications === 'function') initNotifications();
+        _openOwnerPanel('home');
     }
 
     function _setGreeting() {
@@ -587,17 +644,14 @@ var OwnerDashboard = (function () {
             if (typeof showToast === 'function') showToast('Hanya owner yang bisa mengakses pengaturan komisi', 'error');
             return;
         }
-        var page = $('ownerSettingsPage');
-        if (page) page.classList.remove('hidden');
-        loadOwnerCommissionSettings();
+        _openOwnerPanel('settings');
     }
     window.openOwnerSettings = openOwnerSettings;
 
     // openCreateAdminPage & openCreateCSPage removed — replaced by openStaffManagement() in staff-app.js
 
     function _scrollToUsers() {
-        var sec = $('ownerUsersSection');
-        if (sec) sec.scrollIntoView({ behavior: 'smooth' });
+        _openOwnerPanel('users');
     }
 
     return {

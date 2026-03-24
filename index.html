@@ -483,180 +483,216 @@
             </header>
 
             <main class="od-main">
-                <!-- KPI Cards Grid -->
-                <section class="od-kpi-grid">
-                    <div class="od-kpi-card">
-                        <div class="od-kpi-icon od-kpi-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg></div>
-                        <div class="od-kpi-info">
-                            <span class="od-kpi-value" id="ownerTotalUsers"><span class="od-skeleton-text"></span></span>
-                            <span class="od-kpi-label">Users</span>
-                        </div>
-                        <span class="od-kpi-trend od-trend-up" id="ownerTrendUsers" style="display:none">↑ 0%</span>
-                    </div>
-                    <div class="od-kpi-card">
-                        <div class="od-kpi-icon od-kpi-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="9" y="3" width="6" height="4" rx="1" stroke="currentColor" stroke-width="2"/></svg></div>
-                        <div class="od-kpi-info">
-                            <span class="od-kpi-value" id="ownerTotalOrders"><span class="od-skeleton-text"></span></span>
-                            <span class="od-kpi-label">Orders</span>
-                        </div>
-                        <span class="od-kpi-trend od-trend-up" id="ownerTrendOrders" style="display:none">↑ 0%</span>
-                    </div>
-                    <div class="od-kpi-card">
-                        <div class="od-kpi-icon od-kpi-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-                        <div class="od-kpi-info">
-                            <span class="od-kpi-value" id="ownerRevenue"><span class="od-skeleton-text"></span></span>
-                            <span class="od-kpi-label">Revenue</span>
-                        </div>
-                        <span class="od-kpi-trend od-trend-up" id="ownerTrendRevenue" style="display:none">↑ 0%</span>
-                    </div>
-                    <div class="od-kpi-card">
-                        <div class="od-kpi-icon od-kpi-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-                        <div class="od-kpi-info">
-                            <span class="od-kpi-value" id="ownerTotalTalents"><span class="od-skeleton-text"></span></span>
-                            <span class="od-kpi-label">Talents Aktif</span>
-                        </div>
-                        <span class="od-kpi-trend od-trend-up" id="ownerTrendTalents" style="display:none">↑ 0%</span>
+                <section class="od-hub-card">
+                    <div class="od-hub-orb"></div>
+                    <div class="od-hub-content">
+                        <h3>Owner Command Center</h3>
+                        <p>Pilih menu bawah untuk buka panel modern: ringkasan, aktivitas, data pengguna, dan pengaturan komisi.</p>
                     </div>
                 </section>
-
-                <!-- Revenue Chart -->
-                <section class="od-chart-section">
-                    <div class="od-section-head">
-                        <h3>📊 Revenue & Orders</h3>
-                        <select class="od-chart-select" id="ownerChartRange">
-                            <option value="7">7 Hari</option>
-                            <option value="14">14 Hari</option>
-                            <option value="30">30 Hari</option>
-                        </select>
-                    </div>
-                    <div class="od-chart-wrap">
-                        <canvas id="ownerRevenueChart" height="200"></canvas>
-                        <div class="od-chart-empty hidden" id="ownerChartEmpty">
-                            <span>📈</span>
-                            <p>Belum ada data transaksi</p>
-                        </div>
-                    </div>
-                    <div class="od-chart-legend">
-                        <span class="od-legend-item"><span class="od-legend-dot od-dot-orange"></span>Revenue</span>
-                        <span class="od-legend-item"><span class="od-legend-dot od-dot-blue"></span>Orders</span>
-                    </div>
-                </section>
-
-                <!-- Wallet Card (Fintech Style) -->
-                <section class="od-wallet-section">
-                    <div class="od-wallet-card">
-                        <div class="od-wallet-bg"></div>
-                        <div class="od-wallet-content">
-                            <div class="od-wallet-top">
-                                <span class="od-wallet-label">💳 Saldo Platform</span>
-                                <span class="od-wallet-balance" id="ownerWalletBalance">Rp 0</span>
-                                <span class="od-wallet-today">Hari ini: <strong id="ownerTodayRevenue">Rp 0</strong></span>
-                            </div>
-                            <div class="od-wallet-actions">
-                                <button class="od-wallet-btn od-wbtn-withdraw" onclick="openWithdrawModal()">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                    Tarik Dana
-                                </button>
-                                <button class="od-wallet-btn od-wbtn-history" onclick="openTransactionHistory()">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 8v4l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/></svg>
-                                    Riwayat
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Quick Actions -->
-                <section class="od-quick-section">
-                    <div class="od-section-head"><h3>⚡ Aksi Cepat</h3></div>
-                    <div class="od-quick-grid">
-                        <button class="od-quick-btn" data-action="add-staff">
-                            <div class="od-quick-icon od-qi-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8.5" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
-                            <span>Tambah Staff</span>
-                        </button>
-                        <button class="od-quick-btn" data-action="staff-list">
-                            <div class="od-quick-icon od-qi-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
-                            <span>Kelola Staff</span>
-                        </button>
-                        <button class="od-quick-btn" data-action="view-report">
-                            <div class="od-quick-icon od-qi-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-                            <span>Laporan</span>
-                        </button>
-                        <button class="od-quick-btn od-owner-only" data-action="settings">
-                            <div class="od-quick-icon od-qi-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-                            <span>Pengaturan</span>
-                        </button>
-                    </div>
-                </section>
-
-                <!-- Recent Activity -->
-                <section class="od-activity-section">
-                    <div class="od-section-head">
-                        <h3>🕐 Aktivitas Terbaru</h3>
-                        <button class="od-see-all" id="ownerBtnTransactions">Lihat Semua</button>
-                    </div>
-                    <div class="od-activity-list" id="ownerActivityList">
-                        <div class="od-activity-skeleton">
-                            <div class="od-skel-row"><div class="od-skel-avatar"></div><div class="od-skel-lines"><div class="od-skel-line od-skel-w70"></div><div class="od-skel-line od-skel-w40"></div></div></div>
-                            <div class="od-skel-row"><div class="od-skel-avatar"></div><div class="od-skel-lines"><div class="od-skel-line od-skel-w60"></div><div class="od-skel-line od-skel-w30"></div></div></div>
-                            <div class="od-skel-row"><div class="od-skel-avatar"></div><div class="od-skel-lines"><div class="od-skel-line od-skel-w80"></div><div class="od-skel-line od-skel-w50"></div></div></div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Pengguna section (Users) -->
-                <section class="od-users-section" id="ownerUsersSection">
-                    <div class="od-section-head">
-                        <h3>👥 Pengguna</h3>
-                        <button class="od-see-all" onclick="renderOwnerUsers()">↻ Refresh</button>
-                    </div>
-                    <div class="od-user-stats-row">
-                        <span class="od-user-stat"><strong id="ownerStatAdmin">0</strong> Admin</span>
-                        <span class="od-user-stat"><strong id="ownerStatPenjual">0</strong> Penjual</span>
-                        <span class="od-user-stat"><strong id="ownerStatCS">0</strong> CS</span>
-                    </div>
-                    <div id="ownerUserList" class="od-user-list"></div>
-                </section>
-
                 <div class="bottom-spacer"></div>
             </main>
-        </div>
 
-        <!-- ===== OWNER SETTINGS PAGE (Commission - owner only) ===== -->
-        <div id="ownerSettingsPage" class="stp-page hidden">
-            <header class="stp-header">
-                <button class="stp-back" id="ownerSettingsBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-                <div class="stp-header-info"><h2>Pengaturan Komisi</h2></div>
-            </header>
-            <div class="od-settings-body">
-                <div class="od-settings-card">
-                    <div class="od-settings-card-head">
-                        <span class="od-settings-icon">💰</span>
-                        <div><h4>Pengaturan Komisi</h4><p>Atur biaya dan komisi platform</p></div>
+            <nav class="od-bottom-nav" id="ownerBottomNav">
+                <button class="od-nav-item active" data-owner-panel="home">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span>Home</span>
+                </button>
+                <button class="od-nav-item" data-owner-panel="activity">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/></svg>
+                    <span>Aktivitas Terbaru</span>
+                </button>
+                <button class="od-nav-item" data-owner-panel="users">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <span>Pengguna</span>
+                </button>
+                <button class="od-nav-item od-owner-only" data-owner-panel="settings">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span>Pengaturan</span>
+                </button>
+            </nav>
+
+            <div id="ownerPanelModal" class="od-panel-modal hidden">
+                <div class="od-panel-backdrop" id="ownerPanelBackdrop"></div>
+                <div class="od-panel-shell">
+                    <div class="od-panel-glow"></div>
+                    <header class="od-panel-head">
+                        <div>
+                            <h3 id="ownerPanelTitle">Home</h3>
+                            <p id="ownerPanelSubtitle">Ringkasan platform owner</p>
+                        </div>
+                        <button class="od-panel-close" id="ownerPanelClose">&times;</button>
+                    </header>
+                    <div class="od-panel-body">
+                        <div class="od-panel-view" data-owner-panel-view="home">
+                            <section class="od-kpi-grid">
+                                <div class="od-kpi-card">
+                                    <div class="od-kpi-icon od-kpi-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg></div>
+                                    <div class="od-kpi-info">
+                                        <span class="od-kpi-value" id="ownerTotalUsers"><span class="od-skeleton-text"></span></span>
+                                        <span class="od-kpi-label">Users</span>
+                                    </div>
+                                    <span class="od-kpi-trend od-trend-up" id="ownerTrendUsers" style="display:none">↑ 0%</span>
+                                </div>
+                                <div class="od-kpi-card">
+                                    <div class="od-kpi-icon od-kpi-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="9" y="3" width="6" height="4" rx="1" stroke="currentColor" stroke-width="2"/></svg></div>
+                                    <div class="od-kpi-info">
+                                        <span class="od-kpi-value" id="ownerTotalOrders"><span class="od-skeleton-text"></span></span>
+                                        <span class="od-kpi-label">Orders</span>
+                                    </div>
+                                    <span class="od-kpi-trend od-trend-up" id="ownerTrendOrders" style="display:none">↑ 0%</span>
+                                </div>
+                                <div class="od-kpi-card">
+                                    <div class="od-kpi-icon od-kpi-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                                    <div class="od-kpi-info">
+                                        <span class="od-kpi-value" id="ownerRevenue"><span class="od-skeleton-text"></span></span>
+                                        <span class="od-kpi-label">Revenue</span>
+                                    </div>
+                                    <span class="od-kpi-trend od-trend-up" id="ownerTrendRevenue" style="display:none">↑ 0%</span>
+                                </div>
+                                <div class="od-kpi-card">
+                                    <div class="od-kpi-icon od-kpi-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                                    <div class="od-kpi-info">
+                                        <span class="od-kpi-value" id="ownerTotalTalents"><span class="od-skeleton-text"></span></span>
+                                        <span class="od-kpi-label">Talents Aktif</span>
+                                    </div>
+                                    <span class="od-kpi-trend od-trend-up" id="ownerTrendTalents" style="display:none">↑ 0%</span>
+                                </div>
+                            </section>
+
+                            <section class="od-chart-section">
+                                <div class="od-section-head">
+                                    <h3>📊 Revenue & Orders</h3>
+                                    <select class="od-chart-select" id="ownerChartRange">
+                                        <option value="7">7 Hari</option>
+                                        <option value="14">14 Hari</option>
+                                        <option value="30">30 Hari</option>
+                                    </select>
+                                </div>
+                                <div class="od-chart-wrap">
+                                    <canvas id="ownerRevenueChart" height="200"></canvas>
+                                    <div class="od-chart-empty hidden" id="ownerChartEmpty">
+                                        <span>📈</span>
+                                        <p>Belum ada data transaksi</p>
+                                    </div>
+                                </div>
+                                <div class="od-chart-legend">
+                                    <span class="od-legend-item"><span class="od-legend-dot od-dot-orange"></span>Revenue</span>
+                                    <span class="od-legend-item"><span class="od-legend-dot od-dot-blue"></span>Orders</span>
+                                </div>
+                            </section>
+
+                            <section class="od-wallet-section">
+                                <div class="od-wallet-card">
+                                    <div class="od-wallet-bg"></div>
+                                    <div class="od-wallet-content">
+                                        <div class="od-wallet-top">
+                                            <span class="od-wallet-label">💳 Saldo Platform</span>
+                                            <span class="od-wallet-balance" id="ownerWalletBalance">Rp 0</span>
+                                            <span class="od-wallet-today">Hari ini: <strong id="ownerTodayRevenue">Rp 0</strong></span>
+                                        </div>
+                                        <div class="od-wallet-actions">
+                                            <button class="od-wallet-btn od-wbtn-withdraw" onclick="openWithdrawModal()">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                                Tarik Dana
+                                            </button>
+                                            <button class="od-wallet-btn od-wbtn-history" onclick="openTransactionHistory()">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 8v4l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/></svg>
+                                                Riwayat
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="od-quick-section">
+                                <div class="od-section-head"><h3>⚡ Aksi Cepat</h3></div>
+                                <div class="od-quick-grid">
+                                    <button class="od-quick-btn" data-action="add-staff">
+                                        <div class="od-quick-icon od-qi-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8.5" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+                                        <span>Tambah Staff</span>
+                                    </button>
+                                    <button class="od-quick-btn" data-action="staff-list">
+                                        <div class="od-quick-icon od-qi-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+                                        <span>Kelola Staff</span>
+                                    </button>
+                                    <button class="od-quick-btn" data-action="view-report">
+                                        <div class="od-quick-icon od-qi-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                                        <span>Laporan</span>
+                                    </button>
+                                    <button class="od-quick-btn od-owner-only" data-action="settings">
+                                        <div class="od-quick-icon od-qi-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                                        <span>Pengaturan</span>
+                                    </button>
+                                </div>
+                            </section>
+                        </div>
+
+                        <div class="od-panel-view hidden" data-owner-panel-view="activity">
+                            <section class="od-activity-section">
+                                <div class="od-section-head">
+                                    <h3>🕐 Aktivitas Terbaru</h3>
+                                    <button class="od-see-all" id="ownerBtnTransactions">Lihat Semua</button>
+                                </div>
+                                <div class="od-activity-list" id="ownerActivityList">
+                                    <div class="od-activity-skeleton">
+                                        <div class="od-skel-row"><div class="od-skel-avatar"></div><div class="od-skel-lines"><div class="od-skel-line od-skel-w70"></div><div class="od-skel-line od-skel-w40"></div></div></div>
+                                        <div class="od-skel-row"><div class="od-skel-avatar"></div><div class="od-skel-lines"><div class="od-skel-line od-skel-w60"></div><div class="od-skel-line od-skel-w30"></div></div></div>
+                                        <div class="od-skel-row"><div class="od-skel-avatar"></div><div class="od-skel-lines"><div class="od-skel-line od-skel-w80"></div><div class="od-skel-line od-skel-w50"></div></div></div>
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
+
+                        <div class="od-panel-view hidden" data-owner-panel-view="users">
+                            <section class="od-users-section" id="ownerUsersSection">
+                                <div class="od-section-head">
+                                    <h3>👥 Pengguna</h3>
+                                    <button class="od-see-all" onclick="renderOwnerUsers()">↻ Refresh</button>
+                                </div>
+                                <div class="od-user-stats-row">
+                                    <span class="od-user-stat"><strong id="ownerStatAdmin">0</strong> Admin</span>
+                                    <span class="od-user-stat"><strong id="ownerStatPenjual">0</strong> Penjual</span>
+                                    <span class="od-user-stat"><strong id="ownerStatCS">0</strong> CS</span>
+                                </div>
+                                <div id="ownerUserList" class="od-user-list"></div>
+                            </section>
+                        </div>
+
+                        <div class="od-panel-view hidden" data-owner-panel-view="settings">
+                            <section class="od-settings-body">
+                                <div class="od-settings-card">
+                                    <div class="od-settings-card-head">
+                                        <span class="od-settings-icon">💰</span>
+                                        <div><h4>Pengaturan Komisi</h4><p>Atur biaya dan komisi platform</p></div>
+                                    </div>
+                                    <form id="commissionForm" class="od-settings-form">
+                                        <div class="od-form-row">
+                                            <label>Ongkir per KM</label>
+                                            <div class="od-input-group"><span class="od-input-prefix">Rp</span><input type="number" id="setDeliveryFeePerKm" placeholder="3000" min="0"></div>
+                                        </div>
+                                        <div class="od-form-row">
+                                            <label>Biaya Platform</label>
+                                            <div class="od-input-group"><input type="number" id="setServiceFeePercent" placeholder="10" min="0" max="100"><span class="od-input-suffix">%</span></div>
+                                        </div>
+                                        <div class="od-form-row">
+                                            <label>Komisi Talent</label>
+                                            <div class="od-input-group"><input type="number" id="setCommTalent" placeholder="15" min="0" max="100"><span class="od-input-suffix">%</span></div>
+                                        </div>
+                                        <div class="od-form-row">
+                                            <label>Komisi Penjual</label>
+                                            <div class="od-input-group"><input type="number" id="setCommPenjual" placeholder="10" min="0" max="100"><span class="od-input-suffix">%</span></div>
+                                        </div>
+                                        <div class="od-form-row">
+                                            <label>Minimum Fee</label>
+                                            <div class="od-input-group"><span class="od-input-prefix">Rp</span><input type="number" id="setMinFee" placeholder="5000" min="0"></div>
+                                        </div>
+                                        <button type="submit" class="od-btn-save">💾 Simpan Pengaturan</button>
+                                    </form>
+                                </div>
+                            </section>
+                        </div>
                     </div>
-                    <form id="commissionForm" class="od-settings-form">
-                        <div class="od-form-row">
-                            <label>Ongkir per KM</label>
-                            <div class="od-input-group"><span class="od-input-prefix">Rp</span><input type="number" id="setDeliveryFeePerKm" placeholder="3000" min="0"></div>
-                        </div>
-                        <div class="od-form-row">
-                            <label>Biaya Platform</label>
-                            <div class="od-input-group"><input type="number" id="setServiceFeePercent" placeholder="10" min="0" max="100"><span class="od-input-suffix">%</span></div>
-                        </div>
-                        <div class="od-form-row">
-                            <label>Komisi Talent</label>
-                            <div class="od-input-group"><input type="number" id="setCommTalent" placeholder="15" min="0" max="100"><span class="od-input-suffix">%</span></div>
-                        </div>
-                        <div class="od-form-row">
-                            <label>Komisi Penjual</label>
-                            <div class="od-input-group"><input type="number" id="setCommPenjual" placeholder="10" min="0" max="100"><span class="od-input-suffix">%</span></div>
-                        </div>
-                        <div class="od-form-row">
-                            <label>Minimum Fee</label>
-                            <div class="od-input-group"><span class="od-input-prefix">Rp</span><input type="number" id="setMinFee" placeholder="5000" min="0"></div>
-                        </div>
-                        <button type="submit" class="od-btn-save">💾 Simpan Pengaturan</button>
-                    </form>
                 </div>
             </div>
         </div>
