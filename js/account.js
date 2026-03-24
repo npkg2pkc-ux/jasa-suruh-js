@@ -79,7 +79,8 @@ var AccountPage = (function () {
     // ─── Render from Supabase data ───
     function _render(u) {
         var session = getSession();
-        var role = u.role || (session && session.role) || 'user';
+        var rawRole = u.role || (session && session.role) || 'user';
+        var role = rawRole === 'seller' ? 'penjual' : rawRole;
 
         _toggleStoreItem(role);
 
@@ -103,7 +104,8 @@ var AccountPage = (function () {
         var session = getSession();
         if (!session) return;
 
-        var role = session.role || 'user';
+        var rawRole = session.role || 'user';
+        var role = rawRole === 'seller' ? 'penjual' : rawRole;
         _toggleStoreItem(role);
         $('accProfileName').textContent = session.name || session.nama || '-';
         $('accValName').textContent = session.name || session.nama || '-';
@@ -173,7 +175,7 @@ var AccountPage = (function () {
     function _toggleStoreItem(role) {
         var storeItem = $('accItemStore');
         if (!storeItem) return;
-        if (role === 'penjual') storeItem.classList.remove('hidden');
+        if (role === 'penjual' || role === 'seller') storeItem.classList.remove('hidden');
         else storeItem.classList.add('hidden');
     }
 

@@ -7,6 +7,7 @@ var _penjualLastPendingIds = [];
 var _penjualPendingOwnerId = '';
 var _penjualPendingInitialized = false;
 var _sellerStoreModalEventsSetup = false;
+var _penjualProductsModalEventsSetup = false;
 var PENJUAL_SEEN_PENDING_KEY = 'js_penjual_seen_pending_orders';
 
 function _readSeenPendingMap() {
@@ -108,6 +109,37 @@ function closeSellerStoreModal() {
     if (modal) modal.classList.add('hidden');
 }
 window.closeSellerStoreModal = closeSellerStoreModal;
+
+function openPenjualProductsModal() {
+    var session = getSession();
+    if (!session || (session.role !== 'penjual' && session.role !== 'seller')) {
+        showToast('Menu ini khusus akun Penjual', 'error');
+        return;
+    }
+
+    var modal = document.getElementById('penjualProductsModal');
+    if (!modal) return;
+
+    if (!_penjualProductsModalEventsSetup) {
+        _penjualProductsModalEventsSetup = true;
+        var btnClose = document.getElementById('btnClosePenjualProductsModal');
+        if (btnClose) btnClose.addEventListener('click', closePenjualProductsModal);
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) closePenjualProductsModal();
+        });
+    }
+
+    modal.classList.remove('hidden');
+    loadPenjualProducts();
+}
+window.openPenjualProductsModal = openPenjualProductsModal;
+
+function closePenjualProductsModal() {
+    var modal = document.getElementById('penjualProductsModal');
+    if (modal) modal.classList.add('hidden');
+    if (typeof resetBottomNavToHome === 'function') resetBottomNavToHome();
+}
+window.closePenjualProductsModal = closePenjualProductsModal;
 
 function populatePenjualStoreForm(store) {
     if (!store) return;
@@ -255,35 +287,53 @@ function loadPenjualProducts() {
 function renderPenjualProducts(products) {
     var container = document.getElementById('penjualProductList');
     if (!container) return;
+    var countEl = document.getElementById('penjualProductsModalCount');
+    var subEl = document.getElementById('penjualProductsModalSub');
+
+    var total = (products || []).length;
+    var availableCount = (products || []).filter(function (p) {
+        return (p.isAvailable !== undefined) ? !!p.isAvailable : ((Number(p.stock) || 0) > 0);
+    }).length;
+    if (countEl) countEl.textContent = total + ' produk';
+    if (subEl) subEl.textContent = availableCount + ' tersedia • ' + (total - availableCount) + ' habis';
+
     if (!products || products.length === 0) {
         container.innerHTML = '<div class="skills-empty">Belum ada produk. Klik <strong>+ Tambah</strong> untuk menambahkan!</div>';
         return;
     }
+
     container.innerHTML = products.map(function (p) {
         var priceText = p.price ? 'Rp ' + Number(p.price).toLocaleString('id-ID') : '-';
         var isAvailable = (p.isAvailable !== undefined)
             ? !!p.isAvailable
             : ((Number(p.stock) || 0) > 0);
         var statusText = isAvailable ? '✅ Tersedia' : '⛔ Habis';
-        var activeClass = (p.isActive && isAvailable) ? '' : ' style="opacity:0.5"';
-        return '<div class="skill-card" data-pid="' + escapeHtml(p.id) + '"' + activeClass + '>'
-            + '<div class="skill-card-header">'
-            + (p.photo ? '<img src="' + p.photo + '" style="width:40px;height:40px;border-radius:8px;object-fit:cover;margin-right:8px">' : '<span class="skill-card-icon">📦</span>')
-            + '<span class="skill-card-name">' + escapeHtml(p.name) + '</span>'
-            + '<div class="skill-card-actions">'
-            + '<button class="skill-card-edit" data-pid="' + escapeHtml(p.id) + '">✏️</button>'
-            + '<button class="skill-card-remove" data-pid="' + escapeHtml(p.id) + '">&times;</button>'
-            + '</div></div>'
-            + '<div class="skill-card-detail">'
-            + '<span class="skill-detail-type">' + priceText + '</span>'
-                + '<span class="skill-detail-price">' + statusText + '</span>'
-            + '</div></div>';
+        return '<div class="ppm-card" data-pid="' + escapeHtml(p.id) + '">'
+            + '<div class="ppm-top">'
+            + (p.photo ? '<img class="ppm-img" src="' + p.photo + '" alt="' + escapeHtml(p.name || 'Produk') + '">' : '<div class="ppm-img ppm-img-placeholder">📦</div>')
+            + '<div class="ppm-main">'
+            + '<div class="ppm-name">' + escapeHtml(p.name || 'Produk') + '</div>'
+            + '<div class="ppm-price">' + priceText + '</div>'
+            + '</div>'
+            + '<div class="ppm-actions">'
+            + '<button class="ppm-icon-btn ppm-edit" data-pid="' + escapeHtml(p.id) + '" title="Edit">✏️</button>'
+            + '<button class="ppm-icon-btn ppm-delete" data-pid="' + escapeHtml(p.id) + '" title="Hapus">✖</button>'
+            + '</div>'
+            + '</div>'
+            + '<div class="ppm-bottom">'
+            + '<span class="ppm-badge ' + (isAvailable ? 'on' : 'off') + '">' + statusText + '</span>'
+            + '<label class="ppm-switch">'
+            + '<input type="checkbox" class="ppm-toggle" data-pid="' + escapeHtml(p.id) + '" ' + (isAvailable ? 'checked' : '') + '>'
+            + '<span>Tersedia</span>'
+            + '</label>'
+            + '</div>'
+            + '</div>';
     }).join('');
 
-    container.querySelectorAll('.skill-card-edit').forEach(function (btn) {
+    container.querySelectorAll('.ppm-edit').forEach(function (btn) {
         btn.addEventListener('click', function () { openEditProductModal(this.dataset.pid); });
     });
-    container.querySelectorAll('.skill-card-remove').forEach(function (btn) {
+    container.querySelectorAll('.ppm-delete').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var pid = this.dataset.pid;
             if (confirm('Hapus produk ini?')) {
@@ -292,6 +342,27 @@ function renderPenjualProducts(products) {
                     loadPenjualProducts();
                 });
             }
+        });
+    });
+
+    container.querySelectorAll('.ppm-toggle').forEach(function (input) {
+        input.addEventListener('change', function () {
+            var pid = this.dataset.pid;
+            var val = !!this.checked;
+            backendPost({ action: 'updateProduct', productId: pid, fields: { isAvailable: val, isActive: true } })
+                .then(function (res) {
+                    if (res && res.success) {
+                        showToast(val ? 'Produk ditandai tersedia' : 'Produk ditandai habis', 'success');
+                        loadPenjualProducts();
+                    } else {
+                        showToast('Gagal mengubah status produk', 'error');
+                        loadPenjualProducts();
+                    }
+                })
+                .catch(function () {
+                    showToast('Gagal mengubah status produk', 'error');
+                    loadPenjualProducts();
+                });
         });
     });
 }

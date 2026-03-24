@@ -2960,8 +2960,13 @@ function setupBottomNav() {
                 } else if (page === 'tickets' || page === 'reports') {
                     openAdminTransactions();
                 } else if (page === 'products') {
-                    var prodSec = document.getElementById('penjualProductsSection');
-                    if (prodSec) prodSec.scrollIntoView({ behavior: 'smooth' });
+                    var sessionProducts = typeof getSession === 'function' ? getSession() : null;
+                    if (sessionProducts && (sessionProducts.role === 'penjual' || sessionProducts.role === 'seller') && typeof openPenjualProductsModal === 'function') {
+                        openPenjualProductsModal();
+                    } else {
+                        var prodSec = document.getElementById('penjualProductsSection');
+                        if (prodSec) prodSec.scrollIntoView({ behavior: 'smooth' });
+                    }
                 } else if (page === 'earning') {
                     var session3 = typeof getSession === 'function' ? getSession() : null;
                     if (session3 && session3.role === 'talent') {

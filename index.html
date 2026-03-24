@@ -805,11 +805,6 @@
                         </div>
                     </div>
                 </section>
-                <!-- Products Section -->
-                <section class="content-section" id="penjualProductsSection">
-                    <div class="section-header"><h2>📦 Produk Saya</h2><button type="button" class="btn-primary" id="btnAddProduct" style="width:auto;padding:8px 18px;margin:0;font-size:13px;">+ Tambah</button></div>
-                    <div id="penjualProductList" class="skills-grid"></div>
-                </section>
                 <!-- Incoming Orders -->
                 <section class="content-section">
                     <div class="section-header"><h2>Pesanan Masuk <span class="section-badge" id="penjualPendingBadge"></span></h2></div>
@@ -1253,8 +1248,28 @@
         </div>
     </div>
 
+    <!-- ===== SELLER PRODUCTS MODAL ===== -->
+    <div id="penjualProductsModal" class="modal-overlay products-modal-overlay hidden">
+        <div class="modal-container products-modal-container">
+            <div class="modal-header products-modal-header">
+                <h3>📦 Produk Saya</h3>
+                <button type="button" class="btn-close-modal" id="btnClosePenjualProductsModal">&times;</button>
+            </div>
+            <div class="modal-body products-modal-body">
+                <div class="products-modal-toolbar">
+                    <div class="products-modal-summary">
+                        <strong id="penjualProductsModalCount">0 produk</strong>
+                        <span id="penjualProductsModalSub">Kelola stok dan status produk</span>
+                    </div>
+                    <button type="button" class="btn-primary products-modal-add" id="btnAddProduct">+ Tambah</button>
+                </div>
+                <div id="penjualProductList" class="products-modal-list"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- ===== SELLER STORE MODAL ===== -->
-    <div id="sellerStoreModal" class="modal-overlay hidden">
+    <div id="sellerStoreModal" class="modal-overlay seller-store-overlay hidden">
         <div class="modal-container seller-store-modal-container">
             <div class="modal-header seller-store-modal-header">
                 <h3>🏪 Toko Saya</h3>
