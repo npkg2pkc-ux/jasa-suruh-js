@@ -2943,6 +2943,145 @@ function openSellerEarningsModal() {
 window.openSellerEarningsModal = openSellerEarningsModal;
 
 // ══════════════════════════════════════════
+// ═══ GLOBAL MODAL DRAG CLOSE ═══
+// ══════════════════════════════════════════
+var _modalDragState = null;
+var _modalDragObserver = null;
+
+function refreshGlobalModalLock() {
+    var hasOpenModal = !!document.querySelector('.modal-overlay:not(.hidden), .wallet-modal-overlay, .acc-modal:not(.hidden)');
+    document.body.classList.toggle('modal-open-lock', hasOpenModal);
+}
+
+function ensureGlobalModalDragHandles(scope) {
+    var root = scope || document;
+
+    root.querySelectorAll('.modal-header').forEach(function (header) {
+        if (header.querySelector('.modal-drag-handle, .talent-skill-drag-handle')) return;
+        var handle = document.createElement('div');
+        handle.className = 'modal-drag-handle';
+        handle.setAttribute('aria-hidden', 'true');
+        header.insertBefore(handle, header.firstChild);
+    });
+
+    root.querySelectorAll('.wallet-modal-header').forEach(function (header) {
+        if (header.querySelector('.modal-drag-handle, .wallet-modal-drag-handle')) return;
+        var handle = document.createElement('div');
+        handle.className = 'modal-drag-handle wallet-modal-drag-handle';
+        handle.setAttribute('aria-hidden', 'true');
+        header.insertBefore(handle, header.firstChild);
+    });
+}
+
+function closeModalFromOverlay(overlay) {
+    if (!overlay) return;
+
+    if (overlay.id === 'skillModal') {
+        var skillClose = overlay.querySelector('#btnCloseSkillModal');
+        if (skillClose) {
+            skillClose.click();
+            refreshGlobalModalLock();
+            return;
+        }
+    }
+
+    if (overlay.classList.contains('wallet-modal-overlay')) {
+        overlay.remove();
+        refreshGlobalModalLock();
+        return;
+    }
+
+    overlay.classList.add('hidden');
+    refreshGlobalModalLock();
+}
+
+function setupGlobalModalDragClose() {
+    if (window.__globalModalDragCloseBound) return;
+    window.__globalModalDragCloseBound = true;
+
+    ensureGlobalModalDragHandles(document);
+    refreshGlobalModalLock();
+
+    if (!_modalDragObserver) {
+        _modalDragObserver = new MutationObserver(function (mutations) {
+            mutations.forEach(function (m) {
+                if (m.type === 'childList') {
+                    m.addedNodes.forEach(function (node) {
+                        if (!node || node.nodeType !== 1) return;
+                        ensureGlobalModalDragHandles(node);
+                    });
+                }
+            });
+            ensureGlobalModalDragHandles(document);
+            refreshGlobalModalLock();
+        });
+        _modalDragObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    }
+
+    document.addEventListener('touchstart', function (e) {
+        var handle = e.target.closest('.modal-drag-handle, .talent-skill-drag-handle, .acc-modal-handle');
+        if (!handle) return;
+
+        var overlay = handle.closest('.modal-overlay, .wallet-modal-overlay, .acc-modal');
+        if (!overlay || overlay.classList.contains('hidden')) return;
+
+        var sheet = handle.closest('.modal-container, .wallet-modal, .acc-modal-sheet');
+        if (!sheet) return;
+
+        if (!e.touches || e.touches.length !== 1) return;
+
+        _modalDragState = {
+            overlay: overlay,
+            sheet: sheet,
+            startY: e.touches[0].clientY,
+            deltaY: 0
+        };
+        sheet.style.transition = 'none';
+    }, { passive: true });
+
+    document.addEventListener('touchmove', function (e) {
+        if (!_modalDragState) return;
+        if (!e.touches || e.touches.length !== 1) return;
+
+        var delta = e.touches[0].clientY - _modalDragState.startY;
+        _modalDragState.deltaY = delta;
+        if (delta <= 0) return;
+
+        e.preventDefault();
+        _modalDragState.sheet.style.transform = 'translateY(' + Math.min(delta, window.innerHeight) + 'px)';
+    }, { passive: false });
+
+    function finishDrag() {
+        if (!_modalDragState) return;
+
+        var state = _modalDragState;
+        _modalDragState = null;
+
+        state.sheet.style.transition = 'transform .28s cubic-bezier(.22,.9,.24,1)';
+
+        if (state.deltaY > 90) {
+            state.sheet.style.transform = 'translateY(calc(100% + 40px))';
+            setTimeout(function () {
+                state.sheet.style.transform = '';
+                state.sheet.style.transition = '';
+                closeModalFromOverlay(state.overlay);
+            }, 280);
+            return;
+        }
+
+        state.sheet.style.transform = 'translateY(0)';
+        setTimeout(function () {
+            state.sheet.style.transform = '';
+            state.sheet.style.transition = '';
+        }, 280);
+    }
+
+    document.addEventListener('touchend', finishDrag);
+    document.addEventListener('touchcancel', finishDrag);
+}
+window.setupGlobalModalDragClose = setupGlobalModalDragClose;
+
+// ══════════════════════════════════════════
 // ═══ BOTTOM NAV ═══
 // ══════════════════════════════════════════
 function setupBottomNav() {

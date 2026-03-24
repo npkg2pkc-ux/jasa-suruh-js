@@ -28,6 +28,7 @@ function init() {
     setupPromoSlider();
     setupServiceClicks();
     setupBottomNav();
+    if (typeof setupGlobalModalDragClose === 'function') setupGlobalModalDragClose();
     setupCSDashboard();
     setupProductPhotoUpload();
     setupProductFeePreview();

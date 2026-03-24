@@ -640,14 +640,46 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:300; display:flex; align-items:flex-end; justify-content:center; animation:fadeIn .2s ease; }
 .modal-container { width:100%; max-width:480px; max-height:85vh; background:var(--white); border-radius:var(--r-xl) var(--r-xl) 0 0; display:flex; flex-direction:column; animation:slideUp .3s ease; }
 @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+.modal-open-lock,
 .skill-modal-open {
     overflow:hidden;
     overscroll-behavior:none;
+}
+.modal-container,
+.wallet-modal,
+.acc-modal-sheet {
+    will-change:transform;
 }
 .modal-header { display:flex; justify-content:space-between; align-items:center; padding:20px 20px 12px; border-bottom:1px solid var(--gray-200); }
 .modal-header h3 { font-size:18px; font-weight:700; }
 .btn-close-modal { background:none; border:none; font-size:28px; color:var(--gray-600); cursor:pointer; line-height:1; padding:0; }
 .modal-body { overflow-y:auto; padding:16px 20px 24px; flex:1; }
+
+.modal-header,
+.wallet-modal-header {
+    position:relative;
+}
+.modal-drag-handle {
+    position:absolute;
+    left:50%;
+    top:2px;
+    transform:translateX(-50%);
+    width:94px;
+    height:22px;
+    z-index:3;
+    touch-action:none;
+}
+.modal-drag-handle::after {
+    content:'';
+    position:absolute;
+    left:50%;
+    top:6px;
+    transform:translateX(-50%);
+    width:58px;
+    height:5px;
+    border-radius:999px;
+    background:rgba(148,163,184,.42);
+}
 
 /* Talent Skills Modal (navbar) */
 .talent-skill-modal-container {

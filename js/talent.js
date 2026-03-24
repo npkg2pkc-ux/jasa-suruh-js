@@ -11,7 +11,6 @@ function setupTalentSkills() {
     var btnOpen = document.getElementById('btnOpenSkillModal');
     var modal = document.getElementById('skillModal');
     var btnClose = document.getElementById('btnCloseSkillModal');
-    var dragHandle = document.getElementById('skillModalDragHandle');
     var modalContainer = modal ? modal.querySelector('.talent-skill-modal-container') : null;
     var formModal = document.getElementById('skillFormModal');
     var btnCloseForm = document.getElementById('btnCloseSkillForm');
@@ -33,7 +32,6 @@ function setupTalentSkills() {
     function closeSkillModal() {
         if (!modal) return;
         modal.classList.add('hidden');
-        document.body.classList.remove('skill-modal-open');
         if (modalContainer) {
             modalContainer.style.transform = '';
             modalContainer.style.transition = '';
@@ -46,56 +44,6 @@ function setupTalentSkills() {
     if (btnOpen) btnOpen.addEventListener('click', function () { openSkillModal(); });
     btnClose.addEventListener('click', function () { closeSkillModal(); });
     modal.addEventListener('click', function (e) { if (e.target === modal) closeSkillModal(); });
-
-    // Swipe down to close skill modal (mobile UX).
-    if (modalContainer && dragHandle) {
-        var dragStartY = 0;
-        var dragDeltaY = 0;
-        var dragging = false;
-
-        dragHandle.addEventListener('touchstart', function (e) {
-            if (!modal || modal.classList.contains('hidden')) return;
-            if (!e.touches || e.touches.length !== 1) return;
-            dragStartY = e.touches[0].clientY;
-            dragDeltaY = 0;
-            dragging = true;
-            modalContainer.style.transition = 'none';
-        }, { passive: true });
-
-        dragHandle.addEventListener('touchmove', function (e) {
-            if (!dragging || !e.touches || e.touches.length !== 1) return;
-            e.preventDefault();
-            dragDeltaY = e.touches[0].clientY - dragStartY;
-            if (dragDeltaY > 0) {
-                modalContainer.style.transform = 'translateY(' + Math.min(dragDeltaY, window.innerHeight) + 'px)';
-            }
-        }, { passive: false });
-
-        dragHandle.addEventListener('touchend', function () {
-            if (!dragging) return;
-            dragging = false;
-            modalContainer.style.transition = 'transform .26s cubic-bezier(.22,.9,.24,1)';
-            if (dragDeltaY > 90) {
-                modalContainer.style.transform = 'translateY(calc(100% + 40px))';
-                setTimeout(function () {
-                    closeSkillModal();
-                }, 260);
-            } else {
-                modalContainer.style.transform = 'translateY(0)';
-                setTimeout(function () {
-                    modalContainer.style.transform = '';
-                    modalContainer.style.transition = '';
-                }, 260);
-            }
-        });
-
-        dragHandle.addEventListener('touchcancel', function () {
-            if (!dragging) return;
-            dragging = false;
-            modalContainer.style.transform = '';
-            modalContainer.style.transition = '';
-        });
-    }
 
     if (btnCloseForm) btnCloseForm.addEventListener('click', function () { formModal.classList.add('hidden'); });
     if (formModal) formModal.addEventListener('click', function (e) { if (e.target === formModal) formModal.classList.add('hidden'); });
@@ -314,8 +262,6 @@ function openSkillModal() {
     var modal = document.getElementById('skillModal');
     var body = document.getElementById('skillModalBody');
     if (!modal || !body) return;
-
-    document.body.classList.add('skill-modal-open');
 
     var skills = getUserSkills(session.id);
     var activeTypes = skills.map(function (s) { return s.type; });
