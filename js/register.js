@@ -34,6 +34,55 @@ var RegisterPage = (function () {
         return state;
     }
 
+    var _cooldownTimer = null;
+    var _cooldownUntil = 0;
+
+    function _formatRemaining(ms) {
+        var totalSec = Math.max(0, Math.ceil((Number(ms) || 0) / 1000));
+        var h = Math.floor(totalSec / 3600);
+        var m = Math.floor((totalSec % 3600) / 60);
+        var s = totalSec % 60;
+        return h + 'j ' + m + 'm ' + s + 'd';
+    }
+
+    function _hideCooldownNotice() {
+        var el = document.getElementById('regCooldownNotice');
+        if (el) {
+            el.textContent = '';
+            el.classList.add('hidden');
+        }
+        if (_cooldownTimer) {
+            clearInterval(_cooldownTimer);
+            _cooldownTimer = null;
+        }
+        _cooldownUntil = 0;
+    }
+
+    function _showCooldownNotice(blockedUntil, fallbackMessage) {
+        var el = document.getElementById('regCooldownNotice');
+        if (!el) return;
+
+        _cooldownUntil = Number(blockedUntil || 0);
+        if (_cooldownTimer) { clearInterval(_cooldownTimer); _cooldownTimer = null; }
+
+        function render() {
+            var remain = Math.max(0, _cooldownUntil - Date.now());
+            if (remain <= 0) {
+                _hideCooldownNotice();
+                return;
+            }
+            var base = fallbackMessage || 'Nomor ini sedang cooldown setelah akun dihapus.';
+            if (base.indexOf('Coba daftar lagi dalam') >= 0) {
+                base = 'Nomor ini sedang cooldown setelah akun dihapus.';
+            }
+            el.textContent = base + ' Coba lagi dalam ' + _formatRemaining(remain) + '.';
+            el.classList.remove('hidden');
+        }
+
+        render();
+        _cooldownTimer = setInterval(render, 1000);
+    }
+
     // ═══ STEP NAVIGATION ═══
     function goToStep(step) {
         if (step < 1 || step > 4) return;
@@ -170,6 +219,7 @@ var RegisterPage = (function () {
 
             state.loading = true;
             state.error = '';
+            _hideCooldownNotice();
             if (sendBtn) {
                 sendBtn.disabled = true;
                 sendBtn.innerHTML = '<span class="reg-spinner"></span> Mengirim...';
@@ -197,6 +247,10 @@ var RegisterPage = (function () {
                     var msg = err.message || 'Gagal mengirim OTP';
                     if (msg.includes('rate limit')) msg = 'Terlalu banyak percobaan. Tunggu beberapa menit.';
                     if (errorEl) errorEl.textContent = msg;
+                    if (err && err.code === 'ACCOUNT_COOLDOWN') {
+                        var info = err.cooldownInfo || {};
+                        _showCooldownNotice(Number(info.blockedUntil || 0), msg);
+                    }
                 });
         }
     };
@@ -467,6 +521,7 @@ var RegisterPage = (function () {
             var submitBtn = document.getElementById('regSubmitBtn');
             var errorEl = document.getElementById('regProfileError');
             state.loading = true;
+            _hideCooldownNotice();
             if (submitBtn) {
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<span class="reg-spinner"></span> Mendaftar...';
@@ -541,12 +596,17 @@ var RegisterPage = (function () {
                 }
                 var msg = err.message || 'Gagal membuat akun';
                 if (errorEl) errorEl.textContent = msg;
+                if (err && err.code === 'ACCOUNT_COOLDOWN') {
+                    var info = err.cooldownInfo || {};
+                    _showCooldownNotice(Number(info.blockedUntil || 0), msg);
+                }
             });
         }
     };
 
     // ═══ PUBLIC API ═══
     function init() {
+        _hideCooldownNotice();
         StepAccountType.init();
         StepPhone.init();
         StepOTP.init();
@@ -576,6 +636,7 @@ var RegisterPage = (function () {
     }
 
     function reset() {
+        _hideCooldownNotice();
         StepOTP.clearTimer();
         state.step = 1;
         state.role = 'user';

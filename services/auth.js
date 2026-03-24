@@ -34,6 +34,13 @@ var AuthService = (function () {
         return 'Akun ini baru saja dihapus. Coba daftar lagi dalam ' + hours + ' jam ' + minutes + ' menit.';
     }
 
+    function createCooldownError(info) {
+        var err = new Error(formatCooldownMessage(info));
+        err.code = 'ACCOUNT_COOLDOWN';
+        err.cooldownInfo = info || {};
+        return err;
+    }
+
     function checkDeletionCooldown(phone) {
         var formatted = formatPhone(phone || '');
 
@@ -65,7 +72,7 @@ var AuthService = (function () {
         return checkDeletionCooldown(formatted)
             .then(function (cooldown) {
                 if (cooldown && cooldown.blocked) {
-                    throw new Error(formatCooldownMessage(cooldown));
+                    throw createCooldownError(cooldown);
                 }
 
                 return fetch('/api/otp/send', {
@@ -125,7 +132,7 @@ var AuthService = (function () {
         return checkDeletionCooldown(normalizedPhone)
             .then(function (cooldown) {
                 if (cooldown && cooldown.blocked) {
-                    throw new Error(formatCooldownMessage(cooldown));
+                    throw createCooldownError(cooldown);
                 }
 
                 if (typeof backendPost === 'function' && typeof isBackendConnected === 'function' && isBackendConnected()) {
@@ -169,6 +176,7 @@ var AuthService = (function () {
         formatPhoneDisplay: formatPhoneDisplay,
         checkDeletionCooldown: checkDeletionCooldown,
         formatCooldownMessage: formatCooldownMessage,
+        createCooldownError: createCooldownError,
         sendOTP: sendOTP,
         verifyOTP: verifyOTP,
         createProfile: createProfile,

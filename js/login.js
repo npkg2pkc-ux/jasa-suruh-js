@@ -10,6 +10,8 @@ var LoginPage = (function () {
     var _phoneRaw = '';       // display: 8xxx (without 0 or 62)
     var _otpTimer = null;
     var _otpSeconds = 60;
+    var _cooldownTimer = null;
+    var _cooldownUntil = 0;
 
     var LAST_PHONE_KEY = 'js_last_phone';
     var PENDING_OTP_KEY = 'js_login_pending_otp';
@@ -32,6 +34,7 @@ var LoginPage = (function () {
             $('loginPhoneInput').value = lastPhone;
             _phoneRaw = lastPhone;
             _validatePhone();
+            _checkAndRenderCooldown(lastPhone);
         }
 
         _restorePendingOTP();
@@ -85,6 +88,7 @@ var LoginPage = (function () {
 
         // Save for next time
         localStorage.setItem(LAST_PHONE_KEY, _phoneRaw);
+        _hideCooldownNotice();
 
         AuthService.sendOTP(_phoneRaw)
         .then(function (result) {
@@ -102,7 +106,66 @@ var LoginPage = (function () {
             spinner.classList.add('hidden');
             error.textContent = err && err.message ? err.message : 'Koneksi gagal. Coba lagi.';
             error.classList.remove('hidden');
+
+            if (err && err.code === 'ACCOUNT_COOLDOWN') {
+                var info = err.cooldownInfo || {};
+                _showCooldownNotice(Number(info.blockedUntil || 0), err.message || 'Nomor ini sedang cooldown.');
+            }
         });
+    }
+
+    function _formatRemaining(ms) {
+        var totalSec = Math.max(0, Math.ceil((Number(ms) || 0) / 1000));
+        var h = Math.floor(totalSec / 3600);
+        var m = Math.floor((totalSec % 3600) / 60);
+        var s = totalSec % 60;
+        return h + 'j ' + m + 'm ' + s + 'd';
+    }
+
+    function _showCooldownNotice(blockedUntil, fallbackMessage) {
+        var el = $('loginCooldownNotice');
+        if (!el) return;
+
+        _cooldownUntil = Number(blockedUntil || 0);
+        if (_cooldownTimer) { clearInterval(_cooldownTimer); _cooldownTimer = null; }
+
+        function render() {
+            var remain = Math.max(0, _cooldownUntil - Date.now());
+            if (remain <= 0) {
+                _hideCooldownNotice();
+                return;
+            }
+            var base = fallbackMessage || 'Nomor ini sedang cooldown setelah hapus akun.';
+            if (base.indexOf('Coba daftar lagi dalam') >= 0) {
+                base = 'Nomor ini sedang cooldown setelah hapus akun.';
+            }
+            el.textContent = base + ' Coba lagi dalam ' + _formatRemaining(remain) + '.';
+            el.classList.remove('hidden');
+        }
+
+        render();
+        _cooldownTimer = setInterval(render, 1000);
+    }
+
+    function _hideCooldownNotice() {
+        var el = $('loginCooldownNotice');
+        if (el) {
+            el.textContent = '';
+            el.classList.add('hidden');
+        }
+        if (_cooldownTimer) { clearInterval(_cooldownTimer); _cooldownTimer = null; }
+        _cooldownUntil = 0;
+    }
+
+    function _checkAndRenderCooldown(phoneRaw) {
+        if (!phoneRaw || typeof AuthService === 'undefined' || !AuthService.checkDeletionCooldown) return;
+        AuthService.checkDeletionCooldown(phoneRaw)
+            .then(function (info) {
+                if (info && info.blocked) {
+                    _showCooldownNotice(Number(info.blockedUntil || 0), AuthService.formatCooldownMessage(info));
+                }
+            })
+            .catch(function () {});
     }
 
     // ═══════════════════════════════════
@@ -518,6 +581,7 @@ var LoginPage = (function () {
     // ─── Reset (when showing login page) ───
     function reset() {
         _stopResendTimer();
+        _hideCooldownNotice();
         $('loginStep1').classList.remove('hidden');
         $('loginStep2').classList.add('hidden');
         $('loginPhoneError').classList.add('hidden');
@@ -526,6 +590,7 @@ var LoginPage = (function () {
             $('loginPhoneInput').value = lastPhone;
             _phoneRaw = lastPhone;
             _validatePhone();
+            _checkAndRenderCooldown(lastPhone);
         }
         _restorePendingOTP();
     }
