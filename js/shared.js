@@ -1363,8 +1363,17 @@ function renderOrderInfo(order, isTalent) {
         });
     }
 
-    el.innerHTML = buyerHtml + driverHtml + sellerHtml
-        + (isTalent ? '<div class="otp-info-row"><span class="otp-info-label">Pelanggan</span><span class="otp-info-val">' + escapeHtml(otherName) + '</span></div>' : '')
+    var userContactHtml = '';
+    if (isTalent && !isProductOrder && other) {
+        userContactHtml = buildContactCard({
+            user: other,
+            subtitle: '👤 Pengguna Jasa',
+            roleClass: 'otp-buyer-card otp-buyer-role',
+            chatBtnId: 'otpBuyerChatBtn'
+        });
+    }
+
+    el.innerHTML = buyerHtml + userContactHtml + driverHtml + sellerHtml
         + '<div class="otp-info-row"><span class="otp-info-label">Layanan</span><span class="otp-info-val">' + escapeHtml(order.serviceType || '') + '</span></div>'
         + (isAntar ? '<div class="otp-info-row"><span class="otp-info-label">📍 Jemput</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>' : '<div class="otp-info-row"><span class="otp-info-label">Alamat</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>')
         + (isAntar && order.destAddr ? '<div class="otp-info-row"><span class="otp-info-label">🏁 Tujuan</span><span class="otp-info-val">' + escapeHtml(String(order.destAddr)) + '</span></div>' : '')
