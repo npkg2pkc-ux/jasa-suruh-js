@@ -471,6 +471,9 @@ var LoginPage = (function () {
         if (typeof ROUTES !== 'undefined' && ROUTES && ROUTES[role] && window.location.pathname !== ROUTES[role]) {
             history.replaceState({ page: role }, '', ROUTES[role]);
         }
+        if (typeof ensureAndroidBackToHomeGuard === 'function') {
+            ensureAndroidBackToHomeGuard(true);
+        }
         if (typeof syncFromBackend === 'function') syncFromBackend();
         if (typeof updateRoleUI === 'function') updateRoleUI(userData);
     }

@@ -487,6 +487,44 @@ function getHomePageForSession(session) {
     return role;
 }
 
+function _hideIfVisible(id) {
+    var el = document.getElementById(id);
+    if (!el) return false;
+    if (el.classList.contains('hidden')) return false;
+    el.classList.add('hidden');
+    return true;
+}
+
+function closeTransientUiLayers() {
+    var closed = false;
+    ['orderTrackingPage', 'chatPage', 'ratingPage', 'notifPopup', 'termsPage', 'privacyPage', 'storeListPage', 'storeDetailPage']
+        .forEach(function (id) {
+            if (_hideIfVisible(id)) closed = true;
+        });
+
+    document.querySelectorAll('.modal-overlay:not(.hidden), .stp-page:not(.hidden)').forEach(function (el) {
+        el.classList.add('hidden');
+        closed = true;
+    });
+
+    return closed;
+}
+
+function ensureAndroidBackToHomeGuard(force) {
+    var session = getSession();
+    if (!session) return;
+
+    var home = getHomePageForSession(session);
+    if (!ROUTES[home]) return;
+
+    var state = history.state || {};
+    if (!force && state.__jsBackGuard) return;
+
+    history.replaceState({ page: home, __jsRoot: true }, '', ROUTES[home]);
+    history.pushState({ page: home, __jsBackGuard: true }, '', ROUTES[home]);
+}
+window.ensureAndroidBackToHomeGuard = ensureAndroidBackToHomeGuard;
+
 function pageFromPath(path) {
     var clean = path.replace(/\/+$/, '') || '/';
     for (var page in ROUTES) {
@@ -546,6 +584,23 @@ window.addEventListener('popstate', function (e) {
 
     if (e.state && e.state.page) {
         var target = e.state.page;
+
+        if (session && e.state.__jsRoot) {
+            var homeFromGuard = getHomePageForSession(session);
+            closeTransientUiLayers();
+            showPage(homeFromGuard, false);
+            if (ROUTES[homeFromGuard] && window.location.pathname !== ROUTES[homeFromGuard]) {
+                history.replaceState({ page: homeFromGuard, __jsRoot: true }, '', ROUTES[homeFromGuard]);
+            }
+            return;
+        }
+
+        if (!session && target !== 'login' && target !== 'register') {
+            showPage('login', false);
+            if (ROUTES.login) history.replaceState({ page: 'login' }, '', ROUTES.login);
+            return;
+        }
+
         if (session && (target === 'login' || target === 'register')) {
             var homeFromState = getHomePageForSession(session);
             showPage(homeFromState, false);
@@ -557,6 +612,13 @@ window.addEventListener('popstate', function (e) {
         showPage(target, false);
     } else {
         var page = pageFromPath(window.location.pathname);
+
+        if (!session && page && page !== 'login' && page !== 'register') {
+            showPage('login', false);
+            if (ROUTES.login) history.replaceState({ page: 'login' }, '', ROUTES.login);
+            return;
+        }
+
         if (session && (!page || page === 'login' || page === 'register')) {
             var homeFromPath = getHomePageForSession(session);
             showPage(homeFromPath, false);

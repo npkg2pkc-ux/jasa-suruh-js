@@ -3417,6 +3417,9 @@ function handleSplash() {
             if (session && session.id && session.role) {
                 showPage(session.role);
                 updateRoleUI(session);
+                if (typeof ensureAndroidBackToHomeGuard === 'function') {
+                    ensureAndroidBackToHomeGuard(true);
+                }
                 return;
             }
 
