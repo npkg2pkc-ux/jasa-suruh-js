@@ -8,6 +8,8 @@
 // ═══ NOTIFICATION SOUNDS ═══
 // ══════════════════════════════════════════
 var _audioUnlocked = false;
+var _mediaAudioUnlocked = false;
+var _ctxAudioUnlocked = false;
 var _notificationAudio = null;
 var _notificationAudioContext = null;
 var _notificationBlobUrl = '';
@@ -135,6 +137,7 @@ function _getNotificationAudio() {
         _notificationAudio.preload = 'auto';
         _notificationAudio.volume = 1;
         _notificationAudio.setAttribute('playsinline', '');
+        _notificationAudio.setAttribute('webkit-playsinline', 'true');
         if (_notificationSoundSrc) _setNotificationAudioSrc(_notificationAudio, _notificationSoundSrc);
     }
     return _notificationAudio;
@@ -185,23 +188,28 @@ function _playNotificationSound(vibratePattern) {
 
 // Unlock notification audio on first user interaction (required by iOS Safari)
 function _unlockAudio() {
-    if (_audioUnlocked) return;
+    if (_mediaAudioUnlocked) return;
     var unlockedByMedia = false;
     var mediaAttempt;
 
     try {
         var audio = _getNotificationAudio();
         mediaAttempt = _resolveNotificationSoundSource().then(function () {
-            audio.muted = true;
+            var prevVolume = audio.volume;
+            audio.muted = false;
+            audio.volume = 0.01;
             try { audio.currentTime = 0; } catch (e) {}
             return audio.play().then(function () {
                 unlockedByMedia = true;
+                _mediaAudioUnlocked = true;
                 audio.pause();
                 try { audio.currentTime = 0; } catch (e) {}
                 audio.muted = false;
+                audio.volume = prevVolume;
                 return true;
             }).catch(function () {
                 audio.muted = false;
+                audio.volume = prevVolume;
                 return false;
             });
         }).catch(function () {
@@ -213,18 +221,20 @@ function _unlockAudio() {
     }
 
     Promise.all([_resumeAudioContext(), mediaAttempt]).then(function (results) {
-        var ctxUnlocked = !!(results && results[0]);
-        _audioUnlocked = unlockedByMedia || ctxUnlocked;
-        if (_audioUnlocked) {
+        _ctxAudioUnlocked = !!(results && results[0]);
+        _audioUnlocked = _mediaAudioUnlocked || _ctxAudioUnlocked;
+        if (_mediaAudioUnlocked) {
             document.removeEventListener('click', _unlockAudio);
+            document.removeEventListener('pointerdown', _unlockAudio);
             document.removeEventListener('touchstart', _unlockAudio);
             document.removeEventListener('touchend', _unlockAudio);
         }
     }).catch(function () {
-        _audioUnlocked = false;
+        _audioUnlocked = _ctxAudioUnlocked;
     });
 }
 document.addEventListener('click', _unlockAudio);
+document.addEventListener('pointerdown', _unlockAudio);
 document.addEventListener('touchstart', _unlockAudio);
 document.addEventListener('touchend', _unlockAudio);
 
@@ -1226,19 +1236,31 @@ function renderTrackingProgress(order) {
         if (steps[pi].key === prevStatus) { prevIdx = pi; break; }
     }
 
-    var html = '<div class="otp-progress-title">Progress Pesanan</div><div class="otp-progress-row">';
-    for (var si = 0; si < steps.length; si++) {
-        var step = steps[si];
-        var cls = '';
-        if (si < activeIdx) cls = 'done';
-        else if (si === activeIdx) cls = 'active';
-        html += '<div class="otp-progress-step ' + cls + '">'
-            + '<div class="otp-progress-dot">' + step.icon + '</div>'
-            + '<div class="otp-progress-text">' + escapeHtml(step.text) + '</div>'
-            + '</div>'
-            + (si < steps.length - 1 ? '<div class="otp-progress-line"></div>' : '');
-    }
-    html += '</div>';
+    var safeIdx = activeIdx;
+    if (safeIdx < 0) safeIdx = 0;
+    if (safeIdx >= steps.length) safeIdx = steps.length - 1;
+    var currentStep = steps[safeIdx] || steps[0] || { icon: '📦', text: 'Memproses pesanan' };
+    var prevStep = safeIdx > 0 ? steps[safeIdx - 1] : null;
+    var nextStep = safeIdx < steps.length - 1 ? steps[safeIdx + 1] : null;
+    var totalSteps = Math.max(1, steps.length);
+    var completedSteps = Math.max(0, Math.min(safeIdx, totalSteps - 1));
+    var percent = Math.round(((completedSteps + 1) / totalSteps) * 100);
+
+    var html = '<div class="otp-progress-head">'
+        + '<div class="otp-progress-title">Progress Pesanan</div>'
+        + '<div class="otp-progress-count">' + (safeIdx + 1) + '/' + totalSteps + '</div>'
+        + '</div>'
+        + '<div class="otp-progress-compact">'
+        + '<div class="otp-progress-current">'
+        + '<div class="otp-progress-dot active">' + currentStep.icon + '</div>'
+        + '<div class="otp-progress-current-text">' + escapeHtml(currentStep.text) + '</div>'
+        + '</div>'
+        + '<div class="otp-progress-meter"><span style="width:' + percent + '%"></span></div>'
+        + '<div class="otp-progress-mini-row">'
+        + (prevStep ? ('<div class="otp-mini-chip done">✓ ' + escapeHtml(prevStep.text) + '</div>') : '<div class="otp-mini-chip ghost">Mulai</div>')
+        + (nextStep ? ('<div class="otp-mini-chip next">→ ' + escapeHtml(nextStep.text) + '</div>') : '<div class="otp-mini-chip done">Selesai</div>')
+        + '</div>'
+        + '</div>';
     track.innerHTML = html;
     track.setAttribute('data-progress-status', order.status || '');
 
