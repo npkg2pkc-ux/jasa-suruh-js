@@ -700,6 +700,35 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
         radial-gradient(circle at 90% -6%, rgba(14,165,233,.1) 0, rgba(14,165,233,0) 52%),
         linear-gradient(180deg,#F8FDFF 0%, #EFF8FF 100%);
 }
+.skill-modal-topbar {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:12px;
+}
+.skill-modal-summary {
+    font-size:13px;
+    color:#475569;
+    background:rgba(255,255,255,.78);
+    border:1px solid rgba(148,163,184,.28);
+    border-radius:12px;
+    padding:8px 10px;
+}
+.skill-modal-summary strong {
+    color:#0F172A;
+}
+.skill-modal-add-btn {
+    width:auto;
+    margin:0;
+    padding:10px 16px;
+    border-radius:14px;
+    font-size:13px;
+    font-weight:800;
+    white-space:nowrap;
+    background:linear-gradient(135deg,#F97316,#FB923C);
+    box-shadow:0 10px 20px rgba(249,115,22,.28);
+}
 .talent-skill-modal-body .skill-option-card {
     border-radius:16px;
     margin-bottom:10px;
@@ -719,8 +748,41 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .talent-skill-modal-body .skill-option-desc {
     color:#64748B;
 }
+.talent-skill-modal-body .skill-option-right {
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:8px;
+}
+.skill-status-pill {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:999px;
+    padding:4px 10px;
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:.2px;
+}
+.skill-status-pill.is-active {
+    background:#DCFCE7;
+    color:#047857;
+    border:1px solid #86EFAC;
+}
+.skill-status-pill.is-inactive {
+    background:#F1F5F9;
+    color:#475569;
+    border:1px solid #CBD5E1;
+}
+.skill-option-actions {
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
 .talent-skill-modal-body .btn-skill-activate {
     background:linear-gradient(135deg,#0284C7,#0EA5E9);
+    border-radius:999px;
+    font-weight:700;
 }
 .talent-skill-modal-body .btn-skill-activate.btn-form {
     background:linear-gradient(135deg,#2563EB,#0EA5E9);
@@ -729,8 +791,33 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     border-color:#0284C7;
     color:#0284C7;
 }
-.talent-skill-modal-body .skill-status-active {
-    color:#0369A1;
+.btn-skill-toggle {
+    border:none;
+    padding:7px 12px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:800;
+    font-family:var(--font);
+    cursor:pointer;
+    transition:var(--tr);
+}
+.btn-skill-toggle.is-active {
+    background:#FFF1F2;
+    color:#BE123C;
+    border:1px solid #FECDD3;
+}
+.btn-skill-toggle:active {
+    transform:scale(.95);
+}
+
+@media (max-width:420px) {
+    .skill-modal-topbar {
+        align-items:stretch;
+        flex-direction:column;
+    }
+    .skill-modal-add-btn {
+        width:100%;
+    }
 }
 
 /* Skill Option Cards (in modal) */
