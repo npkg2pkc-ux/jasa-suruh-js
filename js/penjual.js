@@ -5,6 +5,47 @@
 
 var _penjualLastPendingIds = [];
 var _penjualPendingOwnerId = '';
+var PENJUAL_SEEN_PENDING_KEY = 'js_penjual_seen_pending_orders';
+
+function _readSeenPendingMap() {
+    try { return JSON.parse(localStorage.getItem(PENJUAL_SEEN_PENDING_KEY) || '{}') || {}; }
+    catch (e) { return {}; }
+}
+
+function _writeSeenPendingMap(map) {
+    try { localStorage.setItem(PENJUAL_SEEN_PENDING_KEY, JSON.stringify(map || {})); }
+    catch (e) {}
+}
+
+function _getSeenPendingForSeller(sellerId) {
+    var map = _readSeenPendingMap();
+    var sid = String(sellerId || '');
+    var ids = map[sid];
+    return Array.isArray(ids) ? ids : [];
+}
+
+function _markPendingAsSeen(sellerId, orderId) {
+    var sid = String(sellerId || '');
+    var oid = String(orderId || '');
+    if (!sid || !oid) return;
+
+    var map = _readSeenPendingMap();
+    var list = Array.isArray(map[sid]) ? map[sid] : [];
+    if (list.indexOf(oid) < 0) list.push(oid);
+    map[sid] = list;
+    _writeSeenPendingMap(map);
+}
+
+function _cleanupSeenPending(sellerId, activePendingIds) {
+    var sid = String(sellerId || '');
+    if (!sid) return;
+
+    var active = (activePendingIds || []).map(function (id) { return String(id); });
+    var map = _readSeenPendingMap();
+    var list = Array.isArray(map[sid]) ? map[sid] : [];
+    map[sid] = list.filter(function (id) { return active.indexOf(String(id)) >= 0; });
+    _writeSeenPendingMap(map);
+}
 
 // ══════════════════════════════════════════
 // ═══ PENJUAL DASHBOARD ═══
@@ -414,10 +455,21 @@ function checkNewPenjualOrders(orders, session) {
     var pending = orders.filter(function (o) {
         return o.sellerId === session.id && o.status === 'pending_seller';
     });
-    var pendingIds = pending.map(function (o) { return o.id; });
-    var newOrders = pending.filter(function (o) { return _penjualLastPendingIds.indexOf(o.id) < 0; });
+    var pendingIds = pending.map(function (o) { return String(o.id); });
+
+    // Keep localStorage cache compact and allow re-notify if order left pending state.
+    _cleanupSeenPending(session.id, pendingIds);
+    var seenIds = _getSeenPendingForSeller(session.id);
+
+    var newOrders = pending.filter(function (o) {
+        var oid = String(o.id);
+        var seenInSession = _penjualLastPendingIds.indexOf(oid) >= 0;
+        var seenPersisted = seenIds.indexOf(oid) >= 0;
+        return !seenInSession && !seenPersisted;
+    });
 
     if (newOrders.length > 0) {
+        _markPendingAsSeen(session.id, newOrders[0].id);
         showPenjualOrderNotification(newOrders[0]);
     }
 
@@ -454,12 +506,14 @@ function showPenjualOrderNotification(order) {
     var newDismiss = dismissBtn.cloneNode(true);
     dismissBtn.parentNode.replaceChild(newDismiss, dismissBtn);
     newDismiss.addEventListener('click', function () {
+        _markPendingAsSeen(order.sellerId, order.id);
         popup.classList.add('hidden');
     });
 
     var newAccept = acceptBtn.cloneNode(true);
     acceptBtn.parentNode.replaceChild(newAccept, acceptBtn);
     newAccept.addEventListener('click', function () {
+        _markPendingAsSeen(order.sellerId, order.id);
         popup.classList.add('hidden');
         openOrderTracking(order);
     });
