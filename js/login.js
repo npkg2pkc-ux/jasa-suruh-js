@@ -467,7 +467,10 @@ var LoginPage = (function () {
         if (typeof showToast === 'function') showToast('Selamat datang, ' + name + '!', 'success');
 
         var role = userData.role || 'user';
-        if (typeof showPage === 'function') showPage(role);
+        if (typeof showPage === 'function') showPage(role, false);
+        if (typeof ROUTES !== 'undefined' && ROUTES && ROUTES[role] && window.location.pathname !== ROUTES[role]) {
+            history.replaceState({ page: role }, '', ROUTES[role]);
+        }
         if (typeof syncFromBackend === 'function') syncFromBackend();
         if (typeof updateRoleUI === 'function') updateRoleUI(userData);
     }

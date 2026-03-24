@@ -586,6 +586,27 @@ function isChatPageActive() {
     return !cp.classList.contains('hidden');
 }
 
+function _normalizeRole(role) {
+    var r = String(role || '').toLowerCase();
+    if (r === 'pengguna' || r === 'customer') return 'user';
+    if (r === 'seller') return 'penjual';
+    if (r === 'admin') return 'owner';
+    return r;
+}
+
+function _getActiveRoleBadgeTargets() {
+    var session = getSession();
+    var role = _normalizeRole(session && session.role);
+    var targets = {
+        user: { notifBtn: 'userNotifBtn', notifBadge: 'userHeaderBadge' },
+        talent: { notifBtn: 'talentNotifBtn', notifBadge: 'talentHeaderBadge' },
+        penjual: { notifBtn: 'penjualNotifBtn', notifBadge: 'penjualHeaderBadge' },
+        cs: { notifBtn: 'csNotifBtn', notifBadge: 'csHeaderBadge' },
+        owner: { notifBtn: 'ownerNotifBtn', notifBadge: 'ownerHeaderBadge' }
+    };
+    return targets[role] || null;
+}
+
 function updateChatBadges() {
     // Update bottom nav chat badges
     document.querySelectorAll('.bottom-nav .nav-item[data-page="chat"]').forEach(function (btn) {
@@ -604,23 +625,31 @@ function updateChatBadges() {
         }
     });
 
-    // Also show chat unread badge on header notif buttons (useful for roles/pages without chat tab).
+    // Show chat unread badge only on active role's notif button.
     ['userNotifBtn', 'talentNotifBtn', 'penjualNotifBtn', 'csNotifBtn', 'ownerNotifBtn'].forEach(function (btnId) {
-        var btn = document.getElementById(btnId);
-        if (!btn) return;
-        var hb = btn.querySelector('.chat-header-badge');
-        if (_unreadChatCount > 0) {
-            if (!hb) {
-                hb = document.createElement('span');
-                hb.className = 'chat-header-badge';
-                btn.appendChild(hb);
-            }
-            hb.textContent = _unreadChatCount > 9 ? '9+' : _unreadChatCount;
-            hb.style.display = '';
-        } else if (hb) {
-            hb.style.display = 'none';
-        }
+        var otherBtn = document.getElementById(btnId);
+        if (!otherBtn) return;
+        var otherBadge = otherBtn.querySelector('.chat-header-badge');
+        if (otherBadge) otherBadge.style.display = 'none';
     });
+    var activeTargets = _getActiveRoleBadgeTargets();
+    if (activeTargets && activeTargets.notifBtn) {
+        var activeBtn = document.getElementById(activeTargets.notifBtn);
+        if (activeBtn) {
+            var hb = activeBtn.querySelector('.chat-header-badge');
+            if (_unreadChatCount > 0) {
+                if (!hb) {
+                    hb = document.createElement('span');
+                    hb.className = 'chat-header-badge';
+                    activeBtn.appendChild(hb);
+                }
+                hb.textContent = _unreadChatCount > 9 ? '9+' : _unreadChatCount;
+                hb.style.display = '';
+            } else if (hb) {
+                hb.style.display = 'none';
+            }
+        }
+    }
 
     // Show mini unread badge on quick-chat buttons in order tracking card.
     ['otpDriverChatBtn', 'otpSellerChatBtn', 'otpBuyerChatBtn'].forEach(function (btnId) {
@@ -883,17 +912,25 @@ function updateNotifBadges() {
     var notifCount = _notifItems.filter(function (n) { return n.unread; }).length;
     var count = notifCount + (Number(_unreadChatCount) || 0);
     ['userHeaderBadge', 'talentHeaderBadge', 'penjualHeaderBadge', 'ownerHeaderBadge', 'csHeaderBadge'].forEach(function (id) {
-        var badge = document.getElementById(id);
-        if (badge) {
-            if (count > 0) {
-                badge.textContent = count > 9 ? '9+' : count;
-                badge.style.display = 'flex';
-            } else {
-                badge.textContent = '0';
-                badge.style.display = 'none';
-            }
-        }
+        var hiddenBadge = document.getElementById(id);
+        if (!hiddenBadge) return;
+        hiddenBadge.textContent = '0';
+        hiddenBadge.style.display = 'none';
     });
+
+    var activeTargets = _getActiveRoleBadgeTargets();
+    if (!activeTargets || !activeTargets.notifBadge) return;
+
+    var badge = document.getElementById(activeTargets.notifBadge);
+    if (!badge) return;
+
+    if (count > 0) {
+        badge.textContent = count > 9 ? '9+' : count;
+        badge.style.display = 'flex';
+    } else {
+        badge.textContent = '0';
+        badge.style.display = 'none';
+    }
 }
 
 function _escapeHtml(str) {

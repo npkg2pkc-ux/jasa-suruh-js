@@ -479,6 +479,14 @@ var ROUTES = {
     owner: '/owner-panel'
 };
 
+function getHomePageForSession(session) {
+    if (!session || !session.role) return 'login';
+    var role = String(session.role).toLowerCase();
+    if (role === 'pengguna' || role === 'customer') return 'user';
+    if (role === 'admin') return 'owner';
+    return role;
+}
+
 function pageFromPath(path) {
     var clean = path.replace(/\/+$/, '') || '/';
     for (var page in ROUTES) {
@@ -534,10 +542,29 @@ function showPage(pageName, pushState) {
 window.showPage = showPage;
 
 window.addEventListener('popstate', function (e) {
+    var session = getSession();
+
     if (e.state && e.state.page) {
-        showPage(e.state.page, false);
+        var target = e.state.page;
+        if (session && (target === 'login' || target === 'register')) {
+            var homeFromState = getHomePageForSession(session);
+            showPage(homeFromState, false);
+            if (ROUTES[homeFromState]) {
+                history.replaceState({ page: homeFromState }, '', ROUTES[homeFromState]);
+            }
+            return;
+        }
+        showPage(target, false);
     } else {
         var page = pageFromPath(window.location.pathname);
+        if (session && (!page || page === 'login' || page === 'register')) {
+            var homeFromPath = getHomePageForSession(session);
+            showPage(homeFromPath, false);
+            if (ROUTES[homeFromPath]) {
+                history.replaceState({ page: homeFromPath }, '', ROUTES[homeFromPath]);
+            }
+            return;
+        }
         if (page) showPage(page, false);
     }
 });
