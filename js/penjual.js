@@ -164,10 +164,15 @@ function populatePenjualStoreForm(store) {
     if (store.photo && photoImg) {
         photoImg.src = store.photo;
         photoImg.dataset.newUpload = '';
+        photoImg.dataset.removed = '';
         if (photoPreview) photoPreview.style.display = 'block';
         if (btnUpload) btnUpload.style.display = 'none';
     } else {
-        if (photoImg) { photoImg.src = ''; photoImg.dataset.newUpload = ''; }
+        if (photoImg) {
+            photoImg.src = '';
+            photoImg.dataset.newUpload = '';
+            photoImg.dataset.removed = '';
+        }
         if (photoPreview) photoPreview.style.display = 'none';
         if (btnUpload) btnUpload.style.display = '';
     }
@@ -184,7 +189,17 @@ function handleStoreFormSubmit(e) {
     var addr = (document.getElementById('storeFormAddr').value || '').trim() || session.address || '';
     var photoImg = document.getElementById('storePhotoImg');
     var isNewPhoto = photoImg && photoImg.dataset.newUpload === '1';
-    var photoData = isNewPhoto ? photoImg.src : ((_penjualStore && _penjualStore.photo) || '');
+    var isPhotoRemoved = photoImg && photoImg.dataset.removed === '1';
+    var photoData = '';
+
+    if (isNewPhoto) {
+        photoData = photoImg.src || '';
+    } else if (isPhotoRemoved) {
+        // User explicitly removed photo, persist empty value to backend.
+        photoData = '';
+    } else {
+        photoData = (_penjualStore && _penjualStore.photo) || '';
+    }
 
     if (!name) { showToast('Nama toko wajib diisi!', 'error'); return; }
 
@@ -479,6 +494,7 @@ function setupProductPhotoUpload() {
             reader.onload = function () {
                 photoImg.src = reader.result;
                 photoImg.dataset.newUpload = '1';
+                photoImg.dataset.removed = '';
                 photoPreview.style.display = 'block';
                 btnUpload.style.display = 'none';
             };
@@ -525,6 +541,7 @@ function setupStorePhotoUpload() {
             if (photoInput) photoInput.value = '';
             photoImg.src = '';
             photoImg.dataset.newUpload = '';
+            photoImg.dataset.removed = '1';
             photoPreview.style.display = 'none';
             btnUpload.style.display = '';
         });
