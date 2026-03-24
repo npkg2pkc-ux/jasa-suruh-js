@@ -1277,7 +1277,21 @@
             </div>
             <div class="modal-body seller-store-modal-body">
                 <div class="seller-store-card" id="storeSetupCard">
-                    <form id="storeForm">
+                    <form id="storeForm" class="seller-store-form">
+                        <div class="form-group seller-media-group">
+                            <label>Foto Toko</label>
+                            <div class="photo-upload-area seller-store-photo-area" id="storePhotoArea">
+                                <input type="file" id="storePhoto" accept="image/*" capture="environment" style="display:none">
+                                <div class="photo-preview seller-store-photo-preview" id="storePhotoPreview" style="display:none">
+                                    <img id="storePhotoImg" src="" alt="Preview">
+                                    <button type="button" class="btn-remove-photo" id="storeRemovePhoto">&times;</button>
+                                </div>
+                                <button type="button" class="btn-upload-photo seller-store-upload-btn" id="storeBtnUpload">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/></svg>
+                                    <span>Upload Foto Toko</span>
+                                </button>
+                            </div>
+                        </div>
                         <div class="form-group"><label>Nama Toko</label><div class="input-wrap"><input type="text" id="storeFormName" placeholder="Nama toko Anda" required></div></div>
                         <div class="form-group">
                             <label>Kategori Toko</label>
@@ -1291,20 +1305,6 @@
                             </div>
                         </div>
                         <div class="form-group"><label>Deskripsi</label><textarea id="storeFormDesc" class="form-textarea" rows="2" placeholder="Deskripsi toko Anda..."></textarea></div>
-                        <div class="form-group">
-                            <label>Foto Toko</label>
-                            <div class="photo-upload-area" id="storePhotoArea">
-                                <input type="file" id="storePhoto" accept="image/*" capture="environment" style="display:none">
-                                <div class="photo-preview" id="storePhotoPreview" style="display:none">
-                                    <img id="storePhotoImg" src="" alt="Preview">
-                                    <button type="button" class="btn-remove-photo" id="storeRemovePhoto">&times;</button>
-                                </div>
-                                <button type="button" class="btn-upload-photo" id="storeBtnUpload">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/></svg>
-                                    <span>Ambil Foto / Pilih dari Galeri</span>
-                                </button>
-                            </div>
-                        </div>
                         <div class="form-group"><label>Alamat</label><div class="input-wrap"><input type="text" id="storeFormAddr" placeholder="Alamat toko (otomatis dari GPS)" readonly></div></div>
                         <button type="submit" class="btn-primary">💾 Simpan Toko</button>
                     </form>
