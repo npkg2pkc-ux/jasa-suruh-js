@@ -6,6 +6,7 @@
 var _penjualLastPendingIds = [];
 var _penjualPendingOwnerId = '';
 var _penjualPendingInitialized = false;
+var _sellerStoreModalEventsSetup = false;
 var PENJUAL_SEEN_PENDING_KEY = 'js_penjual_seen_pending_orders';
 
 function _readSeenPendingMap() {
@@ -76,6 +77,37 @@ function loadPenjualDashboard() {
         loadPenjualOrders();
     }
 }
+
+function openSellerStoreModal() {
+    var session = getSession();
+    if (!session || session.role !== 'penjual') {
+        showToast('Menu ini khusus akun Penjual', 'error');
+        return;
+    }
+
+    var modal = document.getElementById('sellerStoreModal');
+    if (!modal) return;
+
+    if (!_sellerStoreModalEventsSetup) {
+        _sellerStoreModalEventsSetup = true;
+        var btnClose = document.getElementById('btnCloseSellerStoreModal');
+        if (btnClose) btnClose.addEventListener('click', closeSellerStoreModal);
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) closeSellerStoreModal();
+        });
+    }
+
+    // Ensure latest store data is reflected when opening modal.
+    loadPenjualDashboard();
+    modal.classList.remove('hidden');
+}
+window.openSellerStoreModal = openSellerStoreModal;
+
+function closeSellerStoreModal() {
+    var modal = document.getElementById('sellerStoreModal');
+    if (modal) modal.classList.add('hidden');
+}
+window.closeSellerStoreModal = closeSellerStoreModal;
 
 function populatePenjualStoreForm(store) {
     if (!store) return;

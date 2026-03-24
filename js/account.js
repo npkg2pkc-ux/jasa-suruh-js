@@ -81,6 +81,8 @@ var AccountPage = (function () {
         var session = getSession();
         var role = u.role || (session && session.role) || 'user';
 
+        _toggleStoreItem(role);
+
         $('accProfileName').textContent = u.nama || '-';
         $('accValName').textContent = u.nama || '-';
         $('accValPhone').textContent = _formatPhoneDisplay(u.no_hp) || '-';
@@ -102,6 +104,7 @@ var AccountPage = (function () {
         if (!session) return;
 
         var role = session.role || 'user';
+        _toggleStoreItem(role);
         $('accProfileName').textContent = session.name || session.nama || '-';
         $('accValName').textContent = session.name || session.nama || '-';
         $('accValPhone').textContent = session.phone || session.no_hp || '-';
@@ -165,6 +168,13 @@ var AccountPage = (function () {
             return cleaned.slice(0, 4) + '-' + cleaned.slice(4, 8) + '-' + cleaned.slice(8);
         }
         return cleaned;
+    }
+
+    function _toggleStoreItem(role) {
+        var storeItem = $('accItemStore');
+        if (!storeItem) return;
+        if (role === 'penjual') storeItem.classList.remove('hidden');
+        else storeItem.classList.add('hidden');
     }
 
     // ─── Setup Events (once) ───
@@ -234,6 +244,17 @@ var AccountPage = (function () {
         $('accItemPin').addEventListener('click', function () {
             if (typeof showToast === 'function') showToast('Fitur Ubah PIN segera hadir', 'info');
         });
+
+        var storeItem = $('accItemStore');
+        if (storeItem) {
+            storeItem.addEventListener('click', function () {
+                if (typeof openSellerStoreModal === 'function') {
+                    openSellerStoreModal();
+                } else if (typeof showToast === 'function') {
+                    showToast('Menu Toko belum tersedia', 'error');
+                }
+            });
+        }
     }
 
     // ─── Edit Modal ───

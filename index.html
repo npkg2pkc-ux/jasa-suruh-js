@@ -805,43 +805,6 @@
                         </div>
                     </div>
                 </section>
-                <!-- Store Setup Section - shown if no store yet -->
-                <section class="content-section" id="penjualStoreSetup">
-                    <div class="section-header"><h2>🏪 Toko Saya</h2></div>
-                    <div class="card-form" id="storeSetupCard">
-                        <form id="storeForm">
-                            <div class="form-group"><label>Nama Toko</label><div class="input-wrap"><input type="text" id="storeFormName" placeholder="Nama toko Anda" required></div></div>
-                            <div class="form-group">
-                                <label>Kategori Toko</label>
-                                <div class="input-wrap">
-                                    <select id="storeFormCategory" style="background:none;border:none;outline:none;font-family:var(--font);font-size:14px;color:var(--black);width:100%;">
-                                        <option value="food">🍔 Makanan & Minuman</option>
-                                        <option value="shop">🛒 Toko / Retail</option>
-                                        <option value="medicine">💊 Apotek / Obat</option>
-                                        <option value="other">📦 Lainnya</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="form-group"><label>Deskripsi</label><textarea id="storeFormDesc" class="form-textarea" rows="2" placeholder="Deskripsi toko Anda..."></textarea></div>
-                            <div class="form-group">
-                                <label>Foto Toko</label>
-                                <div class="photo-upload-area" id="storePhotoArea">
-                                    <input type="file" id="storePhoto" accept="image/*" capture="environment" style="display:none">
-                                    <div class="photo-preview" id="storePhotoPreview" style="display:none">
-                                        <img id="storePhotoImg" src="" alt="Preview">
-                                        <button type="button" class="btn-remove-photo" id="storeRemovePhoto">&times;</button>
-                                    </div>
-                                    <button type="button" class="btn-upload-photo" id="storeBtnUpload">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/></svg>
-                                        <span>Ambil Foto / Pilih dari Galeri</span>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="form-group"><label>Alamat</label><div class="input-wrap"><input type="text" id="storeFormAddr" placeholder="Alamat toko (otomatis dari GPS)" readonly></div></div>
-                            <button type="submit" class="btn-primary">💾 Simpan Toko</button>
-                        </form>
-                    </div>
-                </section>
                 <!-- Products Section -->
                 <section class="content-section" id="penjualProductsSection">
                     <div class="section-header"><h2>📦 Produk Saya</h2><button type="button" class="btn-primary" id="btnAddProduct" style="width:auto;padding:8px 18px;margin:0;font-size:13px;">+ Tambah</button></div>
@@ -1100,6 +1063,11 @@
                 <div class="acc-section">
                     <p class="acc-section-title">Keamanan</p>
                     <div class="acc-card">
+                        <button class="acc-item hidden" id="accItemStore">
+                            <span class="acc-item-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 21v-6h6v6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                            <span class="acc-item-body"><span class="acc-item-label">Penjual</span><span class="acc-item-value acc-item-sub">Toko Saya</span></span>
+                            <svg class="acc-item-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
                         <button class="acc-item" id="accItemPin">
                             <span class="acc-item-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
                             <span class="acc-item-body"><span class="acc-item-label">Ubah PIN</span><span class="acc-item-value acc-item-sub">Ganti PIN keamanan</span></span>
@@ -1281,6 +1249,51 @@
                     </div>
                     <button type="submit" class="btn-primary">💾 Simpan Produk</button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== SELLER STORE MODAL ===== -->
+    <div id="sellerStoreModal" class="modal-overlay hidden">
+        <div class="modal-container seller-store-modal-container">
+            <div class="modal-header seller-store-modal-header">
+                <h3>🏪 Toko Saya</h3>
+                <button type="button" class="btn-close-modal" id="btnCloseSellerStoreModal">&times;</button>
+            </div>
+            <div class="modal-body seller-store-modal-body">
+                <div class="seller-store-card" id="storeSetupCard">
+                    <form id="storeForm">
+                        <div class="form-group"><label>Nama Toko</label><div class="input-wrap"><input type="text" id="storeFormName" placeholder="Nama toko Anda" required></div></div>
+                        <div class="form-group">
+                            <label>Kategori Toko</label>
+                            <div class="input-wrap">
+                                <select id="storeFormCategory" style="background:none;border:none;outline:none;font-family:var(--font);font-size:14px;color:var(--black);width:100%;">
+                                    <option value="food">🍔 Makanan & Minuman</option>
+                                    <option value="shop">🛒 Toko / Retail</option>
+                                    <option value="medicine">💊 Apotek / Obat</option>
+                                    <option value="other">📦 Lainnya</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group"><label>Deskripsi</label><textarea id="storeFormDesc" class="form-textarea" rows="2" placeholder="Deskripsi toko Anda..."></textarea></div>
+                        <div class="form-group">
+                            <label>Foto Toko</label>
+                            <div class="photo-upload-area" id="storePhotoArea">
+                                <input type="file" id="storePhoto" accept="image/*" capture="environment" style="display:none">
+                                <div class="photo-preview" id="storePhotoPreview" style="display:none">
+                                    <img id="storePhotoImg" src="" alt="Preview">
+                                    <button type="button" class="btn-remove-photo" id="storeRemovePhoto">&times;</button>
+                                </div>
+                                <button type="button" class="btn-upload-photo" id="storeBtnUpload">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/></svg>
+                                    <span>Ambil Foto / Pilih dari Galeri</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group"><label>Alamat</label><div class="input-wrap"><input type="text" id="storeFormAddr" placeholder="Alamat toko (otomatis dari GPS)" readonly></div></div>
+                        <button type="submit" class="btn-primary">💾 Simpan Toko</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
