@@ -17,12 +17,12 @@ var _notificationSourceResolved = false;
 var _notificationResolvingPromise = null;
 var _notificationSoundCandidates = (function () {
     var candidates = [
-        '/sound/Notification.mp3',
-        './sound/Notification.mp3',
-        'sound/Notification.mp3',
         '/public/sound/Notification.mp3',
         './public/sound/Notification.mp3',
         'public/sound/Notification.mp3',
+        '/sound/Notification.mp3',
+        './sound/Notification.mp3',
+        'sound/Notification.mp3',
         '/Notification.mp3'
     ];
 
