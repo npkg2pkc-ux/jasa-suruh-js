@@ -10,13 +10,15 @@
 var _audioUnlocked = false;
 var _notificationAudio = null;
 var _notificationAudioContext = null;
+var _notificationBlobUrl = '';
+var _notificationSourceResolved = false;
+var _notificationResolvingPromise = null;
 var _notificationSoundCandidates = [
     '/public/sound/Notification.mp3',
-    'public/sound/Notification.mp3',
     '/sound/Notification.mp3',
     '/public/sound/notification.mp3',
-    'public/sound/notification.mp3',
-    '/sound/notification.mp3'
+    '/sound/notification.mp3',
+    '/notification.mp3'
 ];
 var _notificationSoundSrc = _notificationSoundCandidates[0];
 var _notificationCandidateIndex = 0;
@@ -64,13 +66,67 @@ function _resumeAudioContext() {
     return ctx.resume().then(function () { return ctx.state === 'running'; }).catch(function () { return false; });
 }
 
+function _setNotificationAudioSrc(audio, src) {
+    if (!audio || !src) return false;
+    _notificationSoundSrc = src;
+    audio.src = src;
+    audio.load();
+    return true;
+}
+
 function _setAudioSourceByIndex(audio, idx) {
     if (idx < 0 || idx >= _notificationSoundCandidates.length) return false;
     _notificationCandidateIndex = idx;
-    _notificationSoundSrc = _notificationSoundCandidates[idx];
-    audio.src = _notificationSoundSrc;
-    audio.load();
-    return true;
+    return _setNotificationAudioSrc(audio, _notificationSoundCandidates[idx]);
+}
+
+function _resolveNotificationSoundSource() {
+    if (_notificationSourceResolved && _notificationSoundSrc) return Promise.resolve(true);
+    if (_notificationResolvingPromise) return _notificationResolvingPromise;
+
+    var cacheBust = Date.now();
+    var i = 0;
+
+    _notificationResolvingPromise = new Promise(function (resolve) {
+        function tryNext() {
+            if (i >= _notificationSoundCandidates.length) {
+                _notificationResolvingPromise = null;
+                resolve(false);
+                return;
+            }
+
+            var idx = i++;
+            var candidate = _notificationSoundCandidates[idx];
+            var probeUrl = candidate + (candidate.indexOf('?') >= 0 ? '&' : '?') + 'v=' + cacheBust;
+
+            fetch(probeUrl, { method: 'GET', cache: 'no-store' })
+                .then(function (resp) {
+                    if (!resp || !resp.ok) throw new Error('bad-response');
+                    _notificationCandidateIndex = idx;
+                    return resp.blob();
+                })
+                .then(function (blob) {
+                    if (!blob || !blob.size) throw new Error('empty-blob');
+
+                    try {
+                        if (_notificationBlobUrl) URL.revokeObjectURL(_notificationBlobUrl);
+                    } catch (e) {}
+
+                    _notificationBlobUrl = URL.createObjectURL(blob);
+                    _notificationSourceResolved = true;
+                    if (_notificationAudio) _setNotificationAudioSrc(_notificationAudio, _notificationBlobUrl);
+                    _notificationResolvingPromise = null;
+                    resolve(true);
+                })
+                .catch(function () {
+                    tryNext();
+                });
+        }
+
+        tryNext();
+    });
+
+    return _notificationResolvingPromise;
 }
 
 function _getNotificationAudio() {
@@ -79,7 +135,7 @@ function _getNotificationAudio() {
         _notificationAudio.preload = 'auto';
         _notificationAudio.volume = 1;
         _notificationAudio.setAttribute('playsinline', '');
-        _setAudioSourceByIndex(_notificationAudio, 0);
+        if (_notificationSoundSrc) _setNotificationAudioSrc(_notificationAudio, _notificationSoundSrc);
     }
     return _notificationAudio;
 }
@@ -93,19 +149,33 @@ function _switchToNextNotificationSource(sound) {
 function _playNotificationSound(vibratePattern) {
     try {
         var sound = _getNotificationAudio();
-        if (!sound.src) _setAudioSourceByIndex(sound, _notificationCandidateIndex);
-        sound.pause();
-        try { sound.currentTime = 0; } catch (e) {}
-        sound.play().catch(function () {
-            if (_switchToNextNotificationSource(sound)) {
+        _resolveNotificationSoundSource().then(function (resolved) {
+            if (!resolved && !sound.src) _setAudioSourceByIndex(sound, _notificationCandidateIndex);
+            sound.pause();
+            try { sound.currentTime = 0; } catch (e) {}
+            sound.play().catch(function () {
+                if (_switchToNextNotificationSource(sound)) {
+                    sound.play().catch(function () {
+                        _beepWithWebAudio();
+                        if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
+                    });
+                    return;
+                }
+                _beepWithWebAudio();
+                if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
+            });
+        }).catch(function () {
+            try {
+                sound.pause();
+                try { sound.currentTime = 0; } catch (e) {}
                 sound.play().catch(function () {
                     _beepWithWebAudio();
                     if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
                 });
-                return;
+            } catch (e) {
+                _beepWithWebAudio();
+                if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
             }
-            _beepWithWebAudio();
-            if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
         });
     } catch (e) {
         _beepWithWebAudio();
@@ -121,14 +191,19 @@ function _unlockAudio() {
 
     try {
         var audio = _getNotificationAudio();
-        audio.muted = true;
-        try { audio.currentTime = 0; } catch (e) {}
-        mediaAttempt = audio.play().then(function () {
-            unlockedByMedia = true;
-            audio.pause();
+        mediaAttempt = _resolveNotificationSoundSource().then(function () {
+            audio.muted = true;
             try { audio.currentTime = 0; } catch (e) {}
-            audio.muted = false;
-            return true;
+            return audio.play().then(function () {
+                unlockedByMedia = true;
+                audio.pause();
+                try { audio.currentTime = 0; } catch (e) {}
+                audio.muted = false;
+                return true;
+            }).catch(function () {
+                audio.muted = false;
+                return false;
+            });
         }).catch(function () {
             audio.muted = false;
             return false;
