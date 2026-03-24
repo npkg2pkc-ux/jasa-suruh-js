@@ -7,25 +7,54 @@
 // ══════════════════════════════════════════
 // ═══ NOTIFICATION SOUNDS ═══
 // ══════════════════════════════════════════
-var _audioCtx = null;
 var _audioUnlocked = false;
-var _silentAudio = null;
 var _notificationAudio = null;
-var _notificationSoundSrc = 'public/sound/Notification.mp3';
+var _notificationSoundCandidates = [
+    '/public/sound/notification.mp3',
+    '/public/sound/Notification.mp3',
+    'public/sound/notification.mp3',
+    'public/sound/Notification.mp3',
+    '/sound/notification.mp3',
+    '/sound/Notification.mp3'
+];
+var _notificationSoundSrc = _notificationSoundCandidates[0];
+var _notificationSourceResolved = false;
+
+function _setNextAudioSource(audio, startIndex) {
+    var idx = Number(startIndex || 0);
+    if (idx >= _notificationSoundCandidates.length) return;
+    _notificationSoundSrc = _notificationSoundCandidates[idx];
+    audio.src = _notificationSoundSrc;
+    audio.load();
+    audio.onloadeddata = function () {
+        _notificationSourceResolved = true;
+        audio.onloadeddata = null;
+        audio.onerror = null;
+    };
+    audio.onerror = function () {
+        audio.onloadeddata = null;
+        audio.onerror = null;
+        _setNextAudioSource(audio, idx + 1);
+    };
+}
 
 function _getNotificationAudio() {
     if (!_notificationAudio) {
-        _notificationAudio = new Audio(_notificationSoundSrc);
+        _notificationAudio = new Audio();
         _notificationAudio.preload = 'auto';
         _notificationAudio.volume = 1;
+        _setNextAudioSource(_notificationAudio, 0);
     }
     return _notificationAudio;
 }
 
 function _playNotificationSound(vibratePattern) {
     try {
-        var sound = new Audio(_notificationSoundSrc);
-        sound.volume = 1;
+        var sound = _getNotificationAudio();
+        // If source probing has not finished yet, still try current candidate.
+        if (!_notificationSourceResolved && !sound.src) _setNextAudioSource(sound, 0);
+        sound.pause();
+        try { sound.currentTime = 0; } catch (e) {}
         sound.play().catch(function () {
             if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
         });
@@ -40,10 +69,10 @@ function _unlockAudio() {
     try {
         var audio = _getNotificationAudio();
         audio.muted = true;
-        audio.currentTime = 0;
+        try { audio.currentTime = 0; } catch (e) {}
         audio.play().then(function () {
             audio.pause();
-            audio.currentTime = 0;
+            try { audio.currentTime = 0; } catch (e) {}
             audio.muted = false;
         }).catch(function () {
             audio.muted = false;
