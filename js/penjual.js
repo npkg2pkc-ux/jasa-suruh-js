@@ -5,6 +5,7 @@
 
 var _penjualLastPendingIds = [];
 var _penjualPendingOwnerId = '';
+var _penjualPendingInitialized = false;
 var PENJUAL_SEEN_PENDING_KEY = 'js_penjual_seen_pending_orders';
 
 function _readSeenPendingMap() {
@@ -450,6 +451,7 @@ function checkNewPenjualOrders(orders, session) {
     if (_penjualPendingOwnerId !== session.id) {
         _penjualPendingOwnerId = session.id;
         _penjualLastPendingIds = [];
+        _penjualPendingInitialized = false;
     }
 
     var pending = orders.filter(function (o) {
@@ -459,6 +461,16 @@ function checkNewPenjualOrders(orders, session) {
 
     // Keep localStorage cache compact and allow re-notify if order left pending state.
     _cleanupSeenPending(session.id, pendingIds);
+
+    // First snapshot after reload/login: treat existing pending orders as baseline,
+    // so popup only appears for truly new orders that arrive afterwards.
+    if (!_penjualPendingInitialized) {
+        pending.forEach(function (o) { _markPendingAsSeen(session.id, o.id); });
+        _penjualLastPendingIds = pendingIds;
+        _penjualPendingInitialized = true;
+        return;
+    }
+
     var seenIds = _getSeenPendingForSeller(session.id);
 
     var newOrders = pending.filter(function (o) {
