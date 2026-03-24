@@ -169,7 +169,7 @@ function setupPromoSlider() {
 var SERVICE_TYPE_MAP = {
     'JS Antar': 'js_antar', 'JS Shop': 'js_shop', 'JS Food': 'js_food',
     'JS Delivery': 'js_delivery', 'JS Clean': 'js_clean', 'JS Service': 'js_service',
-    'JS Medicine': 'js_medicine', 'JS Others': 'js_other'
+    'JS Medicine': 'js_medicine', 'JS Others': 'js_other', 'JS Other': 'js_other'
 };
 var ACTIVE_SERVICES = ['js_clean', 'js_antar', 'js_shop', 'js_food', 'js_delivery', 'js_service', 'js_medicine', 'js_other'];
 
