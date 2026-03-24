@@ -383,7 +383,7 @@ function openTalentDetail(t) {
     if (titleEl) titleEl.textContent = t.user.name;
 
     var photo = t.photo;
-    var profilePhoto = getProfilePhoto(t.user.id);
+    var profilePhoto = resolveTalentProfilePhoto(t);
     var heroHtml = photo
         ? '<img src="' + photo + '" alt="">'
         : '<div class="tdp-hero-placeholder">🧹</div>';
@@ -399,14 +399,13 @@ function openTalentDetail(t) {
     var initial = (t.user.name || 'T').charAt(0).toUpperCase();
 
     var talentAvatarHtml = profilePhoto
-        ? '<div class="tdp-talent-avatar has-photo"><img src="' + profilePhoto + '" alt="' + escapeHtml(t.user.name) + '"><span class="tdp-verified-badge">✓ Terverifikasi</span></div>'
+        ? '<div class="tdp-talent-avatar has-photo"><img src="' + profilePhoto + '" alt="' + escapeHtml(t.user.name) + '"><span class="tdp-verified-badge">✓</span></div>'
         : '<div class="tdp-talent-avatar">' + initial + '</div>';
 
     content.innerHTML = ''
         + '<div class="tdp-hero">' + heroHtml + '</div>'
         + '<div class="tdp-info">'
-        + '<div class="tdp-name">' + escapeHtml(t.user.name) + '</div>'
-        + (serviceType ? '<div class="tdp-service-type">' + escapeHtml(serviceType) + '</div>' : '')
+        + (serviceType ? '<div class="tdp-service-type">' + escapeHtml(serviceType) + '</div>' : '<div class="tdp-service-type">Layanan Talent</div>')
         + '<div class="tdp-meta-row">'
         + '<span class="tdp-meta-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="2"/></svg> ' + escapeHtml(addr) + '</span>'
         + (distText ? '<span class="tdp-meta-item">📍 ' + distText + '</span>' : '')
@@ -427,6 +426,7 @@ function openTalentDetail(t) {
         + talentAvatarHtml
         + '<div class="tdp-talent-info">'
         + '<div class="tdp-talent-name">' + escapeHtml(t.user.name) + '</div>'
+        + '<div class="tdp-talent-role">Talent Terverifikasi</div>'
         + '<div class="tdp-talent-addr">📍 ' + escapeHtml(addr) + '</div>'
         + '</div>'
         + '</div>'
@@ -452,6 +452,18 @@ function openTalentDetail(t) {
     newBtn.addEventListener('click', function () {
         createNewOrder(t);
     });
+}
+
+function resolveTalentProfilePhoto(t) {
+    if (!t || !t.user) return '';
+    var uid = t.user.id;
+    return getProfilePhoto(uid)
+        || t.user.photo
+        || t.user.profilePhoto
+        || t.user.foto_url
+        || t.user.avatar
+    || t.photo
+        || '';
 }
 
 // ══════════════════════════════════════════
