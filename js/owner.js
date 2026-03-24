@@ -13,6 +13,7 @@ var OwnerDashboard = (function () {
     var _ordersCache = [];
     var _currentRange = 'all'; // today, week, month, all
     var _currentRole = 'owner'; // 'owner' or 'admin'
+    var _activeOwnerPanel = 'home';
     var _ownerPanelConfig = {
         home: { title: 'Home', subtitle: 'Ringkasan performa platform' },
         activity: { title: 'Aktivitas Terbaru', subtitle: 'Update order dan user terbaru' },
@@ -64,9 +65,36 @@ var OwnerDashboard = (function () {
         if (titleEl) titleEl.textContent = cfg.title;
         if (subtitleEl) subtitleEl.textContent = cfg.subtitle;
 
-        $$('.od-panel-view[data-owner-panel-view]').forEach(function (view) {
-            view.classList.toggle('hidden', view.dataset.ownerPanelView !== panel);
-        });
+        var currentView = document.querySelector('.od-panel-view.od-panel-view-active') ||
+            document.querySelector('.od-panel-view[data-owner-panel-view="' + _activeOwnerPanel + '"]');
+        var targetView = document.querySelector('.od-panel-view[data-owner-panel-view="' + panel + '"]');
+
+        if (targetView && currentView !== targetView) {
+            targetView.classList.remove('hidden', 'od-panel-view-leave');
+            targetView.classList.add('od-panel-view-enter');
+
+            if (currentView) {
+                currentView.classList.remove('od-panel-view-active', 'od-panel-view-enter');
+                currentView.classList.add('od-panel-view-leave');
+            }
+
+            requestAnimationFrame(function () {
+                targetView.classList.remove('od-panel-view-enter');
+                targetView.classList.add('od-panel-view-active');
+            });
+
+            if (currentView) {
+                setTimeout(function () {
+                    currentView.classList.add('hidden');
+                    currentView.classList.remove('od-panel-view-leave');
+                }, 280);
+            }
+        } else if (targetView) {
+            targetView.classList.remove('hidden', 'od-panel-view-enter', 'od-panel-view-leave');
+            targetView.classList.add('od-panel-view-active');
+        }
+
+        _activeOwnerPanel = panel;
 
         modal.classList.remove('hidden');
 

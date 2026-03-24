@@ -2348,9 +2348,36 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .od-panel-body {
     position:relative;
     z-index:1;
+    overflow:hidden;
+    height:calc(86vh - 72px);
+}
+.od-panel-view {
+    position:absolute;
+    inset:0;
     overflow-y:auto;
-    max-height:calc(86vh - 72px);
     padding:12px 14px calc(88px + env(safe-area-inset-bottom, 0px));
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transform:translate3d(0, 16px, 0) scale(.986);
+    transition:opacity .26s ease, transform .32s cubic-bezier(.2,.75,.25,1), visibility .26s ease;
+    will-change:transform, opacity;
+}
+.od-panel-view-active {
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+    transform:translate3d(0, 0, 0) scale(1);
+}
+.od-panel-view-enter {
+    opacity:0;
+    visibility:visible;
+    transform:translate3d(0, 26px, 0) scale(.975);
+}
+.od-panel-view-leave {
+    opacity:0;
+    visibility:visible;
+    transform:translate3d(0, -10px, 0) scale(.992);
 }
 .od-panel-view.hidden { display:none; }
 .od-panel-view .od-kpi-grid,
