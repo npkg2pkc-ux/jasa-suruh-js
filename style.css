@@ -2288,11 +2288,11 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 
 .od-panel-modal {
     position:relative;
-    z-index:30;
+    z-index:1;
     width:100%;
     max-width:480px;
     margin:0 auto;
-    padding:12px 12px 108px;
+    padding:14px 12px 108px;
 }
 .od-panel-backdrop {
     display:none;
