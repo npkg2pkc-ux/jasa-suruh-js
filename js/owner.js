@@ -96,8 +96,6 @@ var OwnerDashboard = (function () {
 
         _activeOwnerPanel = panel;
 
-        modal.classList.remove('hidden');
-
         if (panel === 'home') {
             var chartDays = parseInt(($('ownerChartRange') && $('ownerChartRange').value) || '7', 10);
             _renderChart(_ordersCache, chartDays);
@@ -108,8 +106,7 @@ var OwnerDashboard = (function () {
     }
 
     function _closeOwnerPanel() {
-        var modal = $('ownerPanelModal');
-        if (modal) modal.classList.add('hidden');
+        _openOwnerPanel('home');
     }
 
     // ─── Init ───
