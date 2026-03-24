@@ -457,13 +457,27 @@ function openTalentDetail(t) {
 function resolveTalentProfilePhoto(t) {
     if (!t || !t.user) return '';
     var uid = t.user.id;
-    return getProfilePhoto(uid)
+    return resolveAvatarPublicUrl(t.user.foto_url)
         || t.user.photo
         || t.user.profilePhoto
-        || t.user.foto_url
         || t.user.avatar
-    || t.photo
+        || getProfilePhoto(uid)
         || '';
+}
+
+function resolveAvatarPublicUrl(pathOrUrl) {
+    var raw = String(pathOrUrl || '').trim();
+    if (!raw) return '';
+    if (raw.indexOf('http://') === 0 || raw.indexOf('https://') === 0 || raw.indexOf('data:') === 0) return raw;
+
+    try {
+        if (typeof window.FB !== 'undefined' && window.FB._sb && window.FB._sb.storage) {
+            var res = window.FB._sb.storage.from('avatars').getPublicUrl(raw);
+            if (res && res.data && res.data.publicUrl) return res.data.publicUrl;
+        }
+    } catch (e) {}
+
+    return '';
 }
 
 // ══════════════════════════════════════════
