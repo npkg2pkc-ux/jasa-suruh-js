@@ -636,15 +636,11 @@
                     </div>
                     <form id="commissionForm" class="od-settings-form">
                         <div class="od-form-row">
-                            <label>Biaya Platform</label>
-                            <div class="od-input-group"><span class="od-input-prefix">Rp</span><input type="number" id="setPlatformFee" placeholder="2000" min="0"></div>
-                        </div>
-                        <div class="od-form-row">
                             <label>Ongkir per KM</label>
                             <div class="od-input-group"><span class="od-input-prefix">Rp</span><input type="number" id="setDeliveryFeePerKm" placeholder="3000" min="0"></div>
                         </div>
                         <div class="od-form-row">
-                            <label>Biaya Layanan</label>
+                            <label>Biaya Platform</label>
                             <div class="od-input-group"><input type="number" id="setServiceFeePercent" placeholder="10" min="0" max="100"><span class="od-input-suffix">%</span></div>
                         </div>
                         <div class="od-form-row">
@@ -1422,8 +1418,7 @@
             <div class="jap-price-breakdown hidden" id="japPriceBreakdown">
                 <div class="jap-pb-title">Rincian Biaya</div>
                 <div class="jap-pb-row"><span>Ongkos</span><span id="japPbBase">-</span></div>
-                <div class="jap-pb-row"><span id="japPbFeeLabel">Biaya layanan</span><span id="japPbFee">-</span></div>
-                <div class="jap-pb-row" id="japPbPlatformRow" style="display:none"><span>Biaya platform</span><span id="japPbPlatform">-</span></div>
+                <div class="jap-pb-row"><span id="japPbFeeLabel">Biaya platform</span><span id="japPbFee">-</span></div>
                 <div class="jap-pb-divider"></div>
                 <div class="jap-pb-row jap-pb-total"><span>Total Bayar</span><span id="japPbTotal">-</span></div>
             </div>

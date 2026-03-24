@@ -532,18 +532,16 @@ function createNewOrder(t) {
     FB.get('getSettings')
         .then(function (r) { return r.json(); })
         .then(function (sRes) {
-            var feePercent = 10, platformFee = 0;
+            var feePercent = 10;
             if (sRes.success && sRes.data) {
                 feePercent = Number(sRes.data.service_fee_percent) || 10;
-                platformFee = Number(sRes.data.platform_fee) || 0;
             }
-            var fee = Math.round(price * feePercent / 100) + platformFee;
+            var fee = Math.round(price * feePercent / 100);
             var totalCost = price + fee;
 
             openServicePaymentMethodModal({
                 basePrice: price,
                 feePercent: feePercent,
-                platformFee: platformFee,
                 fee: fee,
                 totalCost: totalCost
             }, function (paymentMethod) {
@@ -604,17 +602,12 @@ function openServicePaymentMethodModal(costDetail, onConfirm) {
     var detail = costDetail || {};
     var basePrice = Number(detail.basePrice) || 0;
     var feePercent = Number(detail.feePercent) || 0;
-    var platformFee = Number(detail.platformFee) || 0;
     var fee = Number(detail.fee) || 0;
     var totalCost = Number(detail.totalCost) || 0;
 
     var breakdownRows = ''
         + '<div class="svc-pay-breakdown-row"><span>Harga layanan</span><strong>' + formatRupiah(basePrice) + '</strong></div>'
-        + '<div class="svc-pay-breakdown-row"><span>Biaya layanan (' + feePercent + '%)</span><strong>' + formatRupiah(Math.round(basePrice * feePercent / 100)) + '</strong></div>';
-
-    if (platformFee > 0) {
-        breakdownRows += '<div class="svc-pay-breakdown-row"><span>Biaya platform</span><strong>' + formatRupiah(platformFee) + '</strong></div>';
-    }
+        + '<div class="svc-pay-breakdown-row"><span>Biaya platform (' + feePercent + '%)</span><strong>' + formatRupiah(Math.round(basePrice * feePercent / 100)) + '</strong></div>';
 
     breakdownRows += '<div class="svc-pay-breakdown-row total"><span>Total estimasi</span><strong>' + formatRupiah(totalCost) + '</strong></div>';
 
@@ -1077,14 +1070,12 @@ function _buildShopCheckoutData(store, session) {
     }
     var perKm = Number(_japPricePerKm) || 3000;
     var feePercent = 10;
-    var platformFee = 0;
     if (_shopSettingsCache) {
         feePercent = Number(_shopSettingsCache.service_fee_percent) || 10;
-        platformFee = Number(_shopSettingsCache.platform_fee) || 0;
         perKm = Number(_shopSettingsCache.delivery_fee_per_km) || 3000;
     }
     var deliveryFee = distKm > 0 ? Math.max(perKm, Math.round(distKm * perKm)) : perKm;
-    var fee = Math.round(subtotal * feePercent / 100) + platformFee;
+    var fee = Math.round(subtotal * feePercent / 100);
     var total = subtotal + deliveryFee + fee;
     return {
         subtotal: subtotal,
@@ -1127,7 +1118,7 @@ function openShopCheckoutModal() {
                 + '<div style="margin-top:12px;border-top:1px solid #eee;padding-top:10px;">'
                 + '<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Subtotal Produk</span><strong id="shopCoSubtotal"></strong></div>'
                 + '<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Ongkir <small id="shopCoDist"></small></span><strong id="shopCoDelivery"></strong></div>'
-                + '<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Biaya Layanan + Komisi</span><strong id="shopCoFee"></strong></div>'
+                + '<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Biaya Platform</span><strong id="shopCoFee"></strong></div>'
                 + '<div style="display:flex;justify-content:space-between;font-size:17px;"><strong>Total</strong><strong id="shopCoTotal"></strong></div>'
                 + '</div>'
                 + '<div style="margin-top:12px;">'
@@ -1349,7 +1340,6 @@ function openJSAntarPage() {
                     _japPricePerKm = Number(res.data.delivery_fee_per_km) || 3000;
                     _japBaseFare = Number(res.data.minimum_fee) || 5000;
                     _japServiceFeePercent = Number(res.data.service_fee_percent) || 10;
-                    _japPlatformFee = Number(res.data.platform_fee) || 0;
                 }
             })
             .catch(function () {});
@@ -1619,15 +1609,13 @@ function fetchJapRoute(fromLat, fromLng, toLat, toLng) {
 
 var _japSelectedPayment = 'jspay'; // 'jspay' or 'cod'
 var _japServiceFeePercent = 10;
-var _japPlatformFee = 0;
 
 function updateJapPriceInfo(distKm, durationMin) {
     var price = Math.max(_japBaseFare, Math.round(_japPricePerKm * distKm));
     price = Math.ceil(price / 500) * 500;
     var feePercent = _japServiceFeePercent || 10;
-    var platformFee = _japPlatformFee || 0;
     var serviceFee = Math.round(price * feePercent / 100);
-    var fee = serviceFee + platformFee;
+    var fee = serviceFee;
     var totalCost = price + fee;
 
     var distText = distKm < 1
@@ -1646,16 +1634,8 @@ function updateJapPriceInfo(distKm, durationMin) {
         bd.classList.remove('hidden');
         document.getElementById('japPbBase').textContent = formatRupiah(price);
         var feeLabel = document.getElementById('japPbFeeLabel');
-        if (feeLabel) feeLabel.textContent = 'Biaya layanan (' + feePercent + '%)';
+        if (feeLabel) feeLabel.textContent = 'Biaya platform (' + feePercent + '%)';
         document.getElementById('japPbFee').textContent = formatRupiah(serviceFee);
-        var pfRow = document.getElementById('japPbPlatformRow');
-        var pfVal = document.getElementById('japPbPlatform');
-        if (pfRow && pfVal && platformFee > 0) {
-            pfRow.style.display = '';
-            pfVal.textContent = formatRupiah(platformFee);
-        } else if (pfRow) {
-            pfRow.style.display = 'none';
-        }
         document.getElementById('japPbTotal').textContent = formatRupiah(totalCost);
     }
 
@@ -1704,7 +1684,7 @@ function onJapOrderClick() {
     }
     var btn = document.getElementById('japBtnOrder');
     var price = Number(btn.dataset.price) || 0;
-    var fee = Number(btn.dataset.fee) || (Math.round(price * (_japServiceFeePercent || 10) / 100) + (_japPlatformFee || 0));
+    var fee = Number(btn.dataset.fee) || Math.round(price * (_japServiceFeePercent || 10) / 100);
     var totalCost = Number(btn.dataset.total) || (price + fee);
     var paymentMethod = _japSelectedPayment || 'jspay';
     var note = (document.getElementById('japNote').value || '').trim();

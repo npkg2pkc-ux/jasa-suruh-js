@@ -466,7 +466,6 @@ var OwnerDashboard = (function () {
             .then(function (res) {
                 if (res.success && res.data) {
                     var s = res.data;
-                    if ($('setPlatformFee') && s.platform_fee) $('setPlatformFee').value = s.platform_fee;
                     if ($('setDeliveryFeePerKm') && s.delivery_fee_per_km) $('setDeliveryFeePerKm').value = s.delivery_fee_per_km;
                     if ($('setServiceFeePercent') && s.service_fee_percent) $('setServiceFeePercent').value = s.service_fee_percent;
                     if ($('setCommTalent') && s.commission_talent_percent) $('setCommTalent').value = s.commission_talent_percent;
@@ -480,7 +479,6 @@ var OwnerDashboard = (function () {
         e.preventDefault();
         if (!_isOwner()) { showToast('Hanya owner yang bisa mengubah komisi', 'error'); return; }
         var settings = {
-            platform_fee: $('setPlatformFee').value || '2000',
             delivery_fee_per_km: $('setDeliveryFeePerKm').value || '3000',
             service_fee_percent: $('setServiceFeePercent').value || '10',
             commission_talent_percent: $('setCommTalent').value || '15',
