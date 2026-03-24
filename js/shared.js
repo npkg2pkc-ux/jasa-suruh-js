@@ -167,78 +167,74 @@ function _switchToNextNotificationSource(sound) {
 function _playNotificationSound(vibratePattern) {
     try {
         var sound = _getNotificationAudio();
-        _resolveNotificationSoundSource().then(function (resolved) {
-            if (!resolved && !sound.src) _setAudioSourceByIndex(sound, _notificationCandidateIndex);
-            sound.pause();
-            try { sound.currentTime = 0; } catch (e) {}
-            sound.play().catch(function () {
-                if (_switchToNextNotificationSource(sound)) {
-                    sound.play().catch(function () {
-                        _beepWithWebAudio();
-                        if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
-                    });
-                    return;
-                }
+        var paths = [
+            'public/sound/Notification.mp3',
+            '/public/sound/Notification.mp3',
+            'sound/Notification.mp3',
+            '/sound/Notification.mp3'
+        ];
+        var idx = 0;
+
+        function tryNext() {
+            if (idx >= paths.length) {
                 _beepWithWebAudio();
-                if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
-            });
-        }).catch(function () {
-            try {
-                sound.pause();
-                try { sound.currentTime = 0; } catch (e) {}
-                sound.play().catch(function () {
-                    _beepWithWebAudio();
-                    if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
-                });
-            } catch (e) {
-                _beepWithWebAudio();
-                if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
+                return;
             }
-        });
+            sound.src = paths[idx];
+            sound.load();
+            var playPromise = sound.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(function(err) {
+                    console.warn("Play failed for " + paths[idx], err);
+                    idx++;
+                    tryNext();
+                });
+            }
+        }
+        
+        tryNext();
+
+        if (navigator.vibrate && vibratePattern) {
+            navigator.vibrate(vibratePattern);
+        }
     } catch (e) {
         _beepWithWebAudio();
-        if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
+        if (navigator.vibrate && vibratePattern) try { navigator.vibrate(vibratePattern); } catch(err){}
     }
 }
 
 // Unlock notification audio on first user interaction (required by iOS Safari)
 function _unlockAudio() {
     if (_mediaAudioUnlocked) return;
-    var unlockedByMedia = false;
-    var mediaAttempt;
 
     try {
         var audio = _getNotificationAudio();
-        mediaAttempt = _resolveNotificationSoundSource().then(function () {
-            var prevVolume = audio.volume;
-            audio.muted = false;
-            audio.volume = 0.01;
-            try { audio.currentTime = 0; } catch (e) {}
-            return audio.play().then(function () {
-                unlockedByMedia = true;
+        if (!audio.src) {
+            audio.src = 'public/sound/Notification.mp3';
+            audio.load();
+        }
+        var prevVolume = audio.volume;
+        audio.muted = false;
+        audio.volume = 0.01;
+        try { audio.currentTime = 0; } catch (e) {}
+
+        var playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(function () {
                 _mediaAudioUnlocked = true;
                 audio.pause();
                 try { audio.currentTime = 0; } catch (e) {}
-                audio.muted = false;
                 audio.volume = prevVolume;
-                return true;
             }).catch(function () {
-                audio.muted = false;
                 audio.volume = prevVolume;
-                return false;
             });
-        }).catch(function () {
-            audio.muted = false;
-            return false;
-        });
-    } catch (e) {
-        mediaAttempt = Promise.resolve(false);
-    }
+        }
+    } catch (e) {}
 
-    Promise.all([_resumeAudioContext(), mediaAttempt]).then(function (results) {
-        _ctxAudioUnlocked = !!(results && results[0]);
+    _resumeAudioContext().then(function (res) {
+        _ctxAudioUnlocked = !!res;
         _audioUnlocked = _mediaAudioUnlocked || _ctxAudioUnlocked;
-        if (_mediaAudioUnlocked) {
+        if (_mediaAudioUnlocked || _ctxAudioUnlocked) {
             document.removeEventListener('click', _unlockAudio);
             document.removeEventListener('pointerdown', _unlockAudio);
             document.removeEventListener('touchstart', _unlockAudio);
