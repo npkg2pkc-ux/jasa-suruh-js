@@ -9,6 +9,7 @@
 // ══════════════════════════════════════════
 var _audioUnlocked = false;
 var _notificationAudio = null;
+var _notificationAudioContext = null;
 var _notificationSoundCandidates = [
     '/public/sound/Notification.mp3',
     'public/sound/Notification.mp3',
@@ -19,6 +20,49 @@ var _notificationSoundCandidates = [
 ];
 var _notificationSoundSrc = _notificationSoundCandidates[0];
 var _notificationCandidateIndex = 0;
+
+function _getNotificationAudioContext() {
+    if (_notificationAudioContext) return _notificationAudioContext;
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    try {
+        _notificationAudioContext = new Ctx();
+    } catch (e) {
+        _notificationAudioContext = null;
+    }
+    return _notificationAudioContext;
+}
+
+function _beepWithWebAudio() {
+    var ctx = _getNotificationAudioContext();
+    if (!ctx || ctx.state !== 'running') return false;
+    try {
+        var now = ctx.currentTime;
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(880, now);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.15, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.24);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+function _resumeAudioContext() {
+    var ctx = _getNotificationAudioContext();
+    if (!ctx) return Promise.resolve(false);
+    if (ctx.state === 'running') return Promise.resolve(true);
+    return ctx.resume().then(function () { return ctx.state === 'running'; }).catch(function () { return false; });
+}
 
 function _setAudioSourceByIndex(audio, idx) {
     if (idx < 0 || idx >= _notificationSoundCandidates.length) return false;
@@ -55,13 +99,16 @@ function _playNotificationSound(vibratePattern) {
         sound.play().catch(function () {
             if (_switchToNextNotificationSource(sound)) {
                 sound.play().catch(function () {
+                    _beepWithWebAudio();
                     if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
                 });
                 return;
             }
+            _beepWithWebAudio();
             if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
         });
     } catch (e) {
+        _beepWithWebAudio();
         if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
     }
 }
@@ -69,19 +116,38 @@ function _playNotificationSound(vibratePattern) {
 // Unlock notification audio on first user interaction (required by iOS Safari)
 function _unlockAudio() {
     if (_audioUnlocked) return;
+    var unlockedByMedia = false;
+    var mediaAttempt;
+
     try {
         var audio = _getNotificationAudio();
         audio.muted = true;
         try { audio.currentTime = 0; } catch (e) {}
-        audio.play().then(function () {
+        mediaAttempt = audio.play().then(function () {
+            unlockedByMedia = true;
             audio.pause();
             try { audio.currentTime = 0; } catch (e) {}
             audio.muted = false;
+            return true;
         }).catch(function () {
             audio.muted = false;
+            return false;
         });
-    } catch (e) {}
-    _audioUnlocked = true;
+    } catch (e) {
+        mediaAttempt = Promise.resolve(false);
+    }
+
+    Promise.all([_resumeAudioContext(), mediaAttempt]).then(function (results) {
+        var ctxUnlocked = !!(results && results[0]);
+        _audioUnlocked = unlockedByMedia || ctxUnlocked;
+        if (_audioUnlocked) {
+            document.removeEventListener('click', _unlockAudio);
+            document.removeEventListener('touchstart', _unlockAudio);
+            document.removeEventListener('touchend', _unlockAudio);
+        }
+    }).catch(function () {
+        _audioUnlocked = false;
+    });
 }
 document.addEventListener('click', _unlockAudio);
 document.addEventListener('touchstart', _unlockAudio);
