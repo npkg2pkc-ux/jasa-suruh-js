@@ -10,35 +10,44 @@
 var _audioCtx = null;
 var _audioUnlocked = false;
 var _silentAudio = null;
+var _notificationAudio = null;
+var _notificationSoundSrc = 'public/sound/Notification.mp3';
 
-function _getAudioCtx() {
-    if (!_audioCtx) {
-        _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function _getNotificationAudio() {
+    if (!_notificationAudio) {
+        _notificationAudio = new Audio(_notificationSoundSrc);
+        _notificationAudio.preload = 'auto';
+        _notificationAudio.volume = 1;
     }
-    if (_audioCtx.state === 'suspended') _audioCtx.resume();
-    return _audioCtx;
+    return _notificationAudio;
 }
 
-// Unlock AudioContext on first user interaction (required by iOS Safari)
+function _playNotificationSound(vibratePattern) {
+    try {
+        var sound = new Audio(_notificationSoundSrc);
+        sound.volume = 1;
+        sound.play().catch(function () {
+            if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
+        });
+    } catch (e) {
+        if (navigator.vibrate && vibratePattern) navigator.vibrate(vibratePattern);
+    }
+}
+
+// Unlock notification audio on first user interaction (required by iOS Safari)
 function _unlockAudio() {
     if (_audioUnlocked) return;
     try {
-        var ctx = _getAudioCtx();
-        if (ctx.state === 'suspended') ctx.resume();
-        // Play silent buffer to unlock
-        var buf = ctx.createBuffer(1, 1, 22050);
-        var src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.connect(ctx.destination);
-        if (src.start) src.start(0); else src.noteOn(0);
-    } catch (e) {}
-    // Also unlock HTML5 Audio for iOS fallback
-    try {
-        if (!_silentAudio) {
-            _silentAudio = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRwBHAAAAAAD/+xBkAA/wAABpAAAACAAADSAAAAEAAAGkAAAAIAAANIAAAARMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/7EGQeD/AAAGkAAAAIAAANIAAAAQAAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVQ==');
-            _silentAudio.volume = 0.01;
-        }
-        _silentAudio.play().then(function () { _silentAudio.pause(); }).catch(function () {});
+        var audio = _getNotificationAudio();
+        audio.muted = true;
+        audio.currentTime = 0;
+        audio.play().then(function () {
+            audio.pause();
+            audio.currentTime = 0;
+            audio.muted = false;
+        }).catch(function () {
+            audio.muted = false;
+        });
     } catch (e) {}
     _audioUnlocked = true;
 }
@@ -47,67 +56,12 @@ document.addEventListener('touchstart', _unlockAudio);
 document.addEventListener('touchend', _unlockAudio);
 
 function playBellSound() {
-    try {
-        var ctx = _getAudioCtx();
-        if (ctx.state === 'suspended') ctx.resume();
-        var t = ctx.currentTime;
-        [880, 1175].forEach(function (freq, i) {
-            var osc = ctx.createOscillator();
-            var gain = ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.value = freq;
-            gain.gain.setValueAtTime(0.3, t + i * 0.15);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.15 + 0.6);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start(t + i * 0.15);
-            osc.stop(t + i * 0.15 + 0.7);
-        });
-        setTimeout(function () {
-            try {
-                var t2 = ctx.currentTime;
-                [880, 1175].forEach(function (freq, i) {
-                    var osc = ctx.createOscillator();
-                    var gain = ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.value = freq;
-                    gain.gain.setValueAtTime(0.25, t2 + i * 0.15);
-                    gain.gain.exponentialRampToValueAtTime(0.001, t2 + i * 0.15 + 0.6);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start(t2 + i * 0.15);
-                    osc.stop(t2 + i * 0.15 + 0.7);
-                });
-            } catch (e) {}
-        }, 400);
-    } catch (e) {
-        // iOS fallback: use vibration
-        if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
-    }
+    _playNotificationSound([200, 100, 200, 100, 200]);
 }
 window.playBellSound = playBellSound;
 
 function playMessageSound() {
-    try {
-        var ctx = _getAudioCtx();
-        if (ctx.state === 'suspended') ctx.resume();
-        var t = ctx.currentTime;
-        var freqs = [660, 880];
-        freqs.forEach(function (freq, i) {
-            var osc = ctx.createOscillator();
-            var gain = ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.value = freq;
-            gain.gain.setValueAtTime(0.2, t + i * 0.12);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.12 + 0.3);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start(t + i * 0.12);
-            osc.stop(t + i * 0.12 + 0.35);
-        });
-    } catch (e) {
-        if (navigator.vibrate) navigator.vibrate(100);
-    }
+    _playNotificationSound([100]);
 }
 window.playMessageSound = playMessageSound;
 
