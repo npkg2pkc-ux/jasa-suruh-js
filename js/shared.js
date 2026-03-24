@@ -19,7 +19,10 @@ var _notificationSoundCandidates = (function () {
     var candidates = [
         '/public/sound/Notification.mp3',
         './public/sound/Notification.mp3',
-        'public/sound/Notification.mp3'
+        'public/sound/Notification.mp3',
+        '/sound/Notification.mp3',
+        './sound/Notification.mp3',
+        'sound/Notification.mp3'
     ];
 
     try {
@@ -111,6 +114,10 @@ function _resolveNotificationSoundSource() {
             fetch(probeUrl, { method: 'GET', cache: 'no-store' })
                 .then(function (resp) {
                     if (!resp || !resp.ok) throw new Error('bad-response');
+                    var contentType = String((resp.headers && resp.headers.get('content-type')) || '').toLowerCase();
+                    if (contentType && contentType.indexOf('audio') === -1 && contentType.indexOf('octet-stream') === -1) {
+                        throw new Error('not-audio-response');
+                    }
                     _notificationCandidateIndex = idx;
                     return resp.blob();
                 })
