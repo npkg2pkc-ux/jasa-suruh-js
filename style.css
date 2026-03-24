@@ -736,6 +736,16 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     flex-direction:column;
     gap:10px;
 }
+.seller-top-grid {
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+}
+.seller-identity-group {
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+}
 .seller-store-form .form-group { margin-bottom:0; }
 .seller-store-form label {
     font-size:13px;
@@ -759,6 +769,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     border:1px solid rgba(255,107,0,.16);
     border-radius:16px;
     padding:10px;
+    height:100%;
 }
 .seller-store-photo-area {
     display:flex;
@@ -767,13 +778,14 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     min-height:96px;
 }
 .seller-store-upload-btn {
-    width:auto;
-    min-height:72px;
+    width:100%;
+    min-height:84px;
     padding:12px 14px;
     border-radius:14px;
     gap:7px;
-    align-items:flex-start;
-    text-align:left;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
 }
 .seller-store-upload-btn svg {
     width:20px;
@@ -785,7 +797,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 }
 .seller-store-photo-preview {
     width:100%;
-    max-width:132px;
+    max-width:100%;
     border-radius:14px;
     overflow:hidden;
     border:1px solid rgba(255,107,0,.2);
@@ -793,7 +805,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 }
 .seller-store-photo-preview img {
     width:100%;
-    height:88px;
+    height:92px;
     max-height:none;
     object-fit:cover;
     border-radius:0;
@@ -805,6 +817,23 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     right:6px;
     font-size:16px;
     background:rgba(2,6,23,.72);
+}
+
+@media (min-width:410px) {
+    .seller-top-grid {
+        grid-template-columns:148px minmax(0,1fr);
+        align-items:stretch;
+    }
+    .seller-store-upload-btn {
+        min-height:100px;
+        padding:10px;
+    }
+    .seller-store-upload-btn span {
+        font-size:11px;
+    }
+    .seller-store-photo-preview img {
+        height:108px;
+    }
 }
 
 /* Ensure account-related seller modal appears above settings page layer */
