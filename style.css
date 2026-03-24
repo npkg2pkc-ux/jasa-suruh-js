@@ -432,6 +432,64 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .topup-chip:active { transform:scale(.95); }
 .topup-chip.active { border-color:var(--orange); background:var(--orange-light); color:var(--orange); }
 
+/* Service order payment picker */
+.svc-pay-modal {
+    border-radius:24px 24px 0 0;
+}
+.svc-pay-options {
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+.svc-pay-btn {
+    display:flex;
+    align-items:center;
+    gap:12px;
+    width:100%;
+    background:#fff;
+    border:1.5px solid var(--gray-200);
+    border-radius:14px;
+    padding:12px 14px;
+    text-align:left;
+    font-family:var(--font);
+    cursor:pointer;
+    transition:var(--tr);
+}
+.svc-pay-btn:active {
+    transform:scale(.98);
+}
+.svc-pay-btn.active {
+    border-color:var(--orange);
+    background:linear-gradient(180deg,#FFF8F1 0%, #FFF2E6 100%);
+    box-shadow:0 8px 20px rgba(255,107,0,.14);
+}
+.svc-pay-icon {
+    width:34px;
+    height:34px;
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--orange-subtle);
+    font-size:18px;
+    flex-shrink:0;
+}
+.svc-pay-btn span {
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    min-width:0;
+}
+.svc-pay-btn strong {
+    font-size:14px;
+    color:var(--black);
+}
+.svc-pay-btn small {
+    font-size:11px;
+    color:var(--gray-600);
+    line-height:1.35;
+}
+
 /* ========== XENDIT BADGE & INFO ========== */
 .xendit-badge { display:flex; align-items:center; justify-content:center; gap:6px; background:#f0f6ff; color:#1a56db; font-size:12px; font-weight:500; padding:8px 12px; border-radius:var(--r-sm); margin-bottom:14px; }
 .xendit-logo { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; background:linear-gradient(135deg,#0047FF,#00BFFF); color:#fff; font-size:13px; font-weight:800; border-radius:6px; letter-spacing:-0.5px; }

@@ -384,9 +384,11 @@ function openTalentDetail(t) {
 
     var photo = t.photo;
     var profilePhoto = resolveTalentProfilePhoto(t);
+    var skillDef = SKILL_DEFS.find(function (d) { return d.type === (t.skill.type || ''); });
+    var heroIcon = skillDef ? skillDef.icon : '🧰';
     var heroHtml = photo
         ? '<img src="' + photo + '" alt="">'
-        : '<div class="tdp-hero-placeholder">🧹</div>';
+        : '<div class="tdp-hero-placeholder">' + heroIcon + '</div>';
 
     var distText = '';
     if (t.distance >= 0) {
@@ -526,8 +528,6 @@ function createNewOrder(t) {
 
     var price = Number(t.skill.price) || 0;
 
-    showToast('Memproses pembayaran...', 'success');
-
     // Fetch settings for dynamic fee
     FB.get('getSettings')
         .then(function (r) { return r.json(); })
@@ -540,53 +540,96 @@ function createNewOrder(t) {
             var fee = Math.round(price * feePercent / 100) + platformFee;
             var totalCost = price + fee;
 
-            if (getWalletBalance() < totalCost) {
-                showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Silakan top up dulu.', 'error');
-                openTopUpModal();
-                return;
-            }
-
-            var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
-
-            var orderData = {
-                action: 'createOrder',
-                id: orderId,
-                userId: session.id,
-                talentId: t.user.id,
-                skillType: t.skill.type || '',
-                serviceType: t.skill.serviceType || t.skill.name || '',
-                description: t.skill.description || '',
-                price: price,
-                fee: fee,
-                totalCost: totalCost,
-                paymentMethod: 'jspay',
-                userLat: session.lat || 0,
-                userLng: session.lng || 0,
-                userAddr: session.address || '',
-                talentLat: t.user.lat || 0,
-                talentLng: t.user.lng || 0
-            };
-
-            // Create order WITHOUT deducting balance.
-            // Payment will be processed when talent accepts the order.
-            return backendPost(orderData).then(function (res) {
-                if (res && res.success) {
-                    var order = res.data || orderData;
-                    order.status = 'pending';
-                    order.createdAt = Date.now();
-                    order.talentName = t.user.name;
-                    order.userName = session.name;
-                    showToast('Pesanan berhasil dibuat! Menunggu konfirmasi talent...', 'success');
-                    document.getElementById('talentDetailPage').classList.add('hidden');
-                    document.getElementById('serviceTalentPage').classList.add('hidden');
-                    openOrderTracking(order);
-                } else {
-                    showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
+            openServicePaymentMethodModal(totalCost, function (paymentMethod) {
+                if ((paymentMethod || 'jspay') === 'jspay' && getWalletBalance() < totalCost) {
+                    showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Silakan top up dulu.', 'error');
+                    openTopUpModal();
+                    return;
                 }
+
+                var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+
+                var orderData = {
+                    action: 'createOrder',
+                    id: orderId,
+                    userId: session.id,
+                    talentId: t.user.id,
+                    skillType: t.skill.type || '',
+                    serviceType: t.skill.serviceType || t.skill.name || '',
+                    description: t.skill.description || '',
+                    price: price,
+                    fee: fee,
+                    totalCost: totalCost,
+                    paymentMethod: paymentMethod || 'jspay',
+                    userLat: session.lat || 0,
+                    userLng: session.lng || 0,
+                    userAddr: session.address || '',
+                    talentLat: t.user.lat || 0,
+                    talentLng: t.user.lng || 0
+                };
+
+                // Create order WITHOUT deducting balance.
+                // Payment will be processed when talent accepts the order.
+                return backendPost(orderData).then(function (res) {
+                    if (res && res.success) {
+                        var order = res.data || orderData;
+                        order.status = 'pending';
+                        order.createdAt = Date.now();
+                        order.talentName = t.user.name;
+                        order.userName = session.name;
+                        showToast('Pesanan berhasil dibuat! Menunggu konfirmasi talent...', 'success');
+                        document.getElementById('talentDetailPage').classList.add('hidden');
+                        document.getElementById('serviceTalentPage').classList.add('hidden');
+                        openOrderTracking(order);
+                    } else {
+                        showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
+                    }
+                });
             });
         }).catch(function () {
             showToast('Gagal memproses pesanan', 'error');
         });
+}
+
+function openServicePaymentMethodModal(totalCost, onConfirm) {
+    var existing = document.getElementById('servicePaymentModal');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'servicePaymentModal';
+    overlay.className = 'wallet-modal-overlay';
+    overlay.innerHTML = '<div class="wallet-modal svc-pay-modal">'
+        + '<div class="wallet-modal-header"><h3>Metode Pembayaran</h3><button class="wallet-modal-close" id="svcPayClose">&times;</button></div>'
+        + '<div class="wallet-modal-body">'
+        + '<p class="wallet-modal-balance">Total estimasi: <strong>' + formatRupiah(totalCost) + '</strong></p>'
+        + '<div class="svc-pay-options">'
+        + '<button type="button" class="svc-pay-btn active" data-method="jspay"><span class="svc-pay-icon">💳</span><span><strong>JSPay</strong><small>Saldo dipotong saat talent menerima pesanan</small></span></button>'
+        + '<button type="button" class="svc-pay-btn" data-method="cod"><span class="svc-pay-icon">💵</span><span><strong>COD</strong><small>Bayar tunai langsung ke talent</small></span></button>'
+        + '</div>'
+        + '<button class="btn-primary" id="svcPayConfirmBtn" style="margin-top:12px">Lanjutkan Pesanan</button>'
+        + '</div>'
+        + '</div>';
+
+    document.body.appendChild(overlay);
+
+    var selected = 'jspay';
+    var close = function () { overlay.remove(); };
+
+    overlay.querySelector('#svcPayClose').addEventListener('click', close);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+
+    overlay.querySelectorAll('.svc-pay-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            selected = btn.dataset.method || 'jspay';
+            overlay.querySelectorAll('.svc-pay-btn').forEach(function (b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+        });
+    });
+
+    overlay.querySelector('#svcPayConfirmBtn').addEventListener('click', function () {
+        close();
+        if (typeof onConfirm === 'function') onConfirm(selected);
+    });
 }
 
 // ══════════════════════════════════════════
