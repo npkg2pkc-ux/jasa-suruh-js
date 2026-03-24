@@ -2615,6 +2615,177 @@ function resetBottomNavToHome() {
 window.resetBottomNavToHome = resetBottomNavToHome;
 
 // ══════════════════════════════════════════
+// ═══ TALENT EARNINGS MODAL ═══
+// ══════════════════════════════════════════
+function _talentOrderTimestamp(order) {
+    return Number(order.completedAt || order.ratedAt || order.updatedAt || order.createdAt || 0);
+}
+
+function _buildTalentEarningsData(orders, talentId) {
+    var myCompleted = orders.filter(function (o) {
+        return o.talentId === talentId && (o.status === 'completed' || o.status === 'rated');
+    });
+
+    myCompleted.sort(function (a, b) { return _talentOrderTimestamp(b) - _talentOrderTimestamp(a); });
+
+    var now = new Date();
+    var startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    var startWeek = startToday - (6 * 24 * 60 * 60 * 1000);
+
+    var total = 0;
+    var today = 0;
+    var week = 0;
+    var grouped = {};
+
+    myCompleted.forEach(function (o) {
+        var amount = Number(o.price) || 0;
+        var ts = _talentOrderTimestamp(o);
+        var service = o.serviceType || o.skillType || 'Layanan Lain';
+
+        total += amount;
+        if (ts >= startToday) today += amount;
+        if (ts >= startWeek) week += amount;
+
+        if (!grouped[service]) grouped[service] = { name: service, amount: 0, count: 0 };
+        grouped[service].amount += amount;
+        grouped[service].count += 1;
+    });
+
+    var serviceSummary = Object.keys(grouped).map(function (k) { return grouped[k]; })
+        .sort(function (a, b) { return b.amount - a.amount; })
+        .slice(0, 3);
+
+    return {
+        total: total,
+        today: today,
+        week: week,
+        jobs: myCompleted.length,
+        avg: myCompleted.length ? Math.round(total / myCompleted.length) : 0,
+        services: serviceSummary,
+        recent: myCompleted.slice(0, 20)
+    };
+}
+
+function _formatTalentOrderDate(ts) {
+    if (!ts) return '-';
+    var d = new Date(ts);
+    return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) + ' • '
+        + d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+}
+
+function _closeTalentEarningsModal() {
+    var modal = document.getElementById('talentEarningModal');
+    if (modal) modal.remove();
+    resetBottomNavToHome();
+}
+
+function _renderTalentEarningsModalContent(container, session, orders) {
+    var stats = _buildTalentEarningsData(orders, session.id);
+
+    var servicesHtml = '';
+    if (stats.services.length > 0) {
+        servicesHtml = stats.services.map(function (s) {
+            return '<div class="te-service-item">'
+                + '<div class="te-service-main">'
+                + '<div class="te-service-name">' + escapeHtml(s.name) + '</div>'
+                + '<div class="te-service-count">' + s.count + ' pesanan</div>'
+                + '</div>'
+                + '<div class="te-service-amount">' + formatRupiah(s.amount) + '</div>'
+                + '</div>';
+        }).join('');
+    } else {
+        servicesHtml = '<div class="te-empty-inline">Belum ada layanan selesai.</div>';
+    }
+
+    var recentHtml = '';
+    if (stats.recent.length > 0) {
+        recentHtml = stats.recent.map(function (o) {
+            var amount = Number(o.price) || 0;
+            var status = o.status === 'rated' ? 'Dinilai' : 'Selesai';
+            return '<div class="te-tx-item">'
+                + '<div class="te-tx-left">'
+                + '<div class="te-tx-title">' + escapeHtml(o.serviceType || o.skillType || 'Layanan') + '</div>'
+                + '<div class="te-tx-meta">' + _formatTalentOrderDate(_talentOrderTimestamp(o)) + ' • ' + status + '</div>'
+                + '</div>'
+                + '<div class="te-tx-amount">' + formatRupiah(amount) + '</div>'
+                + '</div>';
+        }).join('');
+    } else {
+        recentHtml = '<div class="te-empty">'
+            + '<div class="te-empty-icon">💼</div>'
+            + '<p>Belum ada pendapatan. Selesaikan pesanan pertama Anda.</p>'
+            + '</div>';
+    }
+
+    container.innerHTML = '<div class="te-header-card">'
+        + '<div class="te-header-label">Total Pendapatan</div>'
+        + '<div class="te-header-total">' + formatRupiah(stats.total) + '</div>'
+        + '<div class="te-header-sub">' + stats.jobs + ' pesanan selesai • Rata-rata ' + formatRupiah(stats.avg) + '/pesanan</div>'
+        + '</div>'
+        + '<div class="te-kpi-grid">'
+        + '<div class="te-kpi"><span class="te-kpi-label">Hari Ini</span><strong>' + formatRupiah(stats.today) + '</strong></div>'
+        + '<div class="te-kpi"><span class="te-kpi-label">7 Hari</span><strong>' + formatRupiah(stats.week) + '</strong></div>'
+        + '</div>'
+        + '<div class="te-section">'
+        + '<h4>Layanan Teratas</h4>'
+        + '<div class="te-service-list">' + servicesHtml + '</div>'
+        + '</div>'
+        + '<div class="te-section">'
+        + '<h4>Riwayat Pendapatan</h4>'
+        + '<div class="te-tx-list">' + recentHtml + '</div>'
+        + '</div>';
+}
+
+function openTalentEarningsModal() {
+    var session = getSession();
+    if (!session || session.role !== 'talent') {
+        showToast('Menu ini khusus untuk akun Talent', 'error');
+        return;
+    }
+
+    var existing = document.getElementById('talentEarningModal');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'talentEarningModal';
+    overlay.className = 'wallet-modal-overlay';
+    overlay.innerHTML = '<div class="wallet-modal te-modal">'
+        + '<div class="wallet-modal-header te-modal-header">'
+        + '<h3>📈 Pendapatan Talent</h3>'
+        + '<button class="wallet-modal-close" id="talentEarningClose">&times;</button>'
+        + '</div>'
+        + '<div class="wallet-modal-body te-modal-body" id="talentEarningBody">'
+        + '<div class="te-loading">Memuat data pendapatan...</div>'
+        + '</div>'
+        + '</div>';
+
+    document.body.appendChild(overlay);
+
+    var closeBtn = document.getElementById('talentEarningClose');
+    if (closeBtn) closeBtn.addEventListener('click', _closeTalentEarningsModal);
+    overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) _closeTalentEarningsModal();
+    });
+
+    FB.get('getOrdersByUser', { userId: session.id })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            var body = document.getElementById('talentEarningBody');
+            if (!body) return;
+            if (!res || !res.success || !Array.isArray(res.data)) {
+                body.innerHTML = '<div class="te-loading">Gagal memuat data pendapatan.</div>';
+                return;
+            }
+            _renderTalentEarningsModalContent(body, session, res.data);
+        })
+        .catch(function () {
+            var body = document.getElementById('talentEarningBody');
+            if (body) body.innerHTML = '<div class="te-loading">Koneksi bermasalah. Coba lagi.</div>';
+        });
+}
+window.openTalentEarningsModal = openTalentEarningsModal;
+
+// ══════════════════════════════════════════
 // ═══ BOTTOM NAV ═══
 // ══════════════════════════════════════════
 function setupBottomNav() {
@@ -2635,7 +2806,12 @@ function setupBottomNav() {
                     var prodSec = document.getElementById('penjualProductsSection');
                     if (prodSec) prodSec.scrollIntoView({ behavior: 'smooth' });
                 } else if (page === 'earning') {
-                    showToast('Rincian pendapatan segera hadir! 🚀');
+                    var session3 = typeof getSession === 'function' ? getSession() : null;
+                    if (session3 && session3.role === 'talent') {
+                        openTalentEarningsModal();
+                    } else {
+                        showToast('Menu pendapatan khusus Talent', 'info');
+                    }
                 } else if (page === 'home') {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 } else if (page === 'akun' || page === 'profil' || page === 'settings') {
