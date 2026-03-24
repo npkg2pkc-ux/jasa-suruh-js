@@ -14,6 +14,7 @@ var STORAGE_SESSION = 'js_session';
 var STORAGE_SKILLS = 'js_skills';
 var STORAGE_PHOTOS = 'js_skill_photos';
 var STORAGE_PROFILE_PHOTOS = 'js_profile_photos';
+var STORAGE_DELETED_COOLDOWNS = 'js_deleted_cooldowns';
 
 // ══════════════════════════════════════════
 // ═══ SHARED STATE (used across files) ═══
@@ -172,6 +173,7 @@ function generateId() {
 }
 
 function initDB() {
+    clearExpiredAccountDeletionCooldowns();
     var users = getUsers();
     var ownerExists = users.some(function (u) { return u.username === OWNER_USERNAME && u.role === 'owner'; });
     if (!ownerExists) {
@@ -239,6 +241,72 @@ function getProfilePhoto(userId) {
 function saveProfilePhoto(userId, dataUrl) {
     try { var p = JSON.parse(localStorage.getItem(STORAGE_PROFILE_PHOTOS)) || {}; p[userId] = dataUrl; localStorage.setItem(STORAGE_PROFILE_PHOTOS, JSON.stringify(p)); }
     catch (e) {}
+}
+
+function normalizePhoneForCooldown(phone) {
+    var cleaned = String(phone || '').replace(/\D/g, '');
+    if (!cleaned) return '';
+    if (cleaned.startsWith('0')) cleaned = '62' + cleaned.slice(1);
+    else if (!cleaned.startsWith('62')) cleaned = '62' + cleaned;
+    return cleaned;
+}
+
+function getDeletedCooldowns() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_DELETED_COOLDOWNS)) || {}; }
+    catch (e) { return {}; }
+}
+
+function saveDeletedCooldowns(map) {
+    localStorage.setItem(STORAGE_DELETED_COOLDOWNS, JSON.stringify(map || {}));
+}
+
+function clearExpiredAccountDeletionCooldowns() {
+    var now = Date.now();
+    var map = getDeletedCooldowns();
+    var next = {};
+    Object.keys(map).forEach(function (phone) {
+        var item = map[phone] || {};
+        var until = Number(item.blockedUntil || 0);
+        if (until > now) next[phone] = item;
+    });
+    saveDeletedCooldowns(next);
+}
+
+function getAccountDeletionCooldownInfo(phone) {
+    clearExpiredAccountDeletionCooldowns();
+    var normalized = normalizePhoneForCooldown(phone);
+    if (!normalized) return { blocked: false, remainingMs: 0, blockedUntil: 0 };
+
+    var map = getDeletedCooldowns();
+    var entry = map[normalized] || null;
+    if (!entry) return { blocked: false, remainingMs: 0, blockedUntil: 0 };
+
+    var blockedUntil = Number(entry.blockedUntil || 0);
+    var remainingMs = Math.max(0, blockedUntil - Date.now());
+    if (remainingMs <= 0) return { blocked: false, remainingMs: 0, blockedUntil: 0 };
+
+    return {
+        blocked: true,
+        remainingMs: remainingMs,
+        blockedUntil: blockedUntil,
+        deletedAt: Number(entry.deletedAt || 0),
+        role: entry.role || ''
+    };
+}
+
+function setAccountDeletionCooldown(phone, durationMs, meta) {
+    var normalized = normalizePhoneForCooldown(phone);
+    if (!normalized) return;
+
+    clearExpiredAccountDeletionCooldowns();
+    var map = getDeletedCooldowns();
+    var ms = Math.max(0, Number(durationMs) || (48 * 60 * 60 * 1000));
+    map[normalized] = {
+        blockedUntil: Date.now() + ms,
+        deletedAt: Date.now(),
+        role: (meta && meta.role) || ''
+    };
+    saveDeletedCooldowns(map);
 }
 
 // ── Skills Storage ──

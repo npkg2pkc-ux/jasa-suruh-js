@@ -86,22 +86,11 @@ var LoginPage = (function () {
         // Save for next time
         localStorage.setItem(LAST_PHONE_KEY, _phoneRaw);
 
-        fetch('/api/otp/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: _phone })
-        })
-        .then(function (r) { return r.json(); })
+        AuthService.sendOTP(_phoneRaw)
         .then(function (result) {
             btn.disabled = false;
             text.textContent = 'Lanjutkan';
             spinner.classList.add('hidden');
-
-            if (!result.success) {
-                error.textContent = result.message || 'Gagal mengirim OTP';
-                error.classList.remove('hidden');
-                return;
-            }
 
             // Show OTP step
             _savePendingOTP();
@@ -111,7 +100,7 @@ var LoginPage = (function () {
             btn.disabled = false;
             text.textContent = 'Lanjutkan';
             spinner.classList.add('hidden');
-            error.textContent = 'Koneksi gagal. Coba lagi.';
+            error.textContent = err && err.message ? err.message : 'Koneksi gagal. Coba lagi.';
             error.classList.remove('hidden');
         });
     }

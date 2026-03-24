@@ -16,6 +16,8 @@ var AccountPage = (function () {
         cs: 'CS',
         owner: 'Owner'
     };
+    var DELETE_CONFIRM_TEXT = 'hapus akun saya';
+    var ACCOUNT_DELETE_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 
     // ─── DOM Cache ───
     function $(id) { return document.getElementById(id); }
@@ -83,6 +85,7 @@ var AccountPage = (function () {
         var role = rawRole === 'seller' ? 'penjual' : rawRole;
 
         _toggleStoreItem(role);
+        _toggleDeleteItem(role);
 
         $('accProfileName').textContent = u.nama || '-';
         $('accValName').textContent = u.nama || '-';
@@ -107,6 +110,7 @@ var AccountPage = (function () {
         var rawRole = session.role || 'user';
         var role = rawRole === 'seller' ? 'penjual' : rawRole;
         _toggleStoreItem(role);
+        _toggleDeleteItem(role);
         $('accProfileName').textContent = session.name || session.nama || '-';
         $('accValName').textContent = session.name || session.nama || '-';
         $('accValPhone').textContent = session.phone || session.no_hp || '-';
@@ -179,6 +183,15 @@ var AccountPage = (function () {
         else storeItem.classList.add('hidden');
     }
 
+    function _toggleDeleteItem(role) {
+        var delItem = $('accItemDeleteAccount');
+        if (!delItem) return;
+        var r = String(role || '').toLowerCase();
+        var allowed = (r === 'user' || r === 'pengguna' || r === 'talent' || r === 'penjual' || r === 'seller');
+        if (allowed) delItem.classList.remove('hidden');
+        else delItem.classList.add('hidden');
+    }
+
     // ─── Setup Events (once) ───
     function _setupEvents() {
         _initialized = true;
@@ -246,6 +259,29 @@ var AccountPage = (function () {
         $('accItemPin').addEventListener('click', function () {
             if (typeof showToast === 'function') showToast('Fitur Ubah PIN segera hadir', 'info');
         });
+
+        // Delete account
+        var delItem = $('accItemDeleteAccount');
+        if (delItem) {
+            delItem.addEventListener('click', function () {
+                _openDeleteAccountModal();
+            });
+        }
+        var delOverlay = $('accDeleteOverlay');
+        if (delOverlay) delOverlay.addEventListener('click', _closeDeleteAccountModal);
+        var delCancel = $('accDeleteCancelBtn');
+        if (delCancel) delCancel.addEventListener('click', _closeDeleteAccountModal);
+        var delInput = $('accDeleteInput');
+        if (delInput) {
+            delInput.addEventListener('input', _updateDeleteConfirmState);
+            delInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && !$('accDeleteConfirmBtn').disabled) {
+                    _deleteAccount();
+                }
+            });
+        }
+        var delConfirm = $('accDeleteConfirmBtn');
+        if (delConfirm) delConfirm.addEventListener('click', _deleteAccount);
 
         var storeItem = $('accItemStore');
         if (storeItem) {
@@ -504,6 +540,143 @@ var AccountPage = (function () {
     // ─── Logout Modal ───
     function _closeLogoutModal() {
         $('accLogoutConfirm').classList.add('hidden');
+    }
+
+    function _openDeleteAccountModal() {
+        var session = getSession();
+        var role = String((session && session.role) || '').toLowerCase();
+        var allowed = (role === 'user' || role === 'pengguna' || role === 'talent' || role === 'penjual' || role === 'seller');
+        if (!allowed) {
+            if (typeof showToast === 'function') showToast('Fitur ini hanya untuk user, talent, atau penjual.', 'error');
+            return;
+        }
+
+        var modal = $('accDeleteConfirm');
+        if (!modal) return;
+        $('accDeleteInput').value = '';
+        $('accDeleteError').classList.add('hidden');
+        _updateDeleteConfirmState();
+        modal.classList.remove('hidden');
+        setTimeout(function () { $('accDeleteInput').focus(); }, 100);
+    }
+
+    function _closeDeleteAccountModal() {
+        var modal = $('accDeleteConfirm');
+        if (modal) modal.classList.add('hidden');
+        $('accDeleteError').classList.add('hidden');
+    }
+
+    function _updateDeleteConfirmState() {
+        var input = $('accDeleteInput');
+        var confirmBtn = $('accDeleteConfirmBtn');
+        if (!input || !confirmBtn) return;
+        var okPhrase = String(input.value || '').trim().toLowerCase() === DELETE_CONFIRM_TEXT;
+        confirmBtn.disabled = !okPhrase;
+    }
+
+    function _removeLocalAccountData(userId) {
+        var uid = String(userId || '');
+        if (!uid) return;
+
+        // Remove user from local users cache.
+        var users = getUsers();
+        saveUsers(users.filter(function (u) { return String(u.id) !== uid; }));
+
+        // Remove profile photo cache.
+        try {
+            var p = JSON.parse(localStorage.getItem(STORAGE_PROFILE_PHOTOS)) || {};
+            delete p[uid];
+            localStorage.setItem(STORAGE_PROFILE_PHOTOS, JSON.stringify(p));
+        } catch (e) {}
+
+        // Remove skills cache for this user.
+        try {
+            var s = JSON.parse(localStorage.getItem(STORAGE_SKILLS)) || {};
+            delete s[uid];
+            localStorage.setItem(STORAGE_SKILLS, JSON.stringify(s));
+        } catch (e) {}
+
+        // Remove skill photo cache for this user.
+        try {
+            var sp = JSON.parse(localStorage.getItem(STORAGE_PHOTOS)) || {};
+            delete sp[uid];
+            localStorage.setItem(STORAGE_PHOTOS, JSON.stringify(sp));
+        } catch (e) {}
+    }
+
+    function _deleteAccount() {
+        var input = $('accDeleteInput');
+        var errEl = $('accDeleteError');
+        var confirmBtn = $('accDeleteConfirmBtn');
+        var confirmText = $('accDeleteConfirmText');
+        var spinner = $('accDeleteSpinner');
+        var session = getSession();
+
+        if (!session) {
+            if (errEl) {
+                errEl.textContent = 'Sesi tidak ditemukan. Silakan login ulang.';
+                errEl.classList.remove('hidden');
+            }
+            return;
+        }
+
+        var phrase = String((input && input.value) || '').trim().toLowerCase();
+        if (phrase !== DELETE_CONFIRM_TEXT) {
+            if (errEl) {
+                errEl.textContent = 'Teks konfirmasi harus persis: Hapus akun saya';
+                errEl.classList.remove('hidden');
+            }
+            return;
+        }
+
+        if (!isBackendConnected()) {
+            if (errEl) {
+                errEl.textContent = 'Perlu koneksi internet untuk menghapus akun dari database.';
+                errEl.classList.remove('hidden');
+            }
+            return;
+        }
+
+        confirmBtn.disabled = true;
+        confirmText.textContent = 'Menghapus...';
+        spinner.classList.remove('hidden');
+        if (errEl) errEl.classList.add('hidden');
+
+        var normalizedPhone = normalizePhoneForCooldown(session.no_hp || session.phone || '');
+        backendPost({
+            action: 'delete',
+            id: session.id,
+            phone: normalizedPhone,
+            role: session.role || '',
+            cooldownMs: ACCOUNT_DELETE_COOLDOWN_MS
+        }).then(function (res) {
+            confirmBtn.disabled = false;
+            confirmText.textContent = 'Ya, Hapus Akun';
+            spinner.classList.add('hidden');
+
+            if (!res || !res.success) {
+                if (errEl) {
+                    errEl.textContent = (res && res.message) ? res.message : 'Gagal menghapus akun. Coba lagi.';
+                    errEl.classList.remove('hidden');
+                }
+                return;
+            }
+
+            if (normalizedPhone) {
+                setAccountDeletionCooldown(normalizedPhone, ACCOUNT_DELETE_COOLDOWN_MS, { role: session.role || '' });
+            }
+
+            _removeLocalAccountData(session.id);
+            _closeDeleteAccountModal();
+            $('settingsPage').classList.add('hidden');
+            clearSession();
+            if (typeof showPage === 'function') showPage('login');
+            if (typeof LoginPage !== 'undefined' && LoginPage.reset) LoginPage.reset();
+            if (typeof RegisterPage !== 'undefined' && RegisterPage.reset) RegisterPage.reset();
+            if (typeof showToast === 'function') {
+                showToast('Akun berhasil dihapus. Nomor ini bisa daftar lagi dalam 2x24 jam.', 'success');
+            }
+        });
     }
 
     return { open: open };

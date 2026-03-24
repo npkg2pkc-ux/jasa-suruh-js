@@ -8,6 +8,23 @@
 
     function ok(data) { return { success: true, data: data }; }
     function fail(msg) { return { success: false, message: msg || 'Error' }; }
+    var ACCOUNT_DELETE_COOLDOWN_KEY = 'account_delete_cooldowns';
+    var ACCOUNT_DELETE_COOLDOWN_MS = 48 * 60 * 60 * 1000;
+
+    function normalizePhone(phone) {
+        var cleaned = String(phone || '').replace(/\D/g, '');
+        if (!cleaned) return '';
+        if (cleaned.startsWith('0')) cleaned = '62' + cleaned.slice(1);
+        else if (!cleaned.startsWith('62')) cleaned = '62' + cleaned;
+        return cleaned;
+    }
+
+    function formatCooldownMessage(remainingMs) {
+        var total = Math.max(0, Math.ceil((remainingMs || 0) / 1000));
+        var hours = Math.floor(total / 3600);
+        var minutes = Math.floor((total % 3600) / 60);
+        return 'Akun ini baru saja dihapus. Coba daftar lagi dalam ' + hours + ' jam ' + minutes + ' menit.';
+    }
 
     function buildUnavailableApi(reason) {
         var message = reason || 'Supabase belum siap';
@@ -202,6 +219,86 @@
             });
     }
 
+    function _getDeletionCooldownMap() {
+        return sb.from('settings').select('data')
+            .eq('key', ACCOUNT_DELETE_COOLDOWN_KEY)
+            .single()
+            .then(function (res) {
+                if (res.error && res.error.code === 'PGRST116') return {};
+                throwIfError(res);
+                return (res.data && res.data.data) || {};
+            });
+    }
+
+    function _saveDeletionCooldownMap(map) {
+        return sb.from('settings').upsert({
+            key: ACCOUNT_DELETE_COOLDOWN_KEY,
+            data: map || {}
+        }).then(function (res) {
+            throwIfError(res);
+            return map || {};
+        });
+    }
+
+    function _pruneDeletionCooldownMap(map, nowTs) {
+        var now = Number(nowTs || Date.now());
+        var src = map || {};
+        var out = {};
+        Object.keys(src).forEach(function (phone) {
+            var item = src[phone] || {};
+            var until = Number(item.blockedUntil || 0);
+            if (until > now) out[phone] = item;
+        });
+        return out;
+    }
+
+    function getAccountDeletionCooldown(phone) {
+        var normalized = normalizePhone(phone);
+        if (!normalized) return Promise.resolve(ok({ blocked: false, remainingMs: 0, blockedUntil: 0 }));
+
+        return _getDeletionCooldownMap()
+            .then(function (map) {
+                var now = Date.now();
+                var cleaned = _pruneDeletionCooldownMap(map, now);
+                if (Object.keys(cleaned).length !== Object.keys(map || {}).length) {
+                    _saveDeletionCooldownMap(cleaned).catch(function () {});
+                }
+
+                var item = cleaned[normalized] || null;
+                if (!item) return ok({ blocked: false, remainingMs: 0, blockedUntil: 0 });
+
+                var blockedUntil = Number(item.blockedUntil || 0);
+                var remainingMs = Math.max(0, blockedUntil - now);
+                if (remainingMs <= 0) return ok({ blocked: false, remainingMs: 0, blockedUntil: 0 });
+
+                return ok({
+                    blocked: true,
+                    remainingMs: remainingMs,
+                    blockedUntil: blockedUntil,
+                    deletedAt: Number(item.deletedAt || 0),
+                    role: item.role || ''
+                });
+            });
+    }
+
+    function setAccountDeletionCooldown(phone, durationMs, meta) {
+        var normalized = normalizePhone(phone);
+        if (!normalized) return Promise.resolve(ok(null));
+
+        var ms = Math.max(0, Number(durationMs) || ACCOUNT_DELETE_COOLDOWN_MS);
+        return _getDeletionCooldownMap()
+            .then(function (map) {
+                var next = _pruneDeletionCooldownMap(map, Date.now());
+                next[normalized] = {
+                    blockedUntil: Date.now() + ms,
+                    deletedAt: Date.now(),
+                    role: (meta && meta.role) || ''
+                };
+                return _saveDeletionCooldownMap(next);
+            })
+            .then(function () { return ok(null); });
+    }
+
     function getAllStores() {
         return sb.from('stores').select('data')
             .then(function (res) {
@@ -260,39 +357,82 @@
         userData.phone = phone;
         if (!userData.username) userData.username = phone;
 
-        var upsertData = {
-            id: userData.id,
-            username: userData.username,
-            role: userData.role || 'user',
-            nama: userData.name || userData.nama || '',
-            no_hp: phone,
-            email: userData.email || '',
-            foto_url: userData.foto_url || '',
-            data: userData
-        };
-
-        // Try upsert by id first; if username conflict, update by id instead
-        return sb.from('users').upsert(upsertData, { onConflict: 'id' })
-            .then(function (res) {
-                if (res.error && res.error.code === '23505') {
-                    // Username unique violation — update existing row by id
-                    delete upsertData.username;
-                    return sb.from('users').update(upsertData).eq('id', userData.id)
-                        .then(function (res2) {
-                            throwIfError(res2);
-                            return ok(userData);
-                        });
+        return getAccountDeletionCooldown(phone)
+            .then(function (cooldownRes) {
+                var cooldown = cooldownRes && cooldownRes.data;
+                if (cooldown && cooldown.blocked) {
+                    return fail(formatCooldownMessage(cooldown.remainingMs));
                 }
-                throwIfError(res);
-                return ok(userData);
+
+                var upsertData = {
+                    id: userData.id,
+                    username: userData.username,
+                    role: userData.role || 'user',
+                    nama: userData.name || userData.nama || '',
+                    no_hp: phone,
+                    email: userData.email || '',
+                    foto_url: userData.foto_url || '',
+                    data: userData
+                };
+
+                // Try upsert by id first; if username conflict, update by id instead
+                return sb.from('users').upsert(upsertData, { onConflict: 'id' })
+                    .then(function (res) {
+                        if (res.error && res.error.code === '23505') {
+                            // Username unique violation — update existing row by id
+                            delete upsertData.username;
+                            return sb.from('users').update(upsertData).eq('id', userData.id)
+                                .then(function (res2) {
+                                    throwIfError(res2);
+                                    return ok(userData);
+                                });
+                        }
+                        throwIfError(res);
+                        return ok(userData);
+                    });
             });
     }
 
-    function doDeleteUser(id) {
-        return sb.from('users').delete().eq('id', id)
+    function doDeleteUser(body) {
+        var userId = (body && body.id) ? body.id : body;
+        var cooldownMs = (body && body.cooldownMs) ? Number(body.cooldownMs) : ACCOUNT_DELETE_COOLDOWN_MS;
+
+        return sb.from('users').select('id, no_hp, role, data').eq('id', userId).single()
             .then(function (res) {
                 throwIfError(res);
-                return ok(null);
+                var row = res.data || {};
+                var data = row.data || {};
+                var phone = normalizePhone(row.no_hp || data.phone || (body && body.phone) || '');
+                var role = row.role || data.role || (body && body.role) || '';
+
+                var storesPromise = sb.from('stores').select('id').eq('user_id', userId)
+                    .then(function (sRes) {
+                        throwIfError(sRes);
+                        var storeIds = (sRes.data || []).map(function (r) { return r.id; }).filter(Boolean);
+                        if (storeIds.length === 0) return Promise.resolve();
+                        return sb.from('products').delete().in('store_id', storeIds)
+                            .then(function (pDelRes) {
+                                throwIfError(pDelRes);
+                                return sb.from('stores').delete().eq('user_id', userId)
+                                    .then(function (stDelRes) {
+                                        throwIfError(stDelRes);
+                                    });
+                            });
+                    });
+
+                return Promise.all([
+                    phone ? setAccountDeletionCooldown(phone, cooldownMs, { role: role }) : Promise.resolve(ok(null)),
+                    sb.from('skills').delete().eq('user_id', userId).then(function (r1) { throwIfError(r1); }),
+                    sb.from('wallets').delete().eq('user_id', userId).then(function (r2) { throwIfError(r2); }),
+                    sb.from('notifications').delete().eq('user_id', userId).then(function (r3) { throwIfError(r3); }),
+                    storesPromise
+                ]).then(function () {
+                    return sb.from('users').delete().eq('id', userId)
+                        .then(function (delRes) {
+                            throwIfError(delRes);
+                            return ok({ cooldownApplied: !!phone, phone: phone, cooldownMs: cooldownMs });
+                        });
+                });
             });
     }
 
@@ -1146,6 +1286,7 @@
             case 'getTalentRating': return getTalentRating(p.talentId);
             case 'getSellerRating': return getSellerRating(p.sellerId);
             case 'getSettings': return getSettings();
+            case 'getAccountDeletionCooldown': return getAccountDeletionCooldown(p.phone);
             case 'getAllStores': return getAllStores();
             case 'getStoresByUser': return getStoresByUser(p.userId);
             case 'getProductsByStore': return getProductsByStore(p.storeId);
@@ -1166,7 +1307,7 @@
             case 'register':
             case 'createCS':
             case 'createAdmin': return doRegister(body);
-            case 'delete': return doDeleteUser(body.id);
+            case 'delete': return doDeleteUser(body);
             case 'updateLocation': return doUpdateLocation(body);
             case 'updateSkills': return doUpdateSkills(body);
             case 'createOrder': return doCreateOrder(body);

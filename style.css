@@ -1700,6 +1700,9 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .acc-item-value { font-size:15px; font-weight:600; color:var(--black); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .acc-item-sub { font-size:13px; font-weight:500; color:var(--gray-400); }
 .acc-item-chevron { color:var(--gray-300); flex-shrink:0; }
+.acc-item-danger .acc-item-icon { background:#FEF2F2; color:var(--red); }
+.acc-item-danger .acc-item-label,
+.acc-item-danger .acc-item-value { color:#B91C1C; }
 
 /* — Logout Button — */
 .acc-section-logout { padding:8px 16px 0; }
@@ -1747,6 +1750,7 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .acc-logout-actions { flex-direction:column; }
 .acc-logout-confirm-btn { background:var(--red); color:var(--white); flex:1; padding:14px; border-radius:var(--r-lg); font-size:15px; font-weight:700; cursor:pointer; font-family:var(--font); border:none; transition:var(--tr); }
 .acc-logout-confirm-btn:active { opacity:.85; }
+.acc-logout-confirm-btn:disabled { opacity:.55; cursor:not-allowed; }
 
 /* ========== TALENT SELFIE BADGE ON SERVICE CARDS ========== */
 .stc-img { position:relative; }
