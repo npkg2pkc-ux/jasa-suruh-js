@@ -433,6 +433,7 @@ var LoginPage = (function () {
             username: parsed.username || normalizedPhone,
             password: '',
             role: normalizedRole,
+            isOnline: (typeof parsed.isOnline === 'boolean') ? parsed.isOnline : false,
             email: dbUser.email || parsed.email || '',
             foto_url: dbUser.foto_url || '',
             createdAt: parsed.createdAt || Date.now(),

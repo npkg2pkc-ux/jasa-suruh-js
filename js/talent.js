@@ -373,6 +373,49 @@ function setupTalentToggle() {
     var label = document.getElementById('talentStatusLabel');
     if (!toggle || !label) return;
 
+    function applyOnlineUI(isOnline) {
+        toggle.checked = !!isOnline;
+        label.textContent = isOnline ? 'Online' : 'Offline';
+        label.classList.toggle('online', !!isOnline);
+    }
+
+    function saveOnlineState(isOnline) {
+        var session = getSession();
+        if (!session) return;
+
+        session.isOnline = !!isOnline;
+        setSession(session);
+
+        var users = getUsers();
+        var idx = users.findIndex(function (u) { return String(u.id) === String(session.id); });
+        if (idx >= 0) {
+            users[idx].isOnline = !!isOnline;
+            saveUsers(users);
+        }
+    }
+
+    function restoreOnlineState() {
+        var session = getSession();
+        if (!session || session.role !== 'talent') {
+            applyOnlineUI(false);
+            return;
+        }
+
+        var isOnline = null;
+        if (typeof session.isOnline === 'boolean') {
+            isOnline = session.isOnline;
+        } else {
+            var users = getUsers();
+            var me = users.find(function (u) { return String(u.id) === String(session.id); });
+            if (me && typeof me.isOnline === 'boolean') isOnline = me.isOnline;
+        }
+
+        applyOnlineUI(!!isOnline);
+    }
+
+    // Initial restore (important when app is reopened).
+    restoreOnlineState();
+
     function hasValidLocation(session) {
         if (!session) return false;
         var lat = Number(session.lat);
@@ -413,8 +456,8 @@ function setupTalentToggle() {
             if (!session) return;
 
             var goOnline = function () {
-                label.textContent = 'Online';
-                label.classList.add('online');
+                applyOnlineUI(true);
+                saveOnlineState(true);
                 showToast('Anda sekarang Online! ✅', 'success');
                 backendPost({ action: 'setOnlineStatus', userId: session.id, isOnline: true });
             };
@@ -427,9 +470,8 @@ function setupTalentToggle() {
                     goOnline();
                 }).catch(function () {
                     toggle.disabled = false;
-                    toggle.checked = false;
-                    label.textContent = 'Offline';
-                    label.classList.remove('online');
+                    applyOnlineUI(false);
+                    saveOnlineState(false);
                     showToast('Aktifkan izin lokasi agar bisa Online.', 'error');
                 });
                 return;
@@ -439,8 +481,8 @@ function setupTalentToggle() {
             syncTalentLocation(session).then(function () {}).catch(function () {});
             goOnline();
         } else {
-            label.textContent = 'Offline';
-            label.classList.remove('online');
+            applyOnlineUI(false);
+            saveOnlineState(false);
             showToast('Anda sekarang Offline', 'error');
             if (session) backendPost({ action: 'setOnlineStatus', userId: session.id, isOnline: false });
         }
@@ -452,6 +494,28 @@ function setupTalentToggle() {
             openNotifPopup();
         });
     }
+}
+
+function syncTalentOnlineToggleFromSession() {
+    var toggle = document.getElementById('talentOnlineToggle');
+    var label = document.getElementById('talentStatusLabel');
+    if (!toggle || !label) return;
+
+    var session = getSession();
+    if (!session || session.role !== 'talent') return;
+
+    var isOnline = null;
+    if (typeof session.isOnline === 'boolean') {
+        isOnline = session.isOnline;
+    } else {
+        var users = getUsers();
+        var me = users.find(function (u) { return String(u.id) === String(session.id); });
+        if (me && typeof me.isOnline === 'boolean') isOnline = me.isOnline;
+    }
+
+    toggle.checked = !!isOnline;
+    label.textContent = isOnline ? 'Online' : 'Offline';
+    label.classList.toggle('online', !!isOnline);
 }
 
 // ══════════════════════════════════════════

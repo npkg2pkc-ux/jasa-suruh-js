@@ -558,6 +558,9 @@ function updateRoleUI(user) {
     } else if (role === 'talent') {
         var el2 = document.getElementById('talentName');
         if (el2) el2.textContent = user.name || 'Talent';
+        if (typeof syncTalentOnlineToggleFromSession === 'function') {
+            syncTalentOnlineToggleFromSession();
+        }
         displayUserAddress(user);
         captureLocation(user.id);
         renderTalentSkills();
