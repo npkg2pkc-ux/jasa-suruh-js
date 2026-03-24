@@ -2767,6 +2767,38 @@ function handleSplash() {
     var _ptr_threshold = 80;
     var _ptr_indicator = null;
 
+    function isPullRefreshAllowed() {
+        var activePage = document.querySelector('.page:not(.hidden)');
+        if (!activePage) return false;
+
+        var allowedPages = {
+            'page-user': true,
+            'page-talent': true,
+            'page-penjual': true,
+            'page-cs': true,
+            'page-owner': true
+        };
+
+        if (!allowedPages[activePage.id]) return false;
+
+        // For pages with bottom navigation, allow only when Home tab is active.
+        var bottomNav = activePage.querySelector('.bottom-nav');
+        if (bottomNav) {
+            var activeNavItem = bottomNav.querySelector('.nav-item.active');
+            if (!activeNavItem || activeNavItem.dataset.page !== 'home') return false;
+        }
+
+        // Disable pull-to-refresh when any fullscreen/sub-page is open.
+        if (document.querySelector('.stp-page:not(.hidden)')) return false;
+
+        // Disable pull-to-refresh while modal/overlay UI is shown.
+        if (document.querySelector('.modal-overlay:not(.hidden), .acc-modal:not(.hidden), .search-overlay:not(.hidden), .notif-popup:not(.hidden), .order-notif-popup:not(.hidden), .app-update-popup:not(.hidden), .wallet-modal-overlay')) {
+            return false;
+        }
+
+        return true;
+    }
+
     function createIndicator() {
         if (_ptr_indicator) return _ptr_indicator;
         var el = document.createElement('div');
@@ -2806,13 +2838,14 @@ function handleSplash() {
     }
 
     document.addEventListener('touchstart', function (e) {
+        if (!isPullRefreshAllowed()) return;
         if (!isAtTop()) return;
         _ptr_startY = e.touches[0].clientY;
         _ptr_pulling = true;
     }, { passive: true });
 
     document.addEventListener('touchmove', function (e) {
-        if (!_ptr_pulling || !isAtTop()) return;
+        if (!_ptr_pulling || !isPullRefreshAllowed() || !isAtTop()) return;
         _ptr_currentY = e.touches[0].clientY;
         var dist = _ptr_currentY - _ptr_startY;
         if (dist < 0) return;
@@ -2835,6 +2868,19 @@ function handleSplash() {
 
     document.addEventListener('touchend', function () {
         if (!_ptr_pulling) return;
+
+        if (!isPullRefreshAllowed()) {
+            _ptr_pulling = false;
+            _ptr_currentY = 0;
+            _ptr_startY = 0;
+            if (_ptr_indicator) {
+                _ptr_indicator.classList.remove('ptr-visible', 'ptr-ready', 'ptr-loading');
+                _ptr_indicator.style.transform = 'translateX(-50%) translateY(-60px)';
+                _ptr_indicator.style.opacity = '0';
+            }
+            return;
+        }
+
         var dist = _ptr_currentY - _ptr_startY;
         _ptr_pulling = false;
         _ptr_currentY = 0;
