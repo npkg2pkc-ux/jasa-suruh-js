@@ -474,6 +474,43 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     display:flex;
     flex-direction:column;
     gap:10px;
+    margin-top:12px;
+}
+.svc-pay-breakdown {
+    border:1px solid #F1DDC9;
+    background:linear-gradient(180deg,#FFF9F2 0%, #FFF3E8 100%);
+    border-radius:14px;
+    padding:10px 12px;
+}
+.svc-pay-breakdown-title {
+    font-size:12px;
+    font-weight:800;
+    color:#B45309;
+    margin-bottom:8px;
+}
+.svc-pay-breakdown-row {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    font-size:12px;
+    color:var(--gray-700);
+    padding:4px 0;
+}
+.svc-pay-breakdown-row strong {
+    color:var(--black);
+    font-size:12px;
+}
+.svc-pay-breakdown-row.total {
+    margin-top:6px;
+    padding-top:8px;
+    border-top:1px dashed #E8C9AB;
+    font-weight:700;
+}
+.svc-pay-breakdown-row.total strong {
+    color:var(--orange-dark);
+    font-size:15px;
+    font-weight:800;
 }
 .svc-pay-btn {
     display:flex;

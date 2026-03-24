@@ -540,7 +540,13 @@ function createNewOrder(t) {
             var fee = Math.round(price * feePercent / 100) + platformFee;
             var totalCost = price + fee;
 
-            openServicePaymentMethodModal(totalCost, function (paymentMethod) {
+            openServicePaymentMethodModal({
+                basePrice: price,
+                feePercent: feePercent,
+                platformFee: platformFee,
+                fee: fee,
+                totalCost: totalCost
+            }, function (paymentMethod) {
                 if ((paymentMethod || 'jspay') === 'jspay' && getWalletBalance() < totalCost) {
                     showToast('Saldo tidak cukup! Butuh ' + formatRupiah(totalCost) + '. Silakan top up dulu.', 'error');
                     openTopUpModal();
@@ -591,9 +597,26 @@ function createNewOrder(t) {
         });
 }
 
-function openServicePaymentMethodModal(totalCost, onConfirm) {
+function openServicePaymentMethodModal(costDetail, onConfirm) {
     var existing = document.getElementById('servicePaymentModal');
     if (existing) existing.remove();
+
+    var detail = costDetail || {};
+    var basePrice = Number(detail.basePrice) || 0;
+    var feePercent = Number(detail.feePercent) || 0;
+    var platformFee = Number(detail.platformFee) || 0;
+    var fee = Number(detail.fee) || 0;
+    var totalCost = Number(detail.totalCost) || 0;
+
+    var breakdownRows = ''
+        + '<div class="svc-pay-breakdown-row"><span>Harga layanan</span><strong>' + formatRupiah(basePrice) + '</strong></div>'
+        + '<div class="svc-pay-breakdown-row"><span>Biaya layanan (' + feePercent + '%)</span><strong>' + formatRupiah(Math.round(basePrice * feePercent / 100)) + '</strong></div>';
+
+    if (platformFee > 0) {
+        breakdownRows += '<div class="svc-pay-breakdown-row"><span>Biaya platform</span><strong>' + formatRupiah(platformFee) + '</strong></div>';
+    }
+
+    breakdownRows += '<div class="svc-pay-breakdown-row total"><span>Total estimasi</span><strong>' + formatRupiah(totalCost) + '</strong></div>';
 
     var overlay = document.createElement('div');
     overlay.id = 'servicePaymentModal';
@@ -601,7 +624,10 @@ function openServicePaymentMethodModal(totalCost, onConfirm) {
     overlay.innerHTML = '<div class="wallet-modal svc-pay-modal">'
         + '<div class="wallet-modal-header"><h3>Metode Pembayaran</h3><button class="wallet-modal-close" id="svcPayClose">&times;</button></div>'
         + '<div class="wallet-modal-body">'
-        + '<p class="wallet-modal-balance">Total estimasi: <strong>' + formatRupiah(totalCost) + '</strong></p>'
+        + '<div class="svc-pay-breakdown">'
+        + '<div class="svc-pay-breakdown-title">Rincian Biaya</div>'
+        + breakdownRows
+        + '</div>'
         + '<div class="svc-pay-options">'
         + '<button type="button" class="svc-pay-btn active" data-method="jspay"><span class="svc-pay-icon">💳</span><span><strong>JSPay</strong><small>Saldo dipotong saat talent menerima pesanan</small></span></button>'
         + '<button type="button" class="svc-pay-btn" data-method="cod"><span class="svc-pay-icon">💵</span><span><strong>COD</strong><small>Bayar tunai langsung ke talent</small></span></button>'
