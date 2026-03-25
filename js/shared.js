@@ -2929,10 +2929,16 @@ function renderOrderCards(orders) {
             if (!totalQty || totalQty < 1) totalQty = 1;
 
             var subtotal = Number(o.price) || 0;
-            var deliveryFee = Number(o.deliveryFee) || 0;
-            var serviceFee = Number(o.fee) || 0;
-            var totalTx = Number(o.totalCost);
-            if (!isFinite(totalTx) || totalTx <= 0) totalTx = subtotal + deliveryFee + serviceFee;
+            var sellerCommissionSetting = (typeof _penjualSettingsCache !== 'undefined' && _penjualSettingsCache)
+                ? _penjualSettingsCache.commission_penjual_percent
+                : null;
+            var commissionPercent = Number(o.commissionPercent || sellerCommissionSetting || 10);
+            if (!isFinite(commissionPercent) || commissionPercent < 0) commissionPercent = 10;
+            var commissionAmount = Number(o.commissionAmount);
+            if (!isFinite(commissionAmount) || commissionAmount < 0) {
+                commissionAmount = Math.round(subtotal * commissionPercent / 100);
+            }
+            var sellerNet = Math.max(0, subtotal - commissionAmount);
 
             var paymentLabel = (o.paymentMethod === 'cod') ? 'Tunai (COD)' : 'JsPay';
             var paymentChipClass = (o.paymentMethod === 'cod') ? 'is-cod' : 'is-jspay';
@@ -2941,12 +2947,9 @@ function renderOrderCards(orders) {
             });
             var orderCode = String(o.id || '').slice(0, 10);
 
-            var financeRows = '<div class="olp-seller-fin-row"><span>Subtotal Produk</span><strong>' + formatRupiah(subtotal) + '</strong></div>';
-            if (deliveryFee > 0) {
-                financeRows += '<div class="olp-seller-fin-row"><span>Biaya Pengantaran</span><strong>' + formatRupiah(deliveryFee) + '</strong></div>';
-            }
-            financeRows += '<div class="olp-seller-fin-row"><span>Biaya Layanan</span><strong>' + formatRupiah(serviceFee) + '</strong></div>';
-            financeRows += '<div class="olp-seller-fin-row total"><span>Total Transaksi</span><strong>' + formatRupiah(totalTx) + '</strong></div>';
+            var financeRows = '<div class="olp-seller-fin-row"><span>Nilai Produk Terjual</span><strong>' + formatRupiah(subtotal) + '</strong></div>';
+            financeRows += '<div class="olp-seller-fin-row"><span>Potongan Komisi (' + commissionPercent + '%)</span><strong>-' + formatRupiah(commissionAmount) + '</strong></div>';
+            financeRows += '<div class="olp-seller-fin-row total"><span>Diterima Seller</span><strong>' + formatRupiah(sellerNet) + '</strong></div>';
 
             var sellerRatingHtml = '';
             if (o.status === 'rated' && Number(o.sellerRating) > 0) {
