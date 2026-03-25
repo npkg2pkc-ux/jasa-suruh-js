@@ -4103,6 +4103,24 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .sf-btn-solid { flex: 1; background: #EE4D2D; color: #FFF; border: none; padding: 14px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .sf-btn-outline { flex: 1; background: #FFF; border: 1px solid #EE4D2D; color: #EE4D2D; padding: 14px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
 
+@media (max-width:420px) {
+    .sf-progress-wrap {
+        padding: 14px;
+        gap: 12px;
+    }
+
+    .sf-status-main-text {
+        font-size: 18px;
+        max-width: 100%;
+    }
+
+    .sf-status-icon-illustration {
+        width: 56px;
+        height: 56px;
+        font-size: 28px;
+    }
+}
+
 @media (max-width:390px) {
     .main-content,
     .od-main,
@@ -4183,5 +4201,50 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
         width:100%;
         font-size:13px;
         padding:12px;
+    }
+
+    .sf-progress-wrap {
+        padding: 12px;
+        border-radius: 12px;
+    }
+
+    .sf-progress-bar {
+        --track-inset: 10px;
+        --step-size: 22px;
+    }
+
+    .sf-status-main-text {
+        font-size: 16px;
+        line-height: 1.25;
+    }
+
+    .sf-progress-hint {
+        margin-top: 12px;
+        font-size: 11px;
+    }
+}
+
+@media (max-width:360px) {
+    .sf-progress-wrap {
+        padding: 11px;
+    }
+
+    .sf-status-header {
+        gap: 8px;
+    }
+
+    .sf-status-main-text {
+        font-size: 15px;
+    }
+
+    .sf-status-icon-illustration {
+        width: 50px;
+        height: 50px;
+        font-size: 24px;
+    }
+
+    .sf-progress-bar {
+        --track-inset: 8px;
+        --step-size: 20px;
     }
 }
