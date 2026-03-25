@@ -706,14 +706,6 @@ function showPenjualOrderNotification(order) {
     if (typeof playBellSound === 'function') playBellSound();
     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
 
-    addNotifItem({
-        icon: '🛒',
-        title: 'Pesanan Baru dari ' + userName,
-        desc: (order.serviceType || 'Pesanan Produk') + (priceText ? ' - ' + priceText : ''),
-        type: 'order',
-        orderId: order.id
-    });
-
     var dismissBtn = document.getElementById('notifBtnDismiss');
     var acceptBtn = document.getElementById('notifBtnAccept');
 

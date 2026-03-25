@@ -785,15 +785,6 @@ function showOrderNotification(order) {
     playBellSound();
     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
 
-    // Add to notification list (DB-backed)
-    addNotifItem({
-        icon: '📦',
-        title: 'Pesanan Baru dari ' + userName,
-        desc: (order.serviceType || 'Layanan') + (priceText ? ' - ' + priceText : ''),
-        type: 'order',
-        orderId: order.id
-    });
-
     var dismissBtn = document.getElementById('notifBtnDismiss');
     var acceptBtn = document.getElementById('notifBtnAccept');
 
