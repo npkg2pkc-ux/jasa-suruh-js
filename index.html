@@ -460,7 +460,7 @@
                     <div class="od-header-top">
                         <div class="od-greeting">
                             <span class="od-greeting-hi" id="ownerGreeting">Halo, Owner 👋</span>
-                            <span class="od-greeting-sub">Ringkasan performa platform hari ini</span>
+                            <span class="od-greeting-sub">Ringkasan operasional dan keuangan owner</span>
                         </div>
                         <div class="od-header-actions">
                             <button class="od-notif-btn" id="ownerNotifBtn">
@@ -537,7 +537,7 @@
                                     <div class="od-kpi-icon od-kpi-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                                     <div class="od-kpi-info">
                                         <span class="od-kpi-value" id="ownerRevenue"><span class="od-skeleton-text"></span></span>
-                                        <span class="od-kpi-label">Pendapatan</span>
+                                        <span class="od-kpi-label">Fee Platform</span>
                                     </div>
                                     <span class="od-kpi-trend od-trend-up" id="ownerTrendRevenue" style="display:none">↑ 0%</span>
                                 </div>
@@ -553,7 +553,7 @@
 
                             <section class="od-chart-section">
                                 <div class="od-section-head">
-                                    <h3>📊 Pendapatan & Pesanan</h3>
+                                    <h3>Tren Fee Platform & Pesanan</h3>
                                     <select class="od-chart-select" id="ownerChartRange">
                                         <option value="7">7 Hari</option>
                                         <option value="14">14 Hari</option>
@@ -562,7 +562,7 @@
                                 </div>
                                 <div class="od-chart-kpis">
                                     <div class="od-chart-kpi">
-                                        <span>Total Pendapatan</span>
+                                        <span>Total Fee Platform</span>
                                         <strong id="ownerChartRevenueTotal">Rp 0</strong>
                                     </div>
                                     <div class="od-chart-kpi">
@@ -588,10 +588,12 @@
                                     <div class="od-wallet-bg"></div>
                                     <div class="od-wallet-content">
                                         <div class="od-wallet-top">
-                                            <span class="od-wallet-label">Ringkasan Keuangan Platform</span>
+                                            <span class="od-wallet-label">Saldo Dompet Owner</span>
                                             <span class="od-wallet-balance" id="ownerWalletBalance">Rp 0</span>
                                             <div class="od-wallet-metrics">
-                                                <span class="od-wallet-metric">Pendapatan Hari Ini: <strong id="ownerTodayRevenue">Rp 0</strong></span>
+                                                <span class="od-wallet-metric">Fee Hari Ini: <strong id="ownerTodayRevenue">Rp 0</strong></span>
+                                                <span class="od-wallet-metric" id="ownerRevenueBasis">Akumulasi fee seluruh order selesai</span>
+                                                <span class="od-wallet-metric od-wallet-metric-gap is-plus" id="ownerRevenueGap">Selisih saldo vs fee: Rp 0</span>
                                             </div>
                                         </div>
                                         <div class="od-wallet-actions">

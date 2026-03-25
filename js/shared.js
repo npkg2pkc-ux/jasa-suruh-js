@@ -299,6 +299,10 @@ function updateWalletDisplay(balance) {
     // Owner wallet
     var ow = document.getElementById('ownerWalletBalance');
     if (ow) ow.textContent = formatted;
+
+    if (typeof window.syncOwnerFinancePreview === 'function') {
+        window.syncOwnerFinancePreview();
+    }
 }
 
 function getWalletBalance() {

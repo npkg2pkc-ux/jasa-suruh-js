@@ -2726,6 +2726,223 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     font-weight:700;
 }
 
+/* ─── Owner Redesign: Operational First ─── */
+#page-owner {
+    background:linear-gradient(180deg,#F8FAFC 0%, #F1F5F9 52%, #E2E8F0 100%);
+}
+
+#page-owner .od-header {
+    border-radius:0 0 20px 20px;
+    box-shadow:0 10px 18px rgba(15,23,42,.08);
+    border-bottom:1px solid #E2E8F0;
+}
+
+#page-owner .od-header-bg {
+    background:
+        radial-gradient(circle at 88% -16%, rgba(59,130,246,.2) 0%, rgba(59,130,246,0) 48%),
+        linear-gradient(180deg,#FFFFFF 0%, #F8FAFC 100%);
+}
+
+#page-owner .od-greeting-hi {
+    color:#0F172A;
+    font-size:19px;
+}
+
+#page-owner .od-greeting-sub {
+    color:#64748B;
+    font-size:12px;
+    font-weight:600;
+}
+
+#page-owner .od-notif-btn {
+    background:#EFF6FF;
+    color:#1D4ED8;
+    border:1px solid #DBEAFE;
+    border-radius:12px;
+}
+
+#page-owner .od-logout-btn {
+    background:#FEF2F2;
+    color:#DC2626;
+    border:1px solid #FECACA;
+}
+
+#page-owner .od-filter-pills {
+    gap:6px;
+    padding:2px;
+}
+
+#page-owner .od-pill {
+    background:#EEF2FF;
+    color:#475569;
+    border:1px solid #DBEAFE;
+    font-weight:700;
+}
+
+#page-owner .od-pill.active {
+    background:#1D4ED8;
+    color:#fff;
+    border-color:#1D4ED8;
+    box-shadow:none;
+}
+
+#page-owner .od-panel-shell {
+    border:1px solid #E2E8F0;
+    background:linear-gradient(180deg,#FFFFFF 0%, #F8FAFC 100%);
+    box-shadow:0 12px 24px rgba(15,23,42,.08);
+}
+
+#page-owner .od-panel-glow {
+    display:none;
+}
+
+#page-owner .od-panel-head {
+    background:#FFFFFF;
+    border-bottom:1px solid #E2E8F0;
+}
+
+#page-owner .od-kpi-grid {
+    gap:10px;
+}
+
+#page-owner .od-kpi-card {
+    border-radius:14px;
+    border:1px solid #E2E8F0;
+    box-shadow:none;
+    min-height:104px;
+}
+
+#page-owner .od-kpi-card::after {
+    display:none;
+}
+
+#page-owner .od-kpi-value {
+    font-size:34px;
+    letter-spacing:-.4px;
+}
+
+#page-owner .od-kpi-label {
+    color:#64748B;
+}
+
+#page-owner .od-chart-section,
+#page-owner .od-wallet-card,
+#page-owner .od-quick-btn,
+#page-owner .od-activity-section,
+#page-owner .od-users-section,
+#page-owner .od-settings-card {
+    border:1px solid #E2E8F0;
+    box-shadow:none;
+    background:#FFFFFF;
+}
+
+#page-owner .od-chart-wrap {
+    height:212px;
+    padding-top:4px;
+}
+
+#page-owner .od-wallet-card {
+    border-radius:16px;
+    overflow:hidden;
+}
+
+#page-owner .od-wallet-bg {
+    background:
+        radial-gradient(circle at 88% -10%, rgba(30,64,175,.16) 0%, rgba(30,64,175,0) 44%),
+        linear-gradient(135deg,#FFFFFF 0%, #EFF6FF 62%, #E2E8F0 100%);
+}
+
+#page-owner .od-wallet-label {
+    color:#1E3A8A;
+    letter-spacing:.5px;
+}
+
+#page-owner .od-wallet-balance {
+    color:#0F172A;
+    font-size:36px;
+}
+
+#page-owner .od-wallet-metrics {
+    display:grid;
+    grid-template-columns:1fr;
+    gap:6px;
+}
+
+#page-owner .od-wallet-metric {
+    font-size:12px;
+    font-weight:700;
+    color:#475569;
+}
+
+#page-owner .od-wallet-metric-gap {
+    border-radius:10px;
+    border:1px solid #E2E8F0;
+    padding:7px 10px;
+    background:#F8FAFC;
+}
+
+#page-owner .od-wallet-metric-gap.is-plus {
+    border-color:#A7F3D0;
+    background:#ECFDF5;
+    color:#166534;
+}
+
+#page-owner .od-wallet-metric-gap.is-minus {
+    border-color:#FECACA;
+    background:#FEF2F2;
+    color:#B91C1C;
+}
+
+#page-owner .od-wallet-actions {
+    gap:8px;
+}
+
+#page-owner .od-wallet-btn {
+    font-weight:700;
+}
+
+#page-owner .od-wbtn-withdraw {
+    background:#EA580C;
+    box-shadow:none;
+}
+
+#page-owner .od-wbtn-history {
+    background:#E0E7FF;
+    color:#1E3A8A;
+}
+
+#page-owner .od-quick-grid {
+    grid-template-columns:1fr;
+}
+
+#page-owner .od-quick-btn {
+    min-height:auto;
+    display:grid;
+    grid-template-columns:44px 1fr;
+    grid-template-areas:
+        "icon title"
+        "icon desc";
+    align-items:center;
+    gap:2px 10px;
+    padding:12px;
+}
+
+#page-owner .od-quick-title {
+    grid-area:title;
+    font-size:13px;
+    margin-bottom:2px;
+}
+
+#page-owner .od-quick-desc {
+    grid-area:desc;
+    font-size:11px;
+}
+
+#page-owner .od-quick-btn .od-quick-icon {
+    grid-area:icon;
+    flex-shrink:0;
+}
+
 @media (max-width:360px) {
     #page-owner .od-panel-view {
         padding:10px 10px calc(92px + env(safe-area-inset-bottom, 0px));

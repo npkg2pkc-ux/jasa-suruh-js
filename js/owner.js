@@ -308,6 +308,7 @@ var OwnerDashboard = (function () {
         var filtered = _filterByRange(completed);
         var totalRevenue = filtered.reduce(function (sum, o) { return sum + (Number(o.fee) || 0); }, 0);
         _setKPIValue('ownerRevenue', formatRp(totalRevenue));
+        _syncOwnerFinancialSummary(totalRevenue);
 
         var today = new Date(); today.setHours(0, 0, 0, 0);
         var todayRevenue = completed
@@ -315,6 +316,38 @@ var OwnerDashboard = (function () {
             .reduce(function (sum, o) { return sum + (Number(o.fee) || 0); }, 0);
         var todayEl = $('ownerTodayRevenue');
         if (todayEl) todayEl.textContent = formatRp(todayRevenue);
+
+        var basisEl = $('ownerRevenueBasis');
+        if (basisEl) {
+            var map = {
+                today: 'Akumulasi fee hari ini (order selesai)',
+                week: 'Akumulasi fee 7 hari terakhir',
+                month: 'Akumulasi fee 30 hari terakhir',
+                all: 'Akumulasi fee seluruh order selesai'
+            };
+            basisEl.textContent = map[_currentRange] || map.all;
+        }
+    }
+
+    function _getOwnerWalletBalance() {
+        if (typeof getWalletBalance === 'function') {
+            return Number(getWalletBalance()) || 0;
+        }
+        var walletText = ($('ownerWalletBalance') && $('ownerWalletBalance').textContent) || '0';
+        var normalized = String(walletText).replace(/[^0-9-]/g, '');
+        return Number(normalized) || 0;
+    }
+
+    function _syncOwnerFinancialSummary(totalRevenue) {
+        var walletBalance = _getOwnerWalletBalance();
+        var gap = walletBalance - (Number(totalRevenue) || 0);
+        var gapEl = $('ownerRevenueGap');
+        if (!gapEl) return;
+
+        var sign = gap > 0 ? '+' : '';
+        gapEl.textContent = 'Selisih saldo vs fee: ' + sign + formatRp(gap).replace('Rp ', 'Rp ');
+        gapEl.classList.toggle('is-plus', gap >= 0);
+        gapEl.classList.toggle('is-minus', gap < 0);
     }
 
     // ─── Chart ───
@@ -928,6 +961,13 @@ function loadOwnerCommissionSettings() { OwnerDashboard.loadOwnerCommissionSetti
 function handleCommissionFormSubmit(e) { OwnerDashboard.handleCommissionFormSubmit(e); }
 // handleCreateCS and handleCreateAdmin removed — replaced by React Staff Management
 function loadOwnerRevenue() { /* handled by loadDashboard now */ }
+
+    function syncOwnerFinancePreview() {
+        var ownerRevenueText = ($('ownerRevenue') && $('ownerRevenue').textContent) || 'Rp 0';
+        var revenue = Number(String(ownerRevenueText).replace(/[^0-9-]/g, '')) || 0;
+        _syncOwnerFinancialSummary(revenue);
+    }
+    window.syncOwnerFinancePreview = syncOwnerFinancePreview;
 
 // ══════════════════════════════════════════
 // ═══ ADMIN TRANSACTIONS PAGE ═══
