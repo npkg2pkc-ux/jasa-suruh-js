@@ -1060,11 +1060,9 @@ function openOrderTracking(order) {
     var isTalent = session && session.id === order.talentId;
     var isUser = session && session.id === order.userId;
 
-    document.getElementById('otpTitle').textContent = order.serviceType || 'Pesanan';
-    updateOrderStatusBadge(order.status);
+    renderTrackingProgress(order);
     renderOrderInfo(order, isTalent);
     renderOrderActions(order, isTalent, isUser);
-    updateTrackingVisualState(order);
 
     page.classList.remove('hidden');
 
@@ -1375,10 +1373,9 @@ function refreshTrackingUIFromCurrentOrder() {
     var isTalent = session && session.id === _currentOrder.talentId;
     var isUser = session && session.id === _currentOrder.userId;
 
-    updateOrderStatusBadge(_currentOrder.status);
+    renderTrackingProgress(_currentOrder);
     renderOrderActions(_currentOrder, isTalent, isUser);
     renderOrderInfo(_currentOrder, isTalent);
-    updateTrackingVisualState(_currentOrder);
 }
 
 function maybePromptRatingAfterCompleted(order) {
@@ -2659,7 +2656,7 @@ function submitRating() {
                 if (sellerRating) _currentOrder.sellerRating = sellerRating;
                 if (sellerReview) _currentOrder.sellerReview = sellerReview;
                 var session = getSession();
-                updateOrderStatusBadge('rated');
+                renderTrackingProgress(_currentOrder);
                 renderOrderActions(_currentOrder, session && session.id === _currentOrder.talentId, session && session.id === _currentOrder.userId);
             }
 
