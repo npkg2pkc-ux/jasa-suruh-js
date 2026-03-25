@@ -592,29 +592,63 @@ var OwnerDashboard = (function () {
 
         var roleColors = { user: '#FF6B00', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6', admin: '#EF4444' };
         var roleLabels = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS', admin: 'Admin' };
+        var roleChipClass = { user: 'is-user', talent: 'is-talent', penjual: 'is-penjual', cs: 'is-cs', admin: 'is-admin' };
+        var ordersRef = Array.isArray(_ordersCache) ? _ordersCache : [];
+
+        function fmtDate(ts) {
+            if (!ts) return '-';
+            return new Date(Number(ts)).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+
+        users = users.slice().sort(function (a, b) {
+            return Number(b.createdAt || 0) - Number(a.createdAt || 0);
+        });
 
         container.innerHTML = users.map(function (u) {
             var displayName = u.name || u.nama || 'Tanpa Nama';
             var displayUsername = u.username || u.no_hp || u.phone || '-';
             var initial = displayName.charAt(0).toUpperCase();
+            var userOrders = ordersRef.filter(function (o) {
+                return String(o.userId || '') === String(u.id)
+                    || String(o.talentId || '') === String(u.id)
+                    || String(o.sellerId || '') === String(u.id);
+            });
+            var completedOrders = userOrders.filter(function (o) { return o.status === 'completed' || o.status === 'rated'; }).length;
+            var lastOrderTs = userOrders.reduce(function (mx, o) {
+                var ts = Number(o.updatedAt || o.completedAt || o.createdAt || 0);
+                return ts > mx ? ts : mx;
+            }, 0);
+            var joinedAt = Number(u.createdAt || 0);
+            var roleText = roleLabels[u.role] || String(u.role || 'User');
             // Admin can only delete CS, Owner can delete anyone (except owner)
             var canDelete = _isOwner() || (_currentRole === 'admin' && u.role === 'cs');
             var deleteBtn = canDelete
-                ? '<button class="od-user-delete" data-uid="' + u.id + '" title="Hapus">'
+                ? '<button class="od-user-delete" data-uid="' + u.id + '" title="Hapus user">'
                     + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
                     + '</button>'
                 : '';
             var avatarContent = u.foto_url
                 ? '<img src="' + escapeHtml(u.foto_url) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%" alt="">'
                 : initial;
-            return '<div class="od-user-item">'
+            return '<article class="od-user-item od-user-card">'
+                + '<div class="od-user-main">'
                 + '<div class="od-user-avatar" style="background:' + (roleColors[u.role] || '#999') + '">' + avatarContent + '</div>'
                 + '<div class="od-user-info">'
+                + '<div class="od-user-topline">'
                 + '<div class="od-user-name">' + escapeHtml(displayName) + '</div>'
-                + '<div class="od-user-meta">@' + escapeHtml(displayUsername) + ' · <span class="od-user-role" style="color:' + (roleColors[u.role] || '#999') + '">' + (roleLabels[u.role] || u.role) + '</span></div>'
+                + '<span class="od-user-role-chip ' + (roleChipClass[u.role] || '') + '">' + escapeHtml(roleText) + '</span>'
+                + '</div>'
+                + '<div class="od-user-meta">@' + escapeHtml(String(displayUsername)) + '</div>'
+                + '<div class="od-user-submeta">Gabung: ' + escapeHtml(fmtDate(joinedAt)) + '</div>'
                 + '</div>'
                 + deleteBtn
-                + '</div>';
+                + '</div>'
+                + '<div class="od-user-stats-inline">'
+                + '<span><strong>' + userOrders.length + '</strong> Total Order</span>'
+                + '<span><strong>' + completedOrders + '</strong> Selesai</span>'
+                + '<span><strong>' + escapeHtml(lastOrderTs ? fmtDate(lastOrderTs) : '-') + '</strong> Aktivitas Akhir</span>'
+                + '</div>'
+                + '</article>';
         }).join('');
 
         container.querySelectorAll('.od-user-delete').forEach(function (btn) {
