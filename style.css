@@ -3897,9 +3897,9 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .sf-promo-action { background: #EE4D2D; color: #FFF; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; }
 
 /* Status Tracking Header */
-.sf-progress-wrap { background: #FFFFFF; border-radius: 14px; padding: 16px; margin-top: -4px; display: flex; flex-direction: column; gap: 14px; border: 1px solid #F3E8DD; box-shadow: 0 4px 14px rgba(249,115,22,.08); overflow: hidden; }
+.sf-progress-wrap { background: #FFFFFF; border-radius: 14px; padding: 16px; margin-top: 0; display: flex; flex-direction: column; gap: 14px; border: 1px solid #F3E8DD; box-shadow: 0 4px 14px rgba(249,115,22,.08); overflow: visible; }
 .sf-status-header { display: flex; align-items: flex-start; justify-content: space-between; }
-.sf-status-eta { font-size: 13px; color: #555; margin-bottom: 4px; font-weight: 500; }
+.sf-status-eta { display: block; font-size: 13px; line-height: 1.45; color: #555; margin-bottom: 4px; font-weight: 500; }
 .sf-status-main-text { font-size: 20px; font-weight: 700; color: #333; line-height: 1.3; max-width: 220px; }
 .sf-status-icon-illustration { width: 64px; height: 64px; background: #FFF5F1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0; }
 .sf-progress-bar { --track-inset: 12px; --step-size: 24px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center; position: relative; margin-top: 8px; padding: 0 2px; }
@@ -4031,7 +4031,7 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 }
 
 /* Driver / Location Card */
-.sf-info-panel { display: flex; flex-direction: column; gap: 12px; }
+.sf-info-panel { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
 .sf-driver-card { background: #FFFFFF; border-radius: 8px; padding: 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.03); }
 .sf-driver-avatar { width: 48px; height: 48px; border-radius: 50%; overflow: hidden; background: #EEEEEE; flex-shrink: 0; }
 .sf-driver-avatar img { width: 100%; height: 100%; object-fit: cover; }
