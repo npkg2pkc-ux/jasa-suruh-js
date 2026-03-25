@@ -535,8 +535,8 @@ function createNewOrder(t) {
             var feeAmount = 1000;
             if (sRes.success && sRes.data) {
                 feeAmount = Number(sRes.data.service_fee_amount);
-                if (!isFinite(feeAmount) || feeAmount < 0) feeAmount = Number(sRes.data.service_fee_percent) || 1000;
             }
+            if (!isFinite(feeAmount) || feeAmount < 0) feeAmount = 1000;
             var fee = Math.max(0, Math.round(feeAmount));
             var totalCost = price + fee;
 
@@ -1076,9 +1076,9 @@ function _buildShopCheckoutData(store, session) {
     var feeAmount = 1000;
     if (_shopSettingsCache) {
         feeAmount = Number(_shopSettingsCache.service_fee_amount);
-        if (!isFinite(feeAmount) || feeAmount < 0) feeAmount = Number(_shopSettingsCache.service_fee_percent) || 1000;
         perKm = Number(_shopSettingsCache.delivery_fee_per_km) || 3000;
     }
+    if (!isFinite(feeAmount) || feeAmount < 0) feeAmount = 1000;
     var deliveryFee = distKm > 0 ? Math.max(perKm, Math.round(distKm * perKm)) : perKm;
     var fee = Math.max(0, Math.round(feeAmount));
     var total = subtotal + deliveryFee + fee;
@@ -1347,7 +1347,7 @@ function openJSAntarPage() {
                     _japPricePerKm = Number(res.data.delivery_fee_per_km) || 3000;
                     _japBaseFare = Number(res.data.minimum_fee) || 5000;
                     var feeAmt = Number(res.data.service_fee_amount);
-                    if (!isFinite(feeAmt) || feeAmt < 0) feeAmt = Number(res.data.service_fee_percent) || 1000;
+                    if (!isFinite(feeAmt) || feeAmt < 0) feeAmt = 1000;
                     _japServiceFeeAmount = Math.max(0, Math.round(feeAmt));
                 }
             })

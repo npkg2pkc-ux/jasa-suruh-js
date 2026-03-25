@@ -551,9 +551,6 @@ var OwnerDashboard = (function () {
                     if ($('setDeliveryFeePerKm') && s.delivery_fee_per_km) $('setDeliveryFeePerKm').value = s.delivery_fee_per_km;
                     if ($('setServiceFeeAmount')) {
                         var feeAmount = Number(s.service_fee_amount);
-                        if (!isFinite(feeAmount) || feeAmount < 0) {
-                            feeAmount = Number(s.service_fee_percent);
-                        }
                         $('setServiceFeeAmount').value = isFinite(feeAmount) && feeAmount >= 0 ? feeAmount : 1000;
                     }
                     if ($('setCommTalent') && s.commission_talent_percent) $('setCommTalent').value = s.commission_talent_percent;
