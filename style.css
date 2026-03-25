@@ -4005,6 +4005,29 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     100% { transform: scale(1.08); box-shadow: 0 0 0 3px rgba(234,88,12,.22); }
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .sf-progress-wrap *,
+    .sf-progress-wrap *::before,
+    .sf-progress-wrap *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    .sf-progress-wrap.is-status-transition .sf-status-main-text,
+    .sf-progress-wrap.is-status-transition .sf-status-icon-illustration,
+    .sf-progress-wrap.is-status-transition .sf-progress-step.active .sf-progress-step-icon,
+    .sf-progress-wrap.is-status-transition.is-forward .sf-progress-bar-fill,
+    .sf-progress-wrap.is-status-transition.is-backward .sf-progress-bar-fill,
+    .sf-progress-wrap.is-terminal.is-status-transition .sf-progress-step.active .sf-progress-step-icon,
+    .sf-progress-bar-fill::after,
+    .sf-progress-step.active .sf-progress-step-icon {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
 /* Driver / Location Card */
 .sf-info-panel { display: flex; flex-direction: column; gap: 12px; }
 .sf-driver-card { background: #FFFFFF; border-radius: 8px; padding: 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.03); }
