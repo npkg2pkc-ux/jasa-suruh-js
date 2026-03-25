@@ -85,6 +85,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     height:100vh;
     overflow-y:auto;
     -webkit-overflow-scrolling:touch;
+
     overscroll-behavior:contain;
 }
 
