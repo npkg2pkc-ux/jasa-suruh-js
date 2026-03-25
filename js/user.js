@@ -1079,7 +1079,11 @@ function _buildShopCheckoutData(store, session) {
         perKm = Number(_shopSettingsCache.delivery_fee_per_km) || 3000;
     }
     if (!isFinite(feeAmount) || feeAmount < 0) feeAmount = 1000;
-    var deliveryFee = distKm > 0 ? Math.max(perKm, Math.round(distKm * perKm)) : perKm;
+    var minimumShortDistanceDelivery = 10000;
+    var shortDistanceKmLimit = 5;
+    var deliveryFee = distKm > shortDistanceKmLimit
+        ? Math.round(distKm * perKm)
+        : minimumShortDistanceDelivery;
     var fee = Math.max(0, Math.round(feeAmount));
     var total = subtotal + deliveryFee + fee;
     return {
