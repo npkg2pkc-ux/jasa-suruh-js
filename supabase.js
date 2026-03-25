@@ -676,6 +676,30 @@
             });
     }
 
+    function getOrderDataById(orderId) {
+        return sb.from('orders').select('data').eq('id', orderId).single()
+            .then(function (res) {
+                throwIfError(res);
+                return (res.data && res.data.data) || null;
+            });
+    }
+
+    function markOrderWalletFlag(orderId, flagFields) {
+        return getOrderDataById(orderId)
+            .then(function (current) {
+                if (!current) return ok(null);
+                var merged = Object.assign({}, current, flagFields || {});
+                return sb.from('orders').update({
+                    data: merged,
+                    user_id: merged.userId || null,
+                    talent_id: merged.talentId || null
+                }).eq('id', orderId).then(function (res) {
+                    throwIfError(res);
+                    return ok(null);
+                });
+            });
+    }
+
     function doTopUp(body) {
         var userId = body.userId;
         var amount = Math.abs(Number(body.amount) || 0);
@@ -764,12 +788,13 @@
             });
     }
 
-    function doWalletPay(body) {
+    function doWalletDebitDirect(body) {
         var userId = body.userId;
         var amount = Math.abs(Number(body.amount) || 0);
         var orderId = body.orderId || '';
-        var desc = body.description || 'Pembayaran Pesanan';
-        if (amount <= 0) return Promise.resolve(fail('Jumlah pembayaran harus lebih dari 0'));
+        var desc = body.description || 'Pembayaran';
+        var txType = body.txType || 'payment';
+        if (amount <= 0) return Promise.resolve(fail('Nominal debit harus lebih dari 0'));
 
         return sb.from('wallets').select('*').eq('user_id', userId).single()
             .then(function (res) {
@@ -788,7 +813,7 @@
                     var txData = {
                         id: txId,
                         userId: userId,
-                        type: 'payment',
+                        type: txType,
                         amount: -amount,
                         orderId: orderId,
                         balanceBefore: currentBalance,
@@ -799,13 +824,52 @@
                     return sb.from('transactions').insert({
                         id: txId,
                         user_id: userId,
-                        type: 'payment',
+                        type: txType,
                         amount: -amount,
                         created_at: txData.createdAt,
                         data: txData
                     }).then(function () {
                         return ok({ balance: newBalance });
                     });
+                });
+            });
+    }
+
+    function doWalletPay(body) {
+        var userId = body.userId;
+        var amount = Math.abs(Number(body.amount) || 0);
+        var orderId = body.orderId || '';
+        var desc = body.description || 'Pembayaran Pesanan';
+        if (amount <= 0) return Promise.resolve(fail('Jumlah pembayaran harus lebih dari 0'));
+
+        if (!orderId) return Promise.resolve(fail('OrderId wajib diisi untuk pembayaran'));
+
+        return getOrderDataById(orderId)
+            .then(function (order) {
+                if (!order) return fail('Order tidak ditemukan');
+                if (String(order.userId || '') !== String(userId || '')) {
+                    return fail('Pembayaran ditolak: user order tidak cocok');
+                }
+                if (String(order.paymentMethod || 'jspay').toLowerCase() === 'cod') {
+                    return fail('Order COD tidak boleh dipotong saldo');
+                }
+                if (Number(order.paidAmount || 0) > 0) {
+                    return fail('Order sudah dibayar sebelumnya');
+                }
+                var expected = Number(order.totalCost);
+                if (!isFinite(expected) || expected <= 0) {
+                    expected = (Number(order.price) || 0) + (Number(order.deliveryFee) || 0) + (Number(order.fee) || 0);
+                }
+                if (Math.round(expected) !== Math.round(amount)) {
+                    return fail('Pembayaran ditolak: nominal tidak sesuai order');
+                }
+
+                return doWalletDebitDirect({
+                    userId: userId,
+                    amount: amount,
+                    orderId: orderId,
+                    description: desc,
+                    txType: 'payment'
                 });
             });
     }
@@ -857,6 +921,47 @@
             });
     }
 
+    function doRefundOrderPayment(body) {
+        var orderId = body.orderId || '';
+        if (!orderId) return Promise.resolve(fail('OrderId wajib diisi'));
+
+        return getOrderDataById(orderId)
+            .then(function (order) {
+                if (!order) return fail('Order tidak ditemukan');
+                if (String(order.paymentMethod || 'jspay').toLowerCase() === 'cod') {
+                    return fail('Order COD tidak memiliki refund saldo');
+                }
+                if (order.status !== 'cancelled') {
+                    return fail('Refund hanya boleh untuk order dibatalkan');
+                }
+                if (order.refundDone) {
+                    return ok({ alreadyRefunded: true, amount: Number(order.paidAmount) || 0 });
+                }
+
+                var paidAmount = Math.max(0, Number(order.paidAmount) || 0);
+                if (paidAmount <= 0) {
+                    return fail('Tidak ada saldo yang perlu direfund');
+                }
+
+                return doWalletCredit({
+                    userId: order.userId,
+                    amount: paidAmount,
+                    orderId: orderId,
+                    type: 'refund',
+                    description: 'Refund pembatalan ' + (order.serviceType || 'Pesanan')
+                }).then(function (creditRes) {
+                    if (!creditRes || !creditRes.success) return creditRes || fail('Refund gagal diproses');
+                    return markOrderWalletFlag(orderId, {
+                        refundDone: true,
+                        refundedAt: Date.now(),
+                        refundedAmount: paidAmount
+                    }).then(function () {
+                        return ok({ refunded: true, amount: paidAmount });
+                    });
+                });
+            });
+    }
+
     function resolveOwnerUserId() {
         return sb.from('users').select('id, role, data')
             .then(function (res) {
@@ -886,65 +991,81 @@
     function doWalletCompleteOrder(body) {
         // Called when order is completed — distribute funds
         var orderId = body.orderId;
-        var talentId = body.talentId;
-        var sellerId = body.sellerId || '';
-        var price = Number(body.price) || 0;
-        var deliveryFee = Number(body.deliveryFee) || 0;
-        var fee = Number(body.fee) || 0;
-        var commissionPercent = Number(body.commissionPercent) || 10;
-        var serviceType = body.serviceType || '';
+        if (!orderId) return Promise.resolve(fail('OrderId wajib diisi'));
 
-        var promises = [];
-
-        if (sellerId && talentId !== sellerId) {
-            // 3-party order (product): seller gets price, driver gets deliveryFee, owner gets fee + commission
-            var commission = Math.round(price * commissionPercent / 100);
-            var sellerEarning = price - commission;
-            var driverEarning = deliveryFee;
-            var ownerTotal = fee + commission;
-
-            // Credit seller (product price minus commission)
-            promises.push(doWalletCredit({
-                userId: sellerId,
-                amount: sellerEarning,
-                orderId: orderId,
-                type: 'earning',
-                description: 'Penjualan produk #' + orderId.substr(0, 8)
-            }));
-
-            // Credit driver (delivery fee)
-            if (talentId && driverEarning > 0) {
-                promises.push(doWalletCredit({
-                    userId: talentId,
-                    amount: driverEarning,
-                    orderId: orderId,
-                    type: 'earning',
-                    description: 'Ongkir antar pesanan #' + orderId.substr(0, 8)
-                }));
+        return Promise.all([getOrderDataById(orderId), getSettings()]).then(function (allRes) {
+            var order = allRes[0];
+            var settingsRes = allRes[1];
+            if (!order) return fail('Order tidak ditemukan');
+            if (!(order.status === 'completed' || order.status === 'rated')) {
+                return fail('Payout hanya diproses untuk order selesai');
+            }
+            if (order.walletSettled) {
+                return ok({ alreadySettled: true });
             }
 
-            // Credit owner (platform fee + commission)
-            promises.push(resolveOwnerUserId().then(function (ownerId) {
-                if (!ownerId) return ok(null);
-                return doWalletCredit({
-                    userId: ownerId,
-                    amount: ownerTotal,
-                    orderId: orderId,
-                    type: 'commission',
-                    description: 'Komisi produk #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')'
-                });
-            }));
+            var settings = (settingsRes && settingsRes.success && settingsRes.data) ? settingsRes.data : {};
 
-            return Promise.all(promises).then(function () {
-                return ok({ sellerEarning: sellerEarning, driverEarning: driverEarning, ownerTotal: ownerTotal });
-            });
-        } else {
+            var talentId = order.talentId;
+            var sellerId = order.sellerId || '';
+            var price = Number(order.price) || 0;
+            var deliveryFee = Number(order.deliveryFee) || 0;
+            var fee = Number(order.fee) || 0;
+            var isProductOrder = !!(sellerId && String(talentId || '') !== String(sellerId || ''));
+            var commissionPercent = isProductOrder
+                ? (Number(settings.commission_penjual_percent) || 10)
+                : (Number(settings.commission_talent_percent) || 15);
+
+            var promises = [];
+
+            if (isProductOrder) {
+                // 3-party order (product): seller gets price, driver gets deliveryFee, owner gets fee + commission
+                var commission = Math.round(price * commissionPercent / 100);
+                var sellerEarning = price - commission;
+                var driverEarning = deliveryFee;
+                var ownerTotal = fee + commission;
+
+                promises.push(doWalletCredit({
+                    userId: sellerId,
+                    amount: sellerEarning,
+                    orderId: orderId,
+                    type: 'earning',
+                    description: 'Penjualan produk #' + orderId.substr(0, 8)
+                }));
+
+                if (talentId && driverEarning > 0) {
+                    promises.push(doWalletCredit({
+                        userId: talentId,
+                        amount: driverEarning,
+                        orderId: orderId,
+                        type: 'earning',
+                        description: 'Ongkir antar pesanan #' + orderId.substr(0, 8)
+                    }));
+                }
+
+                promises.push(resolveOwnerUserId().then(function (ownerId) {
+                    if (!ownerId) return ok(null);
+                    return doWalletCredit({
+                        userId: ownerId,
+                        amount: ownerTotal,
+                        orderId: orderId,
+                        type: 'commission',
+                        description: 'Komisi produk #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')'
+                    });
+                }));
+
+                return Promise.all(promises)
+                    .then(function () { return markOrderWalletFlag(orderId, { walletSettled: true, walletSettledAt: Date.now() }); })
+                    .then(function () {
+                        return ok({ sellerEarning: sellerEarning, driverEarning: driverEarning, ownerTotal: ownerTotal });
+                    });
+            }
+
             // 2-party order (talent service): talent gets price minus commission, owner gets fee + commission
             var commission = Math.round(price * commissionPercent / 100);
             var talentEarning = price - commission;
             var ownerTotal = fee + commission;
 
-            // Credit talent
             promises.push(doWalletCredit({
                 userId: talentId,
                 amount: talentEarning,
@@ -953,7 +1074,6 @@
                 description: 'Pendapatan dari pesanan #' + orderId.substr(0, 8)
             }));
 
-            // Credit owner
             promises.push(resolveOwnerUserId().then(function (ownerId) {
                 if (!ownerId) return ok(null);
                 return doWalletCredit({
@@ -965,62 +1085,85 @@
                 });
             }));
 
-            return Promise.all(promises).then(function () {
-                return ok({ talentEarning: talentEarning, ownerTotal: ownerTotal, commission: commission });
-            });
-        }
+            return Promise.all(promises)
+                .then(function () { return markOrderWalletFlag(orderId, { walletSettled: true, walletSettledAt: Date.now() }); })
+                .then(function () {
+                    return ok({ talentEarning: talentEarning, ownerTotal: ownerTotal, commission: commission });
+                });
+        });
     }
 
     function doWalletCompleteOrderCOD(body) {
         // COD: Talent collected cash from user (totalCost).
         // Platform deducts fee + commission from talent's wallet.
         var orderId = body.orderId;
-        var talentId = body.talentId;
-        var price = Number(body.price) || 0;
-        var fee = Number(body.fee) || 0;
-        var commissionPercent = Number(body.commissionPercent) || 10;
+        if (!orderId) return Promise.resolve(fail('OrderId wajib diisi'));
 
-        var commission = Math.round(price * commissionPercent / 100);
-        var platformCut = fee + commission; // Total to deduct from talent
-
-        // Deduct platform cut from talent's wallet
-        var deductTalent = doWalletPay({
-            userId: talentId,
-            amount: platformCut,
-            orderId: orderId,
-            description: 'Potongan platform COD #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')'
-        });
-
-        // Credit owner
-        var creditOwner = resolveOwnerUserId().then(function (ownerId) {
-            if (!ownerId) return ok(null);
-            return doWalletCredit({
-                userId: ownerId,
-                amount: platformCut,
-                orderId: orderId,
-                type: 'commission',
-                description: 'Komisi COD pesanan #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')'
-            }).then(function (res) {
-                // Notify owner about incoming funds
-                doAddNotification({
-                    userId: ownerId,
-                    icon: '💰',
-                    title: 'Dana Masuk (COD) Rp ' + platformCut.toLocaleString('id-ID'),
-                    desc: 'Komisi COD pesanan #' + orderId.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')',
-                    type: 'earning',
-                    orderId: orderId
-                });
-                return res;
-            });
-        });
-
-        return Promise.all([deductTalent, creditOwner]).then(function (results) {
-            var deductRes = results[0];
-            if (deductRes && !deductRes.success) {
-                // Talent wallet insufficient — notify but don't block
-                doAddNotification({ userId: talentId, icon: '⚠️', title: 'Saldo Minus', desc: 'Saldo tidak cukup untuk potongan platform COD. Harap top up.', type: 'payment', orderId: orderId });
+        return Promise.all([getOrderDataById(orderId), getSettings()]).then(function (allRes) {
+            var order = allRes[0];
+            var settingsRes = allRes[1];
+            if (!order) return fail('Order tidak ditemukan');
+            if (String(order.paymentMethod || '').toLowerCase() !== 'cod') {
+                return fail('Aksi ini khusus order COD');
             }
-            return ok({ platformCut: platformCut, commission: commission, fee: fee });
+            if (!(order.status === 'completed' || order.status === 'rated')) {
+                return fail('Payout COD hanya diproses untuk order selesai');
+            }
+            if (order.walletSettled) {
+                return ok({ alreadySettled: true });
+            }
+
+            var settings = (settingsRes && settingsRes.success && settingsRes.data) ? settingsRes.data : {};
+            var orderIdSafe = String(order.id || orderId);
+            var talentId = order.talentId;
+            var price = Number(order.price) || 0;
+            var fee = Number(order.fee) || 0;
+            var commissionPercent = Number(settings.commission_talent_percent) || 15;
+
+            var commission = Math.round(price * commissionPercent / 100);
+            var platformCut = fee + commission; // Total to deduct from talent
+
+            // Deduct platform cut from talent's wallet
+            var deductTalent = doWalletDebitDirect({
+                userId: talentId,
+                amount: platformCut,
+                orderId: orderIdSafe,
+                txType: 'payment',
+                description: 'Potongan platform COD #' + orderIdSafe.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')'
+            });
+
+            // Credit owner
+            var creditOwner = resolveOwnerUserId().then(function (ownerId) {
+                if (!ownerId) return ok(null);
+                return doWalletCredit({
+                    userId: ownerId,
+                    amount: platformCut,
+                    orderId: orderIdSafe,
+                    type: 'commission',
+                    description: 'Komisi COD pesanan #' + orderIdSafe.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')'
+                }).then(function (res) {
+                    doAddNotification({
+                        userId: ownerId,
+                        icon: '💰',
+                        title: 'Dana Masuk (COD) Rp ' + platformCut.toLocaleString('id-ID'),
+                        desc: 'Komisi COD pesanan #' + orderIdSafe.substr(0, 8) + ' (Fee: Rp ' + fee.toLocaleString('id-ID') + ' + Komisi: Rp ' + commission.toLocaleString('id-ID') + ')',
+                        type: 'earning',
+                        orderId: orderIdSafe
+                    });
+                    return res;
+                });
+            });
+
+            return Promise.all([deductTalent, creditOwner]).then(function (results) {
+                var deductRes = results[0];
+                if (deductRes && !deductRes.success) {
+                    doAddNotification({ userId: talentId, icon: '⚠️', title: 'Saldo Minus', desc: 'Saldo tidak cukup untuk potongan platform COD. Harap top up.', type: 'payment', orderId: orderIdSafe });
+                }
+                return markOrderWalletFlag(orderIdSafe, { walletSettled: true, walletSettledAt: Date.now() })
+                    .then(function () {
+                        return ok({ platformCut: platformCut, commission: commission, fee: fee });
+                    });
+            });
         });
     }
 
@@ -1339,7 +1482,8 @@
             case 'topUp': return doTopUp(body);
             case 'withdraw': return doWithdraw(body);
             case 'walletPay': return doWalletPay(body);
-            case 'walletCredit': return doWalletCredit(body);
+            case 'walletCredit': return Promise.resolve(fail('Aksi walletCredit langsung dinonaktifkan'));
+            case 'refundOrderPayment': return doRefundOrderPayment(body);
             case 'walletCompleteOrder': return doWalletCompleteOrder(body);
             case 'walletCompleteOrderCOD': return doWalletCompleteOrderCOD(body);
             case 'addNotification': return doAddNotification(body);

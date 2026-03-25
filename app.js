@@ -1717,7 +1717,7 @@
                         document.getElementById('serviceTalentPage').classList.add('hidden');
                         openOrderTracking(order);
                     } else {
-                        backendPost({ action: 'walletCredit', userId: session.id, amount: totalCost, orderId: orderId, type: 'refund', description: 'Refund - gagal buat pesanan' });
+                        backendPost({ action: 'refundOrderPayment', orderId: orderId, description: 'Refund - gagal buat pesanan' });
                         showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
                     }
                 });
@@ -3524,7 +3524,7 @@
                         document.getElementById('storeListPage').classList.add('hidden');
                         openOrderTracking(order);
                     } else {
-                        backendPost({ action: 'walletCredit', userId: session.id, amount: totalCost, orderId: orderId, type: 'refund', description: 'Refund - gagal buat pesanan' });
+                        backendPost({ action: 'refundOrderPayment', orderId: orderId, description: 'Refund - gagal buat pesanan' });
                         showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
                     }
                 });
@@ -4053,7 +4053,7 @@
                         var order = res.data;
                         openOrderTracking(order);
                     } else {
-                        backendPost({ action: 'walletCredit', userId: session.id, amount: totalCost, orderId: orderId, type: 'refund', description: 'Refund - gagal buat pesanan' });
+                        backendPost({ action: 'refundOrderPayment', orderId: orderId, description: 'Refund - gagal buat pesanan' });
                         btn.disabled = false;
                         btn.textContent = '🏍️ Pesan Driver — Rp ' + price.toLocaleString('id-ID');
                         showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'coba lagi'), 'error');
