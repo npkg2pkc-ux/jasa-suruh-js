@@ -54,6 +54,7 @@ var OwnerDashboard = (function () {
         if (!page) return;
         var isHomePanel = (panel === 'home');
         page.classList.toggle('owner-subpage-active', !isHomePanel);
+        page.classList.toggle('owner-settings-active', panel === 'settings');
     }
 
     function _openOwnerPanel(panel) {
@@ -248,8 +249,8 @@ var OwnerDashboard = (function () {
             deliveryBackdrop.addEventListener('click', closeOwnerDeliveryModal);
         }
 
-        // Owner logout button
-        var logoutBtn = $('ownerLogoutBtn');
+        // Owner logout button in settings page
+        var logoutBtn = $('ownerSettingsLogoutBtn');
         if (logoutBtn) logoutBtn.addEventListener('click', function () {
             if (typeof handleLogout === 'function') handleLogout();
         });
