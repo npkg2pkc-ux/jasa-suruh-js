@@ -1367,13 +1367,15 @@ function renderTrackingProgress(order) {
     if (order.status === 'preparing') iconIllustration = '👨‍🍳';
     if (order.status === 'in_progress') iconIllustration = '🛵';
 
+    var progressRatio = Math.min(1, Math.max(0, percent / 100));
+
     var html = '<div class="sf-status-header">'
         + '<div><div class="sf-status-eta">' + etaText + '</div>'
         + '<div class="sf-status-main-text">' + escapeHtml(currentStep.text) + '</div></div>'
         + '<div class="sf-status-icon-illustration">' + iconIllustration + '</div>'
         + '</div>'
         + '<div class="sf-progress-bar">'
-        + '<div class="sf-progress-bar-fill" style="width:' + percent + '%"></div>'
+        + '<div class="sf-progress-bar-fill" style="--progress:' + progressRatio + '"></div>'
         + barHtml
         + '</div>'
         + '<div class="sf-progress-hint">' + hintText + '</div>';
