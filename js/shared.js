@@ -2981,6 +2981,92 @@ function renderOrderCards(orders) {
                 + '</div>';
         }
 
+        if (!isTalent && !isSellerRole && isDone) {
+            var seller = users.find(function (u) { return u.id === o.sellerId; });
+            var driver2 = users.find(function (u) { return u.id === o.talentId; });
+            var sellerName = seller ? seller.name : 'Penjual';
+            var driverName2 = driver2 ? driver2.name : 'Belum ada driver';
+
+            var items2 = o.items;
+            if (typeof items2 === 'string') {
+                try { items2 = JSON.parse(items2); } catch (e2) { items2 = []; }
+            }
+            if (!Array.isArray(items2)) items2 = [];
+
+            var itemCount = items2.reduce(function (sum, it) {
+                return sum + (Number((it && (it.qty || it.quantity)) || 0) || 0);
+            }, 0);
+            if (!itemCount || itemCount < 1) itemCount = Number(o.totalQty) || 1;
+
+            var itemPreview = items2.slice(0, 2).map(function (it) {
+                var nm = escapeHtml((it && (it.name || it.title)) ? String(it.name || it.title) : 'Item');
+                var q = Number((it && (it.qty || it.quantity)) || 1) || 1;
+                return '<li>' + nm + ' <strong>x' + q + '</strong></li>';
+            }).join('');
+            if (!itemPreview) itemPreview = '<li>Detail item tersedia di pelacakan pesanan</li>';
+            if (items2.length > 2) itemPreview += '<li>+' + (items2.length - 2) + ' item lainnya</li>';
+
+            var subtotal2 = Number(o.price) || 0;
+            var deliveryFee2 = Number(o.deliveryFee) || 0;
+            var serviceFee2 = Number(o.fee) || 0;
+            var discount2 = Number(o.discountAmount || o.discount) || 0;
+            var grossTotal = subtotal2 + deliveryFee2 + serviceFee2;
+            var totalPaid = Number(o.totalCost);
+            if (!isFinite(totalPaid) || totalPaid <= 0) totalPaid = Math.max(0, grossTotal - discount2);
+            if ((!discount2 || discount2 < 0) && totalPaid > 0 && grossTotal > totalPaid) {
+                discount2 = grossTotal - totalPaid;
+            }
+
+            var paymentLabel2 = (o.paymentMethod === 'cod') ? 'Tunai (COD)' : 'JsPay';
+            var finishedAt2 = new Date(displayTs || Date.now()).toLocaleString('id-ID', {
+                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+            var orderCode2 = String(o.id || '').slice(0, 10);
+
+            var ratingBadge = '';
+            var ratingRow = '';
+            if (o.status === 'rated' && Number(o.rating) > 0) {
+                var rr = Math.max(1, Math.min(5, Math.round(Number(o.rating) || 0)));
+                var stars2 = '';
+                for (var rs = 1; rs <= 5; rs++) stars2 += (rs <= rr ? '★' : '☆');
+                ratingBadge = '<span class="olp-ud-chip is-rated">⭐ Dinilai ' + rr + '/5</span>';
+                var reviewText = o.review ? ' · <em>' + escapeHtml(String(o.review).substr(0, 48)) + (o.review.length > 48 ? '…' : '') + '</em>' : '';
+                ratingRow = '<div class="olp-rated-badge">' + stars2 + reviewText + '</div>';
+            } else {
+                ratingBadge = '<span class="olp-ud-chip is-unrated">Belum dinilai</span>';
+                ratingRow = '<button class="olp-rate-btn" data-ridx="' + idx + '">⭐ Beri Rating Sekarang</button>';
+            }
+
+            var discountRow = discount2 > 0
+                ? '<div class="olp-ud-fin-row"><span>Hemat Diskon</span><strong>-' + formatRupiah(discount2) + '</strong></div>'
+                : '';
+
+            return '<div class="olp-card olp-card-userdone" data-idx="' + idx + '">'
+                + '<div class="olp-card-top">'
+                + '<div class="olp-card-service">' + escapeHtml(o.serviceType || o.skillType || 'Pesanan Saya') + '</div>'
+                + '<span class="otp-status-badge status-' + o.status + '">' + statusText + '</span>'
+                + '</div>'
+                + '<div class="olp-ud-subtitle">' + itemCount + ' item dibeli • #' + escapeHtml(orderCode2) + '</div>'
+                + '<div class="olp-ud-chips">'
+                + '<span class="olp-ud-chip">' + escapeHtml(paymentLabel2) + '</span>'
+                + ratingBadge
+                + '</div>'
+                + '<div class="olp-ud-people">'
+                + '<div>🛍️ Penjual: <strong>' + escapeHtml(sellerName) + '</strong></div>'
+                + '<div>🛵 Driver: <strong>' + escapeHtml(driverName2) + '</strong></div>'
+                + '</div>'
+                + '<ul class="olp-ud-items">' + itemPreview + '</ul>'
+                + '<div class="olp-ud-finance">'
+                + '<div class="olp-ud-fin-row"><span>Total Belanja</span><strong>' + formatRupiah(subtotal2) + '</strong></div>'
+                + '<div class="olp-ud-fin-row"><span>Biaya Pengantaran + Layanan</span><strong>' + formatRupiah(deliveryFee2 + serviceFee2) + '</strong></div>'
+                + discountRow
+                + '<div class="olp-ud-fin-row total"><span>Total Dibayar</span><strong>' + formatRupiah(totalPaid) + '</strong></div>'
+                + '</div>'
+                + '<div class="olp-ud-finished">Selesai: ' + escapeHtml(finishedAt2) + '</div>'
+                + '<div class="olp-rate-row">' + ratingRow + '</div>'
+                + '</div>';
+        }
+
         var rateRow = '';
         if (!isTalent && o.status === 'completed') {
             rateRow = '<button class="olp-rate-btn" data-ridx="' + idx + '">⭐ Beri Rating Sekarang</button>';

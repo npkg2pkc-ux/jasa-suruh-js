@@ -1815,6 +1815,24 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .olp-rate-btn:active { opacity:.85; }
 .olp-rated-badge { margin-top:8px; font-size:13px; color:#F9A825; letter-spacing:1px; }
 .olp-rated-badge em { color:var(--gray-500); font-style:normal; font-size:12px; margin-left:4px; }
+.olp-card-userdone { padding:16px; border:1px solid #FDE7D6; box-shadow:0 8px 20px rgba(2,6,23,.05); }
+.olp-ud-subtitle { font-size:12px; color:var(--gray-500); margin-bottom:8px; }
+.olp-ud-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+.olp-ud-chip { font-size:11px; font-weight:700; color:#334155; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:999px; padding:4px 9px; }
+.olp-ud-chip.is-rated { color:#B45309; background:#FFFBEB; border-color:#FDE68A; }
+.olp-ud-chip.is-unrated { color:#9A3412; background:#FFF7ED; border-color:#FED7AA; }
+.olp-ud-people { display:grid; grid-template-columns:1fr; gap:4px; margin-bottom:10px; font-size:12px; color:var(--gray-700); }
+.olp-ud-people strong { color:var(--black); font-weight:700; }
+.olp-ud-items { margin:0 0 10px; padding:10px 12px 10px 24px; background:#FFFCF8; border:1px solid #FDE7D6; border-radius:12px; }
+.olp-ud-items li { font-size:12px; color:var(--gray-700); line-height:1.45; margin:2px 0; }
+.olp-ud-items li strong { color:var(--black); }
+.olp-ud-finance { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px; padding:10px 12px; margin-bottom:8px; }
+.olp-ud-fin-row { display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:12px; color:var(--gray-600); margin-bottom:6px; }
+.olp-ud-fin-row:last-child { margin-bottom:0; }
+.olp-ud-fin-row strong { color:var(--black); font-size:12px; font-weight:700; }
+.olp-ud-fin-row.total { border-top:1px dashed #CBD5E1; padding-top:8px; color:#0F172A; }
+.olp-ud-fin-row.total strong { color:var(--orange-dark); font-size:14px; }
+.olp-ud-finished { font-size:11px; color:var(--gray-500); margin-top:6px; }
 .olp-card-seller { padding:16px; border:1px solid rgba(255,107,0,.12); box-shadow:0 8px 18px rgba(255,107,0,.1); }
 .olp-seller-people { display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
 .olp-seller-line { font-size:12px; color:var(--gray-700); line-height:1.4; }
