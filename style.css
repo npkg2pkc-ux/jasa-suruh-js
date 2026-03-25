@@ -2864,6 +2864,101 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 
 .sf-input-prefix-wrap { display:flex; align-items:center; background:#fff; border:1.5px solid var(--gray-200); border-radius:10px; overflow:hidden; transition:all .2s; }
 .sf-input-prefix-wrap:focus-within { border-color:var(--orange); box-shadow:0 0 0 3px rgba(255,107,0,.08); }
+
+/* ========================================
+   GLOBAL RESPONSIVE (All Roles)
+   ======================================== */
+@media (max-width:420px) {
+    .bottom-nav {
+        padding:8px 3px 11px;
+    }
+
+    .bottom-nav .nav-item {
+        padding:4px 4px;
+    }
+
+    .bottom-nav .nav-item span {
+        max-width:70px;
+        white-space:normal;
+        line-height:1.15;
+        text-align:center;
+    }
+
+    .wallet-card-actions {
+        flex-wrap:wrap;
+    }
+
+    .wallet-btn {
+        min-width:calc(50% - 6px);
+    }
+
+    .sf-driver-name,
+    .sf-location-title {
+        text-transform:none;
+        line-height:1.25;
+    }
+}
+
+@media (max-width:360px) {
+    .header {
+        padding:calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
+    }
+
+    .greeting-address {
+        max-width:160px;
+    }
+
+    .bottom-nav {
+        padding:8px 2px 11px;
+    }
+
+    .bottom-nav .nav-item {
+        font-size:9px;
+        padding:4px 3px;
+    }
+
+    .bottom-nav .nav-item span {
+        max-width:62px;
+        line-height:1.1;
+    }
+
+    .section-header h2 {
+        font-size:16px;
+    }
+
+    .wallet-modal-header {
+        padding:14px 14px 8px;
+    }
+
+    .wallet-modal-body {
+        padding:12px 14px 22px;
+    }
+
+    .topup-amounts {
+        grid-template-columns:repeat(2, 1fr);
+    }
+
+    .notif-popup-panel {
+        width:min(96vw, 420px);
+    }
+
+    .td-order-card {
+        padding:12px 12px;
+    }
+
+    .td-order-card .td-oc-service {
+        font-size:13px;
+    }
+
+    .sf-tracking-body {
+        padding:10px 12px 84px;
+    }
+
+    .sf-status-main-text {
+        font-size:18px;
+        max-width:180px;
+    }
+}
 .sf-input-prefix { padding:12px; font-size:13px; font-weight:600; color:var(--gray-500); background:var(--gray-50); border-right:1px solid var(--gray-200); white-space:nowrap; }
 .sf-input-with-prefix { border:none; border-radius:0; box-shadow:none !important; }
 .sf-input-with-prefix:focus { box-shadow:none !important; }
