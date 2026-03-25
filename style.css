@@ -2601,7 +2601,8 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .od-user-item:last-child { border-bottom:none; }
 .od-user-card { display:block; border:1px solid #E5E7EB; border-radius:14px; padding:10px 12px; background:linear-gradient(180deg,#fff 0%,#fafafa 100%); box-shadow:0 2px 8px rgba(15,23,42,.04); }
 .od-user-main { display:flex; align-items:flex-start; gap:10px; }
-.od-user-avatar { width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--white); font-size:15px; font-weight:700; flex-shrink:0; }
+.od-user-avatar { width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--white); font-size:15px; font-weight:700; flex-shrink:0; position:relative; overflow:hidden; }
+.od-user-avatar-fallback { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--white); font-size:15px; font-weight:700; }
 .od-user-info { flex:1; min-width:0; }
 .od-user-topline { display:flex; align-items:center; gap:8px; min-width:0; }
 .od-user-name { font-size:15px; font-weight:800; color:var(--black); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

@@ -600,6 +600,44 @@ var OwnerDashboard = (function () {
             return new Date(Number(ts)).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
         }
 
+        function _resolveAvatarUrl(raw) {
+            var src = String(raw || '').trim();
+            if (!src || src === '-') return '';
+            if (src.indexOf('http://') === 0 || src.indexOf('https://') === 0 || src.indexOf('data:') === 0 || src.indexOf('blob:') === 0) {
+                return src;
+            }
+            try {
+                if (window.FB && window.FB._sb && window.FB._sb.storage) {
+                    var res = window.FB._sb.storage.from('avatars').getPublicUrl(src);
+                    if (res && res.data && res.data.publicUrl) return res.data.publicUrl;
+                }
+            } catch (e) {}
+            return src;
+        }
+
+        function resolveUserAvatar(u) {
+            if (!u) return '';
+            var candidates = [u.foto_url, u.photo, u.avatar, u.avatarUrl];
+
+            if (typeof getProfilePhoto === 'function' && u.id) {
+                candidates.push(getProfilePhoto(u.id));
+            }
+
+            if (String(u.role || '').toLowerCase() === 'talent' && typeof getUserSkills === 'function') {
+                var skills = getUserSkills(u.id) || [];
+                for (var i = 0; i < skills.length; i++) {
+                    var sk = skills[i] || {};
+                    candidates.push(sk.selfieThumb, sk.photo, sk.image);
+                }
+            }
+
+            for (var c = 0; c < candidates.length; c++) {
+                var url = _resolveAvatarUrl(candidates[c]);
+                if (url) return url;
+            }
+            return '';
+        }
+
         users = users.slice().sort(function (a, b) {
             return Number(b.createdAt || 0) - Number(a.createdAt || 0);
         });
@@ -627,8 +665,10 @@ var OwnerDashboard = (function () {
                     + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
                     + '</button>'
                 : '';
-            var avatarContent = u.foto_url
-                ? '<img src="' + escapeHtml(u.foto_url) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%" alt="">'
+            var avatarUrl = resolveUserAvatar(u);
+            var avatarContent = avatarUrl
+                ? '<span class="od-user-avatar-fallback" style="display:none">' + initial + '</span>'
+                    + '<img src="' + escapeHtml(avatarUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%" alt="" onerror="this.style.display=\'none\';if(this.previousElementSibling){this.previousElementSibling.style.display=\'flex\';}">'
                 : initial;
             return '<article class="od-user-item od-user-card">'
                 + '<div class="od-user-main">'
