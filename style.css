@@ -2663,6 +2663,149 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .od-btn-save:active { transform:scale(.97); opacity:.9; }
 .od-btn-save:disabled { opacity:.5; cursor:not-allowed; transform:none; }
 
+.od-settings-list-card {
+    padding:14px;
+}
+
+.od-settings-list-head {
+    margin-bottom:10px;
+}
+
+.od-settings-list {
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.od-setting-item {
+    border:none;
+    width:100%;
+    text-align:left;
+    background:#fff;
+    border:1px solid #E5E7EB;
+    border-radius:14px;
+    padding:12px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    cursor:pointer;
+    font-family:var(--font);
+    transition:all .2s ease;
+}
+
+.od-setting-item:active {
+    transform:scale(.985);
+    background:#F8FAFC;
+}
+
+.od-setting-icon {
+    width:34px;
+    height:34px;
+    border-radius:10px;
+    background:#F1F5F9;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+    font-size:16px;
+}
+
+.od-setting-body {
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    flex:1;
+}
+
+.od-setting-label {
+    font-size:13px;
+    color:#0F172A;
+    font-weight:800;
+    line-height:1.25;
+}
+
+.od-setting-value {
+    font-size:11px;
+    color:#64748B;
+    font-weight:600;
+    line-height:1.4;
+}
+
+.od-setting-arrow {
+    font-size:22px;
+    color:#94A3B8;
+    line-height:1;
+    margin-top:-1px;
+}
+
+.od-settings-modal {
+    position:fixed;
+    inset:0;
+    z-index:220;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+}
+
+.od-settings-modal-backdrop {
+    position:absolute;
+    inset:0;
+    background:rgba(15,23,42,.45);
+    opacity:0;
+    transition:opacity .18s ease;
+}
+
+.od-settings-modal-card {
+    position:relative;
+    width:min(100%, 480px);
+    max-height:86vh;
+    overflow:auto;
+    background:#fff;
+    border-radius:20px 20px 0 0;
+    border:1px solid #E5E7EB;
+    padding:14px;
+    transform:translateY(24px);
+    opacity:0;
+    transition:transform .2s ease, opacity .2s ease;
+}
+
+.od-settings-modal-head {
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:10px;
+}
+
+.od-settings-modal-head h4 {
+    margin:0;
+    font-size:16px;
+    font-weight:800;
+    color:#0F172A;
+}
+
+.od-settings-modal-close {
+    border:none;
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    background:#F1F5F9;
+    color:#475569;
+    font-size:24px;
+    line-height:1;
+    cursor:pointer;
+}
+
+.od-settings-modal.is-open .od-settings-modal-backdrop {
+    opacity:1;
+}
+
+.od-settings-modal.is-open .od-settings-modal-card {
+    transform:translateY(0);
+    opacity:1;
+}
+
 /* ─── Owner Stage 4: Consistency Polish ─── */
 #page-owner .od-panel-view section,
 #page-owner .od-panel-view .od-settings-card,

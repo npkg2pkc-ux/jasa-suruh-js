@@ -111,6 +111,7 @@ var OwnerDashboard = (function () {
         }
         if (panel === 'settings' && _isOwner()) {
             loadOwnerCommissionSettings();
+            closeOwnerCommissionModal();
         }
     }
 
@@ -197,6 +198,39 @@ var OwnerDashboard = (function () {
             });
         }
 
+        var settingsList = $('ownerSettingsList');
+        if (settingsList && !settingsList._bound) {
+            settingsList._bound = true;
+            settingsList.addEventListener('click', function (e) {
+                var btn = e.target.closest('[data-owner-setting]');
+                if (!btn) return;
+                var action = btn.dataset.ownerSetting || '';
+                if (action === 'commission-modal') {
+                    openOwnerCommissionModal();
+                    return;
+                }
+                if (action === 'staff-list') {
+                    if (typeof openStaffManagement === 'function') openStaffManagement('list');
+                    return;
+                }
+                if (action === 'transactions') {
+                    if (typeof openAdminTransactions === 'function') openAdminTransactions();
+                }
+            });
+        }
+
+        var commClose = $('ownerCommissionClose');
+        if (commClose && !commClose._bound) {
+            commClose._bound = true;
+            commClose.addEventListener('click', closeOwnerCommissionModal);
+        }
+
+        var commBackdrop = $('ownerCommissionBackdrop');
+        if (commBackdrop && !commBackdrop._bound) {
+            commBackdrop._bound = true;
+            commBackdrop.addEventListener('click', closeOwnerCommissionModal);
+        }
+
         // Owner logout button
         var logoutBtn = $('ownerLogoutBtn');
         if (logoutBtn) logoutBtn.addEventListener('click', function () {
@@ -208,6 +242,16 @@ var OwnerDashboard = (function () {
         // Commission form submit
         var commForm = $('commissionForm');
         if (commForm) commForm.addEventListener('submit', handleCommissionFormSubmit);
+
+        ['setDeliveryFeePerKm', 'setServiceFeeAmount', 'setCommTalent', 'setCommPenjual', 'setMinFee', 'setMinShopFee']
+            .forEach(function (id) {
+                var input = $(id);
+                if (!input || input._odBound) return;
+                input._odBound = true;
+                input.addEventListener('input', _updateOwnerSettingsSummary);
+            });
+
+        _updateOwnerSettingsSummary();
     }
 
     function _applyRoleVisibility() {
@@ -348,6 +392,12 @@ var OwnerDashboard = (function () {
         gapEl.textContent = 'Selisih saldo vs fee: ' + sign + formatRp(gap).replace('Rp ', 'Rp ');
         gapEl.classList.toggle('is-plus', gap >= 0);
         gapEl.classList.toggle('is-minus', gap < 0);
+    }
+
+    function syncOwnerFinancePreview() {
+        var ownerRevenueText = ($('ownerRevenue') && $('ownerRevenue').textContent) || 'Rp 0';
+        var revenue = Number(String(ownerRevenueText).replace(/[^0-9-]/g, '')) || 0;
+        _syncOwnerFinancialSummary(revenue);
     }
 
     // ─── Chart ───
@@ -798,7 +848,10 @@ var OwnerDashboard = (function () {
     // ─── Commission Settings (owner only) ───
     function loadOwnerCommissionSettings() {
         if (!_isOwner()) return;
-        if (typeof isBackendConnected !== 'function' || !isBackendConnected()) return;
+        if (typeof isBackendConnected !== 'function' || !isBackendConnected()) {
+            _updateOwnerSettingsSummary();
+            return;
+        }
         FB.get('getSettings')
             .then(function (r) { return r.json(); })
             .then(function (res) {
@@ -816,8 +869,48 @@ var OwnerDashboard = (function () {
                         var minShopFee = Number(s.minimum_shop_fee);
                         $('setMinShopFee').value = isFinite(minShopFee) && minShopFee >= 0 ? minShopFee : 10000;
                     }
+                    _updateOwnerSettingsSummary();
                 }
-            }).catch(function () {});
+            }).catch(function () {
+                _updateOwnerSettingsSummary();
+            });
+    }
+
+    function _updateOwnerSettingsSummary() {
+        var commTalent = Number(($('setCommTalent') && $('setCommTalent').value) || 15);
+        var commPenjual = Number(($('setCommPenjual') && $('setCommPenjual').value) || 10);
+        var feeAmount = Number(($('setServiceFeeAmount') && $('setServiceFeeAmount').value) || 1000);
+        var deliveryPerKm = Number(($('setDeliveryFeePerKm') && $('setDeliveryFeePerKm').value) || 3000);
+        var minFee = Number(($('setMinFee') && $('setMinFee').value) || 5000);
+        var minShopFee = Number(($('setMinShopFee') && $('setMinShopFee').value) || 10000);
+
+        var commEl = $('ownerSetSummaryCommission');
+        if (commEl) {
+            commEl.textContent = 'Talent ' + commTalent + '% • Penjual ' + commPenjual + '% • Fee ' + formatRp(feeAmount);
+        }
+
+        var deliveryEl = $('ownerSetSummaryDelivery');
+        if (deliveryEl) {
+            deliveryEl.textContent = 'Per KM ' + formatRp(deliveryPerKm) + ' • Min JS Antar ' + formatRp(minFee) + ' • Min Toko ' + formatRp(minShopFee);
+        }
+    }
+
+    function openOwnerCommissionModal() {
+        var modal = $('ownerCommissionModal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        requestAnimationFrame(function () {
+            modal.classList.add('is-open');
+        });
+    }
+
+    function closeOwnerCommissionModal() {
+        var modal = $('ownerCommissionModal');
+        if (!modal) return;
+        modal.classList.remove('is-open');
+        setTimeout(function () {
+            modal.classList.add('hidden');
+        }, 180);
     }
 
     function handleCommissionFormSubmit(e) {
@@ -838,6 +931,8 @@ var OwnerDashboard = (function () {
                 .then(function (res) {
                     if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan Pengaturan'; }
                     if (res && res.success) {
+                        _updateOwnerSettingsSummary();
+                        closeOwnerCommissionModal();
                         if (typeof showToast === 'function') showToast('Pengaturan disimpan!', 'success');
                     } else {
                         if (typeof showToast === 'function') showToast('Gagal menyimpan', 'error');
@@ -950,7 +1045,8 @@ var OwnerDashboard = (function () {
         renderOwnerUsers: renderOwnerUsers,
         loadOwnerCommissionSettings: loadOwnerCommissionSettings,
         handleCommissionFormSubmit: handleCommissionFormSubmit,
-        openOwnerSettings: openOwnerSettings
+        openOwnerSettings: openOwnerSettings,
+        syncOwnerFinancePreview: syncOwnerFinancePreview
     };
 })();
 
@@ -961,13 +1057,8 @@ function loadOwnerCommissionSettings() { OwnerDashboard.loadOwnerCommissionSetti
 function handleCommissionFormSubmit(e) { OwnerDashboard.handleCommissionFormSubmit(e); }
 // handleCreateCS and handleCreateAdmin removed — replaced by React Staff Management
 function loadOwnerRevenue() { /* handled by loadDashboard now */ }
-
-    function syncOwnerFinancePreview() {
-        var ownerRevenueText = ($('ownerRevenue') && $('ownerRevenue').textContent) || 'Rp 0';
-        var revenue = Number(String(ownerRevenueText).replace(/[^0-9-]/g, '')) || 0;
-        _syncOwnerFinancialSummary(revenue);
-    }
-    window.syncOwnerFinancePreview = syncOwnerFinancePreview;
+function syncOwnerFinancePreview() { OwnerDashboard.syncOwnerFinancePreview(); }
+window.syncOwnerFinancePreview = syncOwnerFinancePreview;
 
 // ══════════════════════════════════════════
 // ═══ ADMIN TRANSACTIONS PAGE ═══
