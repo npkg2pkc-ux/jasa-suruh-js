@@ -1080,6 +1080,12 @@ function _buildShopCheckoutData(store, session) {
     }
     if (!isFinite(feeAmount) || feeAmount < 0) feeAmount = 1000;
     var minimumShortDistanceDelivery = 10000;
+    if (_shopSettingsCache) {
+        var configuredMinShop = Number(_shopSettingsCache.minimum_shop_fee);
+        if (isFinite(configuredMinShop) && configuredMinShop >= 0) {
+            minimumShortDistanceDelivery = Math.max(10000, Math.round(configuredMinShop));
+        }
+    }
     var shortDistanceKmLimit = 5;
     var deliveryFee = distKm > shortDistanceKmLimit
         ? Math.round(distKm * perKm)

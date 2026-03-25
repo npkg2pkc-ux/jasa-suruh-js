@@ -726,6 +726,10 @@ var OwnerDashboard = (function () {
                     if ($('setCommTalent') && s.commission_talent_percent) $('setCommTalent').value = s.commission_talent_percent;
                     if ($('setCommPenjual') && s.commission_penjual_percent) $('setCommPenjual').value = s.commission_penjual_percent;
                     if ($('setMinFee') && s.minimum_fee) $('setMinFee').value = s.minimum_fee;
+                    if ($('setMinShopFee')) {
+                        var minShopFee = Number(s.minimum_shop_fee);
+                        $('setMinShopFee').value = isFinite(minShopFee) && minShopFee >= 0 ? minShopFee : 10000;
+                    }
                 }
             }).catch(function () {});
     }
@@ -738,7 +742,8 @@ var OwnerDashboard = (function () {
             service_fee_amount: $('setServiceFeeAmount').value || '1000',
             commission_talent_percent: $('setCommTalent').value || '15',
             commission_penjual_percent: $('setCommPenjual').value || '10',
-            minimum_fee: $('setMinFee').value || '5000'
+            minimum_fee: $('setMinFee').value || '5000',
+            minimum_shop_fee: $('setMinShopFee').value || '10000'
         };
         var btn = e.target.querySelector('.od-btn-save');
         if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
