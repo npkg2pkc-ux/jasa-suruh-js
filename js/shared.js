@@ -1542,10 +1542,10 @@ function renderOrderInfo(order, isTalent) {
         return p;
     }
 
-    function buildDriverCardHtml(u, title, subtitle, isHighlight, chatBtnId, ratingStr) {
+    function buildDriverCardHtml(u, title, subtitle, isHighlight, chatBtnId, ratingStr, displayName, displayPhoto) {
         if (!u) return '';
-        var name = u.name || 'Kontak';
-        var photo = getUserPhoto(u, isHighlight);
+        var name = displayName || u.name || 'Kontak';
+        var photo = displayPhoto || getUserPhoto(u, isHighlight);
         var initial = (name || '?').charAt(0).toUpperCase();
         var photoSrc = resolveAvatarUrl(photo);
         var photoHtml = photoSrc ? '<img src="' + _escapeHtml(photoSrc) + '" alt="">' : '<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#eee;color:#999;font-size:20px;font-weight:bold;">' + _escapeHtml(initial) + '</span>';
@@ -1573,6 +1573,15 @@ function renderOrderInfo(order, isTalent) {
     var other = users.find(function (u) { return u.id === (isTalent ? order.userId : order.talentId); });
     var seller = users.find(function (u) { return u.id === order.sellerId; });
     var buyer = users.find(function (u) { return u.id === order.userId; });
+    var cachedStore = null;
+    if (typeof _slpAllStores !== 'undefined' && Array.isArray(_slpAllStores) && _slpAllStores.length > 0) {
+        cachedStore = _slpAllStores.find(function (s) {
+            return String(s.id) === String(order.storeId || '') || String(s.userId) === String(order.sellerId || '');
+        }) || null;
+    }
+    var storeName = String(order.storeName || (cachedStore && cachedStore.name) || (seller && seller.name) || 'Toko').trim();
+    var storeAddr = String(order.storeAddr || (cachedStore && cachedStore.address) || (seller && seller.address) || 'Toko').trim();
+    var storePhoto = String(order.storePhoto || (cachedStore && cachedStore.photo) || '').trim();
     var subtotalAmount = Math.max(0, Number(order.price) || 0);
     var deliveryFeeAmount = Math.max(0, Number(order.deliveryFee) || 0);
     var platformFeeAmount = Math.max(0, Number(order.fee) || 0);
@@ -1605,7 +1614,7 @@ function renderOrderInfo(order, isTalent) {
 
     var sellerHtml = '';
     if (isProductOrder && (isUser || isTalent) && seller) {
-        sellerHtml = buildDriverCardHtml(seller, 'Penjual', seller.address || 'Toko', false, 'otpSellerChatBtn', '');
+        sellerHtml = buildDriverCardHtml(seller, 'Toko', storeAddr || 'Toko', false, 'otpSellerChatBtn', '', storeName || 'Toko', storePhoto);
     }
 
     var buyerHtml = '';
@@ -1617,8 +1626,8 @@ function renderOrderInfo(order, isTalent) {
     var locationHtml = '<div class="sf-location-card">'
         + '<div class="sf-location-row">'
         + '<div class="sf-location-label"><div class="sf-loc-dot pickup"></div> Diambil dari</div>'
-        + '<div class="sf-location-title">' + (isProductOrder && seller ? escapeHtml(seller.name) : 'Titik Jemput') + '</div>'
-        + '<div class="sf-location-address">' + (isProductOrder && seller ? escapeHtml(seller.address) : escapeHtml(addrText)) + '</div>'
+        + '<div class="sf-location-title">' + (isProductOrder ? escapeHtml(storeName || 'Toko') : 'Titik Jemput') + '</div>'
+        + '<div class="sf-location-address">' + (isProductOrder ? escapeHtml(storeAddr || addrText) : escapeHtml(addrText)) + '</div>'
         + '</div>'
         + '<div class="sf-location-row">'
         + '<div class="sf-location-label"><div class="sf-loc-dot dropoff"></div> Diantar ke</div>'
@@ -2706,8 +2715,15 @@ function openRatingPage(order) {
     if (sellerWrap) {
         if (order.sellerId) {
             var seller = users.find(function (u) { return u.id === order.sellerId; });
+            var sellerStore = null;
+            if (typeof _slpAllStores !== 'undefined' && Array.isArray(_slpAllStores) && _slpAllStores.length > 0) {
+                sellerStore = _slpAllStores.find(function (s) {
+                    return String(s.id) === String(order.storeId || '') || String(s.userId) === String(order.sellerId || '');
+                }) || null;
+            }
+            var sellerDisplayName = order.storeName || (sellerStore && sellerStore.name) || (seller && seller.name) || 'Toko';
             sellerWrap.classList.remove('hidden');
-            if (sellerNameEl) sellerNameEl.textContent = seller ? seller.name : 'Penjual';
+            if (sellerNameEl) sellerNameEl.textContent = sellerDisplayName;
             if (sellerReviewEl) sellerReviewEl.value = '';
             document.querySelectorAll('#ratingSellerStars .star').forEach(function (s) { s.classList.remove('active'); });
         } else {
@@ -2984,7 +3000,13 @@ function renderOrderCards(orders) {
         if (!isTalent && !isSellerRole && isDone) {
             var seller = users.find(function (u) { return u.id === o.sellerId; });
             var driver2 = users.find(function (u) { return u.id === o.talentId; });
-            var sellerName = seller ? seller.name : 'Penjual';
+            var cachedStore = null;
+            if (typeof _slpAllStores !== 'undefined' && Array.isArray(_slpAllStores) && _slpAllStores.length > 0) {
+                cachedStore = _slpAllStores.find(function (s) {
+                    return String(s.id) === String(o.storeId || '') || String(s.userId) === String(o.sellerId || '');
+                }) || null;
+            }
+            var sellerName = (o.storeName || (cachedStore && cachedStore.name) || (seller && seller.name) || 'Toko');
             var driverName2 = driver2 ? driver2.name : 'Belum ada driver';
 
             var items2 = o.items;
@@ -3052,7 +3074,7 @@ function renderOrderCards(orders) {
                 + ratingBadge
                 + '</div>'
                 + '<div class="olp-ud-people">'
-                + '<div>🛍️ Penjual: <strong>' + escapeHtml(sellerName) + '</strong></div>'
+                + '<div>🏪 Toko: <strong>' + escapeHtml(sellerName) + '</strong></div>'
                 + '<div>🛵 Driver: <strong>' + escapeHtml(driverName2) + '</strong></div>'
                 + '</div>'
                 + '<ul class="olp-ud-items">' + itemPreview + '</ul>'

@@ -1229,6 +1229,7 @@ function createProductOrder(cartItems, store, paymentMethod, pricing, checkoutMo
         sellerId: store.userId || '',
         storeId: store.id || '',
         storeName: store.name || '',
+        storePhoto: store.photo || '',
         storeAddr: store.address || '',
         skillType: store.category || 'js_food',
         serviceType: 'Belanja ' + totalQty + ' item',
@@ -1256,6 +1257,7 @@ function createProductOrder(cartItems, store, paymentMethod, pricing, checkoutMo
             order.status = 'pending_seller';
             order.createdAt = Date.now();
             order.storeName = store.name;
+            order.storePhoto = store.photo || '';
             order.userName = session.name;
 
             try {
