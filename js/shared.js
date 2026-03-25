@@ -2935,10 +2935,18 @@ function renderOrderCards(orders) {
             if (!isFinite(totalTx) || totalTx <= 0) totalTx = subtotal + deliveryFee + serviceFee;
 
             var paymentLabel = (o.paymentMethod === 'cod') ? 'Tunai (COD)' : 'JsPay';
+            var paymentChipClass = (o.paymentMethod === 'cod') ? 'is-cod' : 'is-jspay';
             var finishedAt = new Date(displayTs || Date.now()).toLocaleString('id-ID', {
                 day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
             });
             var orderCode = String(o.id || '').slice(0, 10);
+
+            var financeRows = '<div class="olp-seller-fin-row"><span>Subtotal Produk</span><strong>' + formatRupiah(subtotal) + '</strong></div>';
+            if (deliveryFee > 0) {
+                financeRows += '<div class="olp-seller-fin-row"><span>Biaya Pengantaran</span><strong>' + formatRupiah(deliveryFee) + '</strong></div>';
+            }
+            financeRows += '<div class="olp-seller-fin-row"><span>Biaya Layanan</span><strong>' + formatRupiah(serviceFee) + '</strong></div>';
+            financeRows += '<div class="olp-seller-fin-row total"><span>Total Transaksi</span><strong>' + formatRupiah(totalTx) + '</strong></div>';
 
             var sellerRatingHtml = '';
             if (o.status === 'rated' && Number(o.sellerRating) > 0) {
@@ -2958,14 +2966,12 @@ function renderOrderCards(orders) {
                 + '<div class="olp-seller-line">🛵 Driver: <strong>' + escapeHtml(driverName) + '</strong></div>'
                 + '</div>'
                 + '<div class="olp-seller-meta">'
-                + '<span>' + totalQty + ' item</span>'
-                + '<span>' + escapeHtml(paymentLabel) + '</span>'
-                + '<span>#' + escapeHtml(orderCode) + '</span>'
+                + '<span class="olp-seller-chip">' + totalQty + ' item</span>'
+                + '<span class="olp-seller-chip ' + paymentChipClass + '">' + escapeHtml(paymentLabel) + '</span>'
+                + '<span class="olp-seller-chip">#' + escapeHtml(orderCode) + '</span>'
                 + '</div>'
                 + '<div class="olp-seller-finance">'
-                + '<div class="olp-seller-fin-row"><span>Subtotal Produk</span><strong>' + formatRupiah(subtotal) + '</strong></div>'
-                + '<div class="olp-seller-fin-row"><span>Biaya Layanan</span><strong>' + formatRupiah(serviceFee) + '</strong></div>'
-                + '<div class="olp-seller-fin-row total"><span>Total Transaksi</span><strong>' + formatRupiah(totalTx) + '</strong></div>'
+                + financeRows
                 + '</div>'
                 + sellerRatingHtml
                 + '<div class="olp-seller-finished">Selesai: ' + escapeHtml(finishedAt) + '</div>'

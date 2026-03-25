@@ -1820,7 +1820,9 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .olp-seller-line { font-size:12px; color:var(--gray-700); line-height:1.4; }
 .olp-seller-line strong { color:var(--black); font-weight:700; }
 .olp-seller-meta { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
-.olp-seller-meta span { font-size:11px; font-weight:600; color:#7C2D12; background:#FFF3E8; border:1px solid #FED7AA; border-radius:999px; padding:4px 8px; }
+.olp-seller-chip { font-size:11px; font-weight:600; color:#7C2D12; background:#FFF3E8; border:1px solid #FED7AA; border-radius:999px; padding:4px 8px; }
+.olp-seller-chip.is-cod { color:#065F46; background:#ECFDF5; border-color:#A7F3D0; }
+.olp-seller-chip.is-jspay { color:#1D4ED8; background:#EFF6FF; border-color:#BFDBFE; }
 .olp-seller-finance { background:#FFF9F2; border:1px solid #FDE7D6; border-radius:12px; padding:10px 12px; margin-bottom:8px; }
 .olp-seller-fin-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--gray-600); margin-bottom:6px; }
 .olp-seller-fin-row:last-child { margin-bottom:0; }
