@@ -2725,6 +2725,57 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     font-weight:700;
 }
 
+@media (max-width:360px) {
+    #page-owner .od-panel-view {
+        padding:10px 10px calc(92px + env(safe-area-inset-bottom, 0px));
+    }
+
+    #ownerBottomNav .nav-item {
+        padding:4px 2px;
+        gap:1px;
+        font-size:9px;
+    }
+
+    #ownerBottomNav .nav-item span {
+        max-width:64px;
+        line-height:1.15;
+        white-space:normal;
+    }
+
+    #page-owner .od-kpi-grid {
+        gap:8px;
+    }
+
+    #page-owner .od-kpi-card {
+        min-height:98px;
+        padding:12px;
+    }
+
+    #page-owner .od-kpi-value {
+        font-size:30px;
+    }
+
+    #page-owner .od-chart-kpis {
+        grid-template-columns:1fr;
+    }
+
+    #page-owner .od-wallet-actions {
+        flex-direction:column;
+    }
+
+    #page-owner .od-quick-grid {
+        grid-template-columns:1fr;
+    }
+
+    #page-owner .od-activity-summary {
+        grid-template-columns:1fr;
+    }
+
+    #page-owner .od-user-stats-inline {
+        grid-template-columns:1fr;
+    }
+}
+
 /* ─── Dashboard Animation ─── */
 @keyframes odFadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
 
