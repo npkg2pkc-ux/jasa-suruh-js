@@ -2086,40 +2086,45 @@ function ensureDriverSingleOrder(driverId, currentOrderId) {
 }
 
 function updateOrderStatus(orderId, newStatus, extraFields) {
-    var fields = extraFields || {};
+    var fields = Object.assign({}, extraFields || {});
     fields.status = newStatus;
+
+    var isCurrentOrderTarget = !!(_currentOrder && String(_currentOrder.id) === String(orderId));
+    var prevOrderSnapshot = null;
+    if (isCurrentOrderTarget) {
+        prevOrderSnapshot = Object.assign({}, _currentOrder);
+        Object.assign(_currentOrder, fields);
+        refreshTrackingUIFromCurrentOrder();
+    }
+
     backendPost({ action: 'updateOrder', orderId: orderId, fields: fields }).then(function (res) {
         if (res && res.success) {
-            if (_currentOrder && String(_currentOrder.id) === String(orderId)) {
-                _currentOrder.status = newStatus;
-                for (var k in extraFields) _currentOrder[k] = extraFields[k];
-                refreshTrackingUIFromCurrentOrder();
-            }
             showToast('Status diperbarui!', 'success');
 
             // Create notifications for order status change
-            if (_currentOrder) {
-                var isAntarOrder = _currentOrder.skillType === 'js_antar';
+            var notifOrder = isCurrentOrderTarget ? _currentOrder : null;
+            if (notifOrder) {
+                var isAntarOrder = notifOrder.skillType === 'js_antar';
                 var statusLabels = isAntarOrder
                     ? { accepted: 'Driver Ditemukan', on_the_way: 'Driver Menuju Lokasi', arrived: 'Driver Tiba', in_progress: 'Dalam Perjalanan', completed: 'Sampai Tujuan' }
                     : { accepted: 'Diterima', on_the_way: 'Dalam Perjalanan', arrived: 'Talent Tiba', in_progress: 'Dikerjakan', completed: 'Selesai' };
                 var label = statusLabels[newStatus] || newStatus;
-                var svc = _currentOrder.serviceType || _currentOrder.skillType || 'Pesanan';
+                var svc = notifOrder.serviceType || notifOrder.skillType || 'Pesanan';
                 // Notify the other party
                 var session = getSession();
                 if (session) {
-                    var otherUserId = (session.id === _currentOrder.talentId) ? _currentOrder.userId : _currentOrder.talentId;
+                    var otherUserId = (session.id === notifOrder.talentId) ? notifOrder.userId : notifOrder.talentId;
                     if (otherUserId) {
-                        addNotifItem({ userId: otherUserId, icon: '📦', title: 'Pesanan ' + label, desc: svc + ' - status diperbarui ke ' + label, type: 'order', orderId: _currentOrder.id });
+                        addNotifItem({ userId: otherUserId, icon: '📦', title: 'Pesanan ' + label, desc: svc + ' - status diperbarui ke ' + label, type: 'order', orderId: notifOrder.id });
                     }
                     // Also notify self
-                    addNotifItem({ icon: '📦', title: 'Pesanan ' + label, desc: svc + ' - status diperbarui ke ' + label, type: 'order', orderId: _currentOrder.id });
+                    addNotifItem({ icon: '📦', title: 'Pesanan ' + label, desc: svc + ' - status diperbarui ke ' + label, type: 'order', orderId: notifOrder.id });
                 }
             }
 
             // When order is completed, distribute funds to talent/penjual + owner commission
-            if (newStatus === 'completed' && _currentOrder) {
-                var order = _currentOrder;
+            if (newStatus === 'completed' && notifOrder) {
+                var order = notifOrder;
                 var pm = order.paymentMethod || 'jspay';
                 // Get commission settings to calculate proper rates
                 FB.get('getSettings')
@@ -2170,8 +2175,18 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                 }, 900);
             }
         } else {
+            if (isCurrentOrderTarget && prevOrderSnapshot) {
+                _currentOrder = prevOrderSnapshot;
+                refreshTrackingUIFromCurrentOrder();
+            }
             showToast('Gagal update status', 'error');
         }
+    }).catch(function () {
+        if (isCurrentOrderTarget && prevOrderSnapshot) {
+            _currentOrder = prevOrderSnapshot;
+            refreshTrackingUIFromCurrentOrder();
+        }
+        showToast('Gagal update status', 'error');
     });
 }
 
