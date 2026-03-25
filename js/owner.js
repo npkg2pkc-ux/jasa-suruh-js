@@ -12,6 +12,7 @@ var OwnerDashboard = (function () {
     var _chartInstance = null;
     var _ordersCache = [];
     var _currentRange = 'all'; // today, week, month, all
+    var _activityFilter = 'orders'; // orders, users, all
     var _currentRole = 'owner'; // 'owner' or 'admin'
     var _activeOwnerPanel = 'home';
     var _ownerPanelConfig = {
@@ -180,6 +181,21 @@ var OwnerDashboard = (function () {
         if (txBtn) txBtn.addEventListener('click', function () {
             if (typeof openAdminTransactions === 'function') openAdminTransactions();
         });
+
+        var activityFilters = $('ownerActivityFilters');
+        if (activityFilters && !activityFilters._bound) {
+            activityFilters._bound = true;
+            activityFilters.addEventListener('click', function (e) {
+                var btn = e.target.closest('[data-activity-filter]');
+                if (!btn) return;
+                var nextFilter = btn.dataset.activityFilter || 'orders';
+                _activityFilter = nextFilter;
+                activityFilters.querySelectorAll('[data-activity-filter]').forEach(function (b) {
+                    b.classList.toggle('active', b === btn);
+                });
+                _renderActivity(_ordersCache);
+            });
+        }
 
         // Owner logout button
         var logoutBtn = $('ownerLogoutBtn');
@@ -427,6 +443,7 @@ var OwnerDashboard = (function () {
     function _renderActivity(orders) {
         var container = $('ownerActivityList');
         if (!container) return;
+
         var users = typeof getUsers === 'function' ? getUsers() : [];
         var usersById = {};
         users.forEach(function (u) { usersById[String(u.id)] = u; });
@@ -446,6 +463,18 @@ var OwnerDashboard = (function () {
         function getRoleLabel(role) {
             var roleLabel = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS', admin: 'Admin' };
             return roleLabel[role] || role || 'User';
+        }
+
+        function inCurrentRange(ts) {
+            var nTs = Number(ts || 0);
+            if (!nTs) return false;
+            if (_currentRange === 'all') return true;
+            var now = new Date();
+            var start = new Date();
+            if (_currentRange === 'today') start.setHours(0, 0, 0, 0);
+            else if (_currentRange === 'week') start.setDate(now.getDate() - 7);
+            else if (_currentRange === 'month') start.setMonth(now.getMonth() - 1);
+            return nTs >= start.getTime();
         }
 
         function buildOrderMeta(o) {
@@ -469,13 +498,10 @@ var OwnerDashboard = (function () {
             };
         }
 
-        if (!orders || orders.length === 0) {
-            container.innerHTML = '<div class="od-empty"><span>📭</span><p>Belum ada aktivitas</p></div>';
-            return;
-        }
+        var rangeOrders = _filterByRange(Array.isArray(orders) ? orders : []);
 
         var events = [];
-        orders.forEach(function (o) {
+        rangeOrders.forEach(function (o) {
             var createdTs = Number(o.createdAt) || 0;
             if (createdTs > 0) {
                 events.push({
@@ -499,7 +525,7 @@ var OwnerDashboard = (function () {
         users.forEach(function (u) {
             if (u.role === 'owner') return;
             var userTs = Number(u.createdAt || 0);
-            if (userTs > 0) {
+            if (userTs > 0 && inCurrentRange(userTs)) {
                 events.push({
                     type: 'user_joined',
                     ts: userTs,
@@ -508,12 +534,18 @@ var OwnerDashboard = (function () {
             }
         });
 
-        events.sort(function (a, b) { return b.ts - a.ts; });
-        var recent = events.slice(0, 14);
+        var createdCount = events.filter(function (e) { return e.type === 'order_created'; }).length;
+        var doneCount = events.filter(function (e) { return e.type === 'order_completed'; }).length;
+        var userCount = events.filter(function (e) { return e.type === 'user_joined'; }).length;
 
-        var createdCount = recent.filter(function (e) { return e.type === 'order_created'; }).length;
-        var doneCount = recent.filter(function (e) { return e.type === 'order_completed'; }).length;
-        var userCount = recent.filter(function (e) { return e.type === 'user_joined'; }).length;
+        if (_activityFilter === 'orders') {
+            events = events.filter(function (e) { return e.type === 'order_created' || e.type === 'order_completed'; });
+        } else if (_activityFilter === 'users') {
+            events = events.filter(function (e) { return e.type === 'user_joined'; });
+        }
+
+        events.sort(function (a, b) { return b.ts - a.ts; });
+        var recent = events.slice(0, 18);
 
         var summaryHtml = '<div class="od-activity-summary">'
             + '<div class="od-activity-chip"><span>🆕 Order Masuk</span><strong>' + createdCount + '</strong></div>'
@@ -526,13 +558,21 @@ var OwnerDashboard = (function () {
             return;
         }
 
+        var lastDay = '';
         var feedHtml = recent.map(function (evt) {
+            var dayLabel = new Date(Number(evt.ts)).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
+            var dayHead = '';
+            if (dayLabel !== lastDay) {
+                lastDay = dayLabel;
+                dayHead = '<div class="od-activity-day-divider"><span>' + dayLabel + '</span></div>';
+            }
+
             if (evt.type === 'user_joined') {
                 var u = evt.user || {};
                 var displayName = u.name || u.nama || 'User';
                 var initial = displayName.charAt(0).toUpperCase();
                 var roleText = getRoleLabel(u.role);
-                return '<article class="od-activity-card">'
+                return dayHead + '<article class="od-activity-card od-activity-user-card">'
                     + '<div class="od-activity-card-top">'
                     + '<span class="od-activity-badge type-user">User Baru</span>'
                     + '<span class="od-activity-time">' + formatDateTime(evt.ts) + '</span>'
@@ -541,7 +581,8 @@ var OwnerDashboard = (function () {
                     + '<div class="od-activity-avatar" style="background:' + _roleColor(u.role) + '">' + initial + '</div>'
                     + '<div class="od-activity-info">'
                     + '<div class="od-activity-title">' + escapeHtml(displayName) + '</div>'
-                    + '<div class="od-activity-meta">Role: ' + escapeHtml(roleText) + ' • @' + escapeHtml(String(u.username || u.no_hp || u.phone || '-')) + '</div>'
+                    + '<div class="od-activity-meta">Role: ' + escapeHtml(roleText) + '</div>'
+                    + '<div class="od-activity-meta">@' + escapeHtml(String(u.username || u.no_hp || u.phone || '-')) + '</div>'
                     + '</div>'
                     + '</div>'
                     + '</article>';
@@ -554,20 +595,23 @@ var OwnerDashboard = (function () {
             var badgeText = isDone ? 'Order Selesai' : 'Order Baru';
             var feeText = meta.fee > 0 ? formatRp(meta.fee) : '-';
 
-            return '<article class="od-activity-card">'
+            return dayHead + '<article class="od-activity-card od-activity-order-card">'
                 + '<div class="od-activity-card-top">'
                 + '<span class="od-activity-badge ' + badgeType + '">' + badgeText + '</span>'
                 + '<span class="od-activity-time">' + formatDateTime(evt.ts) + '</span>'
                 + '</div>'
-                + '<div class="od-activity-title">' + escapeHtml(meta.service) + ' <span class="od-activity-price">' + formatRp(meta.total) + '</span></div>'
-                + '<div class="od-activity-grid">'
-                + '<span><strong>Kode</strong> #' + escapeHtml(meta.code) + '</span>'
-                + '<span><strong>Status</strong> ' + escapeHtml(meta.statusText) + '</span>'
-                + '<span><strong>Customer</strong> ' + escapeHtml(meta.customer) + '</span>'
-                + '<span><strong>Pembayaran</strong> ' + escapeHtml(meta.payment) + '</span>'
-                + '<span><strong>Driver</strong> ' + escapeHtml(meta.driver) + '</span>'
-                + '<span><strong>Toko</strong> ' + escapeHtml(meta.seller) + '</span>'
-                + '<span class="od-activity-income"><strong>Fee Platform</strong> ' + feeText + '</span>'
+                + '<div class="od-activity-title">' + escapeHtml(meta.service) + '</div>'
+                + '<div class="od-activity-meta">Order #' + escapeHtml(meta.code) + ' • ' + escapeHtml(meta.customer) + '</div>'
+                + '<div class="od-activity-tags">'
+                + '<span class="od-activity-tag">Status: ' + escapeHtml(meta.statusText) + '</span>'
+                + '<span class="od-activity-tag">Bayar: ' + escapeHtml(meta.payment) + '</span>'
+                + '<span class="od-activity-tag">Driver: ' + escapeHtml(meta.driver) + '</span>'
+                + '<span class="od-activity-tag">Toko: ' + escapeHtml(meta.seller) + '</span>'
+                + '</div>'
+                + '<div class="od-activity-order-footer">'
+                + '<span class="od-activity-price">Total ' + formatRp(meta.total) + '</span>'
+                + '<span class="od-activity-fee">Fee Platform: ' + feeText + '</span>'
+                + '</div>'
                 + '</div>'
                 + '</article>';
         }).join('');
