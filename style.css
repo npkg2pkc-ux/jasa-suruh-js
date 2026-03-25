@@ -433,10 +433,12 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .pay-section { margin-top:20px; }
 .pay-card { background:var(--gray-100); border-radius:var(--r-lg); padding:20px; }
 .pay-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.pay-header-actions { display:flex; align-items:center; gap:8px; }
 .pay-logo { color:var(--black); font-size:20px; font-weight:700; display:flex; align-items:center; gap:4px; }
 .pay-logo-icon { width:24px; height:24px; border-radius:6px; object-fit:cover; }
 .btn-topup { background:var(--orange); color:var(--white); border:none; padding:8px 20px; border-radius:var(--r-full); font-size:13px; font-weight:600; font-family:var(--font); cursor:pointer; transition:var(--tr); }
 .btn-topup:active { transform:scale(.95); }
+.btn-withdraw-pay { background:#FFFFFF; color:var(--orange-dark); border:1px solid #FDBA74; }
 .pay-balance { display:flex; align-items:center; gap:16px; }
 .balance-item { display:flex; align-items:center; gap:10px; flex:1; }
 .balance-item svg { color:var(--black); flex-shrink:0; }
@@ -4152,6 +4154,20 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
         flex-direction:column;
         align-items:flex-start;
         gap:10px;
+    }
+
+    .pay-header {
+        align-items:flex-start;
+        gap:10px;
+    }
+
+    .pay-header-actions {
+        gap:6px;
+    }
+
+    .pay-header-actions .btn-topup {
+        padding:7px 12px;
+        font-size:12px;
     }
 
     .balance-divider {
