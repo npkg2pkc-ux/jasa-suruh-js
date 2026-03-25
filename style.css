@@ -3932,6 +3932,36 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     animation: sfProgressBackward .48s cubic-bezier(.4,0,.2,1);
 }
 
+.sf-progress-wrap.is-terminal {
+    border-color:#FCD8B7;
+    box-shadow:0 6px 18px rgba(249,115,22,.14);
+    background:linear-gradient(180deg,#FFFFFF 0%, #FFF8F1 100%);
+}
+
+.sf-progress-wrap.is-terminal .sf-status-eta {
+    color:#B45309;
+    font-weight:700;
+}
+
+.sf-progress-wrap.is-terminal .sf-status-icon-illustration {
+    background:linear-gradient(145deg,#FFF2E2 0%, #FFE1BE 100%);
+    box-shadow:inset 0 0 0 1px rgba(251,146,60,.22);
+}
+
+.sf-progress-wrap.is-terminal .sf-progress-step.done .sf-progress-step-icon,
+.sf-progress-wrap.is-terminal .sf-progress-step.active .sf-progress-step-icon {
+    background:linear-gradient(145deg,#FB923C 0%, #EA580C 100%);
+}
+
+.sf-progress-wrap.is-terminal .sf-progress-hint {
+    color:#9A3412;
+    font-weight:600;
+}
+
+.sf-progress-wrap.is-terminal.is-status-transition .sf-progress-step.active .sf-progress-step-icon {
+    animation: sfTerminalPulse .72s cubic-bezier(.2,.8,.2,1);
+}
+
 @keyframes sfStepPulse {
     0%, 100% { transform: scale(1.05); box-shadow: 0 0 0 2px rgba(238,77,45,.22); }
     50% { transform: scale(1.18); box-shadow: 0 0 0 6px rgba(238,77,45,.12); }
@@ -3967,6 +3997,12 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 @keyframes sfProgressBackward {
     0% { opacity: .72; }
     100% { opacity: 1; }
+}
+
+@keyframes sfTerminalPulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(234,88,12,.28); }
+    50% { transform: scale(1.22); box-shadow: 0 0 0 10px rgba(234,88,12,0); }
+    100% { transform: scale(1.08); box-shadow: 0 0 0 3px rgba(234,88,12,.22); }
 }
 
 /* Driver / Location Card */

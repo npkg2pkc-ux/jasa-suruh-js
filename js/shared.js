@@ -1382,6 +1382,7 @@ function renderTrackingProgress(order) {
     if (order.status === 'in_progress') iconIllustration = '🛵';
 
     var progressRatio = Math.min(1, Math.max(0, percent / 100));
+    var isTerminal = (order.status === 'completed' || order.status === 'rated');
 
     var html = '<div class="sf-status-header">'
         + '<div><div class="sf-status-eta">' + etaText + '</div>'
@@ -1396,6 +1397,7 @@ function renderTrackingProgress(order) {
 
     track.innerHTML = html;
     wrap.classList.remove('hidden');
+    wrap.classList.toggle('is-terminal', isTerminal);
 
     if (isStatusChanged) {
         wrap.classList.remove('is-status-transition', 'is-forward', 'is-backward');
