@@ -1818,21 +1818,37 @@ function openDriverGoogleMaps(order, targetType) {
     var target = resolveDriverNavigationTarget(order, targetType);
     if (!target) {
         showToast('Koordinat tujuan belum tersedia', 'error');
-        return;
+        return Promise.resolve(false);
     }
 
-    function openWith(originLat, originLng) {
-        var url = 'https://www.google.com/maps/dir/?api=1'
+    // Open tab synchronously from the click event to avoid popup blockers.
+    var navWindow = null;
+    try {
+        navWindow = window.open('', '_blank');
+    } catch (e) {
+        navWindow = null;
+    }
+
+    function buildUrl(originLat, originLng) {
+        return 'https://www.google.com/maps/dir/?api=1'
             + '&origin=' + encodeURIComponent(String(originLat) + ',' + String(originLng))
             + '&destination=' + encodeURIComponent(String(target.lat) + ',' + String(target.lng))
             + '&travelmode=driving'
             + '&dir_action=navigate';
+    }
+
+    function navigate(url) {
+        if (navWindow && !navWindow.closed) {
+            navWindow.location.href = url;
+            try { navWindow.focus(); } catch (e) {}
+            return;
+        }
         var win = window.open(url, '_blank');
         if (!win) window.location.href = url;
     }
 
-    getCurrentPosition()
-        .then(function (pos) { openWith(pos.lat, pos.lng); })
+    return getCurrentPosition()
+        .then(function (pos) { navigate(buildUrl(pos.lat, pos.lng)); return true; })
         .catch(function () {
             var fallbackLat = Number(order.talentLat);
             var fallbackLng = Number(order.talentLng);
@@ -1840,7 +1856,8 @@ function openDriverGoogleMaps(order, targetType) {
                 fallbackLat = target.lat;
                 fallbackLng = target.lng;
             }
-            openWith(fallbackLat, fallbackLng);
+            navigate(buildUrl(fallbackLat, fallbackLng));
+            return true;
         });
 }
 
@@ -1848,21 +1865,39 @@ function bindDriverNavButtons(order) {
     var btnStore = document.getElementById('otpBtnNavStore');
     if (btnStore) {
         btnStore.addEventListener('click', function () {
-            openDriverGoogleMaps(order, 'store');
+            if (btnStore.dataset.busy === '1') return;
+            btnStore.dataset.busy = '1';
+            btnStore.disabled = true;
+            openDriverGoogleMaps(order, 'store').then(function () {
+                btnStore.dataset.busy = '0';
+                btnStore.disabled = false;
+            });
         });
     }
 
     var btnBuyer = document.getElementById('otpBtnNavBuyer');
     if (btnBuyer) {
         btnBuyer.addEventListener('click', function () {
-            openDriverGoogleMaps(order, 'buyer');
+            if (btnBuyer.dataset.busy === '1') return;
+            btnBuyer.dataset.busy = '1';
+            btnBuyer.disabled = true;
+            openDriverGoogleMaps(order, 'buyer').then(function () {
+                btnBuyer.dataset.busy = '0';
+                btnBuyer.disabled = false;
+            });
         });
     }
 
     var btnUser = document.getElementById('otpBtnNavUser');
     if (btnUser) {
         btnUser.addEventListener('click', function () {
-            openDriverGoogleMaps(order, 'user');
+            if (btnUser.dataset.busy === '1') return;
+            btnUser.dataset.busy = '1';
+            btnUser.disabled = true;
+            openDriverGoogleMaps(order, 'user').then(function () {
+                btnUser.dataset.busy = '0';
+                btnUser.disabled = false;
+            });
         });
     }
 }
