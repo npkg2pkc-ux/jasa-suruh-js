@@ -1060,9 +1060,9 @@ function openOrderTracking(order) {
     var isTalent = session && String(session.id) === String(order.talentId);
     var isUser = session && String(session.id) === String(order.userId);
 
-    renderTrackingProgress(order);
     renderOrderInfo(order, isTalent);
     renderOrderActions(order, isTalent, isUser);
+    updateTrackingVisualState(order);
 
     page.classList.remove('hidden');
 
@@ -1340,16 +1340,16 @@ function updateTrackingVisualState(order) {
     var progressWrap = document.getElementById('otpProgressWrap');
     if (!mapEl || !progressWrap || !order) return;
 
+    renderTrackingProgress(order);
+    progressWrap.classList.remove('hidden');
+
     var showMap = shouldShowTrackingMap(order);
     if (showMap) {
-        progressWrap.classList.add('hidden');
         mapEl.classList.remove('hidden');
         if (!_otpMap) initTrackingMap(order);
         else setTimeout(function () { if (_otpMap) _otpMap.invalidateSize(); }, 120);
     } else {
         mapEl.classList.add('hidden');
-        renderTrackingProgress(order);
-        progressWrap.classList.remove('hidden');
         destroyTrackingMap();
     }
 }
@@ -1373,9 +1373,9 @@ function refreshTrackingUIFromCurrentOrder() {
     var isTalent = session && String(session.id) === String(_currentOrder.talentId);
     var isUser = session && String(session.id) === String(_currentOrder.userId);
 
-    renderTrackingProgress(_currentOrder);
     renderOrderActions(_currentOrder, isTalent, isUser);
     renderOrderInfo(_currentOrder, isTalent);
+    updateTrackingVisualState(_currentOrder);
 }
 
 function maybePromptRatingAfterCompleted(order) {
