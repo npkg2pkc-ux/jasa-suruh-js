@@ -2997,6 +2997,80 @@ function renderOrderCards(orders) {
                 + '</div>';
         }
 
+        if (isTalent && isDone) {
+            var buyer2 = users.find(function (u) { return u.id === o.userId; });
+            var seller2 = users.find(function (u) { return u.id === o.sellerId; });
+            var buyerName2 = buyer2 ? buyer2.name : 'Customer';
+            var sellerStoreName2 = o.storeName || (seller2 ? seller2.name : 'Toko');
+
+            var isProductDelivery = !!(o.sellerId && String(o.sellerId) !== String(o.talentId));
+            var subtotal3 = Number(o.price) || 0;
+            var deliveryFee3 = Number(o.deliveryFee) || 0;
+            var platformFee3 = Number(o.fee) || 0;
+            var paymentMethod3 = String(o.paymentMethod || 'jspay').toLowerCase();
+            var isCOD3 = paymentMethod3 === 'cod';
+            var defaultCommission3 = isProductDelivery ? 10 : 15;
+            var commissionPercent3 = Number(o.commissionPercent || defaultCommission3);
+            if (!isFinite(commissionPercent3) || commissionPercent3 < 0) commissionPercent3 = defaultCommission3;
+            var commissionAmount3 = Number(o.commissionAmount);
+            if (!isFinite(commissionAmount3) || commissionAmount3 < 0) {
+                commissionAmount3 = Math.round(subtotal3 * commissionPercent3 / 100);
+            }
+
+            var grossDriverIncome = isProductDelivery ? deliveryFee3 : subtotal3;
+            var driverDeduction = 0;
+            if (isCOD3) {
+                driverDeduction = platformFee3 + commissionAmount3;
+            } else if (!isProductDelivery) {
+                driverDeduction = commissionAmount3;
+            }
+            var driverNet = grossDriverIncome - driverDeduction;
+
+            var paymentLabel3 = isCOD3 ? 'Tunai (COD)' : 'JsPay';
+            var paymentChipClass3 = isCOD3 ? 'is-cod' : 'is-jspay';
+            var finishedAt3 = new Date(displayTs || Date.now()).toLocaleString('id-ID', {
+                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+            var orderCode3 = String(o.id || '').slice(0, 10);
+
+            var coreIncomeLabel = isProductDelivery ? 'Pendapatan Antar (Ongkir)' : 'Nilai Jasa Driver';
+            var feeLabel = isCOD3
+                ? 'Biaya Platform'
+                : (isProductDelivery ? 'Biaya Platform (Info)' : 'Biaya Platform (Ditanggung Customer)');
+            var feePrefix = isCOD3 ? '-' : '';
+            var commissionPrefix = (!isCOD3 && isProductDelivery) ? '' : '-';
+
+            var financeRows3 = '<div class="olp-driver-fin-row"><span>' + coreIncomeLabel + '</span><strong>' + formatRupiah(grossDriverIncome) + '</strong></div>';
+            financeRows3 += '<div class="olp-driver-fin-row"><span>Komisi Platform (' + commissionPercent3 + '%)</span><strong>' + commissionPrefix + formatRupiah(commissionAmount3) + '</strong></div>';
+            financeRows3 += '<div class="olp-driver-fin-row"><span>' + feeLabel + '</span><strong>' + feePrefix + formatRupiah(platformFee3) + '</strong></div>';
+            financeRows3 += '<div class="olp-driver-fin-row total"><span>Estimasi Diterima Driver</span><strong>' + (driverNet < 0 ? '-' : '') + formatRupiah(Math.abs(driverNet)) + '</strong></div>';
+
+            var payoutHint3 = isCOD3
+                ? 'COD: potongan platform diproses dari saldo driver.'
+                : 'JsPay: pendapatan driver masuk otomatis ke wallet.';
+
+            return '<div class="olp-card olp-card-driverdone" data-idx="' + idx + '">'
+                + '<div class="olp-card-top">'
+                + '<div class="olp-card-service">' + escapeHtml(o.serviceType || o.skillType || 'Pesanan Driver') + '</div>'
+                + '<span class="otp-status-badge status-' + o.status + '">' + statusText + '</span>'
+                + '</div>'
+                + '<div class="olp-driver-people">'
+                + '<div class="olp-driver-line">👤 Customer: <strong>' + escapeHtml(buyerName2) + '</strong></div>'
+                + (isProductDelivery ? '<div class="olp-driver-line">🏪 Toko: <strong>' + escapeHtml(sellerStoreName2) + '</strong></div>' : '')
+                + '</div>'
+                + '<div class="olp-driver-meta">'
+                + '<span class="olp-driver-chip ' + paymentChipClass3 + '">' + escapeHtml(paymentLabel3) + '</span>'
+                + '<span class="olp-driver-chip">#' + escapeHtml(orderCode3) + '</span>'
+                + (isProductDelivery ? '<span class="olp-driver-chip">Order Toko</span>' : '<span class="olp-driver-chip">Order Jasa</span>')
+                + '</div>'
+                + '<div class="olp-driver-finance">'
+                + financeRows3
+                + '</div>'
+                + '<div class="olp-driver-hint">' + escapeHtml(payoutHint3) + '</div>'
+                + '<div class="olp-driver-finished">Selesai: ' + escapeHtml(finishedAt3) + '</div>'
+                + '</div>';
+        }
+
         if (!isTalent && !isSellerRole && isDone) {
             var seller = users.find(function (u) { return u.id === o.sellerId; });
             var driver2 = users.find(function (u) { return u.id === o.talentId; });

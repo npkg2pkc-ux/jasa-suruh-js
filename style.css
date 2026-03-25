@@ -1833,6 +1833,22 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .olp-ud-fin-row.total { border-top:1px dashed #CBD5E1; padding-top:8px; color:#0F172A; }
 .olp-ud-fin-row.total strong { color:var(--orange-dark); font-size:14px; }
 .olp-ud-finished { font-size:11px; color:var(--gray-500); margin-top:6px; }
+.olp-card-driverdone { padding:16px; border:1px solid #D7E7FF; box-shadow:0 8px 20px rgba(14,116,144,.08); }
+.olp-driver-people { display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+.olp-driver-line { font-size:12px; color:var(--gray-700); line-height:1.45; }
+.olp-driver-line strong { color:var(--black); font-weight:700; }
+.olp-driver-meta { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+.olp-driver-chip { font-size:11px; font-weight:700; color:#0C4A6E; background:#F0F9FF; border:1px solid #BAE6FD; border-radius:999px; padding:4px 8px; }
+.olp-driver-chip.is-cod { color:#7C2D12; background:#FFF7ED; border-color:#FED7AA; }
+.olp-driver-chip.is-jspay { color:#1D4ED8; background:#EFF6FF; border-color:#BFDBFE; }
+.olp-driver-finance { background:#F8FAFC; border:1px solid #D8E4F8; border-radius:12px; padding:10px 12px; margin-bottom:8px; }
+.olp-driver-fin-row { display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:12px; color:var(--gray-600); margin-bottom:6px; }
+.olp-driver-fin-row:last-child { margin-bottom:0; }
+.olp-driver-fin-row strong { color:var(--black); font-size:12px; font-weight:700; }
+.olp-driver-fin-row.total { border-top:1px dashed #BFDBFE; padding-top:8px; color:#0F172A; }
+.olp-driver-fin-row.total strong { color:#0C4A6E; font-size:14px; }
+.olp-driver-hint { font-size:11px; color:#475569; background:#F8FAFC; border:1px dashed #CBD5E1; border-radius:10px; padding:7px 9px; }
+.olp-driver-finished { margin-top:8px; font-size:11px; color:var(--gray-500); }
 .olp-card-seller { padding:16px; border:1px solid rgba(255,107,0,.12); box-shadow:0 8px 18px rgba(255,107,0,.1); }
 .olp-seller-people { display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
 .olp-seller-line { font-size:12px; color:var(--gray-700); line-height:1.4; }
