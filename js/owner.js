@@ -1235,7 +1235,12 @@ function renderAdminTransactions(orders) {
     list.querySelectorAll('.olp-card').forEach(function (card) {
         card.addEventListener('click', function () {
             var idx = parseInt(this.dataset.idx, 10);
-            if (orders[idx] && typeof openChat === 'function') openChat(orders[idx]);
+            if (!orders[idx]) return;
+            if (typeof openOrderTracking === 'function') {
+                openOrderTracking(orders[idx]);
+                return;
+            }
+            if (typeof openChat === 'function') openChat(orders[idx]);
         });
     });
 }
