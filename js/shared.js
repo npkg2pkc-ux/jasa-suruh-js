@@ -1059,6 +1059,9 @@ function openOrderTracking(order) {
     var session = getSession();
     var isTalent = session && String(session.id) === String(order.talentId);
     var isUser = session && String(session.id) === String(order.userId);
+    var isSeller = session && String(session.id) === String(order.sellerId);
+
+    page.classList.toggle('seller-mode', !!isSeller);
 
     renderOrderInfo(order, isTalent);
     renderOrderActions(order, isTalent, isUser);
