@@ -1534,9 +1534,24 @@ function renderOrderInfo(order, isTalent) {
     var other = users.find(function (u) { return u.id === (isTalent ? order.userId : order.talentId); });
     var seller = users.find(function (u) { return u.id === order.sellerId; });
     var buyer = users.find(function (u) { return u.id === order.userId; });
-    var priceText = order.price ? formatRupiah(Number(order.price)) : '-';
-    var feeText = order.fee ? formatRupiah(Number(order.fee)) : '-';
-    var totalText = order.totalCost ? formatRupiah(Number(order.totalCost)) : '-';
+    var subtotalAmount = Math.max(0, Number(order.price) || 0);
+    var deliveryFeeAmount = Math.max(0, Number(order.deliveryFee) || 0);
+    var platformFeeAmount = Math.max(0, Number(order.fee) || 0);
+    var explicitDiscount = Math.max(0, Number(order.discountAmount || order.discount || order.voucherDiscount || 0));
+    var computedTotal = subtotalAmount + deliveryFeeAmount + platformFeeAmount - explicitDiscount;
+    var totalAmount = Number(order.totalCost);
+    if (!isFinite(totalAmount) || totalAmount <= 0) totalAmount = computedTotal;
+
+    var inferredDiscount = 0;
+    var beforeDiscountTotal = subtotalAmount + deliveryFeeAmount + platformFeeAmount;
+    if (explicitDiscount > 0) {
+        inferredDiscount = explicitDiscount;
+    } else if (beforeDiscountTotal > 0 && totalAmount > 0 && totalAmount < beforeDiscountTotal) {
+        inferredDiscount = beforeDiscountTotal - totalAmount;
+    }
+
+    var priceText = formatRupiah(subtotalAmount);
+    var totalText = formatRupiah(Math.max(0, totalAmount));
     var addrText = order.userAddr || 'Tidak tersedia';
     var isAntar = order.skillType === 'js_antar';
     var pmLabel = order.paymentMethod === 'cod' ? 'Tunai (COD)' : 'JsPay';
@@ -1620,13 +1635,22 @@ function renderOrderInfo(order, isTalent) {
             + '</div>';
     }
     
+    var summaryRows = '<div class="sf-od-row subtotal"><span>Subtotal Pesanan</span><span class="sf-od-val">' + priceText + '</span></div>';
+    if (deliveryFeeAmount > 0) {
+        summaryRows += '<div class="sf-od-row"><span>Biaya Pengantaran</span><span class="sf-od-val">' + formatRupiah(deliveryFeeAmount) + '</span></div>';
+    }
+    if (platformFeeAmount > 0) {
+        summaryRows += '<div class="sf-od-row"><span>Biaya Layanan (Fee)</span><span class="sf-od-val">' + formatRupiah(platformFeeAmount) + '</span></div>';
+    }
+    if (inferredDiscount > 0) {
+        summaryRows += '<div class="sf-od-row discount"><span>Diskon</span><span class="sf-od-val">-' + formatRupiah(inferredDiscount) + '</span></div>';
+    }
+
     var orderDetailsHtml = '<div class="sf-order-details-card">'
         + '<div class="sf-od-header">Rincian Pesanan</div>'
         + orderItemsHtml
         + '<div class="sf-od-summary">'
-        + '<div class="sf-od-row subtotal"><span>Subtotal Pesanan</span><span class="sf-od-val">' + priceText + '</span></div>'
-        + '<div class="sf-od-row discount"><span>Voucher Diskon</span><span class="sf-od-val">-Rp 15.000</span></div>'
-        + '<div class="sf-od-row"><span>Biaya Layanan</span><span class="sf-od-val">' + feeText + '</span></div>'
+        + summaryRows
         + '<div class="sf-od-total-sec">'
         + '<div class="sf-od-total-val">' + totalText + '</div>'
         + '<div class="sf-od-total-hint">(Sudah termasuk pajak)</div>'

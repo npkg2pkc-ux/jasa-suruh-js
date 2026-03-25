@@ -736,11 +736,13 @@ function showPenjualOrderNotification(order) {
 function renderPenjualOrders(orders, session) {
     // Filter orders where this user is the seller (not talentId)
     var incoming = orders.filter(function (o) {
-        return (o.sellerId === session.id || o.talentId === session.id) && (['pending_seller', 'preparing', 'pending'].indexOf(o.status) >= 0);
+        return String(o.sellerId || '') === String(session.id || '') && (['pending_seller', 'preparing', 'pending'].indexOf(o.status) >= 0);
     });
     var inEl = document.getElementById('penjualIncomingOrders');
+    var badgeEl = document.getElementById('penjualPendingBadge');
     if (!inEl) return;
     if (incoming.length === 0) {
+        if (badgeEl) badgeEl.textContent = '';
         inEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><h3>Belum Ada Pesanan</h3><p>Pesanan produk dari pelanggan akan muncul di sini.</p></div>';
         return;
     }
@@ -764,7 +766,6 @@ function renderPenjualOrders(orders, session) {
             if (incoming[idx]) openOrderTracking(incoming[idx]);
         });
     });
-    var badgeEl = document.getElementById('penjualPendingBadge');
     if (badgeEl) badgeEl.textContent = incoming.length > 0 ? incoming.length : '';
     // Note: penjualHeaderBadge is managed by updateNotifBadges() for notification count
     // Use penjualPendingBadge for order count instead
