@@ -1278,7 +1278,7 @@ function buildTrackingProgressSteps(order) {
             { key: 'accepted', icon: '✅', text: 'Driver menerima pesanan' },
             { key: 'on_the_way', icon: '🏍️', text: 'Driver menuju lokasi toko' },
             { key: 'arrived', icon: '🏪', text: 'Driver tiba di toko' },
-            { key: 'in_progress', icon: '🛵', text: 'Driver mengantar ke pembeli' },
+            { key: 'in_progress', icon: '🛵', text: 'Driver menuju lokasimu' },
             { key: 'completed', icon: '📦', text: 'Pesanan sampai ke pembeli' },
             { key: 'rated', icon: '⭐', text: 'Pesanan selesai dinilai' }
         ];
