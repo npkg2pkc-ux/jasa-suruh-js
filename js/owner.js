@@ -43,7 +43,7 @@ var OwnerDashboard = (function () {
     function _isOwner() { return _currentRole === 'owner'; }
 
     function _setActiveOwnerNav(panel) {
-        $$('.od-nav-item[data-owner-panel]').forEach(function (btn) {
+        $$('#ownerBottomNav [data-owner-panel]').forEach(function (btn) {
             btn.classList.toggle('active', btn.dataset.ownerPanel === panel);
         });
     }
@@ -144,7 +144,7 @@ var OwnerDashboard = (function () {
         });
 
         // Owner bottom nav modal panels
-        $$('.od-nav-item[data-owner-panel]').forEach(function (btn) {
+        $$('#ownerBottomNav [data-owner-panel]').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 _openOwnerPanel(this.dataset.ownerPanel || 'home');
             });
