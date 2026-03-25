@@ -2830,6 +2830,28 @@ function submitRating() {
 // ══════════════════════════════════════════
 // ═══ SETTINGS / AKUN PAGE ═══
 // ══════════════════════════════════════════
+var _ordersUiSettingsCache = null;
+
+function loadOrdersUiSettings(forceRefresh) {
+    if (_ordersUiSettingsCache && !forceRefresh) {
+        return Promise.resolve(_ordersUiSettingsCache);
+    }
+    if (!isBackendConnected()) {
+        _ordersUiSettingsCache = {};
+        return Promise.resolve(_ordersUiSettingsCache);
+    }
+    return FB.get('getSettings')
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            _ordersUiSettingsCache = (res && res.success && res.data) ? res.data : {};
+            return _ordersUiSettingsCache;
+        })
+        .catch(function () {
+            _ordersUiSettingsCache = {};
+            return _ordersUiSettingsCache;
+        });
+}
+
 function openSettingsPage() {
     if (typeof AccountPage !== 'undefined') {
         AccountPage.open();
@@ -2850,9 +2872,12 @@ function openOrdersList() {
 
     document.getElementById('olpList').innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">⏳</div><p>Memuat pesanan...</p></div>';
 
-    FB.get('getOrdersByUser', { userId: session.id })
-        .then(function (r) { return r.json(); })
-        .then(function (res) {
+    Promise.all([
+        FB.get('getOrdersByUser', { userId: session.id }).then(function (r) { return r.json(); }),
+        loadOrdersUiSettings(true)
+    ])
+        .then(function (allRes) {
+            var res = allRes[0];
             if (res.success && res.data) {
                 _ordersListData = res.data;
                 filterOrdersList('active');
@@ -3002,6 +3027,7 @@ function renderOrderCards(orders) {
             var seller2 = users.find(function (u) { return u.id === o.sellerId; });
             var buyerName2 = buyer2 ? buyer2.name : 'Customer';
             var sellerStoreName2 = o.storeName || (seller2 ? seller2.name : 'Toko');
+            var settings3 = (typeof _ordersUiSettingsCache !== 'undefined' && _ordersUiSettingsCache) ? _ordersUiSettingsCache : {};
 
             var isProductDelivery = !!(o.sellerId && String(o.sellerId) !== String(o.talentId));
             var subtotal3 = Number(o.price) || 0;
@@ -3009,9 +3035,17 @@ function renderOrderCards(orders) {
             var platformFee3 = Number(o.fee) || 0;
             var paymentMethod3 = String(o.paymentMethod || 'jspay').toLowerCase();
             var isCOD3 = paymentMethod3 === 'cod';
-            var defaultCommission3 = isProductDelivery ? 10 : 15;
-            var commissionPercent3 = Number(o.commissionPercent || defaultCommission3);
-            if (!isFinite(commissionPercent3) || commissionPercent3 < 0) commissionPercent3 = defaultCommission3;
+
+            var feePercent3 = Number(settings3.service_fee_percent);
+            if (!isFinite(feePercent3) || feePercent3 < 0) {
+                feePercent3 = subtotal3 > 0 ? Math.round((platformFee3 / subtotal3) * 10000) / 100 : 0;
+            }
+
+            var cfgCommission3 = Number(isProductDelivery ? settings3.commission_penjual_percent : settings3.commission_talent_percent);
+            var commissionPercent3 = Number(o.commissionPercent);
+            if (!isFinite(commissionPercent3) || commissionPercent3 < 0) {
+                commissionPercent3 = (isFinite(cfgCommission3) && cfgCommission3 >= 0) ? cfgCommission3 : (isProductDelivery ? 10 : 15);
+            }
             var commissionAmount3 = Number(o.commissionAmount);
             if (!isFinite(commissionAmount3) || commissionAmount3 < 0) {
                 commissionAmount3 = Math.round(subtotal3 * commissionPercent3 / 100);
@@ -3034,20 +3068,24 @@ function renderOrderCards(orders) {
             var orderCode3 = String(o.id || '').slice(0, 10);
 
             var coreIncomeLabel = isProductDelivery ? 'Pendapatan Antar (Ongkir)' : 'Nilai Jasa Driver';
+            var commissionLabel3 = isProductDelivery ? 'Komisi Seller (' + commissionPercent3 + '%)' : 'Komisi Driver (' + commissionPercent3 + '%)';
             var feeLabel = isCOD3
-                ? 'Biaya Platform'
-                : (isProductDelivery ? 'Biaya Platform (Info)' : 'Biaya Platform (Ditanggung Customer)');
+                ? 'Biaya Platform (' + feePercent3 + '%)'
+                : ('Biaya Platform (' + feePercent3 + '%, dibayar customer)');
             var feePrefix = isCOD3 ? '-' : '';
             var commissionPrefix = (!isCOD3 && isProductDelivery) ? '' : '-';
 
             var financeRows3 = '<div class="olp-driver-fin-row"><span>' + coreIncomeLabel + '</span><strong>' + formatRupiah(grossDriverIncome) + '</strong></div>';
-            financeRows3 += '<div class="olp-driver-fin-row"><span>Komisi Platform (' + commissionPercent3 + '%)</span><strong>' + commissionPrefix + formatRupiah(commissionAmount3) + '</strong></div>';
+            financeRows3 += '<div class="olp-driver-fin-row"><span>' + commissionLabel3 + '</span><strong>' + commissionPrefix + formatRupiah(commissionAmount3) + '</strong></div>';
             financeRows3 += '<div class="olp-driver-fin-row"><span>' + feeLabel + '</span><strong>' + feePrefix + formatRupiah(platformFee3) + '</strong></div>';
             financeRows3 += '<div class="olp-driver-fin-row total"><span>Estimasi Diterima Driver</span><strong>' + (driverNet < 0 ? '-' : '') + formatRupiah(Math.abs(driverNet)) + '</strong></div>';
 
             var payoutHint3 = isCOD3
                 ? 'COD: potongan platform diproses dari saldo driver.'
                 : 'JsPay: pendapatan driver masuk otomatis ke wallet.';
+            if (platformFee3 > 0 && subtotal3 > 0) {
+                payoutHint3 += ' Biaya platform ' + feePercent3 + '% x ' + formatRupiah(subtotal3) + ' = ' + formatRupiah(platformFee3) + '.';
+            }
 
             return '<div class="olp-card olp-card-driverdone" data-idx="' + idx + '">'
                 + '<div class="olp-card-top">'
