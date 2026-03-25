@@ -3912,6 +3912,26 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .sf-progress-step.active .sf-progress-step-icon { box-shadow: 0 0 0 3px rgba(238,77,45,.25); transform: scale(1.08); animation: sfStepPulse 1.15s ease-in-out infinite; }
 .sf-progress-hint { font-size: 12px; color: #999; text-align: center; margin-top: 16px; line-height: 1.4; }
 
+.sf-progress-wrap.is-status-transition .sf-status-main-text {
+    animation: sfTrackingTextIn .48s cubic-bezier(.2,.75,.2,1);
+}
+
+.sf-progress-wrap.is-status-transition .sf-status-icon-illustration {
+    animation: sfTrackingIconPop .48s cubic-bezier(.2,.75,.2,1);
+}
+
+.sf-progress-wrap.is-status-transition .sf-progress-step.active .sf-progress-step-icon {
+    animation: sfActiveStepBurst .62s cubic-bezier(.2,.8,.2,1);
+}
+
+.sf-progress-wrap.is-status-transition.is-forward .sf-progress-bar-fill {
+    animation: sfProgressForward .58s cubic-bezier(.2,.8,.2,1);
+}
+
+.sf-progress-wrap.is-status-transition.is-backward .sf-progress-bar-fill {
+    animation: sfProgressBackward .48s cubic-bezier(.4,0,.2,1);
+}
+
 @keyframes sfStepPulse {
     0%, 100% { transform: scale(1.05); box-shadow: 0 0 0 2px rgba(238,77,45,.22); }
     50% { transform: scale(1.18); box-shadow: 0 0 0 6px rgba(238,77,45,.12); }
@@ -3920,6 +3940,33 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 @keyframes sfProgressShine {
     0% { transform: translateX(-120%); }
     100% { transform: translateX(120%); }
+}
+
+@keyframes sfTrackingTextIn {
+    0% { opacity: .4; transform: translateY(6px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sfTrackingIconPop {
+    0% { transform: scale(.88) rotate(-6deg); opacity: .65; }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+@keyframes sfActiveStepBurst {
+    0% { transform: scale(.92); box-shadow: 0 0 0 0 rgba(238,77,45,.25); }
+    55% { transform: scale(1.24); box-shadow: 0 0 0 10px rgba(238,77,45,0); }
+    100% { transform: scale(1.08); box-shadow: 0 0 0 3px rgba(238,77,45,.25); }
+}
+
+@keyframes sfProgressForward {
+    0% { filter: brightness(.93); }
+    55% { filter: brightness(1.08); }
+    100% { filter: brightness(1); }
+}
+
+@keyframes sfProgressBackward {
+    0% { opacity: .72; }
+    100% { opacity: 1; }
 }
 
 /* Driver / Location Card */

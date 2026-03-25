@@ -1304,6 +1304,19 @@ function buildTrackingProgressSteps(order) {
     ];
 }
 
+var _trackingProgressState = {
+    byOrder: {},
+    timer: null
+};
+
+function getTrackingPhaseIndex(status) {
+    if (['pending_seller', 'searching', 'pending'].indexOf(status) >= 0) return 0;
+    if (['preparing', 'accepted', 'on_the_way'].indexOf(status) >= 0) return 1;
+    if (['arrived', 'in_progress'].indexOf(status) >= 0) return 2;
+    if (['completed', 'rated'].indexOf(status) >= 0) return 3;
+    return 0;
+}
+
 function animateTrackingProgressRow(rowEl, activeStepEl, shouldAnimate) {
     if (!rowEl || !activeStepEl) return;
 
@@ -1346,12 +1359,13 @@ function renderTrackingProgress(order) {
         etaText = 'Pesanan Anda telah selesai';
     }
 
-    var currentPhaseIdx = 0;
-    if (['pending_seller', 'searching', 'pending'].indexOf(order.status) >= 0) currentPhaseIdx = 0;
-    else if (['preparing', 'accepted', 'on_the_way'].indexOf(order.status) >= 0) currentPhaseIdx = 1;
-    else if (['arrived', 'in_progress'].indexOf(order.status) >= 0) currentPhaseIdx = 2;
-    else if (['completed', 'rated'].indexOf(order.status) >= 0) currentPhaseIdx = 3;
-    else currentPhaseIdx = 0;
+    var currentPhaseIdx = getTrackingPhaseIndex(order.status);
+
+    var orderKey = String(order.id || 'unknown');
+    var prevStatus = _trackingProgressState.byOrder[orderKey];
+    var prevPhaseIdx = getTrackingPhaseIndex(prevStatus || '');
+    var isStatusChanged = !!(prevStatus && prevStatus !== order.status);
+    _trackingProgressState.byOrder[orderKey] = order.status;
 
     var barHtml = '';
     for (var j = 0; j < 4; j++) {
@@ -1382,6 +1396,17 @@ function renderTrackingProgress(order) {
 
     track.innerHTML = html;
     wrap.classList.remove('hidden');
+
+    if (isStatusChanged) {
+        wrap.classList.remove('is-status-transition', 'is-forward', 'is-backward');
+        wrap.classList.add('is-status-transition');
+        wrap.classList.add(currentPhaseIdx >= prevPhaseIdx ? 'is-forward' : 'is-backward');
+
+        if (_trackingProgressState.timer) clearTimeout(_trackingProgressState.timer);
+        _trackingProgressState.timer = setTimeout(function () {
+            wrap.classList.remove('is-status-transition', 'is-forward', 'is-backward');
+        }, 620);
+    }
 }
 
 function destroyTrackingMap() {
