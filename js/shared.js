@@ -2871,6 +2871,20 @@ function filterOrdersList(filter) {
     } else if (filter === 'completed') {
         filtered = filtered.filter(function (o) { return o.status === 'completed' || o.status === 'rated'; });
     }
+
+    function orderSortTimestamp(o, forCompletedTab) {
+        if (!o) return 0;
+        var isDone = o.status === 'completed' || o.status === 'rated';
+        if (forCompletedTab || isDone) {
+            return Number(o.ratedAt || o.completedAt || o.updatedAt || o.createdAt || 0);
+        }
+        return Number(o.updatedAt || o.createdAt || 0);
+    }
+
+    filtered = filtered.slice().sort(function (a, b) {
+        return orderSortTimestamp(b, filter === 'completed') - orderSortTimestamp(a, filter === 'completed');
+    });
+
     renderOrderCards(filtered);
 }
 
@@ -2890,7 +2904,10 @@ function renderOrderCards(orders) {
         var other = users.find(function (u) { return u.id === (isTalent ? o.userId : o.talentId); });
         var otherName = other ? other.name : 'Unknown';
         var priceText = o.price ? 'Rp ' + Number(o.price).toLocaleString('id-ID') : '-';
-        var dateText = new Date(Number(o.createdAt)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+        var doneTs = Number(o.ratedAt || o.completedAt || o.updatedAt || o.createdAt || 0);
+        var activeTs = Number(o.updatedAt || o.createdAt || 0);
+        var displayTs = (o.status === 'completed' || o.status === 'rated') ? doneTs : activeTs;
+        var dateText = new Date(displayTs || Date.now()).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
         var statusText = STATUS_LABELS[o.status] || o.status;
 
         var rateRow = '';

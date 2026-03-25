@@ -58,7 +58,19 @@ function renderCSOrders(filter) {
     } else if (filter === 'completed') {
         filtered = filtered.filter(function (o) { return o.status === 'completed' || o.status === 'rated'; });
     }
-    filtered = filtered.slice().sort(function (a, b) { return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0); });
+
+    function orderSortTimestamp(o, forCompletedTab) {
+        if (!o) return 0;
+        var isDone = o.status === 'completed' || o.status === 'rated';
+        if (forCompletedTab || isDone) {
+            return Number(o.ratedAt || o.completedAt || o.updatedAt || o.createdAt || 0);
+        }
+        return Number(o.updatedAt || o.createdAt || 0);
+    }
+
+    filtered = filtered.slice().sort(function (a, b) {
+        return orderSortTimestamp(b, filter === 'completed') - orderSortTimestamp(a, filter === 'completed');
+    });
 
     if (filtered.length === 0) {
         listEl.innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">📭</div><p>Tidak ada pesanan</p></div>';
@@ -68,7 +80,10 @@ function renderCSOrders(filter) {
         var user = users.find(function (u) { return u.id === o.userId; });
         var talent = users.find(function (u) { return u.id === o.talentId; });
         var priceText = o.price ? 'Rp ' + Number(o.price).toLocaleString('id-ID') : '-';
-        var dateText = new Date(Number(o.createdAt)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+        var doneTs = Number(o.ratedAt || o.completedAt || o.updatedAt || o.createdAt || 0);
+        var activeTs = Number(o.updatedAt || o.createdAt || 0);
+        var displayTs = (o.status === 'completed' || o.status === 'rated') ? doneTs : activeTs;
+        var dateText = new Date(displayTs || Date.now()).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
         var statusText = STATUS_LABELS[o.status] || o.status;
         return '<div class="olp-card" data-idx="' + idx + '">'
             + '<div class="olp-card-top">'
