@@ -3036,9 +3036,9 @@ function renderOrderCards(orders) {
             var paymentMethod3 = String(o.paymentMethod || 'jspay').toLowerCase();
             var isCOD3 = paymentMethod3 === 'cod';
 
-            var feePercent3 = Number(settings3.service_fee_percent);
-            if (!isFinite(feePercent3) || feePercent3 < 0) {
-                feePercent3 = subtotal3 > 0 ? Math.round((platformFee3 / subtotal3) * 10000) / 100 : 0;
+            var feeAmountSetting3 = Number(settings3.service_fee_amount);
+            if (!isFinite(feeAmountSetting3) || feeAmountSetting3 < 0) {
+                feeAmountSetting3 = platformFee3;
             }
 
             var cfgCommission3 = Number(isProductDelivery ? settings3.commission_penjual_percent : settings3.commission_talent_percent);
@@ -3070,8 +3070,8 @@ function renderOrderCards(orders) {
             var coreIncomeLabel = isProductDelivery ? 'Pendapatan Antar (Ongkir)' : 'Nilai Jasa Driver';
             var commissionLabel3 = isProductDelivery ? 'Komisi Seller (' + commissionPercent3 + '%)' : 'Komisi Driver (' + commissionPercent3 + '%)';
             var feeLabel = isCOD3
-                ? 'Biaya Platform (' + feePercent3 + '%)'
-                : ('Biaya Platform (' + feePercent3 + '%, dibayar customer)');
+                ? 'Biaya Platform (Nominal)'
+                : 'Biaya Platform (Nominal, dibayar customer)';
             var feePrefix = isCOD3 ? '-' : '';
             var commissionPrefix = (!isCOD3 && isProductDelivery) ? '' : '-';
 
@@ -3083,8 +3083,11 @@ function renderOrderCards(orders) {
             var payoutHint3 = isCOD3
                 ? 'COD: potongan platform diproses dari saldo driver.'
                 : 'JsPay: pendapatan driver masuk otomatis ke wallet.';
-            if (platformFee3 > 0 && subtotal3 > 0) {
-                payoutHint3 += ' Biaya platform ' + feePercent3 + '% x ' + formatRupiah(subtotal3) + ' = ' + formatRupiah(platformFee3) + '.';
+            if (platformFee3 > 0) {
+                payoutHint3 += ' Biaya platform nominal: ' + formatRupiah(platformFee3) + '.';
+                if (feeAmountSetting3 > 0 && Math.round(feeAmountSetting3) !== Math.round(platformFee3)) {
+                    payoutHint3 += ' (Setting owner saat ini: ' + formatRupiah(feeAmountSetting3) + ')';
+                }
             }
 
             return '<div class="olp-card olp-card-driverdone" data-idx="' + idx + '">'
