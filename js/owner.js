@@ -245,6 +245,8 @@ var OwnerDashboard = (function () {
 
         _setKPIValue('ownerTotalUsers', usersCount);
         _setKPIValue('ownerTotalTalents', talentsCount);
+        if ($('ownerStatUser')) $('ownerStatUser').textContent = usersCount;
+        if ($('ownerStatTalent')) $('ownerStatTalent').textContent = talentsCount;
         if ($('ownerStatPenjual')) $('ownerStatPenjual').textContent = penjualCount;
         if ($('ownerStatCS')) $('ownerStatCS').textContent = csCount;
         if ($('ownerStatAdmin')) $('ownerStatAdmin').textContent = adminCount;
