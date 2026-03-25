@@ -1057,8 +1057,8 @@ function openOrderTracking(order) {
     if (!page) return;
 
     var session = getSession();
-    var isTalent = session && session.id === order.talentId;
-    var isUser = session && session.id === order.userId;
+    var isTalent = session && String(session.id) === String(order.talentId);
+    var isUser = session && String(session.id) === String(order.userId);
 
     renderTrackingProgress(order);
     renderOrderInfo(order, isTalent);
@@ -1370,8 +1370,8 @@ function isTrackingTerminalStatus(status) {
 function refreshTrackingUIFromCurrentOrder() {
     if (!_currentOrder) return;
     var session = getSession();
-    var isTalent = session && session.id === _currentOrder.talentId;
-    var isUser = session && session.id === _currentOrder.userId;
+    var isTalent = session && String(session.id) === String(_currentOrder.talentId);
+    var isUser = session && String(session.id) === String(_currentOrder.userId);
 
     renderTrackingProgress(_currentOrder);
     renderOrderActions(_currentOrder, isTalent, isUser);
@@ -1742,7 +1742,7 @@ function renderOrderActions(order, isTalent, isUser) {
     var isAntar = order.skillType === 'js_antar';
     var isProductOrder = order.skillType === 'js_food' || order.sellerId;
     var session = getSession();
-    var isSeller = session && session.id === order.sellerId;
+    var isSeller = session && String(session.id) === String(order.sellerId);
 
     // ── USER: Cancel button on pending_seller / searching / pending ──
     if (isUser && (['pending_seller', 'preparing', 'searching', 'pending'].indexOf(order.status) >= 0)) {
