@@ -288,7 +288,7 @@ window.loadUserWallet = loadUserWallet;
 function updateWalletDisplay(balance) {
     var formatted = formatRupiah(balance);
     // User pay-section
-    var balEl = document.querySelector('.pay-section .balance-amount');
+    var balEl = document.getElementById('userWalletBalance');
     if (balEl) balEl.textContent = formatted;
     // Talent wallet
     var tw = document.getElementById('talentWalletBalance');

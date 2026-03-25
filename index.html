@@ -331,7 +331,7 @@
                     <div class="pay-card">
                         <div class="pay-header"><div class="pay-logo"><img src="icons/jsicon.png" alt="JS" class="pay-logo-icon"><span>Pay</span></div><button class="btn-topup" onclick="openTopUpModal()">Top Up</button></div>
                         <div class="pay-balance">
-                            <div class="balance-item" onclick="openTransactionHistory()" style="cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M2 10h20" stroke="currentColor" stroke-width="2"/></svg><div><span class="balance-label">Saldo</span><span class="balance-amount">Rp 0</span></div></div>
+                            <div class="balance-item" onclick="openTransactionHistory()" style="cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M2 10h20" stroke="currentColor" stroke-width="2"/></svg><div><span class="balance-label">Saldo</span><span class="balance-amount" id="userWalletBalance">Rp 0</span></div></div>
                             <div class="balance-divider"></div>
                             <div class="balance-item" onclick="openTransactionHistory()" style="cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><div><span class="balance-label">Riwayat</span><span class="balance-amount">📋</span></div></div>
                         </div>
@@ -378,13 +378,13 @@
                     <div class="stat-card"><div class="stat-icon-circle green-bg">💰</div><div class="stat-info"><span class="stat-value" id="talentStatEarning">Rp 0</span><span class="stat-label">Pendapatan</span></div></div>
                     <div class="stat-card"><div class="stat-icon-circle yellow-bg">⭐</div><div class="stat-info"><span class="stat-value" id="talentStatRating">0.0</span><span class="stat-label">Rating</span></div></div>
                 </section>
-                <section class="wallet-section">
-                    <div class="wallet-card">
-                        <div class="wallet-card-header"><span class="wallet-card-title">💰 Dompet Saya</span><span class="wallet-card-balance" id="talentWalletBalance">Rp 0</span></div>
-                        <div class="wallet-card-actions">
-                            <button class="wallet-btn wallet-btn-topup" onclick="openTopUpModal()">💰 Top Up</button>
-                            <button class="wallet-btn wallet-btn-withdraw" onclick="openWithdrawModal()">🏧 Tarik</button>
-                            <button class="wallet-btn wallet-btn-history" onclick="openTransactionHistory()">📋 Riwayat</button>
+                <section class="pay-section">
+                    <div class="pay-card">
+                        <div class="pay-header"><div class="pay-logo"><img src="icons/jsicon.png" alt="JS" class="pay-logo-icon"><span>Pay</span></div><button class="btn-topup" onclick="openTopUpModal()">Top Up</button></div>
+                        <div class="pay-balance">
+                            <div class="balance-item" onclick="openTransactionHistory()" style="cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M2 10h20" stroke="currentColor" stroke-width="2"/></svg><div><span class="balance-label">Saldo</span><span class="balance-amount" id="talentWalletBalance">Rp 0</span></div></div>
+                            <div class="balance-divider"></div>
+                            <div class="balance-item" onclick="openTransactionHistory()" style="cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><div><span class="balance-label">Riwayat</span><span class="balance-amount">📋</span></div></div>
                         </div>
                     </div>
                 </section>
@@ -915,13 +915,13 @@
                     <div class="stat-card"><div class="stat-icon-circle green-bg">💰</div><div class="stat-info"><span class="stat-value" id="penjualStatEarning">Rp 0</span><span class="stat-label">Pendapatan</span></div></div>
                     <div class="stat-card"><div class="stat-icon-circle yellow-bg">🛍️</div><div class="stat-info"><span class="stat-value" id="penjualStatProducts">0</span><span class="stat-label">Produk</span></div></div>
                 </section>
-                <section class="wallet-section">
-                    <div class="wallet-card">
-                        <div class="wallet-card-header"><span class="wallet-card-title">💰 Dompet Saya</span><span class="wallet-card-balance" id="penjualWalletBalance">Rp 0</span></div>
-                        <div class="wallet-card-actions">
-                            <button class="wallet-btn wallet-btn-topup" onclick="openTopUpModal()">💰 Top Up</button>
-                            <button class="wallet-btn wallet-btn-withdraw" onclick="openWithdrawModal()">🏧 Tarik</button>
-                            <button class="wallet-btn wallet-btn-history" onclick="openTransactionHistory()">📋 Riwayat</button>
+                <section class="pay-section">
+                    <div class="pay-card">
+                        <div class="pay-header"><div class="pay-logo"><img src="icons/jsicon.png" alt="JS" class="pay-logo-icon"><span>Pay</span></div><button class="btn-topup" onclick="openTopUpModal()">Top Up</button></div>
+                        <div class="pay-balance">
+                            <div class="balance-item" onclick="openTransactionHistory()" style="cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M2 10h20" stroke="currentColor" stroke-width="2"/></svg><div><span class="balance-label">Saldo</span><span class="balance-amount" id="penjualWalletBalance">Rp 0</span></div></div>
+                            <div class="balance-divider"></div>
+                            <div class="balance-item" onclick="openTransactionHistory()" style="cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><div><span class="balance-label">Riwayat</span><span class="balance-amount">📋</span></div></div>
                         </div>
                     </div>
                 </section>
