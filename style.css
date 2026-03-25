@@ -2899,6 +2899,82 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     }
 }
 
+@media (max-width:390px) {
+    .page-auth {
+        padding:14px;
+    }
+
+    .auth-header {
+        margin-bottom:24px;
+    }
+
+    .auth-form,
+    .login-card {
+        padding:20px 16px;
+        border-radius:16px;
+    }
+
+    .login-card-title,
+    .auth-header h1 {
+        font-size:19px;
+    }
+
+    .login-card-desc {
+        margin-bottom:14px;
+        font-size:12px;
+    }
+
+    .login-otp-digits,
+    .reg-otp-inputs {
+        gap:6px;
+    }
+
+    .login-otp-digit {
+        width:40px;
+        height:48px;
+        font-size:20px;
+    }
+
+    .reg-otp-digit {
+        width:44px;
+        height:52px;
+        font-size:20px;
+    }
+
+    .stp-header {
+        padding:44px 12px 12px;
+        gap:8px;
+    }
+
+    .stp-search {
+        padding:10px 12px 0;
+    }
+
+    .stp-search-bar {
+        padding:9px 12px;
+    }
+
+    .stp-header-info h2 {
+        font-size:16px;
+    }
+
+    .legal-content,
+    .olp-orders-list {
+        padding-left:12px;
+        padding-right:12px;
+    }
+
+    .olp-order-card,
+    .notif-popup-panel,
+    .order-notif-content {
+        border-radius:16px;
+    }
+
+    .order-notif-content {
+        padding:24px 16px;
+    }
+}
+
 @media (max-width:360px) {
     .header {
         padding:calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
