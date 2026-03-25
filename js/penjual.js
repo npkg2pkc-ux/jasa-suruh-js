@@ -703,8 +703,6 @@ function showPenjualOrderNotification(order) {
     document.getElementById('notifDesc').textContent = userName + ' memesan ' + (order.serviceType || 'produk') + (priceText ? ' - ' + priceText : '');
 
     popup.classList.remove('hidden');
-    if (typeof playBellSound === 'function') playBellSound();
-    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
 
     var dismissBtn = document.getElementById('notifBtnDismiss');
     var acceptBtn = document.getElementById('notifBtnAccept');

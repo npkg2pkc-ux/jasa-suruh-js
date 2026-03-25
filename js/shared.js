@@ -897,6 +897,15 @@ function _onNotifUpdate(items) {
     if (newUnread > _prevUnreadCount) {
         playBellSound();
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
+        // Keep incoming-order modal in sync with badge timing by refreshing order lists immediately.
+        var s = getSession();
+        if (s && s.role === 'penjual' && typeof loadPenjualOrders === 'function') {
+            setTimeout(function () { loadPenjualOrders(); }, 0);
+        }
+        if (s && s.role === 'talent' && typeof loadTalentDashboardOrders === 'function') {
+            setTimeout(function () { loadTalentDashboardOrders(); }, 0);
+        }
     }
     _prevUnreadCount = newUnread;
     updateNotifBadges();

@@ -782,9 +782,6 @@ function showOrderNotification(order) {
 
     popup.classList.remove('hidden');
 
-    playBellSound();
-    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-
     var dismissBtn = document.getElementById('notifBtnDismiss');
     var acceptBtn = document.getElementById('notifBtnAccept');
 
