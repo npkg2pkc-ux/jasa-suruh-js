@@ -426,65 +426,151 @@ var OwnerDashboard = (function () {
         var container = $('ownerActivityList');
         if (!container) return;
         var users = typeof getUsers === 'function' ? getUsers() : [];
+        var usersById = {};
+        users.forEach(function (u) { usersById[String(u.id)] = u; });
+
+        function formatDateTime(ts) {
+            if (!ts) return '-';
+            var d = new Date(Number(ts));
+            return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' • '
+                + d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function formatStatus(status) {
+            var statusMap = typeof STATUS_LABELS !== 'undefined' ? STATUS_LABELS : {};
+            return statusMap[status] || String(status || '-');
+        }
+
+        function getRoleLabel(role) {
+            var roleLabel = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS', admin: 'Admin' };
+            return roleLabel[role] || role || 'User';
+        }
+
+        function buildOrderMeta(o) {
+            var customer = usersById[String(o.userId)] || {};
+            var driver = usersById[String(o.talentId)] || {};
+            var seller = usersById[String(o.sellerId)] || {};
+            var pm = String(o.paymentMethod || 'jspay').toUpperCase();
+            var service = o.serviceType || o.skillType || 'Pesanan';
+            var code = String(o.id || '').slice(0, 10);
+
+            return {
+                service: service,
+                code: code,
+                customer: customer.name || customer.nama || 'Customer',
+                driver: driver.name || driver.nama || '-',
+                seller: o.storeName || seller.name || seller.nama || '-',
+                payment: pm,
+                statusText: formatStatus(o.status),
+                fee: Number(o.fee) || 0,
+                total: Number(o.totalCost) || Number(o.price) || 0
+            };
+        }
 
         if (!orders || orders.length === 0) {
             container.innerHTML = '<div class="od-empty"><span>📭</span><p>Belum ada aktivitas</p></div>';
             return;
         }
 
-        var sorted = orders.slice().sort(function (a, b) {
-            return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0);
+        var events = [];
+        orders.forEach(function (o) {
+            var createdTs = Number(o.createdAt) || 0;
+            if (createdTs > 0) {
+                events.push({
+                    type: 'order_created',
+                    ts: createdTs,
+                    order: o
+                });
+            }
+            if (o.status === 'completed' || o.status === 'rated') {
+                var doneTs = Number(o.ratedAt || o.completedAt || o.updatedAt || o.createdAt || 0);
+                if (doneTs > 0) {
+                    events.push({
+                        type: 'order_completed',
+                        ts: doneTs,
+                        order: o
+                    });
+                }
+            }
         });
-        var recent = sorted.slice(0, 8);
 
-        var STATUS_ICONS = {
-            pending: '🟡', accepted: '🔵', 'on-the-way': '🚀',
-            'in-progress': '⚡', completed: '✅', rated: '⭐', cancelled: '❌'
-        };
-        var STATUS_LABELS_MAP = typeof STATUS_LABELS !== 'undefined' ? STATUS_LABELS : {};
+        users.forEach(function (u) {
+            if (u.role === 'owner') return;
+            var userTs = Number(u.createdAt || 0);
+            if (userTs > 0) {
+                events.push({
+                    type: 'user_joined',
+                    ts: userTs,
+                    user: u
+                });
+            }
+        });
 
-        var html = recent.map(function (o) {
-            var user = users.find(function (u) { return u.id === o.userId; });
-            var userName = user ? (user.name || user.nama || 'User') : '-';
-            var icon = STATUS_ICONS[o.status] || '📦';
-            var statusText = STATUS_LABELS_MAP[o.status] || o.status || '-';
-            var priceText = o.price ? formatRp(o.price) : '-';
-            var time = timeAgo(o.createdAt);
-            var service = o.serviceType || o.skillType || 'Order';
+        events.sort(function (a, b) { return b.ts - a.ts; });
+        var recent = events.slice(0, 14);
 
-            return '<div class="od-activity-item">'
-                + '<div class="od-activity-icon">' + icon + '</div>'
-                + '<div class="od-activity-info">'
-                + '<div class="od-activity-title">' + escapeHtml(service) + ' <span class="od-activity-price">' + priceText + '</span></div>'
-                + '<div class="od-activity-meta">' + escapeHtml(userName) + ' · ' + statusText + '</div>'
-                + '</div>'
-                + '<span class="od-activity-time">' + time + '</span>'
-                + '</div>';
-        }).join('');
+        var createdCount = recent.filter(function (e) { return e.type === 'order_created'; }).length;
+        var doneCount = recent.filter(function (e) { return e.type === 'order_completed'; }).length;
+        var userCount = recent.filter(function (e) { return e.type === 'user_joined'; }).length;
 
-        // New users section
-        var newUsers = users.filter(function (u) { return u.role !== 'owner'; })
-            .slice().sort(function (a, b) { return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0); })
-            .slice(0, 3);
+        var summaryHtml = '<div class="od-activity-summary">'
+            + '<div class="od-activity-chip"><span>🆕 Order Masuk</span><strong>' + createdCount + '</strong></div>'
+            + '<div class="od-activity-chip"><span>✅ Order Selesai</span><strong>' + doneCount + '</strong></div>'
+            + '<div class="od-activity-chip"><span>👥 User Baru</span><strong>' + userCount + '</strong></div>'
+            + '</div>';
 
-        if (newUsers.length > 0) {
-            html += '<div class="od-activity-divider">User Baru</div>';
-            html += newUsers.map(function (u) {
+        if (recent.length === 0) {
+            container.innerHTML = summaryHtml + '<div class="od-empty"><span>📭</span><p>Belum ada aktivitas</p></div>';
+            return;
+        }
+
+        var feedHtml = recent.map(function (evt) {
+            if (evt.type === 'user_joined') {
+                var u = evt.user || {};
                 var displayName = u.name || u.nama || 'User';
                 var initial = displayName.charAt(0).toUpperCase();
-                var roleLabel = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS', admin: 'Admin' };
-                return '<div class="od-activity-item">'
+                var roleText = getRoleLabel(u.role);
+                return '<article class="od-activity-card">'
+                    + '<div class="od-activity-card-top">'
+                    + '<span class="od-activity-badge type-user">User Baru</span>'
+                    + '<span class="od-activity-time">' + formatDateTime(evt.ts) + '</span>'
+                    + '</div>'
+                    + '<div class="od-activity-row">'
                     + '<div class="od-activity-avatar" style="background:' + _roleColor(u.role) + '">' + initial + '</div>'
                     + '<div class="od-activity-info">'
                     + '<div class="od-activity-title">' + escapeHtml(displayName) + '</div>'
-                    + '<div class="od-activity-meta">' + (roleLabel[u.role] || u.role) + '</div>'
+                    + '<div class="od-activity-meta">Role: ' + escapeHtml(roleText) + ' • @' + escapeHtml(String(u.username || u.no_hp || u.phone || '-')) + '</div>'
                     + '</div>'
-                    + '<span class="od-activity-time">' + timeAgo(u.createdAt) + '</span>'
-                    + '</div>';
-            }).join('');
-        }
+                    + '</div>'
+                    + '</article>';
+            }
 
-        container.innerHTML = html;
+            var o = evt.order || {};
+            var meta = buildOrderMeta(o);
+            var isDone = evt.type === 'order_completed';
+            var badgeType = isDone ? 'type-done' : 'type-order';
+            var badgeText = isDone ? 'Order Selesai' : 'Order Baru';
+            var feeText = meta.fee > 0 ? formatRp(meta.fee) : '-';
+
+            return '<article class="od-activity-card">'
+                + '<div class="od-activity-card-top">'
+                + '<span class="od-activity-badge ' + badgeType + '">' + badgeText + '</span>'
+                + '<span class="od-activity-time">' + formatDateTime(evt.ts) + '</span>'
+                + '</div>'
+                + '<div class="od-activity-title">' + escapeHtml(meta.service) + ' <span class="od-activity-price">' + formatRp(meta.total) + '</span></div>'
+                + '<div class="od-activity-grid">'
+                + '<span><strong>Kode</strong> #' + escapeHtml(meta.code) + '</span>'
+                + '<span><strong>Status</strong> ' + escapeHtml(meta.statusText) + '</span>'
+                + '<span><strong>Customer</strong> ' + escapeHtml(meta.customer) + '</span>'
+                + '<span><strong>Pembayaran</strong> ' + escapeHtml(meta.payment) + '</span>'
+                + '<span><strong>Driver</strong> ' + escapeHtml(meta.driver) + '</span>'
+                + '<span><strong>Toko</strong> ' + escapeHtml(meta.seller) + '</span>'
+                + '<span class="od-activity-income"><strong>Fee Platform</strong> ' + feeText + '</span>'
+                + '</div>'
+                + '</article>';
+        }).join('');
+
+        container.innerHTML = summaryHtml + '<div class="od-activity-feed">' + feedHtml + '</div>';
     }
 
     function _roleColor(role) {
