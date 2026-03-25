@@ -2462,7 +2462,7 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 
 /* ─── KPI Cards Grid ─── */
 .od-kpi-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:20px; animation:odFadeInUp .5s ease-out both; }
-.od-kpi-card { background:var(--white); border-radius:var(--r-lg); padding:16px; box-shadow:0 2px 12px rgba(0,0,0,.05); display:flex; flex-direction:column; gap:10px; transition:var(--tr); position:relative; overflow:hidden; }
+.od-kpi-card { background:#fff; border:1px solid #ECEFF3; border-radius:16px; padding:14px; box-shadow:0 6px 18px rgba(15,23,42,.06); display:flex; flex-direction:column; gap:10px; transition:var(--tr); position:relative; overflow:hidden; min-height:112px; }
 .od-kpi-card:active { transform:scale(.97); }
 .od-kpi-card::after { content:''; position:absolute; top:0; right:0; width:60px; height:60px; border-radius:50%; opacity:.06; transform:translate(20px,-20px); }
 .od-kpi-icon { width:40px; height:40px; border-radius:var(--r-md); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -2479,8 +2479,8 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .od-kpi-purple ~ .od-kpi-info .od-kpi-value { color:#8B5CF6; }
 .od-kpi-card:nth-child(4)::after { background:#8B5CF6; }
 .od-kpi-info { display:flex; flex-direction:column; gap:1px; }
-.od-kpi-value { font-size:22px; font-weight:800; color:var(--black); line-height:1.2; }
-.od-kpi-label { font-size:11px; font-weight:600; color:var(--gray-400); text-transform:uppercase; letter-spacing:.5px; }
+.od-kpi-value { font-size:40px; font-weight:900; color:var(--black); line-height:1; letter-spacing:-.5px; }
+.od-kpi-label { font-size:11px; font-weight:700; color:#9CA3AF; text-transform:uppercase; letter-spacing:.4px; }
 .od-kpi-trend { font-size:10px; font-weight:700; padding:2px 6px; border-radius:var(--r-full); position:absolute; top:12px; right:12px; }
 .od-trend-up { background:#DCFCE7; color:#16A34A; }
 .od-trend-down { background:#FEE2E2; color:var(--red); }
@@ -2494,6 +2494,10 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .od-section-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
 .od-section-head h3 { font-size:15px; font-weight:700; color:var(--black); }
 .od-chart-select { background:var(--gray-100); border:1px solid var(--gray-200); border-radius:var(--r-sm); padding:6px 28px 6px 10px; font-family:var(--font); font-size:12px; font-weight:600; color:var(--gray-700); appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; cursor:pointer; }
+.od-chart-kpis { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-bottom:10px; }
+.od-chart-kpi { border:1px solid #E5E7EB; border-radius:12px; background:#F8FAFC; padding:8px 10px; display:flex; flex-direction:column; gap:3px; }
+.od-chart-kpi span { font-size:10px; color:#64748B; font-weight:700; text-transform:uppercase; letter-spacing:.3px; }
+.od-chart-kpi strong { font-size:14px; color:#0F172A; font-weight:800; }
 .od-chart-wrap { position:relative; width:100%; height:200px; }
 .od-chart-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; height:160px; gap:8px; }
 .od-chart-empty span { font-size:40px; }

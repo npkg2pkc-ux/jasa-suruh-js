@@ -358,6 +358,13 @@ var OwnerDashboard = (function () {
             revenueData.push(dayRevenue);
         }
 
+        var chartRevenueTotal = revenueData.reduce(function (sum, n) { return sum + (Number(n) || 0); }, 0);
+        var chartOrdersTotal = ordersData.reduce(function (sum, n) { return sum + (Number(n) || 0); }, 0);
+        var chartRevenueEl = $('ownerChartRevenueTotal');
+        var chartOrdersEl = $('ownerChartOrdersTotal');
+        if (chartRevenueEl) chartRevenueEl.textContent = formatRp(chartRevenueTotal);
+        if (chartOrdersEl) chartOrdersEl.textContent = String(chartOrdersTotal);
+
         if (_chartInstance) _chartInstance.destroy();
         if (typeof Chart === 'undefined') return;
 
@@ -406,8 +413,8 @@ var OwnerDashboard = (function () {
                         cornerRadius: 8,
                         callbacks: {
                             label: function (ctx) {
-                                if (ctx.datasetIndex === 0) return 'Revenue: ' + formatRp(ctx.raw);
-                                return 'Orders: ' + ctx.raw;
+                                if (ctx.datasetIndex === 0) return 'Pendapatan: ' + formatRp(ctx.raw);
+                                return 'Pesanan: ' + ctx.raw;
                             }
                         }
                     }
@@ -419,6 +426,7 @@ var OwnerDashboard = (function () {
                     },
                     y: {
                         position: 'left',
+                        beginAtZero: true,
                         grid: { color: 'rgba(0,0,0,0.04)' },
                         ticks: {
                             font: { family: 'Plus Jakarta Sans', size: 10 }, color: '#9CA3AF',
@@ -431,6 +439,7 @@ var OwnerDashboard = (function () {
                     },
                     y1: {
                         position: 'right',
+                        beginAtZero: true,
                         grid: { display: false },
                         ticks: { font: { family: 'Plus Jakarta Sans', size: 10 }, color: '#93C5FD', stepSize: 1 }
                     }

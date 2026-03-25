@@ -521,7 +521,7 @@
                                     <div class="od-kpi-icon od-kpi-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg></div>
                                     <div class="od-kpi-info">
                                         <span class="od-kpi-value" id="ownerTotalUsers"><span class="od-skeleton-text"></span></span>
-                                        <span class="od-kpi-label">Users</span>
+                                        <span class="od-kpi-label">Pengguna</span>
                                     </div>
                                     <span class="od-kpi-trend od-trend-up" id="ownerTrendUsers" style="display:none">↑ 0%</span>
                                 </div>
@@ -529,7 +529,7 @@
                                     <div class="od-kpi-icon od-kpi-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="9" y="3" width="6" height="4" rx="1" stroke="currentColor" stroke-width="2"/></svg></div>
                                     <div class="od-kpi-info">
                                         <span class="od-kpi-value" id="ownerTotalOrders"><span class="od-skeleton-text"></span></span>
-                                        <span class="od-kpi-label">Orders</span>
+                                        <span class="od-kpi-label">Pesanan</span>
                                     </div>
                                     <span class="od-kpi-trend od-trend-up" id="ownerTrendOrders" style="display:none">↑ 0%</span>
                                 </div>
@@ -537,7 +537,7 @@
                                     <div class="od-kpi-icon od-kpi-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                                     <div class="od-kpi-info">
                                         <span class="od-kpi-value" id="ownerRevenue"><span class="od-skeleton-text"></span></span>
-                                        <span class="od-kpi-label">Revenue</span>
+                                        <span class="od-kpi-label">Pendapatan</span>
                                     </div>
                                     <span class="od-kpi-trend od-trend-up" id="ownerTrendRevenue" style="display:none">↑ 0%</span>
                                 </div>
@@ -545,7 +545,7 @@
                                     <div class="od-kpi-icon od-kpi-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                                     <div class="od-kpi-info">
                                         <span class="od-kpi-value" id="ownerTotalTalents"><span class="od-skeleton-text"></span></span>
-                                        <span class="od-kpi-label">Talents Aktif</span>
+                                        <span class="od-kpi-label">Driver Aktif</span>
                                     </div>
                                     <span class="od-kpi-trend od-trend-up" id="ownerTrendTalents" style="display:none">↑ 0%</span>
                                 </div>
@@ -553,12 +553,22 @@
 
                             <section class="od-chart-section">
                                 <div class="od-section-head">
-                                    <h3>📊 Revenue & Orders</h3>
+                                    <h3>📊 Pendapatan & Pesanan</h3>
                                     <select class="od-chart-select" id="ownerChartRange">
                                         <option value="7">7 Hari</option>
                                         <option value="14">14 Hari</option>
                                         <option value="30">30 Hari</option>
                                     </select>
+                                </div>
+                                <div class="od-chart-kpis">
+                                    <div class="od-chart-kpi">
+                                        <span>Total Pendapatan</span>
+                                        <strong id="ownerChartRevenueTotal">Rp 0</strong>
+                                    </div>
+                                    <div class="od-chart-kpi">
+                                        <span>Total Pesanan</span>
+                                        <strong id="ownerChartOrdersTotal">0</strong>
+                                    </div>
                                 </div>
                                 <div class="od-chart-wrap">
                                     <canvas id="ownerRevenueChart" height="200"></canvas>
@@ -568,8 +578,8 @@
                                     </div>
                                 </div>
                                 <div class="od-chart-legend">
-                                    <span class="od-legend-item"><span class="od-legend-dot od-dot-orange"></span>Revenue</span>
-                                    <span class="od-legend-item"><span class="od-legend-dot od-dot-blue"></span>Orders</span>
+                                    <span class="od-legend-item"><span class="od-legend-dot od-dot-orange"></span>Pendapatan</span>
+                                    <span class="od-legend-item"><span class="od-legend-dot od-dot-blue"></span>Pesanan</span>
                                 </div>
                             </section>
 
