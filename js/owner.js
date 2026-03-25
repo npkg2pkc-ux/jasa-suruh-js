@@ -48,6 +48,13 @@ var OwnerDashboard = (function () {
         });
     }
 
+    function _syncOwnerHeaderVisibility(panel) {
+        var page = $('page-owner');
+        if (!page) return;
+        var isHomePanel = (panel === 'home');
+        page.classList.toggle('owner-subpage-active', !isHomePanel);
+    }
+
     function _openOwnerPanel(panel) {
         var cfg = _ownerPanelConfig[panel] || _ownerPanelConfig.home;
         var modal = $('ownerPanelModal');
@@ -59,6 +66,7 @@ var OwnerDashboard = (function () {
         }
 
         _setActiveOwnerNav(panel);
+        _syncOwnerHeaderVisibility(panel);
 
         var titleEl = $('ownerPanelTitle');
         var subtitleEl = $('ownerPanelSubtitle');
