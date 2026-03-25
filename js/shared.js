@@ -585,6 +585,7 @@ window.openTransactionHistory = openTransactionHistory;
 // ═══ CHAT BADGE (unread messages) ═══
 // ══════════════════════════════════════════
 var _unreadChatCount = 0;
+var _unreadChatByUser = {};
 var _globalMsgUnsub = null;
 var _lastKnownMsgCounts = {};
 var _chatPageOpen = false;
@@ -662,18 +663,29 @@ function updateChatBadges() {
         }
     }
 
-    // Show mini unread badge on quick-chat buttons in order tracking card.
-    ['otpDriverChatBtn', 'otpSellerChatBtn', 'otpBuyerChatBtn'].forEach(function (btnId) {
+    // Show mini unread badge on quick-chat buttons in order tracking card (per counterpart user).
+    var order = _currentOrder || {};
+    var quickChatTargets = {
+        otpDriverChatBtn: order.talentId,
+        otpSellerChatBtn: order.sellerId,
+        otpBuyerChatBtn: order.userId
+    };
+
+    Object.keys(quickChatTargets).forEach(function (btnId) {
         var btn = document.getElementById(btnId);
         if (!btn) return;
+
+        var targetUserId = quickChatTargets[btnId] ? String(quickChatTargets[btnId]) : '';
+        var unreadForTarget = targetUserId ? (Number(_unreadChatByUser[targetUserId]) || 0) : 0;
         var b = btn.querySelector('.chat-mini-badge');
-        if (_unreadChatCount > 0) {
+
+        if (unreadForTarget > 0) {
             if (!b) {
                 b = document.createElement('span');
                 b.className = 'chat-mini-badge';
                 btn.appendChild(b);
             }
-            b.textContent = _unreadChatCount > 9 ? '9+' : _unreadChatCount;
+            b.textContent = unreadForTarget > 9 ? '9+' : unreadForTarget;
             b.style.display = '';
         } else if (b) {
             b.style.display = 'none';
@@ -714,6 +726,7 @@ function startGlobalMessageListener() {
 
     // Reset baseline for current login/role session to avoid stale counts.
     _unreadChatCount = 0;
+    _unreadChatByUser = {};
     _lastKnownMsgCounts = {};
     _msgListenerStartedAt = Date.now();
     updateChatBadges();
@@ -793,6 +806,11 @@ function _checkOrderMessages(order, session) {
 
             if (fromOthers.length > 0 && !isChatPageActive()) {
                 _unreadChatCount += fromOthers.length;
+                fromOthers.forEach(function (m) {
+                    var sid = String(m && m.senderId || '');
+                    if (!sid) return;
+                    _unreadChatByUser[sid] = (Number(_unreadChatByUser[sid]) || 0) + 1;
+                });
                 updateChatBadges();
                 playMessageSound();
                 if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
@@ -814,6 +832,7 @@ function _checkOrderMessages(order, session) {
 
 function clearChatBadge() {
     _unreadChatCount = 0;
+    _unreadChatByUser = {};
     updateChatBadges();
     updateNotifBadges();
 }
