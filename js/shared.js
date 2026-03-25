@@ -3340,6 +3340,38 @@ function _talentOrderTimestamp(order) {
 }
 
 function _buildTalentEarningsData(orders, talentId) {
+    function _getDriverNetIncome(order) {
+        if (!order) return 0;
+
+        var isProductDelivery = !!(order.sellerId && String(order.sellerId) !== String(order.talentId));
+        var subtotal = Number(order.price) || 0;
+        var deliveryFee = Number(order.deliveryFee) || 0;
+        var platformFee = Number(order.fee) || 0;
+        var paymentMethod = String(order.paymentMethod || 'jspay').toLowerCase();
+        var isCOD = paymentMethod === 'cod';
+
+        var defaultCommissionPercent = isProductDelivery ? 10 : 15;
+        var commissionPercent = Number(order.commissionPercent);
+        if (!isFinite(commissionPercent) || commissionPercent < 0) {
+            commissionPercent = defaultCommissionPercent;
+        }
+
+        var commissionAmount = Number(order.commissionAmount);
+        if (!isFinite(commissionAmount) || commissionAmount < 0) {
+            commissionAmount = Math.round(subtotal * commissionPercent / 100);
+        }
+
+        var grossDriverIncome = isProductDelivery ? deliveryFee : subtotal;
+        var driverDeduction = 0;
+        if (isCOD) {
+            driverDeduction = platformFee + commissionAmount;
+        } else if (!isProductDelivery) {
+            driverDeduction = commissionAmount;
+        }
+
+        return grossDriverIncome - driverDeduction;
+    }
+
     var myCompleted = orders.filter(function (o) {
         return o.talentId === talentId && (o.status === 'completed' || o.status === 'rated');
     });
@@ -3356,7 +3388,7 @@ function _buildTalentEarningsData(orders, talentId) {
     var grouped = {};
 
     myCompleted.forEach(function (o) {
-        var amount = Number(o.price) || 0;
+        var amount = _getDriverNetIncome(o);
         var ts = _talentOrderTimestamp(o);
         var service = o.serviceType || o.skillType || 'Layanan Lain';
 
@@ -3418,7 +3450,7 @@ function _renderTalentEarningsModalContent(container, session, orders) {
     var recentHtml = '';
     if (stats.recent.length > 0) {
         recentHtml = stats.recent.map(function (o) {
-            var amount = Number(o.price) || 0;
+            var amount = _getDriverNetIncome(o);
             var status = o.status === 'rated' ? 'Dinilai' : 'Selesai';
             return '<div class="te-tx-item">'
                 + '<div class="te-tx-left">'
@@ -3469,7 +3501,7 @@ function openTalentEarningsModal() {
     overlay.className = 'wallet-modal-overlay';
     overlay.innerHTML = '<div class="wallet-modal te-modal">'
         + '<div class="wallet-modal-header te-modal-header">'
-        + '<h3>📈 Pendapatan Talent</h3>'
+        + '<h3>📈 Pendapatan Driver</h3>'
         + '<button class="wallet-modal-close" id="talentEarningClose">&times;</button>'
         + '</div>'
         + '<div class="wallet-modal-body te-modal-body" id="talentEarningBody">'
