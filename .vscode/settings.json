@@ -1,0 +1,16 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^git -C \"c:\\\\Users\\\\Hacha\\\\Downloads\\\\App Saya\\\\JS\" status --short$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^git -C \"c:\\\\Users\\\\Hacha\\\\Downloads\\\\App Saya\\\\JS\" add js/penjual\\.js; git -C \"c:\\\\Users\\\\Hacha\\\\Downloads\\\\App Saya\\\\JS\" commit -m \"Prevent repeated seller order popup after hard reload\"; git -C \"c:\\\\Users\\\\Hacha\\\\Downloads\\\\App Saya\\\\JS\" push$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^git -C \"c:\\\\Users\\\\Hacha\\\\Downloads\\\\App Saya\\\\JS\" add js/penjual\\.js; git -C \"c:\\\\Users\\\\Hacha\\\\Downloads\\\\App Saya\\\\JS\" commit -m \"Only notify seller for truly new pending orders after reload\"; git -C \"c:\\\\Users\\\\Hacha\\\\Downloads\\\\App Saya\\\\JS\" push$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

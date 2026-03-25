@@ -1274,63 +1274,59 @@ function renderTrackingProgress(order) {
     if (!wrap || !track || !order) return;
 
     var steps = buildTrackingProgressSteps(order);
-    var prevStatus = track.getAttribute('data-progress-status') || '';
     var activeIdx = 0;
-    var prevIdx = -1;
     for (var i = 0; i < steps.length; i++) {
         if (steps[i].key === order.status) { activeIdx = i; break; }
     }
-    for (var pi = 0; pi < steps.length; pi++) {
-        if (steps[pi].key === prevStatus) { prevIdx = pi; break; }
+    var currentStep = steps[activeIdx] || steps[0] || { icon: '📦', text: 'Memproses pesanan' };
+    
+    // Create mock ETA
+    var date = new Date((Number(order.createdAt) || Date.now()));
+    date.setMinutes(date.getMinutes() + 15);
+    var h1 = String(date.getHours()).padStart(2, '0');
+    var m1 = String(date.getMinutes()).padStart(2, '0');
+    date.setMinutes(date.getMinutes() + 10);
+    var h2 = String(date.getHours()).padStart(2, '0');
+    var m2 = String(date.getMinutes()).padStart(2, '0');
+    var etaText = 'Estimasi tiba ' + h1 + ':' + m1 + ' - ' + h2 + ':' + m2;
+    if (order.status === 'completed' || order.status === 'rated') {
+        etaText = 'Pesanan Anda telah selesai';
     }
 
-    var safeIdx = activeIdx;
-    if (safeIdx < 0) safeIdx = 0;
-    if (safeIdx >= steps.length) safeIdx = steps.length - 1;
-    var currentStep = steps[safeIdx] || steps[0] || { icon: '📦', text: 'Memproses pesanan' };
-    var prevStep = safeIdx > 0 ? steps[safeIdx - 1] : null;
-    var nextStep = safeIdx < steps.length - 1 ? steps[safeIdx + 1] : null;
-    var totalSteps = Math.max(1, steps.length);
-    var completedSteps = Math.max(0, Math.min(safeIdx, totalSteps - 1));
-    var percent = Math.round(((completedSteps + 1) / totalSteps) * 100);
+    var currentPhaseIdx = 0;
+    if (['pending_seller', 'searching', 'pending'].indexOf(order.status) >= 0) currentPhaseIdx = 0;
+    else if (['preparing', 'accepted', 'on_the_way'].indexOf(order.status) >= 0) currentPhaseIdx = 1;
+    else if (['arrived', 'in_progress'].indexOf(order.status) >= 0) currentPhaseIdx = 2;
+    else if (['completed', 'rated'].indexOf(order.status) >= 0) currentPhaseIdx = 3;
+    else currentPhaseIdx = 0;
 
-    var html = '<div class="otp-progress-head">'
-        + '<div class="otp-progress-title">Progress Pesanan</div>'
-        + '<div class="otp-progress-count">' + (safeIdx + 1) + '/' + totalSteps + '</div>'
+    var barHtml = '';
+    for (var j = 0; j < 4; j++) {
+        var stateClass = j < currentPhaseIdx ? 'done' : (j === currentPhaseIdx ? 'active' : 'inactive');
+        barHtml += '<div class="sf-progress-step ' + stateClass + '"><div class="sf-progress-step-icon"></div></div>';
+    }
+    
+    var percent = Math.min(100, Math.max(0, currentPhaseIdx * 33.33));
+
+    var hintText = (['completed', 'rated'].indexOf(order.status) >= 0) ? 'Sudah sampai tujuan' : 'Kami akan memberitahu kamu saat pesanan berstatus baru';
+    var iconIllustration = '🍳';
+    if (currentStep.icon && currentStep.icon.length < 5) iconIllustration = currentStep.icon;
+    if (order.status === 'preparing') iconIllustration = '👨‍🍳';
+    if (order.status === 'in_progress') iconIllustration = '🛵';
+
+    var html = '<div class="sf-status-header">'
+        + '<div><div class="sf-status-eta">' + etaText + '</div>'
+        + '<div class="sf-status-main-text">' + escapeHtml(currentStep.text) + '</div></div>'
+        + '<div class="sf-status-icon-illustration">' + iconIllustration + '</div>'
         + '</div>'
-        + '<div class="otp-progress-compact">'
-        + '<div class="otp-progress-current">'
-        + '<div class="otp-progress-dot active">' + currentStep.icon + '</div>'
-        + '<div class="otp-progress-current-text">' + escapeHtml(currentStep.text) + '</div>'
+        + '<div class="sf-progress-bar">'
+        + '<div class="sf-progress-bar-fill" style="width:' + percent + '%"></div>'
+        + barHtml
         + '</div>'
-        + '<div class="otp-progress-meter"><span style="width:' + percent + '%"></span></div>'
-        + '<div class="otp-progress-mini-row">'
-        + (prevStep ? ('<div class="otp-mini-chip done">✓ ' + escapeHtml(prevStep.text) + '</div>') : '<div class="otp-mini-chip ghost">Mulai</div>')
-        + (nextStep ? ('<div class="otp-mini-chip next">→ ' + escapeHtml(nextStep.text) + '</div>') : '<div class="otp-mini-chip done">Selesai</div>')
-        + '</div>'
-        + '</div>';
+        + '<div class="sf-progress-hint">' + hintText + '</div>';
+
     track.innerHTML = html;
-    track.setAttribute('data-progress-status', order.status || '');
-
-    var rowEl = track.querySelector('.otp-progress-row');
-    var activeStepEl = rowEl ? rowEl.querySelector('.otp-progress-step.active') : null;
-    var shouldAnimate = !!prevStatus && prevStatus !== order.status;
-
-    if (rowEl) {
-        var stepEls = rowEl.querySelectorAll('.otp-progress-step');
-        if (prevIdx >= 0 && prevIdx < activeIdx && stepEls[prevIdx]) {
-            stepEls[prevIdx].classList.add('just-passed');
-            setTimeout((function (el) {
-                return function () { el.classList.remove('just-passed'); };
-            })(stepEls[prevIdx]), 520);
-        }
-        if (activeStepEl && shouldAnimate) {
-            activeStepEl.classList.add('just-arrived');
-            setTimeout(function () { activeStepEl.classList.remove('just-arrived'); }, 520);
-        }
-    }
-
-    animateTrackingProgressRow(rowEl, activeStepEl, shouldAnimate);
+    wrap.classList.remove('hidden');
 }
 
 function destroyTrackingMap() {
@@ -1466,9 +1462,7 @@ function renderOrderInfo(order, isTalent) {
         if (!raw) return '';
         var src = String(raw || '').trim();
         if (!src) return '';
-        if (src.indexOf('http://') === 0 || src.indexOf('https://') === 0 || src.indexOf('data:') === 0 || src.indexOf('blob:') === 0) {
-            return src;
-        }
+        if (src.indexOf('http://') === 0 || src.indexOf('https://') === 0 || src.indexOf('data:') === 0 || src.indexOf('blob:') === 0) return src;
         try {
             if (window.FB && window.FB._sb && window.FB._sb.storage) {
                 var res = window.FB._sb.storage.from('avatars').getPublicUrl(src);
@@ -1476,14 +1470,6 @@ function renderOrderInfo(order, isTalent) {
             }
         } catch (e) {}
         return src;
-    }
-
-    function getAvatarHtml(photoSrc, initial) {
-        var safeInitial = String(initial || '?').charAt(0).toUpperCase();
-        var normalized = resolveAvatarUrl(photoSrc);
-        return '<div class="otp-driver-avatar" data-initial="' + _escapeHtml(safeInitial) + '">'
-            + (normalized ? '<img src="' + _escapeHtml(normalized) + '" alt="">' : '<span>' + _escapeHtml(safeInitial) + '</span>')
-            + '</div>';
     }
 
     function getUserPhoto(u, preferSkillSelfie) {
@@ -1503,24 +1489,27 @@ function renderOrderInfo(order, isTalent) {
         return p;
     }
 
-    function buildContactCard(opts) {
-        if (!opts || !opts.user) return '';
-        var u = opts.user;
-        var name = opts.name || u.name || 'Kontak';
-        var subtitle = opts.subtitle || '';
-        var roleClass = opts.roleClass || '';
-        var chatBtnId = opts.chatBtnId || '';
-        var photo = getUserPhoto(u, !!opts.preferSkillSelfie);
+    function buildDriverCardHtml(u, title, subtitle, isHighlight, chatBtnId, ratingStr) {
+        if (!u) return '';
+        var name = u.name || 'Kontak';
+        var photo = getUserPhoto(u, isHighlight);
         var initial = (name || '?').charAt(0).toUpperCase();
+        var photoSrc = resolveAvatarUrl(photo);
+        var photoHtml = photoSrc ? '<img src="' + _escapeHtml(photoSrc) + '" alt="">' : '<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#eee;color:#999;font-size:20px;font-weight:bold;">' + _escapeHtml(initial) + '</span>';
 
-        return '<div class="otp-driver-card ' + roleClass + '">' 
-            + getAvatarHtml(photo, initial)
-            + '<div class="otp-driver-info">'
-            + '<div class="otp-driver-name">' + escapeHtml(name) + '</div>'
-            + '<div class="otp-driver-vehicle">' + escapeHtml(subtitle) + '</div>'
-            + (opts.extraInfoHtml || '')
+        return '<div class="sf-driver-card">'
+            + '<div class="sf-driver-avatar" data-initial="' + _escapeHtml(initial) + '">' + photoHtml + '</div>'
+            + '<div class="sf-driver-info">'
+            + '<div class="sf-driver-name">' + escapeHtml(name) + ' (' + escapeHtml(title) + ')</div>'
+            + '<div class="sf-driver-meta">'
+            + '<span>' + escapeHtml(subtitle) + '</span>'
+            + (ratingStr ? '<span class="sf-driver-rating" id="otpDriverRating-' + order.id + '">' + ratingStr + '</span>' : '')
             + '</div>'
-            + (chatBtnId ? '<button class="otp-driver-chat-btn" id="' + chatBtnId + '" title="Buka chat">💬</button>' : '')
+            + '</div>'
+            + '<div class="sf-driver-actions">'
+            + (chatBtnId ? '<button class="sf-driver-btn chat" id="' + chatBtnId + '"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' : '')
+            + '<button class="sf-driver-btn" onclick="window.location.href=\'tel:' + (u.phone || '0') + '\'"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+            + '</div>'
             + '</div>';
     }
 
@@ -1528,102 +1517,110 @@ function renderOrderInfo(order, isTalent) {
     var session = getSession();
     var isSeller = session && session.id === order.sellerId;
     var isUser = session && session.id === order.userId;
-    var other = users.find(function (u) {
-        return u.id === (isTalent ? order.userId : order.talentId);
-    });
+    var other = users.find(function (u) { return u.id === (isTalent ? order.userId : order.talentId); });
     var seller = users.find(function (u) { return u.id === order.sellerId; });
     var buyer = users.find(function (u) { return u.id === order.userId; });
-    var otherName = other ? other.name : 'Mencari...';
     var priceText = order.price ? formatRupiah(Number(order.price)) : '-';
     var feeText = order.fee ? formatRupiah(Number(order.fee)) : '-';
     var totalText = order.totalCost ? formatRupiah(Number(order.totalCost)) : '-';
     var addrText = order.userAddr || 'Tidak tersedia';
     var isAntar = order.skillType === 'js_antar';
-    var pmLabel = order.paymentMethod === 'cod' ? '💵 Tunai (COD)' : '💳 JsPay';
+    var pmLabel = order.paymentMethod === 'cod' ? 'Tunai (COD)' : 'JsPay';
     var isProductOrder = !!order.sellerId;
 
     var driverHtml = '';
     if (!isTalent && other && order.talentId) {
-        var vehicleLabel = isAntar ? '🏍️ Driver Antar Motor' : ('🔧 ' + (order.serviceType || 'Driver'));
+        var vehicleLabel = isAntar ? 'Motor' : (order.serviceType || 'Driver');
         var canChatDriver = session && session.id !== order.talentId;
-        var ratingId = 'otpDriverRating-' + order.id;
-        driverHtml = buildContactCard({
-            user: other,
-            subtitle: vehicleLabel,
-            roleClass: 'otp-driver-role',
-            chatBtnId: canChatDriver ? 'otpDriverChatBtn' : '',
-            preferSkillSelfie: true,
-            extraInfoHtml: '<div class="otp-driver-rating" id="' + ratingId + '">⭐ 0.0 (0)</div>'
-        });
+        driverHtml = buildDriverCardHtml(other, 'Driver', vehicleLabel, true, canChatDriver ? 'otpDriverChatBtn' : '', '⭐ 0.0 (0)');
     }
 
     var sellerHtml = '';
     if (isProductOrder && (isUser || isTalent) && seller) {
-        sellerHtml = buildContactCard({
-            user: seller,
-            subtitle: '🏪 Penjual / Toko',
-            roleClass: 'otp-seller-card otp-seller-role',
-            chatBtnId: 'otpSellerChatBtn'
-        });
+        sellerHtml = buildDriverCardHtml(seller, 'Penjual', seller.address || 'Toko', false, 'otpSellerChatBtn', '');
     }
 
     var buyerHtml = '';
-    if (isProductOrder && (isSeller || isTalent) && buyer) {
-        buyerHtml = buildContactCard({
-            user: buyer,
-            subtitle: '🛒 Pembeli',
-            roleClass: 'otp-buyer-card otp-buyer-role',
-            chatBtnId: 'otpBuyerChatBtn'
-        });
+    if ((isSeller || isTalent) && buyer) {
+        buyerHtml = buildDriverCardHtml(buyer, 'Pembeli', buyer.address || '', false, 'otpBuyerChatBtn', '');
     }
 
-    var userContactHtml = '';
-    if (isTalent && !isProductOrder && other) {
-        userContactHtml = buildContactCard({
-            user: other,
-            subtitle: '👤 Pengguna Jasa',
-            roleClass: 'otp-buyer-card otp-buyer-role',
-            chatBtnId: 'otpBuyerChatBtn'
-        });
-    }
+    // Location Card
+    var locationHtml = '<div class="sf-location-card">'
+        + '<div class="sf-location-row">'
+        + '<div class="sf-location-label"><div class="sf-loc-dot pickup"></div> Diambil dari</div>'
+        + '<div class="sf-location-title">' + (isProductOrder && seller ? escapeHtml(seller.name) : 'Titik Jemput') + '</div>'
+        + '<div class="sf-location-address">' + (isProductOrder && seller ? escapeHtml(seller.address) : escapeHtml(addrText)) + '</div>'
+        + '</div>'
+        + '<div class="sf-location-row">'
+        + '<div class="sf-location-label"><div class="sf-loc-dot dropoff"></div> Diantar ke</div>'
+        + '<div class="sf-location-title">' + (buyer ? escapeHtml(buyer.name) : 'Penerima') + '</div>'
+        + '<div class="sf-location-address">' + escapeHtml(isAntar && order.destAddr ? order.destAddr : addrText) + '</div>'
+        + '<div class="sf-location-person">' + (buyer ? escapeHtml(buyer.phone || '') : '') + '</div>'
+        + '</div>'
+        + '</div>';
 
-    el.innerHTML = buyerHtml + userContactHtml + driverHtml + sellerHtml
-        + '<div class="otp-info-row"><span class="otp-info-label">Layanan</span><span class="otp-info-val">' + escapeHtml(order.serviceType || '') + '</span></div>'
-        + (isAntar ? '<div class="otp-info-row"><span class="otp-info-label">📍 Jemput</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>' : '<div class="otp-info-row"><span class="otp-info-label">Alamat</span><span class="otp-info-val">' + escapeHtml(addrText) + '</span></div>')
-        + (isAntar && order.destAddr ? '<div class="otp-info-row"><span class="otp-info-label">🏁 Tujuan</span><span class="otp-info-val">' + escapeHtml(String(order.destAddr)) + '</span></div>' : '')
-        + (isAntar && order.distanceKm ? '<div class="otp-info-row"><span class="otp-info-label">Jarak</span><span class="otp-info-val">' + Number(order.distanceKm).toFixed(1) + ' km</span></div>' : '')
-        + '<div class="otp-info-row"><span class="otp-info-label">' + (isAntar ? 'Ongkos' : 'Harga') + '</span><span class="otp-info-val">' + priceText + '</span></div>'
-        + '<div class="otp-info-row"><span class="otp-info-label">Biaya platform</span><span class="otp-info-val">' + feeText + '</span></div>'
-        + '<div class="otp-info-row otp-info-total"><span class="otp-info-label">Total Bayar</span><span class="otp-info-val">' + totalText + '</span></div>'
-        + '<div class="otp-info-row"><span class="otp-info-label">Pembayaran</span><span class="otp-info-val">' + pmLabel + '</span></div>'
-        + (order.proofPhoto ? '<div class="otp-proof"><img src="' + order.proofPhoto + '" alt="Bukti"></div>' : '');
+    // Order Details Card
+    var itemOldPriceText = order.price ? formatRupiah(Number(order.price) + 15000) : '-';
+    var itemImageHtml = '<img src="' + (order.proofPhoto ? order.proofPhoto : 'https://cdn-icons-png.flaticon.com/512/3081/3081840.png') + '" alt=""/>';
+    
+    var orderDetailsHtml = '<div class="sf-order-details-card">'
+        + '<div class="sf-od-header">Rincian Pesanan</div>'
+        + '<div class="sf-od-item">'
+        + '<div class="sf-od-item-img">' + itemImageHtml + '</div>'
+        + '<div class="sf-od-item-info">'
+        + '<div class="sf-od-qty-name"><span class="sf-od-name">' + escapeHtml(order.serviceType || 'Pesanan Layanan') + '</span></div>'
+        + '</div>'
+        + '<div class="sf-od-item-price-wrap">'
+        + '<div class="sf-od-item-old-price">' + itemOldPriceText + '</div>'
+        + '<div class="sf-od-item-price">' + priceText + '</div>'
+        + '</div>'
+        + '</div>'
+        + '<div class="sf-od-summary">'
+        + '<div class="sf-od-row subtotal"><span>Subtotal Pesanan</span><span class="sf-od-val">' + priceText + '</span></div>'
+        + '<div class="sf-od-row discount"><span>Voucher Diskon</span><span class="sf-od-val">-Rp 15.000</span></div>'
+        + '<div class="sf-od-row"><span>Biaya Layanan</span><span class="sf-od-val">' + feeText + '</span></div>'
+        + '<div class="sf-od-total-sec">'
+        + '<div class="sf-od-total-val">' + totalText + '</div>'
+        + '<div class="sf-od-total-hint">(Sudah termasuk pajak)</div>'
+        + '</div>'
+        + '</div>'
+        + '</div>';
 
-    el.querySelectorAll('.otp-driver-avatar img').forEach(function (imgEl) {
+    var orderDate = new Date(Number(order.createdAt) || Date.now());
+    function pad(n) { return n < 10 ? '0' + n : n; }
+    var formattedDate = pad(orderDate.getDate()) + ' ' + ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'][orderDate.getMonth()] + ' ' + orderDate.getFullYear() + ' ' + pad(orderDate.getHours()) + ':' + pad(orderDate.getMinutes());
+
+    var orderInfoHtml = '<div class="sf-order-info-block">'
+        + '<div class="sf-oi-header">Informasi Pesanan</div>'
+        + '<div class="sf-oi-row"><span class="sf-oi-label">Catatan Tambahan</span><span class="sf-oi-val">' + (escapeHtml(order.notes) || 'Tidak ada') + '</span></div>'
+        + '<div class="sf-oi-row"><span class="sf-oi-label">No. Pesanan</span><div class="sf-oi-val">' + escapeHtml(order.id).substring(0, 10) + '... <span class="sf-oi-copy" onclick="navigator.clipboard.writeText(\'' + escapeHtml(order.id) + '\')">SALIN</span></div></div>'
+        + '<div class="sf-oi-row"><span class="sf-oi-label">Waktu Pemesanan</span><span class="sf-oi-val">' + formattedDate + '</span></div>'
+        + '<div class="sf-oi-row"><span class="sf-oi-label">Pembayaran</span><span class="sf-oi-val bold">' + pmLabel + '</span></div>'
+        + '</div>';
+
+    el.innerHTML = driverHtml + sellerHtml + buyerHtml + locationHtml + orderDetailsHtml + orderInfoHtml;
+
+    el.querySelectorAll('.sf-driver-avatar img').forEach(function (imgEl) {
         imgEl.addEventListener('error', function () {
             var holder = imgEl.parentNode;
             if (!holder) return;
             var fallbackInitial = holder.getAttribute('data-initial') || '?';
-            holder.innerHTML = '<span>' + _escapeHtml(fallbackInitial) + '</span>';
+            holder.innerHTML = '<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#eee;color:#999;font-size:20px;font-weight:bold;">' + _escapeHtml(fallbackInitial) + '</span>';
         });
     });
 
     var driverChatBtn = document.getElementById('otpDriverChatBtn');
     if (driverChatBtn) {
-        driverChatBtn.addEventListener('click', function () {
-            openChat(order, order.talentId);
-        });
+        driverChatBtn.addEventListener('click', function () { openChat(order, order.talentId); });
     }
     var sellerChatBtn = document.getElementById('otpSellerChatBtn');
     if (sellerChatBtn) {
-        sellerChatBtn.addEventListener('click', function () {
-            openChat(order, order.sellerId);
-        });
+        sellerChatBtn.addEventListener('click', function () { openChat(order, order.sellerId); });
     }
     var buyerChatBtn = document.getElementById('otpBuyerChatBtn');
     if (buyerChatBtn) {
-        buyerChatBtn.addEventListener('click', function () {
-            openChat(order, order.userId);
-        });
+        buyerChatBtn.addEventListener('click', function () { openChat(order, order.userId); });
     }
 
     if (!isTalent && order.talentId && isBackendConnected()) {
@@ -1633,7 +1630,7 @@ function renderOrderInfo(order, isTalent) {
                 var ratingEl = document.getElementById('otpDriverRating-' + order.id);
                 if (!ratingEl) return;
                 var rating = (res && res.success && res.data) ? res.data : { avg: 0, count: 0 };
-                ratingEl.textContent = '⭐ ' + Number(rating.avg || 0).toFixed(1) + ' (' + Number(rating.count || 0) + ')';
+                ratingEl.innerHTML = '⭐ ' + Number(rating.avg || 0).toFixed(1) + ' (' + Number(rating.count || 0) + ')';
             })
             .catch(function () {});
     }
@@ -1654,14 +1651,14 @@ function buildDriverNavButtonsHtml(order) {
 
     if (isProductOrder) {
         if (!hasStore && !hasUser) return '';
-        return '<div class="otp-btn-row">'
-            + (hasStore ? '<button class="otp-btn otp-btn-secondary" id="otpBtnNavStore">🗺️ Buka Google Maps ke Toko</button>' : '')
-            + (hasUser ? '<button class="otp-btn otp-btn-secondary" id="otpBtnNavBuyer">🗺️ Buka Google Maps ke Pembeli</button>' : '')
+        return '<div class="sf-btn-row" style="margin-bottom:12px;">'
+            + (hasStore ? '<button class="sf-btn-outline" id="otpBtnNavStore">Maps ke Toko</button>' : '')
+            + (hasUser ? '<button class="sf-btn-outline" id="otpBtnNavBuyer">Maps ke Pembeli</button>' : '')
             + '</div>';
     }
 
     if (!hasUser) return '';
-    return '<button class="otp-btn otp-btn-secondary" id="otpBtnNavUser">🗺️ Buka Google Maps</button>';
+    return '<button class="sf-btn-outline" style="width:100%; margin-bottom:12px;" id="otpBtnNavUser">Buka Google Maps</button>';
 }
 
 function resolveDriverNavigationTarget(order, targetType) {
@@ -1752,13 +1749,13 @@ function renderOrderActions(order, isTalent, isUser) {
 
     // ── USER: Cancel button on pending_seller / searching / pending ──
     if (isUser && (['pending_seller', 'preparing', 'searching', 'pending'].indexOf(order.status) >= 0)) {
-        var cancelHtml = '<button class="otp-btn otp-btn-cancel" id="otpBtnCancel">❌ Batalkan Pesanan</button>';
+        var cancelHtml = '<button class="sf-cancel-btn red" id="otpBtnCancel">Batalkan Pesanan</button>';
         if (order.status === 'searching') {
-            cancelHtml = '<div class="searching-driver-anim"><div class="searching-spinner"></div><p>Mencari driver terdekat...</p></div>' + cancelHtml;
+            cancelHtml = '<div style="text-align:center;font-size:12px;color:#999;margin-bottom:8px;">Mencari driver terdekat...</div>' + cancelHtml;
         } else if (order.status === 'pending_seller') {
-            cancelHtml = '<div class="searching-driver-anim"><div class="searching-spinner"></div><p>Menunggu penjual menerima pesanan...</p></div>' + cancelHtml;
+            cancelHtml = '<div style="text-align:center;font-size:12px;color:#999;margin-bottom:8px;">Menunggu penjual menerima pesanan...</div>' + cancelHtml;
         } else if (order.status === 'preparing') {
-            cancelHtml = '<div class="searching-driver-anim"><div class="searching-spinner"></div><p>Penjual sedang menyiapkan pesanan...</p></div>' + cancelHtml;
+            cancelHtml = '<div style="text-align:center;font-size:12px;color:#999;margin-bottom:8px;">Penjual sedang menyiapkan pesanan...</div>' + cancelHtml;
         }
         el.innerHTML = cancelHtml;
         document.getElementById('otpBtnCancel').addEventListener('click', function () {
@@ -1803,7 +1800,7 @@ function renderOrderActions(order, isTalent, isUser) {
     // ── SELLER: Accept/Prepare/Ready for product orders ──
     if (isSeller && isProductOrder) {
         if (order.status === 'pending_seller') {
-            el.innerHTML = '<div class="otp-btn-row"><button class="otp-btn otp-btn-accept" id="otpBtnSellerAccept">✅ Terima & Siapkan</button><button class="otp-btn otp-btn-reject" id="otpBtnSellerReject">❌ Tolak</button></div>';
+            el.innerHTML = '<div class="sf-btn-row"><button class="sf-btn-solid" id="otpBtnSellerAccept">Terima & Siapkan</button><button class="sf-btn-outline" id="otpBtnSellerReject">Tolak</button></div>';
             document.getElementById('otpBtnSellerAccept').addEventListener('click', function () {
                 backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'preparing', sellerAcceptedAt: Date.now() } }).then(function (res) {
                     if (res && res.success) {
@@ -1832,7 +1829,7 @@ function renderOrderActions(order, isTalent, isUser) {
                 });
             });
         } else if (order.status === 'preparing') {
-            el.innerHTML = '<button class="otp-btn otp-btn-complete" id="otpBtnSellerReady">📦 Pesanan Siap Diambil</button>';
+            el.innerHTML = '<button class="sf-btn-solid" style="width:100%" id="otpBtnSellerReady">Pesanan Siap Diambil</button>';
             document.getElementById('otpBtnSellerReady').addEventListener('click', function () {
                 backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'searching', sellerReadyAt: Date.now() } }).then(function (res) {
                     if (res && res.success) {
@@ -1853,18 +1850,18 @@ function renderOrderActions(order, isTalent, isUser) {
     if (isTalent) {
         var driverNavHtml = buildDriverNavButtonsHtml(order);
         if (order.status === 'pending') {
-            el.innerHTML = driverNavHtml + '<div class="otp-btn-row"><button class="otp-btn otp-btn-accept" id="otpBtnAccept">✅ Terima Pesanan</button><button class="otp-btn otp-btn-reject" id="otpBtnReject">❌ Tolak</button></div>';
+            el.innerHTML = driverNavHtml + '<div class="sf-btn-row"><button class="sf-btn-solid" id="otpBtnAccept">Terima Pesanan</button><button class="sf-btn-outline" id="otpBtnReject">Tolak</button></div>';
             document.getElementById('otpBtnAccept').addEventListener('click', function () {
                 var btn = this;
                 btn.disabled = true;
-                btn.textContent = '⏳ Memproses...';
+                btn.textContent = 'Memproses...';
                 var totalCost = Number(order.totalCost) || ((Number(order.price) || 0) + (Number(order.fee) || 0));
                 var pm = order.paymentMethod || 'jspay';
                 var sessionNow = getSession();
 
                 function resetBtn() {
                     btn.disabled = false;
-                    btn.textContent = '✅ Terima Pesanan';
+                    btn.textContent = 'Terima Pesanan';
                 }
 
                 ensureDriverSingleOrder(sessionNow ? sessionNow.id : '', order.id).then(function (hasActive) {
@@ -1924,17 +1921,17 @@ function renderOrderActions(order, isTalent, isUser) {
                 });
             });
         } else if (order.status === 'accepted') {
-            var otwLabel = isAntar ? '🏍️ Menuju Lokasi Jemput' : '🏍️ Menuju Lokasi';
-            el.innerHTML = driverNavHtml + '<button class="otp-btn otp-btn-otw" id="otpBtnOtw">' + otwLabel + '</button>';
+            var otwLabel = isAntar ? 'Menuju Lokasi Jemput' : 'Menuju Lokasi';
+            el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnOtw">' + otwLabel + '</button>';
             document.getElementById('otpBtnOtw').addEventListener('click', function () { updateOrderStatus(order.id, 'on_the_way', {}); startTalentLocationBroadcast(order.id); });
         } else if (order.status === 'on_the_way' && isProductOrder) {
-            el.innerHTML = driverNavHtml + '<button class="otp-btn otp-btn-arrive" id="otpBtnArrive">📍 Sampai di Toko</button>';
+            el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnArrive">Sampai di Toko</button>';
             document.getElementById('otpBtnArrive').addEventListener('click', function () { updateOrderStatus(order.id, 'arrived', {}); });
         } else if (order.status === 'arrived' && isProductOrder) {
-            el.innerHTML = driverNavHtml + '<button class="otp-btn otp-btn-start" id="otpBtnStart">🛍️ Ambil Pesanan & Antar</button>';
+            el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnStart">Ambil Pesanan & Antar</button>';
             document.getElementById('otpBtnStart').addEventListener('click', function () { updateOrderStatus(order.id, 'in_progress', { pickedUpAt: Date.now() }); });
         } else if (order.status === 'in_progress' && isProductOrder) {
-            el.innerHTML = driverNavHtml + '<button class="otp-btn otp-btn-complete" id="otpBtnComplete">✅ Selesai + Upload Bukti</button><input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">';
+            el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnComplete">Selesai + Upload Bukti</button><input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">';
             document.getElementById('otpBtnComplete').addEventListener('click', function () {
                 document.getElementById('otpProofInput').click();
             });
@@ -1951,16 +1948,16 @@ function renderOrderActions(order, isTalent, isUser) {
                 this.value = '';
             });
         } else if (order.status === 'on_the_way') {
-            var arriveLabel = isAntar ? '📍 Sudah di Lokasi Jemput' : '📍 Sudah Tiba';
-            el.innerHTML = driverNavHtml + '<button class="otp-btn otp-btn-arrive" id="otpBtnArrive">' + arriveLabel + '</button>';
+            var arriveLabel = isAntar ? 'Sudah di Lokasi Jemput' : 'Sudah Tiba';
+            el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnArrive">' + arriveLabel + '</button>';
             document.getElementById('otpBtnArrive').addEventListener('click', function () { updateOrderStatus(order.id, 'arrived', {}); });
         } else if (order.status === 'arrived') {
-            var startLabel = isAntar ? '🚀 Mulai Perjalanan' : '🔨 Mulai Mengerjakan';
-            el.innerHTML = driverNavHtml + '<button class="otp-btn otp-btn-start" id="otpBtnStart">' + startLabel + '</button>';
+            var startLabel = isAntar ? 'Mulai Perjalanan' : 'Mulai Mengerjakan';
+            el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnStart">' + startLabel + '</button>';
             document.getElementById('otpBtnStart').addEventListener('click', function () { updateOrderStatus(order.id, 'in_progress', { startedAt: Date.now() }); });
         } else if (order.status === 'in_progress') {
-            var completeLabel = isAntar ? '🏁 Sampai Tujuan' : '✅ Selesai + Upload Bukti';
-            el.innerHTML = driverNavHtml + '<button class="otp-btn otp-btn-complete" id="otpBtnComplete">' + completeLabel + '</button>' + (isAntar ? '' : '<input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">');
+            var completeLabel = isAntar ? 'Sampai Tujuan' : 'Selesai + Upload Bukti';
+            el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnComplete">' + completeLabel + '</button>' + (isAntar ? '' : '<input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">');
             if (isAntar) {
                 // JS Antar: no photo proof needed, just mark complete
                 document.getElementById('otpBtnComplete').addEventListener('click', function () {
@@ -1990,13 +1987,13 @@ function renderOrderActions(order, isTalent, isUser) {
     }
 
     if (isUser && order.status === 'completed') {
-        el.innerHTML = '<button class="otp-btn otp-btn-rate" id="otpBtnRate">⭐ Beri Rating</button>';
+        el.innerHTML = '<button class="sf-btn-solid" style="width:100%" id="otpBtnRate">Beri Rating</button>';
         document.getElementById('otpBtnRate').addEventListener('click', function () { openRatingPage(order); });
     }
 
     // ── Show status messages for cancelled/rejected ──
     if (order.status === 'cancelled') {
-        el.innerHTML = '<div class="otp-status-msg cancelled">❌ Pesanan ini telah dibatalkan</div>';
+        el.innerHTML = '<div style="text-align:center;padding:12px;background:#FEE2E2;color:#EF4444;border-radius:8px;font-weight:600;font-size:14px;">Pesanan ini telah dibatalkan</div>';
     }
 }
 
