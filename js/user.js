@@ -946,12 +946,14 @@ function _shopSetProductQty(product, qty) {
             _shopCart.splice(idx, 1);
         } else {
             _shopCart[idx].qty = safeQty;
+            _shopCart[idx].photo = _shopCart[idx].photo || product.photo || '';
             _shopCart[idx].isAvailable = true;
         }
     } else if (safeQty > 0) {
         _shopCart.push({
             productId: product.id,
             name: product.name || 'Produk',
+            photo: product.photo || '',
             price: Number(product.price) || 0,
             qty: safeQty,
             isAvailable: true
@@ -989,6 +991,7 @@ function addProductToShopCart(product, qty) {
         _shopCart.push({
             productId: product.id,
             name: product.name || 'Produk',
+            photo: product.photo || '',
             price: Number(product.price) || 0,
             qty: q,
             isAvailable: true
@@ -1262,7 +1265,7 @@ function createProductOrder(cartItems, store, paymentMethod, pricing, checkoutMo
             _shopCart = [];
             updateShopCartUI();
             if (checkoutModal) checkoutModal.style.display = 'none';
-            showToast('Pesanan berhasil! Menunggu penjual menyiapkan...', 'success');
+            showToast('Pesanan berhasil! Menunggu penjual menerima pesanan...', 'success');
             document.getElementById('storeDetailPage').classList.add('hidden');
             document.getElementById('storeListPage').classList.add('hidden');
             openOrderTracking(order);

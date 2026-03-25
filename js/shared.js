@@ -1232,7 +1232,7 @@ function buildTrackingProgressSteps(order) {
     var isAntar = !!(order && order.skillType === 'js_antar');
     if (isProductOrder) {
         return [
-            { key: 'pending_seller', icon: '🧾', text: 'Pesanan diterima penjual' },
+            { key: 'pending_seller', icon: '🧾', text: 'Menunggu penjual menerima pesanan' },
             { key: 'preparing', icon: '👨‍🍳', text: 'Penjual menyiapkan pesanan' },
             { key: 'searching', icon: '🔎', text: 'Mencari driver terdekat' },
             { key: 'pending', icon: '📲', text: 'Menunggu driver menerima order' },
@@ -1458,6 +1458,20 @@ function renderOrderInfo(order, isTalent) {
     var el = document.getElementById('otpInfoContent');
     if (!el) return;
 
+    function normalizeOrderItems(rawItems) {
+        var items = rawItems;
+        if (typeof items === 'string') {
+            try { items = JSON.parse(items); } catch (e) { items = []; }
+        }
+        if (!Array.isArray(items)) return [];
+        return items.filter(function (it) { return it && typeof it === 'object'; });
+    }
+
+    function getOrderItemPhoto(item) {
+        if (!item) return '';
+        return String(item.photo || item.image || item.photoUrl || item.imageUrl || item.thumbnail || '').trim();
+    }
+
     function resolveAvatarUrl(raw) {
         if (!raw) return '';
         var src = String(raw || '').trim();
@@ -1561,21 +1575,54 @@ function renderOrderInfo(order, isTalent) {
         + '</div>';
 
     // Order Details Card
-    var itemOldPriceText = order.price ? formatRupiah(Number(order.price) + 15000) : '-';
-    var itemImageHtml = '<img src="' + (order.proofPhoto ? order.proofPhoto : 'https://cdn-icons-png.flaticon.com/512/3081/3081840.png') + '" alt=""/>';
+    var orderItems = normalizeOrderItems(order.items);
+    var orderItemsHtml = '';
+
+    if (orderItems.length > 0) {
+        orderItemsHtml = orderItems.map(function (item) {
+            var qty = Number(item.qty || item.quantity || 1);
+            if (!isFinite(qty) || qty < 1) qty = 1;
+            var name = item.name || item.productName || 'Produk';
+            var unitPrice = Number(item.price || item.unitPrice || 0);
+            var lineTotal = Number(item.totalPrice);
+            if (!isFinite(lineTotal) || lineTotal < 0) {
+                lineTotal = unitPrice > 0 ? (unitPrice * qty) : 0;
+            }
+            var photo = getOrderItemPhoto(item);
+            var itemImageHtml = photo
+                ? '<img src="' + escapeHtml(photo) + '" alt="' + escapeHtml(name) + '"/>'
+                : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#F8FAFC;color:#94A3B8;font-size:22px;">📦</div>';
+
+            return '<div class="sf-od-item">'
+                + '<div class="sf-od-item-img">' + itemImageHtml + '</div>'
+                + '<div class="sf-od-item-info">'
+                + '<div class="sf-od-qty-name"><span class="sf-od-qty">' + qty + 'x</span><span class="sf-od-name">' + escapeHtml(name) + '</span></div>'
+                + '</div>'
+                + '<div class="sf-od-item-price-wrap">'
+                + '<div class="sf-od-item-price">' + formatRupiah(lineTotal) + '</div>'
+                + '</div>'
+                + '</div>';
+        }).join('');
+    } else {
+        var fallbackName = order.serviceType || 'Pesanan Layanan';
+        var fallbackPhoto = order.proofPhoto ? String(order.proofPhoto) : '';
+        var fallbackImageHtml = fallbackPhoto
+            ? '<img src="' + escapeHtml(fallbackPhoto) + '" alt="' + escapeHtml(fallbackName) + '"/>'
+            : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#F8FAFC;color:#94A3B8;font-size:22px;">📦</div>';
+        orderItemsHtml = '<div class="sf-od-item">'
+            + '<div class="sf-od-item-img">' + fallbackImageHtml + '</div>'
+            + '<div class="sf-od-item-info">'
+            + '<div class="sf-od-qty-name"><span class="sf-od-name">' + escapeHtml(fallbackName) + '</span></div>'
+            + '</div>'
+            + '<div class="sf-od-item-price-wrap">'
+            + '<div class="sf-od-item-price">' + priceText + '</div>'
+            + '</div>'
+            + '</div>';
+    }
     
     var orderDetailsHtml = '<div class="sf-order-details-card">'
         + '<div class="sf-od-header">Rincian Pesanan</div>'
-        + '<div class="sf-od-item">'
-        + '<div class="sf-od-item-img">' + itemImageHtml + '</div>'
-        + '<div class="sf-od-item-info">'
-        + '<div class="sf-od-qty-name"><span class="sf-od-name">' + escapeHtml(order.serviceType || 'Pesanan Layanan') + '</span></div>'
-        + '</div>'
-        + '<div class="sf-od-item-price-wrap">'
-        + '<div class="sf-od-item-old-price">' + itemOldPriceText + '</div>'
-        + '<div class="sf-od-item-price">' + priceText + '</div>'
-        + '</div>'
-        + '</div>'
+        + orderItemsHtml
         + '<div class="sf-od-summary">'
         + '<div class="sf-od-row subtotal"><span>Subtotal Pesanan</span><span class="sf-od-val">' + priceText + '</span></div>'
         + '<div class="sf-od-row discount"><span>Voucher Diskon</span><span class="sf-od-val">-Rp 15.000</span></div>'
@@ -1591,9 +1638,10 @@ function renderOrderInfo(order, isTalent) {
     function pad(n) { return n < 10 ? '0' + n : n; }
     var formattedDate = pad(orderDate.getDate()) + ' ' + ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'][orderDate.getMonth()] + ' ' + orderDate.getFullYear() + ' ' + pad(orderDate.getHours()) + ':' + pad(orderDate.getMinutes());
 
+    var notesText = (order.notes === null || order.notes === undefined) ? '' : String(order.notes).trim();
     var orderInfoHtml = '<div class="sf-order-info-block">'
         + '<div class="sf-oi-header">Informasi Pesanan</div>'
-        + '<div class="sf-oi-row"><span class="sf-oi-label">Catatan Tambahan</span><span class="sf-oi-val">' + (escapeHtml(order.notes) || 'Tidak ada') + '</span></div>'
+        + '<div class="sf-oi-row"><span class="sf-oi-label">Catatan Tambahan</span><span class="sf-oi-val">' + (notesText ? escapeHtml(notesText) : 'Tidak ada') + '</span></div>'
         + '<div class="sf-oi-row"><span class="sf-oi-label">No. Pesanan</span><div class="sf-oi-val">' + escapeHtml(order.id).substring(0, 10) + '... <span class="sf-oi-copy" onclick="navigator.clipboard.writeText(\'' + escapeHtml(order.id) + '\')">SALIN</span></div></div>'
         + '<div class="sf-oi-row"><span class="sf-oi-label">Waktu Pemesanan</span><span class="sf-oi-val">' + formattedDate + '</span></div>'
         + '<div class="sf-oi-row"><span class="sf-oi-label">Pembayaran</span><span class="sf-oi-val bold">' + pmLabel + '</span></div>'
