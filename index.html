@@ -678,7 +678,7 @@
                                             </span>
                                             <span class="od-setting-arrow">›</span>
                                         </button>
-                                        <button class="od-setting-item" data-owner-setting="commission-modal" type="button">
+                                        <button class="od-setting-item" data-owner-setting="delivery-modal" type="button">
                                             <span class="od-setting-icon">🚚</span>
                                             <span class="od-setting-body">
                                                 <span class="od-setting-label">Pengaturan Ongkir</span>
@@ -714,10 +714,6 @@
                                         </div>
                                         <form id="commissionForm" class="od-settings-form">
                                             <div class="od-form-row">
-                                                <label>Ongkir per KM</label>
-                                                <div class="od-input-group"><span class="od-input-prefix">Rp</span><input type="number" id="setDeliveryFeePerKm" placeholder="3000" min="0"></div>
-                                            </div>
-                                            <div class="od-form-row">
                                                 <label>Biaya Platform</label>
                                                 <div class="od-input-group"><span class="od-input-prefix">Rp</span><input type="number" id="setServiceFeeAmount" placeholder="1000" min="0"></div>
                                             </div>
@@ -729,6 +725,23 @@
                                                 <label>Komisi Penjual</label>
                                                 <div class="od-input-group"><input type="number" id="setCommPenjual" placeholder="10" min="0" max="100"><span class="od-input-suffix">%</span></div>
                                             </div>
+                                            <button type="submit" class="od-btn-save">💾 Simpan Pengaturan</button>
+                                        </form>
+                                    </div>
+                                </div>
+
+                                <div class="od-settings-modal hidden" id="ownerDeliveryModal">
+                                    <div class="od-settings-modal-backdrop" id="ownerDeliveryBackdrop"></div>
+                                    <div class="od-settings-modal-card" role="dialog" aria-modal="true" aria-labelledby="ownerDeliveryTitle">
+                                        <div class="od-settings-modal-head">
+                                            <h4 id="ownerDeliveryTitle">Pengaturan Ongkir</h4>
+                                            <button class="od-settings-modal-close" id="ownerDeliveryClose" type="button">&times;</button>
+                                        </div>
+                                        <form id="deliverySettingsForm" class="od-settings-form">
+                                            <div class="od-form-row">
+                                                <label>Ongkir per KM</label>
+                                                <div class="od-input-group"><span class="od-input-prefix">Rp</span><input type="number" id="setDeliveryFeePerKm" placeholder="3000" min="0"></div>
+                                            </div>
                                             <div class="od-form-row">
                                                 <label>Tarif dasar minimum JS Antar</label>
                                                 <div class="od-input-group"><span class="od-input-prefix">Rp</span><input type="number" id="setMinFee" placeholder="5000" min="0"></div>
@@ -737,7 +750,7 @@
                                                 <label>Tarif dasar minimum Toko</label>
                                                 <div class="od-input-group"><span class="od-input-prefix">Rp</span><input type="number" id="setMinShopFee" placeholder="10000" min="0"></div>
                                             </div>
-                                            <button type="submit" class="od-btn-save">💾 Simpan Pengaturan</button>
+                                            <button type="submit" class="od-btn-save">💾 Simpan Pengaturan Ongkir</button>
                                         </form>
                                     </div>
                                 </div>
