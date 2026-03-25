@@ -2662,6 +2662,69 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .od-btn-save:active { transform:scale(.97); opacity:.9; }
 .od-btn-save:disabled { opacity:.5; cursor:not-allowed; transform:none; }
 
+/* ─── Owner Stage 4: Consistency Polish ─── */
+#page-owner .od-panel-view section,
+#page-owner .od-panel-view .od-settings-card,
+#page-owner .od-panel-view .od-users-section,
+#page-owner .od-panel-view .od-activity-section,
+#page-owner .od-panel-view .od-chart-section,
+#page-owner .od-panel-view .od-wallet-card,
+#page-owner .od-panel-view .od-quick-section {
+    border-radius:16px;
+    border:1px solid #E9ECEF;
+    box-shadow:0 6px 16px rgba(15,23,42,.05);
+}
+
+#page-owner .od-panel-view {
+    padding:12px 14px calc(90px + env(safe-area-inset-bottom, 0px));
+}
+
+#page-owner .od-section-head h3,
+#page-owner .od-panel-head h3,
+#page-owner .od-activity-title-wrap h3,
+#page-owner .od-settings-card-head h4 {
+    letter-spacing:.1px;
+}
+
+#page-owner .od-section-head h3 { font-size:14px; font-weight:800; }
+#page-owner .od-panel-head p,
+#page-owner .od-activity-title-wrap p,
+#page-owner .od-settings-card-head p { font-size:11px; line-height:1.45; }
+
+/* Simplify icon language so cards feel from one design system */
+#page-owner .od-kpi-icon,
+#page-owner .od-quick-icon,
+#page-owner .od-settings-icon,
+#page-owner .od-notif-btn {
+    border-radius:12px;
+}
+
+#page-owner .od-kpi-icon svg,
+#page-owner .od-quick-icon svg,
+#page-owner .od-notif-btn svg {
+    width:19px;
+    height:19px;
+}
+
+#page-owner .od-quick-icon {
+    width:42px;
+    height:42px;
+    border:1px solid #E2E8F0;
+}
+
+#page-owner .od-qi-purple { background:#F3F4F6; color:#4B5563; }
+#page-owner .od-qi-blue { background:#EFF6FF; color:#1D4ED8; }
+#page-owner .od-qi-green { background:#ECFDF5; color:#047857; }
+#page-owner .od-qi-orange { background:#FFF7ED; color:#C2410C; }
+
+#page-owner .od-form-row label,
+#page-owner .od-kpi-label,
+#page-owner .od-chart-kpi span,
+#page-owner .od-activity-tag,
+#page-owner .od-user-submeta {
+    font-weight:700;
+}
+
 /* ─── Dashboard Animation ─── */
 @keyframes odFadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
 
