@@ -3086,6 +3086,97 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     flex-shrink:0;
 }
 
+/* ─── Owner Layout Flatten (Like Other Roles) ─── */
+#page-owner {
+    background:var(--cream);
+}
+
+#page-owner .od-header {
+    border-radius:0;
+    box-shadow:none;
+    border-bottom:1px solid #E5E7EB;
+}
+
+#page-owner .od-header-bg {
+    background:#FFFFFF;
+}
+
+#page-owner .od-panel-modal {
+    padding:0 0 calc(84px + env(safe-area-inset-bottom, 0px));
+}
+
+#page-owner .od-panel-shell {
+    border:none;
+    border-radius:0;
+    box-shadow:none;
+    background:transparent;
+}
+
+#page-owner .od-panel-head {
+    padding:12px 14px 10px;
+    background:var(--cream);
+    border-bottom:1px solid #E5E7EB;
+}
+
+#page-owner .od-panel-view {
+    padding:12px 12px calc(90px + env(safe-area-inset-bottom, 0px));
+}
+
+#page-owner .od-panel-view section,
+#page-owner .od-panel-view .od-settings-card,
+#page-owner .od-panel-view .od-chart-section,
+#page-owner .od-panel-view .od-activity-section,
+#page-owner .od-panel-view .od-users-section,
+#page-owner .od-panel-view .od-wallet-card,
+#page-owner .od-panel-view .od-quick-section {
+    border-radius:12px;
+    border:1px solid #E5E7EB;
+    box-shadow:none;
+}
+
+#page-owner .od-settings-body {
+    padding:0;
+    gap:8px;
+}
+
+#page-owner .od-settings-card {
+    padding:0;
+    border:none;
+    box-shadow:none;
+    background:transparent;
+}
+
+#page-owner .od-settings-list-card {
+    padding:0;
+}
+
+#page-owner .od-settings-list-head {
+    margin-bottom:8px;
+    padding:0 2px;
+}
+
+#page-owner .od-settings-icon {
+    width:42px;
+    height:42px;
+    border-radius:10px;
+    background:#F1F5F9;
+}
+
+#page-owner .od-settings-list {
+    gap:8px;
+}
+
+#page-owner .od-setting-item {
+    border-radius:12px;
+    padding:10px;
+    border:1px solid #E5E7EB;
+    background:#FFFFFF;
+}
+
+#page-owner .od-setting-value {
+    color:#64748B;
+}
+
 @media (max-width:360px) {
     #page-owner .od-panel-view {
         padding:10px 10px calc(92px + env(safe-area-inset-bottom, 0px));
