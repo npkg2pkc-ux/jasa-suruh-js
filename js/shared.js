@@ -2893,6 +2893,7 @@ function renderOrderCards(orders) {
     if (!list) return;
     var session = getSession();
     var users = getUsers();
+    var isSellerRole = !!(session && (session.role === 'penjual' || session.role === 'seller'));
 
     if (orders.length === 0) {
         list.innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">📭</div><p>Tidak ada pesanan</p></div>';
@@ -2909,6 +2910,67 @@ function renderOrderCards(orders) {
         var displayTs = (o.status === 'completed' || o.status === 'rated') ? doneTs : activeTs;
         var dateText = new Date(displayTs || Date.now()).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
         var statusText = STATUS_LABELS[o.status] || o.status;
+        var isDone = o.status === 'completed' || o.status === 'rated';
+
+        if (isSellerRole && isDone) {
+            var buyer = users.find(function (u) { return u.id === o.userId; });
+            var driver = users.find(function (u) { return u.id === o.talentId; });
+            var buyerName = buyer ? buyer.name : 'Pembeli';
+            var driverName = driver ? driver.name : 'Belum ada driver';
+
+            var items = o.items;
+            if (typeof items === 'string') {
+                try { items = JSON.parse(items); } catch (e) { items = []; }
+            }
+            if (!Array.isArray(items)) items = [];
+            var totalQty = Number(o.totalQty) || items.reduce(function (sum, it) {
+                return sum + (Number((it && (it.qty || it.quantity)) || 0) || 0);
+            }, 0);
+            if (!totalQty || totalQty < 1) totalQty = 1;
+
+            var subtotal = Number(o.price) || 0;
+            var deliveryFee = Number(o.deliveryFee) || 0;
+            var serviceFee = Number(o.fee) || 0;
+            var totalTx = Number(o.totalCost);
+            if (!isFinite(totalTx) || totalTx <= 0) totalTx = subtotal + deliveryFee + serviceFee;
+
+            var paymentLabel = (o.paymentMethod === 'cod') ? 'Tunai (COD)' : 'JsPay';
+            var finishedAt = new Date(displayTs || Date.now()).toLocaleString('id-ID', {
+                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+            var orderCode = String(o.id || '').slice(0, 10);
+
+            var sellerRatingHtml = '';
+            if (o.status === 'rated' && Number(o.sellerRating) > 0) {
+                var sr = Math.max(1, Math.min(5, Math.round(Number(o.sellerRating) || 0)));
+                var stars = '';
+                for (var st = 1; st <= 5; st++) stars += (st <= sr ? '★' : '☆');
+                sellerRatingHtml = '<div class="olp-seller-rating">⭐ Rating Seller: <strong>' + sr + '/5</strong> <span>' + stars + '</span></div>';
+            }
+
+            return '<div class="olp-card olp-card-seller" data-idx="' + idx + '">'
+                + '<div class="olp-card-top">'
+                + '<div class="olp-card-service">' + escapeHtml(o.serviceType || o.skillType || 'Pesanan Produk') + '</div>'
+                + '<span class="otp-status-badge status-' + o.status + '">' + statusText + '</span>'
+                + '</div>'
+                + '<div class="olp-seller-people">'
+                + '<div class="olp-seller-line">👤 Pembeli: <strong>' + escapeHtml(buyerName) + '</strong></div>'
+                + '<div class="olp-seller-line">🛵 Driver: <strong>' + escapeHtml(driverName) + '</strong></div>'
+                + '</div>'
+                + '<div class="olp-seller-meta">'
+                + '<span>' + totalQty + ' item</span>'
+                + '<span>' + escapeHtml(paymentLabel) + '</span>'
+                + '<span>#' + escapeHtml(orderCode) + '</span>'
+                + '</div>'
+                + '<div class="olp-seller-finance">'
+                + '<div class="olp-seller-fin-row"><span>Subtotal Produk</span><strong>' + formatRupiah(subtotal) + '</strong></div>'
+                + '<div class="olp-seller-fin-row"><span>Biaya Layanan</span><strong>' + formatRupiah(serviceFee) + '</strong></div>'
+                + '<div class="olp-seller-fin-row total"><span>Total Transaksi</span><strong>' + formatRupiah(totalTx) + '</strong></div>'
+                + '</div>'
+                + sellerRatingHtml
+                + '<div class="olp-seller-finished">Selesai: ' + escapeHtml(finishedAt) + '</div>'
+                + '</div>';
+        }
 
         var rateRow = '';
         if (!isTalent && o.status === 'completed') {
