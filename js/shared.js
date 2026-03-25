@@ -830,6 +830,26 @@ function _checkOrderMessages(order, session) {
         .catch(function () {});
 }
 
+function _syncUnreadChatTotalFromMap() {
+    var total = 0;
+    Object.keys(_unreadChatByUser || {}).forEach(function (uid) {
+        total += Number(_unreadChatByUser[uid]) || 0;
+    });
+    _unreadChatCount = Math.max(0, total);
+}
+
+function clearChatBadgeForUser(userId) {
+    var uid = String(userId || '');
+    if (!uid) return;
+    if (_unreadChatByUser && Object.prototype.hasOwnProperty.call(_unreadChatByUser, uid)) {
+        delete _unreadChatByUser[uid];
+    }
+    _syncUnreadChatTotalFromMap();
+    updateChatBadges();
+    updateNotifBadges();
+}
+window.clearChatBadgeForUser = clearChatBadgeForUser;
+
 function clearChatBadge() {
     _unreadChatCount = 0;
     _unreadChatByUser = {};
@@ -2500,7 +2520,6 @@ function openChat(order, preferredTargetId) {
     _chatOrderHasThreeParty = false;
     _chatMessages = [];
     _chatPageOpen = true;
-    clearChatBadge();
     var page = document.getElementById('chatPage');
     if (!page) return;
 
@@ -2517,6 +2536,11 @@ function openChat(order, preferredTargetId) {
         }
     }
     _chatTargetUserId = targetId || '';
+    if (_chatTargetUserId) {
+        clearChatBadgeForUser(_chatTargetUserId);
+    } else {
+        clearChatBadge();
+    }
     _chatOrderHasThreeParty = !!(order && order.userId && order.sellerId && order.talentId);
     var other = users.find(function (u) { return u.id === targetId; });
     document.getElementById('chatTitle').textContent = other ? other.name : 'Chat';
