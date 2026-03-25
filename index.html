@@ -660,52 +660,73 @@
                         </div>
 
                         <div class="od-panel-view hidden" data-owner-panel-view="settings">
-                            <section class="od-settings-body">
-                                <div class="od-settings-card od-settings-list-card">
-                                    <div class="od-settings-card-head od-settings-list-head">
-                                        <span class="od-settings-icon">⚙️</span>
-                                        <div><h4>Pengaturan Owner</h4><p>Atur komisi, ongkir, dan operasional platform</p></div>
-                                    </div>
-                                    <div class="od-settings-list" id="ownerSettingsList">
-                                        <button class="od-setting-item" data-owner-setting="commission-modal" type="button">
-                                            <span class="od-setting-icon">💰</span>
-                                            <span class="od-setting-body">
-                                                <span class="od-setting-label">Komisi & Biaya Platform</span>
-                                                <span class="od-setting-value" id="ownerSetSummaryCommission">Talent 15% • Penjual 10% • Fee Rp 1.000</span>
-                                            </span>
-                                            <span class="od-setting-arrow">›</span>
-                                        </button>
-                                        <button class="od-setting-item" data-owner-setting="delivery-modal" type="button">
-                                            <span class="od-setting-icon">🚚</span>
-                                            <span class="od-setting-body">
-                                                <span class="od-setting-label">Pengaturan Ongkir</span>
-                                                <span class="od-setting-value" id="ownerSetSummaryDelivery">Per KM Rp 3.000 • Min JS Antar Rp 5.000 • Min Toko Rp 10.000</span>
-                                            </span>
-                                            <span class="od-setting-arrow">›</span>
-                                        </button>
-                                        <button class="od-setting-item" data-owner-setting="staff-list" type="button">
-                                            <span class="od-setting-icon">👥</span>
-                                            <span class="od-setting-body">
-                                                <span class="od-setting-label">Kelola Staff</span>
-                                                <span class="od-setting-value">Lihat dan kelola akun admin/CS</span>
-                                            </span>
-                                            <span class="od-setting-arrow">›</span>
-                                        </button>
-                                        <button class="od-setting-item" data-owner-setting="transactions" type="button">
-                                            <span class="od-setting-icon">📜</span>
-                                            <span class="od-setting-body">
-                                                <span class="od-setting-label">Riwayat Transaksi</span>
-                                                <span class="od-setting-value">Lihat mutasi platform dan pencairan</span>
-                                            </span>
-                                            <span class="od-setting-arrow">›</span>
-                                        </button>
-                                    </div>
+                            <section class="owner-settings-page">
+                                <div class="acc-header owner-acc-header">
+                                    <button class="acc-back" id="ownerSettingsBackBtn" aria-label="Kembali">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </button>
+                                    <h2 class="acc-header-title">Pengaturan Akun</h2>
+                                    <span class="owner-acc-header-spacer"></span>
+                                </div>
 
-                                    <div class="od-settings-logout-wrap">
-                                        <button class="acc-logout-btn" id="ownerSettingsLogoutBtn" type="button">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="16,17 21,12 16,7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                                            Keluar dari Akun
-                                        </button>
+                                <div class="acc-body">
+                                    <div class="acc-content">
+                                        <div class="acc-profile-card">
+                                            <div class="acc-avatar-wrap">
+                                                <div class="acc-avatar" id="ownerSettingsAvatar">
+                                                    <img id="ownerSettingsAvatarImg" src="" alt="Foto profil" style="display:none">
+                                                    <svg id="ownerSettingsAvatarFallback" class="acc-avatar-fallback" width="44" height="44" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4 20c0-3.5 3.5-6 8-6s8 2.5 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                                                </div>
+                                            </div>
+                                            <h3 class="acc-profile-name" id="ownerSettingsName">Owner</h3>
+                                            <span class="acc-role-badge role-owner" id="ownerSettingsRole">Owner</span>
+                                            <p class="acc-profile-phone" id="ownerSettingsPhone">-</p>
+                                        </div>
+
+                                        <section class="acc-section">
+                                            <p class="acc-section-title">Pengaturan Platform</p>
+                                            <div class="acc-card" id="ownerSettingsList">
+                                                <button class="acc-item" data-owner-setting="commission-modal" type="button">
+                                                    <span class="acc-item-icon">💰</span>
+                                                    <span class="acc-item-body">
+                                                        <span class="acc-item-label">Komisi</span>
+                                                        <span class="acc-item-value" id="ownerSetSummaryCommission">Talent 15% • Penjual 10% • Fee Rp 1.000</span>
+                                                    </span>
+                                                    <span class="acc-item-chevron">›</span>
+                                                </button>
+                                                <button class="acc-item" data-owner-setting="delivery-modal" type="button">
+                                                    <span class="acc-item-icon">🚚</span>
+                                                    <span class="acc-item-body">
+                                                        <span class="acc-item-label">Pengaturan Ongkir</span>
+                                                        <span class="acc-item-value" id="ownerSetSummaryDelivery">Per KM Rp 3.000 • Min JS Antar Rp 5.000 • Min Toko Rp 10.000</span>
+                                                    </span>
+                                                    <span class="acc-item-chevron">›</span>
+                                                </button>
+                                                <button class="acc-item" data-owner-setting="staff-list" type="button">
+                                                    <span class="acc-item-icon">👥</span>
+                                                    <span class="acc-item-body">
+                                                        <span class="acc-item-label">Kelola Staff</span>
+                                                        <span class="acc-item-sub">Lihat dan kelola akun admin/CS</span>
+                                                    </span>
+                                                    <span class="acc-item-chevron">›</span>
+                                                </button>
+                                                <button class="acc-item" data-owner-setting="transactions" type="button">
+                                                    <span class="acc-item-icon">📜</span>
+                                                    <span class="acc-item-body">
+                                                        <span class="acc-item-label">Riwayat Transaksi</span>
+                                                        <span class="acc-item-sub">Lihat mutasi platform dan pencairan</span>
+                                                    </span>
+                                                    <span class="acc-item-chevron">›</span>
+                                                </button>
+                                            </div>
+                                        </section>
+
+                                        <section class="acc-section-logout">
+                                            <button class="acc-logout-btn" id="ownerSettingsLogoutBtn" type="button">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="16,17 21,12 16,7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                                                Keluar dari Akun
+                                            </button>
+                                        </section>
                                         <p class="acc-version">Jasa Suruh v2.0</p>
                                     </div>
                                 </div>

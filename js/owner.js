@@ -111,6 +111,7 @@ var OwnerDashboard = (function () {
             _renderChart(_ordersCache, chartDays);
         }
         if (panel === 'settings' && _isOwner()) {
+            _renderOwnerSettingsProfile();
             loadOwnerCommissionSettings();
             closeOwnerCommissionModal();
             closeOwnerDeliveryModal();
@@ -167,6 +168,12 @@ var OwnerDashboard = (function () {
 
         var panelBackdrop = $('ownerPanelBackdrop');
         if (panelBackdrop) panelBackdrop.addEventListener('click', _closeOwnerPanel);
+
+        var settingsBackBtn = $('ownerSettingsBackBtn');
+        if (settingsBackBtn && !settingsBackBtn._bound) {
+            settingsBackBtn._bound = true;
+            settingsBackBtn.addEventListener('click', _closeOwnerPanel);
+        }
 
         // Quick actions
         $$('.od-quick-btn').forEach(function (qbtn) {
@@ -307,6 +314,62 @@ var OwnerDashboard = (function () {
         var greet = hour < 12 ? 'Selamat Pagi' : hour < 17 ? 'Selamat Siang' : 'Selamat Malam';
         var el = $('ownerGreeting');
         if (el) el.textContent = greet + ', ' + name + ' 👋';
+    }
+
+    function _resolveOwnerAvatarUrl(raw) {
+        var src = String(raw || '').trim();
+        if (!src || src === '-') return '';
+        if (src.indexOf('http://') === 0 || src.indexOf('https://') === 0 || src.indexOf('data:') === 0 || src.indexOf('blob:') === 0) {
+            return src;
+        }
+        try {
+            if (window.FB && window.FB._sb && window.FB._sb.storage) {
+                var res = window.FB._sb.storage.from('avatars').getPublicUrl(src);
+                if (res && res.data && res.data.publicUrl) return res.data.publicUrl;
+            }
+        } catch (e) {}
+        return src;
+    }
+
+    function _renderOwnerSettingsProfile() {
+        var session = typeof getSession === 'function' ? getSession() : null;
+        if (!session) return;
+
+        var name = session.name || session.nama || (_isOwner() ? 'Owner' : 'Admin');
+        var phone = session.phone || session.no_hp || session.username || '-';
+        var role = String(session.role || 'owner');
+
+        var nameEl = $('ownerSettingsName');
+        if (nameEl) nameEl.textContent = name;
+
+        var roleEl = $('ownerSettingsRole');
+        if (roleEl) {
+            roleEl.textContent = role === 'admin' ? 'Admin' : 'Owner';
+            roleEl.className = 'acc-role-badge ' + (role === 'admin' ? 'role-cs' : 'role-owner');
+        }
+
+        var phoneEl = $('ownerSettingsPhone');
+        if (phoneEl) phoneEl.textContent = phone;
+
+        var avatarImg = $('ownerSettingsAvatarImg');
+        var avatarFallback = $('ownerSettingsAvatarFallback');
+        if (!avatarImg || !avatarFallback) return;
+
+        var photoCandidate = session.foto_url || session.photo || session.avatar || session.avatarUrl || (typeof getProfilePhoto === 'function' ? getProfilePhoto(session.id) : '');
+        var avatarUrl = _resolveOwnerAvatarUrl(photoCandidate);
+        if (!avatarUrl) {
+            avatarImg.style.display = 'none';
+            avatarFallback.style.display = 'block';
+            return;
+        }
+
+        avatarImg.onerror = function () {
+            avatarImg.style.display = 'none';
+            avatarFallback.style.display = 'block';
+        };
+        avatarImg.src = avatarUrl;
+        avatarImg.style.display = 'block';
+        avatarFallback.style.display = 'none';
     }
 
     function _refreshWithRange() {

@@ -3181,10 +3181,8 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     display:none;
 }
 
-#page-owner.owner-settings-active .od-panel-close {
-    display:flex;
-    align-items:center;
-    justify-content:center;
+#page-owner.owner-settings-active .od-panel-head {
+    display:none;
 }
 
 #page-owner.owner-settings-active .od-panel-modal {
@@ -3192,27 +3190,31 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 }
 
 #page-owner.owner-settings-active .od-panel-view[data-owner-panel-view="settings"] {
-    padding:0 0 24px;
-}
-
-#page-owner.owner-settings-active .od-panel-view[data-owner-panel-view="settings"] .od-settings-body {
-    padding:0 0 12px;
-}
-
-#page-owner.owner-settings-active .od-panel-view[data-owner-panel-view="settings"] .od-settings-card {
-    background:transparent;
-}
-
-#page-owner.owner-settings-active .od-panel-view[data-owner-panel-view="settings"] .od-settings-list-card {
     padding:0;
 }
 
-#page-owner.owner-settings-active .od-settings-logout-wrap {
-    padding:14px 4px 0;
+#page-owner.owner-settings-active .owner-settings-page {
+    min-height:calc(100vh - env(safe-area-inset-top, 0px));
+    background:var(--gray-50);
 }
 
-#page-owner.owner-settings-active .od-settings-logout-wrap .acc-version {
-    margin-top:16px;
+#page-owner.owner-settings-active .owner-acc-header {
+    position:sticky;
+    top:0;
+    z-index:20;
+}
+
+#page-owner.owner-settings-active .owner-acc-header-spacer {
+    width:36px;
+    height:36px;
+}
+
+#page-owner.owner-settings-active .acc-body {
+    padding-bottom:24px;
+}
+
+#page-owner.owner-settings-active .acc-section-logout {
+    padding:8px 16px 0;
 }
 
 @media (max-width:360px) {
