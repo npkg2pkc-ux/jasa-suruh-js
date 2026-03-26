@@ -1852,6 +1852,12 @@ function renderOrderInfo(order, isTalent) {
         buyerHtml = buildDriverCardHtml(buyer, userRoleLabel, buyer.address || '', false, 'otpBuyerChatBtn', '');
     }
 
+    var dropoffTitle = isAntar ? 'Titik Antar' : (buyer ? escapeHtml(buyer.name) : userRoleLabel);
+    var dropoffAddress = isAntar && order.destAddr ? order.destAddr : addrText;
+    var dropoffPhoneHtml = (!isAntar && buyer && buyer.phone)
+        ? '<div class="sf-location-person">' + escapeHtml(buyer.phone || '') + '</div>'
+        : '';
+
     // Location Card
     var locationHtml = '<div class="sf-location-card">'
         + '<div class="sf-location-row">'
@@ -1861,9 +1867,9 @@ function renderOrderInfo(order, isTalent) {
         + '</div>'
         + '<div class="sf-location-row">'
         + '<div class="sf-location-label"><div class="sf-loc-dot dropoff"></div> Diantar ke</div>'
-        + '<div class="sf-location-title">' + (buyer ? escapeHtml(buyer.name) : userRoleLabel) + '</div>'
-        + '<div class="sf-location-address">' + escapeHtml(isAntar && order.destAddr ? order.destAddr : addrText) + '</div>'
-        + '<div class="sf-location-person">' + (buyer ? escapeHtml(buyer.phone || '') : '') + '</div>'
+        + '<div class="sf-location-title">' + dropoffTitle + '</div>'
+        + '<div class="sf-location-address">' + escapeHtml(dropoffAddress) + '</div>'
+        + dropoffPhoneHtml
         + '</div>'
         + '</div>';
 
