@@ -1511,21 +1511,35 @@
         <div class="jap-map-wrap">
             <div id="japMap" class="jap-map"></div>
             <div class="jap-map-top-card" id="japMapTopCard">
-                <div class="jap-map-top-row">
-                    <span class="jap-map-top-icon pickup">↑</span>
-                    <div class="jap-map-top-text">
-                        <div class="jap-map-top-title">Titik Jemput</div>
-                        <div id="japTopPickupText" class="jap-map-top-address">Mendeteksi lokasi...</div>
+                <div class="jap-top-search-mode" id="japTopSearchMode">
+                    <button type="button" id="japTopSearchBtn" class="jap-top-search-pill" aria-label="Cari lokasi tujuan">
+                        <span class="jap-top-search-dot"></span>
+                        <span class="jap-top-search-text">Cari lokasi tujuan</span>
+                        <span class="jap-top-search-icon">⌕</span>
+                    </button>
+                    <div class="jap-top-search-actions">
+                        <button type="button" id="japTopHomeBtn" class="jap-top-quick-btn">🏠 Rumah saya</button>
+                        <button type="button" id="japTopRecentBtn" class="jap-top-round-btn">›</button>
                     </div>
                 </div>
-                <div class="jap-map-top-divider"></div>
-                <div class="jap-map-top-row">
-                    <span class="jap-map-top-icon dropoff"></span>
-                    <div class="jap-map-top-text">
-                        <div class="jap-map-top-title">Titik Antar</div>
-                        <div id="japTopDestText" class="jap-map-top-address">Tambah tujuan</div>
+
+                <div class="jap-top-route-mode" id="japTopRouteMode">
+                    <div class="jap-map-top-row">
+                        <span class="jap-map-top-icon pickup">↑</span>
+                        <div class="jap-map-top-text">
+                            <div class="jap-map-top-title">Titik Jemput</div>
+                            <div id="japTopPickupText" class="jap-map-top-address">Mendeteksi lokasi...</div>
+                        </div>
                     </div>
-                    <button type="button" id="japTopAddBtn" class="jap-map-top-add">Tambah</button>
+                    <div class="jap-map-top-divider"></div>
+                    <div class="jap-map-top-row">
+                        <span class="jap-map-top-icon dropoff"></span>
+                        <div class="jap-map-top-text">
+                            <div class="jap-map-top-title">Titik Antar</div>
+                            <div id="japTopDestText" class="jap-map-top-address">Tambah tujuan</div>
+                        </div>
+                        <button type="button" id="japTopAddBtn" class="jap-map-top-add">Tambah</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1535,7 +1549,7 @@
             <div class="jap-sheet-handle" id="japSheetHandle"><div class="jap-sheet-handle-bar"></div></div>
             <div class="jap-sheet-scroll">
             <!-- Pickup Point -->
-            <div class="jap-input-group">
+            <div class="jap-input-group jap-input-group--pickup" id="japPickupGroup">
                 <div class="jap-dot jap-dot-pickup"></div>
                 <div class="jap-input-wrap">
                     <label class="jap-input-label">Titik Jemput</label>
@@ -1544,7 +1558,7 @@
                     </div>
                 </div>
             </div>
-            <div class="jap-line"></div>
+            <div class="jap-line" id="japInputConnector"></div>
             <!-- Destination -->
             <div class="jap-input-group">
                 <div class="jap-dot jap-dot-dest"></div>

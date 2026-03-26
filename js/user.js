@@ -1299,6 +1299,7 @@ function openJSAntarPage() {
     var page = document.getElementById('jsAntarPage');
     if (!page) return;
     page.classList.remove('hidden');
+    page.classList.add('jap-first-open');
     _japDestCoords = null;
     _japDestAddress = '';
     _japRouteDistKm = 0;
@@ -1315,6 +1316,7 @@ function openJSAntarPage() {
     if (topPickup) topPickup.textContent = 'Mendeteksi lokasi...';
     var topDest = document.getElementById('japTopDestText');
     if (topDest) topDest.textContent = 'Tambah tujuan';
+    updateJapTopCardState();
     var hint = document.getElementById('japMapPickHint');
     if (hint) hint.classList.add('hidden');
 
@@ -1347,10 +1349,31 @@ function openJSAntarPage() {
         var topAddBtn = document.getElementById('japTopAddBtn');
         if (topAddBtn) {
             topAddBtn.addEventListener('click', function () {
+                focusJapDestinationInput();
+            });
+        }
+        var topSearchBtn = document.getElementById('japTopSearchBtn');
+        if (topSearchBtn) {
+            topSearchBtn.addEventListener('click', function () {
+                focusJapDestinationInput();
+            });
+        }
+        var topRecentBtn = document.getElementById('japTopRecentBtn');
+        if (topRecentBtn) {
+            topRecentBtn.addEventListener('click', function () {
+                focusJapDestinationInput();
+            });
+        }
+        var topHomeBtn = document.getElementById('japTopHomeBtn');
+        if (topHomeBtn) {
+            topHomeBtn.addEventListener('click', function () {
+                var pickupText = document.getElementById('japPickupText');
                 var input = document.getElementById('japDestInput');
-                if (input) {
+                var q = pickupText ? pickupText.textContent : '';
+                if (input && q) {
+                    input.value = q.split(',').slice(0, 2).join(',').trim();
+                    input.dispatchEvent(new Event('input'));
                     input.focus();
-                    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             });
         }
@@ -1530,6 +1553,26 @@ function animateJapMapTopCard() {
     card.classList.add('map-card-refresh');
 }
 
+function updateJapTopCardState() {
+    var page = document.getElementById('jsAntarPage');
+    var searchMode = document.getElementById('japTopSearchMode');
+    var routeMode = document.getElementById('japTopRouteMode');
+    if (!page || !searchMode || !routeMode) return;
+
+    var firstOpen = !_japDestCoords;
+    page.classList.toggle('jap-first-open', firstOpen);
+    searchMode.classList.toggle('hidden', !firstOpen);
+    routeMode.classList.toggle('hidden', firstOpen);
+}
+
+function focusJapDestinationInput() {
+    var input = document.getElementById('japDestInput');
+    if (input) {
+        input.focus();
+        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
 function updateJapMapDepthClass() {
     var mapEl = document.getElementById('japMap');
     var wrap = mapEl ? mapEl.parentElement : null;
@@ -1647,6 +1690,7 @@ function selectJapDestination(lat, lng, displayName) {
     document.getElementById('japDestInput').value = shortDest;
     var topDest = document.getElementById('japTopDestText');
     if (topDest) topDest.textContent = shortDest || displayName;
+    updateJapTopCardState();
     animateJapMapTopCard();
     document.getElementById('japDestSuggestions').classList.add('hidden');
 
