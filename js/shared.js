@@ -1831,6 +1831,7 @@ function renderOrderInfo(order, isTalent) {
     var totalText = formatRupiah(Math.max(0, totalAmount));
     var addrText = order.userAddr || 'Tidak tersedia';
     var isAntar = order.skillType === 'js_antar';
+    var userRoleLabel = isAntar ? 'Penumpang' : 'Pembeli';
     var pmLabel = order.paymentMethod === 'cod' ? 'Tunai (COD)' : 'JsPay';
     var isProductOrder = !!order.sellerId;
 
@@ -1848,7 +1849,7 @@ function renderOrderInfo(order, isTalent) {
 
     var buyerHtml = '';
     if ((isSeller || isTalent) && buyer) {
-        buyerHtml = buildDriverCardHtml(buyer, 'Pembeli', buyer.address || '', false, 'otpBuyerChatBtn', '');
+        buyerHtml = buildDriverCardHtml(buyer, userRoleLabel, buyer.address || '', false, 'otpBuyerChatBtn', '');
     }
 
     // Location Card
@@ -1860,7 +1861,7 @@ function renderOrderInfo(order, isTalent) {
         + '</div>'
         + '<div class="sf-location-row">'
         + '<div class="sf-location-label"><div class="sf-loc-dot dropoff"></div> Diantar ke</div>'
-        + '<div class="sf-location-title">' + (buyer ? escapeHtml(buyer.name) : 'Penerima') + '</div>'
+        + '<div class="sf-location-title">' + (buyer ? escapeHtml(buyer.name) : userRoleLabel) + '</div>'
         + '<div class="sf-location-address">' + escapeHtml(isAntar && order.destAddr ? order.destAddr : addrText) + '</div>'
         + '<div class="sf-location-person">' + (buyer ? escapeHtml(buyer.phone || '') : '') + '</div>'
         + '</div>'
