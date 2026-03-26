@@ -1642,6 +1642,8 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .otp-map-top-text { min-width:0; flex:1; }
 .otp-map-top-title { font-size:11px; color:#6B7280; font-weight:700; line-height:1.2; }
 .otp-map-top-address { font-size:15px; color:#374151; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.35; }
+.otp-speed-badge { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:800; color:#1D4ED8; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:999px; padding:3px 7px; margin-left:8px; flex-shrink:0; }
+.otp-speed-badge.hidden { display:none; }
 .otp-progress-wrap { padding:10px 12px 10px; background:linear-gradient(180deg,#fff 0%,#FFF8F1 100%); }
 .otp-progress-wrap.hidden { display:none; }
 .otp-progress-card { background:#fff; border:1px solid #FFE2CB; border-radius:16px; padding:10px 10px 9px; box-shadow:0 8px 20px rgba(255,107,0,.1); }
@@ -1716,6 +1718,15 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .leaflet-popup-content { margin:10px 14px !important; font-size:13px !important; font-weight:600 !important; color:#333 !important; line-height:1.4 !important; }
 .leaflet-popup-tip { box-shadow:0 2px 8px rgba(0,0,0,.1) !important; }
 .leaflet-popup-close-button { width:24px !important; height:24px !important; font-size:16px !important; color:#999 !important; top:4px !important; right:4px !important; }
+.leaflet-overlay-pane .otp-route-base { stroke:#2D7DF4; stroke-width:6; stroke-opacity:.78; stroke-linecap:round; stroke-linejoin:round; filter:drop-shadow(0 2px 5px rgba(37,99,235,.25)); }
+.leaflet-overlay-pane .otp-route-flow { stroke:#93C5FD; stroke-width:3; stroke-opacity:.95; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:10 14; animation:otpRouteFlow 1.3s linear infinite; }
+.leaflet-overlay-pane .jap-route-base { stroke:#2D7DF4; stroke-width:6; stroke-opacity:.78; stroke-linecap:round; stroke-linejoin:round; filter:drop-shadow(0 2px 5px rgba(37,99,235,.25)); }
+.leaflet-overlay-pane .jap-route-flow { stroke:#93C5FD; stroke-width:3; stroke-opacity:.95; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:10 14; animation:otpRouteFlow 1.3s linear infinite; }
+
+@keyframes otpRouteFlow {
+    from { stroke-dashoffset:0; }
+    to { stroke-dashoffset:-24; }
+}
 
 /* ── Google Maps-style Pins ── */
 .gm-pin-wrapper { background:none !important; border:none !important; }

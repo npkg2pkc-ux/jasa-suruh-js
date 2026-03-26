@@ -1417,7 +1417,11 @@ function destroyTrackingMap() {
     _otpUserMarker = null;
     _otpStoreMarker = null;
     _otpRouteLine = null;
+    _otpRouteFlowLine = null;
     _otpLastTalentPos = null;
+    _otpLastTalentTs = 0;
+    _otpSpeedKmh = 0;
+    _otpAutoFollowPausedUntil = 0;
 }
 
 function updateTrackingVisualState(order) {
@@ -1475,6 +1479,7 @@ function renderTrackingMapRouteCard(order) {
     var pickupTitle = isProductOrder ? ('Ambil di ' + storeName) : 'Titik Jemput';
     var dropTitle = isProductOrder ? ((buyer && buyer.name) ? ('Antar ke ' + buyer.name) : 'Lokasi Pembeli') : 'Titik Antar';
 
+    var speedLabel = _otpSpeedKmh > 2 ? (Math.round(_otpSpeedKmh) + ' km/j') : '';
     card.innerHTML = '<div class="otp-map-top-row">'
         + '<span class="otp-map-top-icon pickup">↑</span>'
         + '<div class="otp-map-top-text">'
@@ -1489,6 +1494,7 @@ function renderTrackingMapRouteCard(order) {
         + '<div class="otp-map-top-title">' + escapeHtml(dropTitle) + '</div>'
         + '<div class="otp-map-top-address">' + escapeHtml(dropAddress) + '</div>'
         + '</div>'
+        + '<span class="otp-speed-badge' + (speedLabel ? '' : ' hidden') + '">⚡ ' + escapeHtml(speedLabel) + '</span>'
         + '</div>';
     card.classList.remove('hidden');
     card.classList.remove('map-card-refresh');
@@ -1497,6 +1503,9 @@ function renderTrackingMapRouteCard(order) {
 }
 
 var _otpLastTalentPos = null;
+var _otpLastTalentTs = 0;
+var _otpSpeedKmh = 0;
+var _otpAutoFollowPausedUntil = 0;
 
 function updateTrackingMapDepthClass() {
     var mapEl = document.getElementById('otpMapContainer');
@@ -1515,9 +1524,10 @@ function bindTrackingMapPremiumEffects() {
     _otpMap._premiumFxBound = true;
 
     var collapseTimer = null;
-    function collapseOnMove() {
+    function collapseOnMove(e) {
         wrap.classList.add('map-card-collapsed');
         if (collapseTimer) clearTimeout(collapseTimer);
+        if (e && e.originalEvent) _otpAutoFollowPausedUntil = Date.now() + 8000;
     }
     function expandAfterMove() {
         if (collapseTimer) clearTimeout(collapseTimer);
@@ -2462,6 +2472,9 @@ function initTrackingMap(order) {
     var centerLng = (userLng + talentLng) / 2;
 
     _otpLastTalentPos = { lat: talentLat, lng: talentLng };
+    _otpLastTalentTs = Date.now();
+    _otpSpeedKmh = 0;
+    _otpAutoFollowPausedUntil = 0;
     _otpMap = L.map(container, { zoomControl: false }).setView([centerLat, centerLng], 14);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
@@ -2553,25 +2566,43 @@ function fetchAndDrawRoute(fromLat, fromLng, toLat, toLng) {
                     return [c[1], c[0]];
                 });
                 if (_otpRouteLine) _otpMap.removeLayer(_otpRouteLine);
-                _otpRouteLine = L.polyline(coords, { color: '#4285F4', weight: 5, opacity: 0.85, lineJoin: 'round', lineCap: 'round' }).addTo(_otpMap);
+                if (_otpRouteFlowLine) _otpMap.removeLayer(_otpRouteFlowLine);
+                _otpRouteLine = L.polyline(coords, { color: '#4285F4', weight: 5, opacity: 0.85, lineJoin: 'round', lineCap: 'round', className: 'otp-route-base' }).addTo(_otpMap);
+                _otpRouteFlowLine = L.polyline(coords, { color: '#93C5FD', weight: 3, opacity: 0.95, dashArray: '10,14', lineJoin: 'round', lineCap: 'round', className: 'otp-route-flow' }).addTo(_otpMap);
             }
         })
         .catch(function () {
             if (_otpRouteLine) _otpMap.removeLayer(_otpRouteLine);
-            _otpRouteLine = L.polyline([[fromLat, fromLng], [toLat, toLng]], { color: '#4285F4', weight: 4, dashArray: '8,12', opacity: 0.6, lineJoin: 'round', lineCap: 'round' }).addTo(_otpMap);
+            if (_otpRouteFlowLine) _otpMap.removeLayer(_otpRouteFlowLine);
+            var straight = [[fromLat, fromLng], [toLat, toLng]];
+            _otpRouteLine = L.polyline(straight, { color: '#4285F4', weight: 4, opacity: 0.75, lineJoin: 'round', lineCap: 'round', className: 'otp-route-base' }).addTo(_otpMap);
+            _otpRouteFlowLine = L.polyline(straight, { color: '#93C5FD', weight: 3, dashArray: '10,14', opacity: 0.9, lineJoin: 'round', lineCap: 'round', className: 'otp-route-flow' }).addTo(_otpMap);
         });
 }
 
 function updateTalentMarkerPosition(lat, lng) {
+    var now = Date.now();
     var prev = _otpLastTalentPos;
-    _otpLastTalentPos = { lat: Number(lat), lng: Number(lng) };
+    var nextPos = { lat: Number(lat), lng: Number(lng) };
+    if (prev && _otpLastTalentTs > 0) {
+        var deltaSec = Math.max(0.1, (now - _otpLastTalentTs) / 1000);
+        var distKm = haversineDistance(prev.lat, prev.lng, nextPos.lat, nextPos.lng);
+        var rawKmh = (distKm / deltaSec) * 3600;
+        if (isFinite(rawKmh)) _otpSpeedKmh = Math.max(0, Math.min(90, rawKmh));
+    }
+    _otpLastTalentPos = nextPos;
+    _otpLastTalentTs = now;
     if (_otpTalentMarker) {
         _otpTalentMarker.setLatLng([lat, lng]);
         if (prev) setDriverMarkerHeading(prev.lat, prev.lng, lat, lng);
     }
+    if (_otpMap && Date.now() >= _otpAutoFollowPausedUntil) {
+        _otpMap.panTo([lat, lng], { animate: true, duration: 0.55, easeLinearity: 0.35 });
+    }
     if (_currentOrder) {
         _currentOrder.talentLat = lat;
         _currentOrder.talentLng = lng;
+        renderTrackingMapRouteCard(_currentOrder);
         updateTrackingRoute(_currentOrder, false);
     }
 }

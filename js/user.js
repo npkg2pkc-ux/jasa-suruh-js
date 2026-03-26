@@ -1448,6 +1448,7 @@ function closeJSAntarPage() {
     if (page) page.classList.add('hidden');
     if (_japMap) {
         if (_japRouteLine) { _japMap.removeLayer(_japRouteLine); _japRouteLine = null; }
+        if (_japRouteFlowLine) { _japMap.removeLayer(_japRouteFlowLine); _japRouteFlowLine = null; }
     }
 }
 
@@ -1678,12 +1679,17 @@ function fetchJapRoute(fromLat, fromLng, toLat, toLng) {
                 durationMin = Math.round(data.routes[0].duration / 60);
                 var coords = data.routes[0].geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
                 if (_japRouteLine) _japMap.removeLayer(_japRouteLine);
-                _japRouteLine = L.polyline(coords, { color: '#4285F4', weight: 5, opacity: 0.85, lineJoin: 'round', lineCap: 'round' }).addTo(_japMap);
+                if (_japRouteFlowLine) _japMap.removeLayer(_japRouteFlowLine);
+                _japRouteLine = L.polyline(coords, { color: '#4285F4', weight: 5, opacity: 0.85, lineJoin: 'round', lineCap: 'round', className: 'jap-route-base' }).addTo(_japMap);
+                _japRouteFlowLine = L.polyline(coords, { color: '#93C5FD', weight: 3, opacity: 0.95, dashArray: '10,14', lineJoin: 'round', lineCap: 'round', className: 'jap-route-flow' }).addTo(_japMap);
             } else {
                 distKm = haversineDistance(fromLat, fromLng, toLat, toLng);
                 durationMin = Math.round(distKm / 0.4);
                 if (_japRouteLine) _japMap.removeLayer(_japRouteLine);
-                _japRouteLine = L.polyline([[fromLat, fromLng], [toLat, toLng]], { color: '#4285F4', weight: 4, dashArray: '8,12', opacity: 0.6, lineJoin: 'round', lineCap: 'round' }).addTo(_japMap);
+                if (_japRouteFlowLine) _japMap.removeLayer(_japRouteFlowLine);
+                var straight = [[fromLat, fromLng], [toLat, toLng]];
+                _japRouteLine = L.polyline(straight, { color: '#4285F4', weight: 4, opacity: 0.75, lineJoin: 'round', lineCap: 'round', className: 'jap-route-base' }).addTo(_japMap);
+                _japRouteFlowLine = L.polyline(straight, { color: '#93C5FD', weight: 3, dashArray: '10,14', opacity: 0.9, lineJoin: 'round', lineCap: 'round', className: 'jap-route-flow' }).addTo(_japMap);
             }
             _japRouteDistKm = distKm;
             updateJapPriceInfo(distKm, durationMin);
