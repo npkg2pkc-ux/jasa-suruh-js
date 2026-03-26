@@ -1309,8 +1309,15 @@ function openJSAntarPage() {
     document.getElementById('japBtnOrder').disabled = true;
     document.getElementById('japBtnOrder').textContent = '🏍️ Temukan Driver';
     document.getElementById('japDestInput').value = '';
+    var topSearchInput = document.getElementById('japTopSearchInput');
+    if (topSearchInput) topSearchInput.value = '';
     document.getElementById('japDestSuggestions').classList.add('hidden');
     document.getElementById('japDestSuggestions').innerHTML = '';
+    var topSuggestions = document.getElementById('japTopSuggestions');
+    if (topSuggestions) {
+        topSuggestions.classList.add('hidden');
+        topSuggestions.innerHTML = '';
+    }
     document.getElementById('japPickupText').textContent = '📍 Mendeteksi lokasi...';
     var topPickup = document.getElementById('japTopPickupText');
     if (topPickup) topPickup.textContent = 'Mendeteksi lokasi...';
@@ -1322,11 +1329,24 @@ function openJSAntarPage() {
 
     if (!_japEventsSetup) {
         _japEventsSetup = true;
+        var destInput = document.getElementById('japDestInput');
+        var topSearchInputBind = document.getElementById('japTopSearchInput');
         document.getElementById('japBtnBack').addEventListener('click', closeJSAntarPage);
-        document.getElementById('japDestInput').addEventListener('input', onJapDestInput);
-        document.getElementById('japDestInput').addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') { e.preventDefault(); document.getElementById('japDestSuggestions').classList.add('hidden'); }
-        });
+        if (destInput) {
+            destInput.addEventListener('input', onJapDestInput);
+            destInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); hideJapSuggestions(); }
+            });
+        }
+        if (topSearchInputBind) {
+            topSearchInputBind.addEventListener('input', onJapDestInput);
+            topSearchInputBind.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); hideJapSuggestions(); }
+            });
+            topSearchInputBind.addEventListener('focus', function () {
+                if (this.value.trim().length >= 3) searchPlaces(this.value.trim());
+            });
+        }
         document.getElementById('japBtnOrder').addEventListener('click', onJapOrderClick);
         var btnPickMap = document.getElementById('japBtnPickOnMap');
         if (btnPickMap) {
@@ -1352,12 +1372,6 @@ function openJSAntarPage() {
                 focusJapDestinationInput();
             });
         }
-        var topSearchBtn = document.getElementById('japTopSearchBtn');
-        if (topSearchBtn) {
-            topSearchBtn.addEventListener('click', function () {
-                focusJapDestinationInput();
-            });
-        }
         var topRecentBtn = document.getElementById('japTopRecentBtn');
         if (topRecentBtn) {
             topRecentBtn.addEventListener('click', function () {
@@ -1368,7 +1382,9 @@ function openJSAntarPage() {
         if (topHomeBtn) {
             topHomeBtn.addEventListener('click', function () {
                 var pickupText = document.getElementById('japPickupText');
-                var input = document.getElementById('japDestInput');
+                var pageEl = document.getElementById('jsAntarPage');
+                var useTopInput = pageEl && pageEl.classList.contains('jap-first-open');
+                var input = useTopInput ? document.getElementById('japTopSearchInput') : document.getElementById('japDestInput');
                 var q = pickupText ? pickupText.textContent : '';
                 if (input && q) {
                     input.value = q.split(',').slice(0, 2).join(',').trim();
@@ -1378,10 +1394,15 @@ function openJSAntarPage() {
             });
         }
         document.addEventListener('click', function (e) {
-            var sugg = document.getElementById('japDestSuggestions');
-            var input = document.getElementById('japDestInput');
-            if (sugg && !sugg.contains(e.target) && e.target !== input) {
-                sugg.classList.add('hidden');
+            var bottomSugg = document.getElementById('japDestSuggestions');
+            var topSugg = document.getElementById('japTopSuggestions');
+            var bottomInput = document.getElementById('japDestInput');
+            var topInput = document.getElementById('japTopSearchInput');
+            var insideBottom = bottomSugg && bottomSugg.contains(e.target);
+            var insideTop = topSugg && topSugg.contains(e.target);
+            var isInput = e.target === bottomInput || e.target === topInput;
+            if (!insideBottom && !insideTop && !isInput) {
+                hideJapSuggestions();
             }
         });
     }
@@ -1566,11 +1587,34 @@ function updateJapTopCardState() {
 }
 
 function focusJapDestinationInput() {
-    var input = document.getElementById('japDestInput');
+    var page = document.getElementById('jsAntarPage');
+    var isFirstOpen = page && page.classList.contains('jap-first-open');
+    var input = isFirstOpen ? document.getElementById('japTopSearchInput') : document.getElementById('japDestInput');
     if (input) {
         input.focus();
         input.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+}
+
+function getActiveJapSuggestionsEl() {
+    var page = document.getElementById('jsAntarPage');
+    var firstOpen = page && page.classList.contains('jap-first-open');
+    if (firstOpen) return document.getElementById('japTopSuggestions') || document.getElementById('japDestSuggestions');
+    return document.getElementById('japDestSuggestions') || document.getElementById('japTopSuggestions');
+}
+
+function hideJapSuggestions() {
+    var bottom = document.getElementById('japDestSuggestions');
+    var top = document.getElementById('japTopSuggestions');
+    if (bottom) bottom.classList.add('hidden');
+    if (top) top.classList.add('hidden');
+}
+
+function syncJapDestinationInputs(value, sourceId) {
+    var bottom = document.getElementById('japDestInput');
+    var top = document.getElementById('japTopSearchInput');
+    if (bottom && sourceId !== 'japDestInput') bottom.value = value;
+    if (top && sourceId !== 'japTopSearchInput') top.value = value;
 }
 
 function updateJapMapDepthClass() {
@@ -1627,13 +1671,16 @@ function updateJapPickupText(addr, lat, lng) {
 
 function onJapDestInput() {
     var val = this.value.trim();
+    syncJapDestinationInputs(this.value, this.id);
     if (_japSuggestTimer) clearTimeout(_japSuggestTimer);
-    var sugg = document.getElementById('japDestSuggestions');
+    var sugg = getActiveJapSuggestionsEl();
+    if (!sugg) return;
     if (val.length < 3) {
-        sugg.classList.add('hidden');
-        sugg.innerHTML = '';
+        hideJapSuggestions();
+        if (sugg) sugg.innerHTML = '';
         return;
     }
+    hideJapSuggestions();
     sugg.classList.remove('hidden');
     sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--gray-400)">Mencari...</div>';
     _japSuggestTimer = setTimeout(function () {
@@ -1654,13 +1701,13 @@ function searchPlaces(query) {
             renderJapSuggestions(results);
         })
         .catch(function () {
-            var sugg = document.getElementById('japDestSuggestions');
+            var sugg = getActiveJapSuggestionsEl();
             if (sugg) sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--red)">Gagal mencari lokasi</div>';
         });
 }
 
 function renderJapSuggestions(results) {
-    var sugg = document.getElementById('japDestSuggestions');
+    var sugg = getActiveJapSuggestionsEl();
     if (!sugg) return;
     if (!results || results.length === 0) {
         sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--gray-400)">Tidak ditemukan</div>';
@@ -1687,12 +1734,12 @@ function selectJapDestination(lat, lng, displayName) {
     _japDestCoords = { lat: lat, lng: lng };
     _japDestAddress = displayName;
     var shortDest = displayName.split(',').slice(0, 2).join(',').trim();
-    document.getElementById('japDestInput').value = shortDest;
+    syncJapDestinationInputs(shortDest, '');
     var topDest = document.getElementById('japTopDestText');
     if (topDest) topDest.textContent = shortDest || displayName;
     updateJapTopCardState();
     animateJapMapTopCard();
-    document.getElementById('japDestSuggestions').classList.add('hidden');
+    hideJapSuggestions();
 
     if (_japDestMarker) {
         _japDestMarker.setLatLng([lat, lng]);

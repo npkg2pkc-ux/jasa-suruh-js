@@ -1512,15 +1512,16 @@
             <div id="japMap" class="jap-map"></div>
             <div class="jap-map-top-card" id="japMapTopCard">
                 <div class="jap-top-search-mode" id="japTopSearchMode">
-                    <button type="button" id="japTopSearchBtn" class="jap-top-search-pill" aria-label="Cari lokasi tujuan">
+                    <div class="jap-top-search-pill" role="search" aria-label="Cari lokasi tujuan">
                         <span class="jap-top-search-dot"></span>
-                        <span class="jap-top-search-text">Cari lokasi tujuan</span>
+                        <input type="text" id="japTopSearchInput" class="jap-top-search-input" placeholder="Cari lokasi tujuan" autocomplete="off">
                         <span class="jap-top-search-icon">⌕</span>
-                    </button>
+                    </div>
                     <div class="jap-top-search-actions">
                         <button type="button" id="japTopHomeBtn" class="jap-top-quick-btn">🏠 Rumah saya</button>
                         <button type="button" id="japTopRecentBtn" class="jap-top-round-btn">›</button>
                     </div>
+                    <div id="japTopSuggestions" class="jap-suggestions jap-top-suggestions hidden"></div>
                 </div>
 
                 <div class="jap-top-route-mode" id="japTopRouteMode">
