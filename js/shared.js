@@ -1421,6 +1421,7 @@ function destroyTrackingMap() {
 
 function updateTrackingVisualState(order) {
     var mapEl = document.getElementById('otpMapContainer');
+    var mapWrap = mapEl ? mapEl.parentElement : null;
     var progressWrap = document.getElementById('otpProgressWrap');
     if (!mapEl || !progressWrap || !order) return;
 
@@ -1430,12 +1431,59 @@ function updateTrackingVisualState(order) {
     var showMap = shouldShowTrackingMap(order);
     if (showMap) {
         mapEl.classList.remove('hidden');
+        if (mapWrap) mapWrap.classList.remove('map-hidden');
+        renderTrackingMapRouteCard(order);
         if (!_otpMap) initTrackingMap(order);
         else setTimeout(function () { if (_otpMap) _otpMap.invalidateSize(); }, 120);
     } else {
         mapEl.classList.add('hidden');
+        if (mapWrap) mapWrap.classList.add('map-hidden');
+        renderTrackingMapRouteCard(null);
         destroyTrackingMap();
     }
+}
+
+function renderTrackingMapRouteCard(order) {
+    var card = document.getElementById('otpMapRouteCard');
+    if (!card) return;
+    if (!order) {
+        card.classList.add('hidden');
+        card.innerHTML = '';
+        return;
+    }
+
+    var users = getUsers();
+    var buyer = users.find(function (u) { return String(u.id) === String(order.userId); }) || null;
+    var seller = users.find(function (u) { return String(u.id) === String(order.sellerId); }) || null;
+    var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
+    var isAntar = order.skillType === 'js_antar';
+    var storeName = String(order.storeName || (seller && seller.name) || 'Toko').trim();
+    var storeAddr = String(order.storeAddr || (seller && seller.address) || '').trim();
+
+    var pickupAddress = isProductOrder ? (storeAddr || 'Lokasi toko') : String(order.userAddr || 'Lokasi jemput').trim();
+    var dropAddress = isAntar
+        ? String(order.destAddr || order.userAddr || 'Lokasi antar').trim()
+        : String((buyer && buyer.address) || order.userAddr || 'Lokasi pembeli').trim();
+
+    var pickupTitle = isProductOrder ? ('Ambil di ' + storeName) : 'Titik Jemput';
+    var dropTitle = isProductOrder ? ((buyer && buyer.name) ? ('Antar ke ' + buyer.name) : 'Lokasi Pembeli') : 'Titik Antar';
+
+    card.innerHTML = '<div class="otp-map-top-row">'
+        + '<span class="otp-map-top-icon pickup">↑</span>'
+        + '<div class="otp-map-top-text">'
+        + '<div class="otp-map-top-title">' + escapeHtml(pickupTitle) + '</div>'
+        + '<div class="otp-map-top-address">' + escapeHtml(pickupAddress) + '</div>'
+        + '</div>'
+        + '</div>'
+        + '<div class="otp-map-top-divider"></div>'
+        + '<div class="otp-map-top-row">'
+        + '<span class="otp-map-top-icon dropoff"></span>'
+        + '<div class="otp-map-top-text">'
+        + '<div class="otp-map-top-title">' + escapeHtml(dropTitle) + '</div>'
+        + '<div class="otp-map-top-address">' + escapeHtml(dropAddress) + '</div>'
+        + '</div>'
+        + '</div>';
+    card.classList.remove('hidden');
 }
 
 function closeTrackingToHome() {
@@ -2362,20 +2410,20 @@ function initTrackingMap(order) {
     L.control.zoom({ position: 'bottomright' }).addTo(_otpMap);
 
     var userIcon = L.divIcon({
-        html: '<div class="gm-pin gm-pin-green"><div class="gm-pin-head">' + (isAntar ? '📍' : '📍') + '</div><div class="gm-pin-tail"></div></div>',
-        iconSize: [36, 46],
-        iconAnchor: [18, 46],
-        popupAnchor: [0, -46],
-        className: 'gm-pin-wrapper'
+        html: '<div class="gm-route-pin pickup">↑</div>',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+        popupAnchor: [0, -14],
+        className: 'gm-route-pin-wrapper'
     });
     _otpUserMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(_otpMap).bindPopup(isProductOrder ? 'Lokasi Pembeli' : (isAntar ? 'Titik Jemput' : 'Lokasi Anda'));
 
     var talentIcon = L.divIcon({
-        html: '<div class="gm-pin gm-pin-orange"><div class="gm-pin-head">🏍️</div><div class="gm-pin-tail"></div></div>',
-        iconSize: [36, 46],
-        iconAnchor: [18, 46],
-        popupAnchor: [0, -46],
-        className: 'gm-pin-wrapper'
+        html: '<div class="gm-route-pin driver">🏍</div>',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+        popupAnchor: [0, -14],
+        className: 'gm-route-pin-wrapper'
     });
     _otpTalentMarker = L.marker([talentLat, talentLng], { icon: talentIcon }).addTo(_otpMap).bindPopup('Driver');
 
@@ -2383,11 +2431,11 @@ function initTrackingMap(order) {
     _otpStoreMarker = null;
     if (isProductOrder && storeCoords && isValidLatLng(storeCoords.lat, storeCoords.lng)) {
         var storeIcon = L.divIcon({
-            html: '<div class="gm-pin gm-pin-red"><div class="gm-pin-head">🏪</div><div class="gm-pin-tail"></div></div>',
-            iconSize: [36, 46],
-            iconAnchor: [18, 46],
-            popupAnchor: [0, -46],
-            className: 'gm-pin-wrapper'
+            html: '<div class="gm-route-pin dropoff"></div>',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+            popupAnchor: [0, -14],
+            className: 'gm-route-pin-wrapper'
         });
         _otpStoreMarker = L.marker([Number(storeCoords.lat), Number(storeCoords.lng)], { icon: storeIcon }).addTo(_otpMap).bindPopup('Lokasi Toko');
         points.push([Number(storeCoords.lat), Number(storeCoords.lng)]);
@@ -2395,11 +2443,11 @@ function initTrackingMap(order) {
 
     if (isAntar && destLat !== null && destLng !== null) {
         var destIcon = L.divIcon({
-            html: '<div class="gm-pin gm-pin-red"><div class="gm-pin-head">🏁</div><div class="gm-pin-tail"></div></div>',
-            iconSize: [36, 46],
-            iconAnchor: [18, 46],
-            popupAnchor: [0, -46],
-            className: 'gm-pin-wrapper'
+            html: '<div class="gm-route-pin dropoff"></div>',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+            popupAnchor: [0, -14],
+            className: 'gm-route-pin-wrapper'
         });
         L.marker([destLat, destLng], { icon: destIcon }).addTo(_otpMap).bindPopup('Tujuan: ' + escapeHtml(String(order.destAddr || '')));
         points.push([destLat, destLng]);

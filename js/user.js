@@ -1311,6 +1311,10 @@ function openJSAntarPage() {
     document.getElementById('japDestSuggestions').classList.add('hidden');
     document.getElementById('japDestSuggestions').innerHTML = '';
     document.getElementById('japPickupText').textContent = '📍 Mendeteksi lokasi...';
+    var topPickup = document.getElementById('japTopPickupText');
+    if (topPickup) topPickup.textContent = 'Mendeteksi lokasi...';
+    var topDest = document.getElementById('japTopDestText');
+    if (topDest) topDest.textContent = 'Tambah tujuan';
     var hint = document.getElementById('japMapPickHint');
     if (hint) hint.classList.add('hidden');
 
@@ -1338,6 +1342,16 @@ function openJSAntarPage() {
                 _japPickOnMapMode = false;
                 var h = document.getElementById('japMapPickHint');
                 if (h) h.classList.add('hidden');
+            });
+        }
+        var topAddBtn = document.getElementById('japTopAddBtn');
+        if (topAddBtn) {
+            topAddBtn.addEventListener('click', function () {
+                var input = document.getElementById('japDestInput');
+                if (input) {
+                    input.focus();
+                    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
             });
         }
         document.addEventListener('click', function (e) {
@@ -1492,15 +1506,14 @@ function initJapMap() {
 }
 
 function createJapMarker(lat, lng, type) {
-    var pinClass = type === 'pickup' ? 'gm-pin-green' : 'gm-pin-red';
-    var emoji = type === 'pickup' ? '📍' : '🏁';
-    var label = type === 'pickup' ? 'Jemput' : 'Tujuan';
+    var pinClass = type === 'pickup' ? 'pickup' : 'dropoff';
+    var pinText = type === 'pickup' ? '↑' : '';
     var icon = L.divIcon({
-        html: '<div class="gm-pin ' + pinClass + '"><div class="gm-pin-head">' + emoji + '</div><div class="gm-pin-tail"></div></div><div class="gm-pin-label">' + label + '</div>',
-        className: 'gm-pin-wrapper',
-        iconSize: [36, 58],
-        iconAnchor: [18, 46],
-        popupAnchor: [0, -46]
+        html: '<div class="gm-route-pin ' + pinClass + '">' + pinText + '</div>',
+        className: 'gm-route-pin-wrapper',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+        popupAnchor: [0, -14]
     });
     return L.marker([lat, lng], { icon: icon });
 }
@@ -1510,8 +1523,14 @@ function updateJapPickupText(addr, lat, lng) {
     if (!el) return;
     if (addr) {
         el.textContent = addr;
+        var topPickup = document.getElementById('japTopPickupText');
+        if (topPickup) topPickup.textContent = addr.split(',').slice(0, 2).join(',').trim() || addr;
     } else {
-        reverseGeocode(lat, lng).then(function (a) { el.textContent = a; });
+        reverseGeocode(lat, lng).then(function (a) {
+            el.textContent = a;
+            var topPickup = document.getElementById('japTopPickupText');
+            if (topPickup) topPickup.textContent = a.split(',').slice(0, 2).join(',').trim() || a;
+        });
     }
 }
 
@@ -1576,7 +1595,10 @@ function renderJapSuggestions(results) {
 function selectJapDestination(lat, lng, displayName) {
     _japDestCoords = { lat: lat, lng: lng };
     _japDestAddress = displayName;
-    document.getElementById('japDestInput').value = displayName.split(',').slice(0, 2).join(',').trim();
+    var shortDest = displayName.split(',').slice(0, 2).join(',').trim();
+    document.getElementById('japDestInput').value = shortDest;
+    var topDest = document.getElementById('japTopDestText');
+    if (topDest) topDest.textContent = shortDest || displayName;
     document.getElementById('japDestSuggestions').classList.add('hidden');
 
     if (_japDestMarker) {

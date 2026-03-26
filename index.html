@@ -1070,7 +1070,10 @@
             </div>
 
             <!-- Optional Map -->
-            <div id="otpMapContainer" class="otp-map"></div>
+            <div class="otp-map-wrap">
+                <div id="otpMapContainer" class="otp-map"></div>
+                <div id="otpMapRouteCard" class="otp-map-top-card hidden"></div>
+            </div>
 
             <!-- Information Panel -->
             <div id="otpInfoPanel" class="sf-info-panel">
@@ -1505,7 +1508,27 @@
         </div>
 
         <!-- Map -->
-        <div id="japMap" class="jap-map"></div>
+        <div class="jap-map-wrap">
+            <div id="japMap" class="jap-map"></div>
+            <div class="jap-map-top-card" id="japMapTopCard">
+                <div class="jap-map-top-row">
+                    <span class="jap-map-top-icon pickup">↑</span>
+                    <div class="jap-map-top-text">
+                        <div class="jap-map-top-title">Titik Jemput</div>
+                        <div id="japTopPickupText" class="jap-map-top-address">Mendeteksi lokasi...</div>
+                    </div>
+                </div>
+                <div class="jap-map-top-divider"></div>
+                <div class="jap-map-top-row">
+                    <span class="jap-map-top-icon dropoff"></span>
+                    <div class="jap-map-top-text">
+                        <div class="jap-map-top-title">Titik Antar</div>
+                        <div id="japTopDestText" class="jap-map-top-address">Tambah tujuan</div>
+                    </div>
+                    <button type="button" id="japTopAddBtn" class="jap-map-top-add">Tambah</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Bottom Sheet -->
         <div class="jap-sheet" id="japSheet">
