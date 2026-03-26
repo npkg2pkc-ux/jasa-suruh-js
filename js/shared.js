@@ -1484,6 +1484,7 @@ function renderTrackingMapRouteCard(order, animate) {
 
     var speedLabel = _otpSpeedKmh > 2 ? (Math.round(_otpSpeedKmh) + ' km/j') : '';
     var etaLabel = _otpEtaMin > 0 ? (_otpEtaMin + ' mnt') : '';
+    var followOn = Date.now() >= _otpAutoFollowPausedUntil;
     card.innerHTML = '<div class="otp-map-top-row">'
         + '<span class="otp-map-top-icon pickup">↑</span>'
         + '<div class="otp-map-top-text">'
@@ -1500,6 +1501,7 @@ function renderTrackingMapRouteCard(order, animate) {
         + '</div>'
         + '<span class="otp-speed-badge' + (speedLabel ? '' : ' hidden') + '">⚡ ' + escapeHtml(speedLabel) + '</span>'
         + '<span class="otp-eta-badge' + (etaLabel ? '' : ' hidden') + '">⏱ ' + escapeHtml(etaLabel) + '</span>'
+        + '<span class="otp-follow-badge' + (followOn ? '' : ' paused') + '">' + (followOn ? '📍 Auto' : '✋ Pause') + '</span>'
         + '</div>';
     card.classList.remove('hidden');
     if (animate !== false) {
@@ -1537,7 +1539,13 @@ function bindTrackingMapPremiumEffects() {
     function collapseOnMove(e) {
         wrap.classList.add('map-card-collapsed');
         if (collapseTimer) clearTimeout(collapseTimer);
-        if (e && e.originalEvent) _otpAutoFollowPausedUntil = Date.now() + 8000;
+        if (e && e.originalEvent) {
+            var kind = String(e.originalEvent.type || '');
+            var pauseMs = 8000;
+            if (kind.indexOf('wheel') >= 0) pauseMs = 5000;
+            else if (kind.indexOf('touch') >= 0) pauseMs = 12000;
+            _otpAutoFollowPausedUntil = Date.now() + pauseMs;
+        }
     }
     function expandAfterMove() {
         if (collapseTimer) clearTimeout(collapseTimer);
@@ -1581,15 +1589,15 @@ function renderDriverTrail() {
 
     var p = _otpDriverTrailPoints;
     var chunks = [
-        { pts: p.slice(Math.max(0, p.length - 20), Math.max(0, p.length - 12)), weight: 3, opacity: 0.16 },
-        { pts: p.slice(Math.max(0, p.length - 13), Math.max(0, p.length - 6)), weight: 4, opacity: 0.28 },
-        { pts: p.slice(Math.max(0, p.length - 7)), weight: 5, opacity: 0.42 }
+        { pts: p.slice(Math.max(0, p.length - 20), Math.max(0, p.length - 12)), weight: 3, opacity: 0.16, color: '#93C5FD' },
+        { pts: p.slice(Math.max(0, p.length - 13), Math.max(0, p.length - 6)), weight: 4, opacity: 0.28, color: '#60A5FA' },
+        { pts: p.slice(Math.max(0, p.length - 7)), weight: 5, opacity: 0.42, color: '#2563EB' }
     ];
 
     chunks.forEach(function (chunk) {
         if (!chunk.pts || chunk.pts.length < 2) return;
         var layer = L.polyline(chunk.pts, {
-            color: '#2563EB',
+            color: chunk.color,
             weight: chunk.weight,
             opacity: chunk.opacity,
             lineJoin: 'round',
