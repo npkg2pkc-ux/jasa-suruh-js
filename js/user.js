@@ -2070,6 +2070,7 @@ var _jdpPickupCoords = null;
 var _jdpDestCoords = null;
 var _jdpDestAddress = '';
 var _jdpRouteDistKm = 0;
+var _jdpRouteDurationMin = 0;
 var _jdpRouteRequestToken = 0;
 var _jdpSuggestTimer = null;
 var _jdpSuggestType = '';
@@ -2087,6 +2088,7 @@ function resetJSDeliveryState() {
     _jdpDestCoords = null;
     _jdpDestAddress = '';
     _jdpRouteDistKm = 0;
+    _jdpRouteDurationMin = 0;
     _jdpPickMode = '';
 
     if (_jdpSuggestTimer) {
@@ -2180,7 +2182,7 @@ function openJSDeliveryPage() {
             var el = document.getElementById(id);
             if (el) {
                 el.addEventListener('input', function () {
-                    if (_jdpRouteDistKm > 0) updateJdpPriceInfo(_jdpRouteDistKm, null);
+                    if (_jdpRouteDistKm > 0) updateJdpPriceInfo(_jdpRouteDistKm, _jdpRouteDurationMin);
                     else evaluateJdpReadyToOrder();
                 });
             }
@@ -2597,6 +2599,7 @@ function fetchJdpRoute(fromLat, fromLng, toLat, toLng) {
                 _jdpRouteLine = L.polyline([[fromLat, fromLng], [toLat, toLng]], { color: '#2563EB', weight: 4, opacity: 0.8, lineJoin: 'round', lineCap: 'round' }).addTo(_jdpMap);
             }
             _jdpRouteDistKm = distKm;
+            _jdpRouteDurationMin = durationMin;
             updateJdpPriceInfo(distKm, durationMin);
         })
         .catch(function () {
@@ -2605,6 +2608,7 @@ function fetchJdpRoute(fromLat, fromLng, toLat, toLng) {
             var distKm = haversineDistance(fromLat, fromLng, toLat, toLng);
             var durationMin = Math.round(distKm / 0.42);
             _jdpRouteDistKm = distKm;
+            _jdpRouteDurationMin = durationMin;
             updateJdpPriceInfo(distKm, durationMin);
         });
 }
