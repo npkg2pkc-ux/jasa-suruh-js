@@ -1440,7 +1440,7 @@ function openJSAntarPage() {
         var topAddBtn = document.getElementById('japTopAddBtn');
         if (topAddBtn) {
             topAddBtn.addEventListener('click', function () {
-                focusJapDestinationInput();
+                enterJapAddDestinationMode();
             });
         }
         var topRecentBtn = document.getElementById('japTopRecentBtn');
@@ -1644,24 +1644,73 @@ function animateJapMapTopCard() {
 
 function updateJapTopCardState() {
     var page = document.getElementById('jsAntarPage');
+    var topCard = document.getElementById('japMapTopCard');
     var searchMode = document.getElementById('japTopSearchMode');
     var routeMode = document.getElementById('japTopRouteMode');
-    if (!page || !searchMode || !routeMode) return;
+    if (!page || !routeMode) return;
 
     var firstOpen = !_japDestCoords;
     page.classList.toggle('jap-first-open', firstOpen);
-    searchMode.classList.toggle('hidden', !firstOpen);
+    if (topCard) topCard.classList.toggle('hidden', firstOpen);
+    if (searchMode) searchMode.classList.add('hidden');
     routeMode.classList.toggle('hidden', firstOpen);
 }
 
 function focusJapDestinationInput() {
-    var page = document.getElementById('jsAntarPage');
-    var isFirstOpen = page && page.classList.contains('jap-first-open');
-    var input = isFirstOpen ? document.getElementById('japTopSearchInput') : document.getElementById('japDestInput');
+    var input = document.getElementById('japDestInput');
     if (input) {
         input.focus();
         input.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+}
+
+function enterJapAddDestinationMode() {
+    if (!_japMap) return;
+    _japRouteRequestToken += 1;
+    _japDestCoords = null;
+    _japDestAddress = '';
+    _japRouteDistKm = 0;
+
+    if (_japDestMarker) {
+        _japMap.removeLayer(_japDestMarker);
+        _japDestMarker = null;
+    }
+    if (_japRouteLine) {
+        _japMap.removeLayer(_japRouteLine);
+        _japRouteLine = null;
+    }
+    if (_japRouteFlowLine) {
+        _japMap.removeLayer(_japRouteFlowLine);
+        _japRouteFlowLine = null;
+    }
+
+    var destInput = document.getElementById('japDestInput');
+    if (destInput) destInput.value = '';
+
+    var topDest = document.getElementById('japTopDestText');
+    if (topDest) topDest.textContent = 'Tambah tujuan';
+
+    var infoRow = document.getElementById('japInfoRow');
+    if (infoRow) infoRow.classList.add('hidden');
+    var priceBreakdown = document.getElementById('japPriceBreakdown');
+    if (priceBreakdown) priceBreakdown.classList.add('hidden');
+    var payMethod = document.getElementById('japPayMethod');
+    if (payMethod) payMethod.classList.add('hidden');
+    var noteWrap = document.getElementById('japNoteWrap');
+    if (noteWrap) noteWrap.classList.add('hidden');
+
+    var btnOrder = document.getElementById('japBtnOrder');
+    if (btnOrder) {
+        btnOrder.disabled = true;
+        btnOrder.textContent = '🏍️ Temukan Driver';
+        delete btnOrder.dataset.price;
+        delete btnOrder.dataset.fee;
+        delete btnOrder.dataset.total;
+    }
+
+    hideJapSuggestions();
+    updateJapTopCardState();
+    focusJapDestinationInput();
 }
 
 function getActiveJapSuggestionsEl() {
