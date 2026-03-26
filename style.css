@@ -2112,6 +2112,46 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 #jsAntarPage.jap-first-open .jap-sheet-scroll { padding-top:8px; }
 #jsAntarPage.jap-first-open .jap-dest-input { background:#F7EFE5; border:1px solid #F2DAC2; font-size:18px; padding:14px 14px; }
 #jsAntarPage.jap-first-open .jap-input-label { font-size:13px; letter-spacing:.3px; color:#374151; }
+#jsAntarPage.jap-first-open .jap-header {
+    padding:16px 16px 10px;
+    background:linear-gradient(135deg,#FF8A3D,#FF6B00);
+}
+#jsAntarPage.jap-first-open .jap-header .stp-subtitle { display:none; }
+#jsAntarPage.jap-first-open .jap-header-info h2 { font-size:22px; line-height:1.15; letter-spacing:-.1px; }
+#jsAntarPage.jap-first-open .jap-map { height:30vh; }
+#jsAntarPage.jap-first-open .jap-map-top-card {
+    top:10px;
+    left:10px;
+    right:10px;
+    border-radius:22px;
+    padding:14px;
+    box-shadow:0 16px 34px rgba(2,6,23,.18);
+}
+#jsAntarPage.jap-first-open .jap-top-search-pill {
+    background:#FBFBFB;
+    border-color:#E6E6E6;
+    padding:13px 14px;
+}
+#jsAntarPage.jap-first-open .jap-top-search-text { font-size:19px; }
+#jsAntarPage.jap-first-open .jap-top-quick-btn,
+#jsAntarPage.jap-first-open .jap-top-round-btn {
+    background:#fff;
+    border-color:#E7E7E7;
+    box-shadow:0 1px 0 rgba(0,0,0,.03);
+}
+#jsAntarPage.jap-first-open .jap-sheet {
+    margin-top:-10px;
+    border-radius:26px 26px 0 0;
+    box-shadow:0 -8px 26px rgba(15,23,42,.12);
+}
+#jsAntarPage.jap-first-open #japBtnOrder {
+    border-radius:16px;
+    min-height:52px;
+    font-size:18px;
+    font-weight:800;
+    background:linear-gradient(135deg,#FFB67D,#FF9D52);
+    color:#fff;
+}
 .jap-map-top-row { display:flex; align-items:center; gap:10px; }
 .jap-map-top-divider { height:1px; background:#E5E7EB; margin:8px 0; }
 .jap-map-top-icon { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:13px; flex-shrink:0; }
