@@ -2072,6 +2072,7 @@ var _jdpDestAddress = '';
 var _jdpRouteDistKm = 0;
 var _jdpRouteRequestToken = 0;
 var _jdpSuggestTimer = null;
+var _jdpSuggestType = '';
 var _jdpPickMode = '';
 var _jdpEventsSetup = false;
 var _jdpSheetDragSetup = false;
@@ -2093,14 +2094,16 @@ function resetJSDeliveryState() {
         _jdpSuggestTimer = null;
     }
 
-    var idsToClear = ['jdpItemDesc', 'jdpWeightInput', 'jdpDestInput', 'jdpPickupNote', 'jdpDestNote'];
+    var idsToClear = ['jdpItemDesc', 'jdpWeightInput', 'jdpPickupInput', 'jdpDestInput', 'jdpPickupNote', 'jdpDestNote'];
     idsToClear.forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.value = '';
     });
 
-    var sugg = document.getElementById('jdpDestSuggestions');
-    if (sugg) { sugg.classList.add('hidden'); sugg.innerHTML = ''; }
+    ['jdpPickupSuggestions', 'jdpDestSuggestions'].forEach(function (id) {
+        var sugg = document.getElementById(id);
+        if (sugg) { sugg.classList.add('hidden'); sugg.innerHTML = ''; }
+    });
 
     var topDest = document.getElementById('jdpTopDestText');
     if (topDest) topDest.textContent = 'Tambah tujuan';
@@ -2165,6 +2168,14 @@ function openJSDeliveryPage() {
             });
         }
 
+        var pickupInput = document.getElementById('jdpPickupInput');
+        if (pickupInput) {
+            pickupInput.addEventListener('input', onJdpPickupInput);
+            pickupInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); hideJdpSuggestions(); }
+            });
+        }
+
         ['jdpItemDesc', 'jdpWeightInput'].forEach(function (id) {
             var el = document.getElementById(id);
             if (el) {
@@ -2207,9 +2218,13 @@ function openJSDeliveryPage() {
         bindJdpCancelMapPick();
 
         document.addEventListener('click', function (e) {
-            var sugg = document.getElementById('jdpDestSuggestions');
-            var input = document.getElementById('jdpDestInput');
-            if (sugg && !sugg.contains(e.target) && e.target !== input) {
+            var destSugg = document.getElementById('jdpDestSuggestions');
+            var destInput = document.getElementById('jdpDestInput');
+            var pickupSugg = document.getElementById('jdpPickupSuggestions');
+            var pickupInput = document.getElementById('jdpPickupInput');
+            var outsideDest = !destSugg || (destInput && e.target !== destInput && !destSugg.contains(e.target));
+            var outsidePickup = !pickupSugg || (pickupInput && e.target !== pickupInput && !pickupSugg.contains(e.target));
+            if (outsideDest && outsidePickup) {
                 hideJdpSuggestions();
             }
         });
@@ -2370,11 +2385,15 @@ function updateJdpPickupText(addr, lat, lng) {
     if (!el) return;
     if (addr) {
         el.textContent = addr;
+        var pickupInput = document.getElementById('jdpPickupInput');
+        if (pickupInput) pickupInput.value = addr.split(',').slice(0, 2).join(',').trim() || addr;
         var top = document.getElementById('jdpTopPickupText');
         if (top) top.textContent = addr.split(',').slice(0, 2).join(',').trim() || addr;
     } else {
         reverseGeocode(lat, lng).then(function (a) {
             el.textContent = a;
+            var pickupInput = document.getElementById('jdpPickupInput');
+            if (pickupInput) pickupInput.value = a.split(',').slice(0, 2).join(',').trim() || a;
             var top = document.getElementById('jdpTopPickupText');
             if (top) top.textContent = a.split(',').slice(0, 2).join(',').trim() || a;
         });
@@ -2426,8 +2445,28 @@ function enterJdpAddDestinationMode() {
 }
 
 function hideJdpSuggestions() {
-    var sugg = document.getElementById('jdpDestSuggestions');
-    if (sugg) sugg.classList.add('hidden');
+    ['jdpPickupSuggestions', 'jdpDestSuggestions'].forEach(function (id) {
+        var sugg = document.getElementById(id);
+        if (sugg) sugg.classList.add('hidden');
+    });
+}
+
+function onJdpPickupInput() {
+    var val = (this.value || '').trim();
+    if (_jdpSuggestTimer) clearTimeout(_jdpSuggestTimer);
+    var sugg = document.getElementById('jdpPickupSuggestions');
+    if (!sugg) return;
+    if (val.length < 3) {
+        sugg.classList.add('hidden');
+        sugg.innerHTML = '';
+        return;
+    }
+    _jdpSuggestType = 'pickup';
+    sugg.classList.remove('hidden');
+    sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--gray-400)">Mencari...</div>';
+    _jdpSuggestTimer = setTimeout(function () {
+        searchJdpPlaces(val, 'pickup');
+    }, 450);
 }
 
 function onJdpDestInput() {
@@ -2440,14 +2479,15 @@ function onJdpDestInput() {
         sugg.innerHTML = '';
         return;
     }
+    _jdpSuggestType = 'dest';
     sugg.classList.remove('hidden');
     sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--gray-400)">Mencari...</div>';
     _jdpSuggestTimer = setTimeout(function () {
-        searchJdpPlaces(val);
+        searchJdpPlaces(val, 'dest');
     }, 450);
 }
 
-function searchJdpPlaces(query) {
+function searchJdpPlaces(query, type) {
     var lat = _jdpPickupCoords ? _jdpPickupCoords.lat : -6.2088;
     var lng = _jdpPickupCoords ? _jdpPickupCoords.lng : 106.8456;
     var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query)
@@ -2456,15 +2496,19 @@ function searchJdpPlaces(query) {
         + '&bounded=0';
     fetch(url)
         .then(function (r) { return r.json(); })
-        .then(function (results) { renderJdpSuggestions(results); })
+        .then(function (results) {
+            if (type && _jdpSuggestType && type !== _jdpSuggestType) return;
+            renderJdpSuggestions(results, type || 'dest');
+        })
         .catch(function () {
-            var sugg = document.getElementById('jdpDestSuggestions');
+            var sugg = document.getElementById(type === 'pickup' ? 'jdpPickupSuggestions' : 'jdpDestSuggestions');
             if (sugg) sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--red)">Gagal mencari lokasi</div>';
         });
 }
 
-function renderJdpSuggestions(results) {
-    var sugg = document.getElementById('jdpDestSuggestions');
+function renderJdpSuggestions(results, type) {
+    var isPickup = type === 'pickup';
+    var sugg = document.getElementById(isPickup ? 'jdpPickupSuggestions' : 'jdpDestSuggestions');
     if (!sugg) return;
     if (!results || results.length === 0) {
         sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--gray-400)">Tidak ditemukan</div>';
@@ -2480,11 +2524,33 @@ function renderJdpSuggestions(results) {
         item.innerHTML = '<div class="jap-suggestion-name">' + escapeHtml(name) + '</div>'
             + (addr ? '<div class="jap-suggestion-addr">' + escapeHtml(addr) + '</div>' : '');
         item.addEventListener('click', function () {
-            selectJdpDestination(Number(r.lat), Number(r.lon), r.display_name || name);
+            if (isPickup) {
+                selectJdpPickup(Number(r.lat), Number(r.lon), r.display_name || name);
+            } else {
+                selectJdpDestination(Number(r.lat), Number(r.lon), r.display_name || name);
+            }
         });
         sugg.appendChild(item);
     });
     sugg.classList.remove('hidden');
+}
+
+function selectJdpPickup(lat, lng, displayName) {
+    _jdpPickupCoords = { lat: lat, lng: lng };
+    if (_jdpPickupMarker) _jdpPickupMarker.setLatLng([lat, lng]);
+    else if (_jdpMap) _jdpPickupMarker = createJdpMarker(lat, lng, 'pickup').addTo(_jdpMap);
+
+    updateJdpPickupText(displayName, lat, lng);
+    hideJdpSuggestions();
+
+    if (_jdpDestCoords && _jdpMap) {
+        var bounds = L.latLngBounds([lat, lng], [_jdpDestCoords.lat, _jdpDestCoords.lng]);
+        _jdpMap.fitBounds(bounds, { padding: [40, 40] });
+        fetchJdpRoute(lat, lng, _jdpDestCoords.lat, _jdpDestCoords.lng);
+    } else if (_jdpMap) {
+        _jdpMap.setView([lat, lng], Math.max(_jdpMap.getZoom(), 15));
+    }
+    evaluateJdpReadyToOrder();
 }
 
 function selectJdpDestination(lat, lng, displayName) {
@@ -2665,7 +2731,7 @@ function onJdpOrderClick() {
         return;
     }
 
-    var pickupAddr = document.getElementById('jdpPickupText').textContent || '';
+    var pickupAddr = document.getElementById('jdpPickupInput').value || document.getElementById('jdpPickupText').textContent || '';
     var destAddr = document.getElementById('jdpDestInput').value || _jdpDestAddress;
     var pickupNote = String(document.getElementById('jdpPickupNote').value || '').trim();
     var destNote = String(document.getElementById('jdpDestNote').value || '').trim();

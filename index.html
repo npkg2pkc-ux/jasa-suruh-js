@@ -1703,8 +1703,10 @@
                         <label class="jap-input-label">Titik Jemput Barang</label>
                         <div class="jap-addr-row"><span id="jdpPickupText" class="jap-addr-text">📍 Mendeteksi lokasi...</span></div>
                         <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
-                            <button type="button" id="jdpBtnPickPickupOnMap" class="jap-pick-map-btn" title="Pilih titik jemput di peta">🗺️ Pilih di Peta</button>
+                            <input type="text" id="jdpPickupInput" class="jap-dest-input" style="flex:1" placeholder="Ketik alamat jemput..." autocomplete="off">
+                            <button type="button" id="jdpBtnPickPickupOnMap" class="jap-pick-map-btn" title="Pilih titik jemput di peta">🗺️</button>
                         </div>
+                        <div id="jdpPickupSuggestions" class="jap-suggestions hidden"></div>
                         <input type="text" id="jdpPickupNote" class="jap-dest-input" style="margin-top:8px;" placeholder="Catatan jemput (opsional)">
                     </div>
                 </div>
