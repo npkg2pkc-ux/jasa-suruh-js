@@ -1295,37 +1295,108 @@ function createProductOrder(cartItems, store, paymentMethod, pricing, checkoutMo
 // ══════════════════════════════════════════
 // ═══ JS ANTAR (OJEK) ═══
 // ══════════════════════════════════════════
-function openJSAntarPage() {
-    var page = document.getElementById('jsAntarPage');
-    if (!page) return;
-    page.classList.remove('hidden');
-    page.classList.add('jap-first-open');
+var _japRouteRequestToken = 0;
+
+function resetJSAntarState() {
+    _japRouteRequestToken += 1;
     _japDestCoords = null;
     _japDestAddress = '';
     _japRouteDistKm = 0;
     _japPickOnMapMode = false;
-    document.getElementById('japInfoRow').classList.add('hidden');
-    document.getElementById('japNoteWrap').classList.add('hidden');
-    document.getElementById('japBtnOrder').disabled = true;
-    document.getElementById('japBtnOrder').textContent = '🏍️ Temukan Driver';
-    document.getElementById('japDestInput').value = '';
+
+    if (_japSuggestTimer) {
+        clearTimeout(_japSuggestTimer);
+        _japSuggestTimer = null;
+    }
+
+    var destInput = document.getElementById('japDestInput');
+    if (destInput) destInput.value = '';
+
     var topSearchInput = document.getElementById('japTopSearchInput');
     if (topSearchInput) topSearchInput.value = '';
-    document.getElementById('japDestSuggestions').classList.add('hidden');
-    document.getElementById('japDestSuggestions').innerHTML = '';
+
+    var bottomSuggestions = document.getElementById('japDestSuggestions');
+    if (bottomSuggestions) {
+        bottomSuggestions.classList.add('hidden');
+        bottomSuggestions.innerHTML = '';
+    }
+
     var topSuggestions = document.getElementById('japTopSuggestions');
     if (topSuggestions) {
         topSuggestions.classList.add('hidden');
         topSuggestions.innerHTML = '';
     }
-    document.getElementById('japPickupText').textContent = '📍 Mendeteksi lokasi...';
+
+    var infoRow = document.getElementById('japInfoRow');
+    if (infoRow) infoRow.classList.add('hidden');
+
+    var noteWrap = document.getElementById('japNoteWrap');
+    if (noteWrap) noteWrap.classList.add('hidden');
+
+    var priceBreakdown = document.getElementById('japPriceBreakdown');
+    if (priceBreakdown) priceBreakdown.classList.add('hidden');
+
+    var payMethod = document.getElementById('japPayMethod');
+    if (payMethod) payMethod.classList.add('hidden');
+
+    var mapPickHint = document.getElementById('japMapPickHint');
+    if (mapPickHint) mapPickHint.classList.add('hidden');
+
+    var noteInput = document.getElementById('japNote');
+    if (noteInput) noteInput.value = '';
+
+    var btnOrder = document.getElementById('japBtnOrder');
+    if (btnOrder) {
+        btnOrder.disabled = true;
+        btnOrder.textContent = '🏍️ Temukan Driver';
+        delete btnOrder.dataset.price;
+        delete btnOrder.dataset.fee;
+        delete btnOrder.dataset.total;
+    }
+
+    _japSelectedPayment = 'jspay';
+    var pmJspay = document.getElementById('japPmJspay');
+    var pmCod = document.getElementById('japPmCod');
+    if (pmJspay && pmCod) {
+        pmJspay.classList.add('active');
+        pmCod.classList.remove('active');
+    }
+
     var topPickup = document.getElementById('japTopPickupText');
     if (topPickup) topPickup.textContent = 'Mendeteksi lokasi...';
+
     var topDest = document.getElementById('japTopDestText');
     if (topDest) topDest.textContent = 'Tambah tujuan';
+
+    if (_japMap) {
+        if (_japDestMarker) {
+            _japMap.removeLayer(_japDestMarker);
+            _japDestMarker = null;
+        }
+        if (_japRouteLine) {
+            _japMap.removeLayer(_japRouteLine);
+            _japRouteLine = null;
+        }
+        if (_japRouteFlowLine) {
+            _japMap.removeLayer(_japRouteFlowLine);
+            _japRouteFlowLine = null;
+        }
+    } else {
+        _japDestMarker = null;
+        _japRouteLine = null;
+        _japRouteFlowLine = null;
+    }
+
     updateJapTopCardState();
-    var hint = document.getElementById('japMapPickHint');
-    if (hint) hint.classList.add('hidden');
+}
+
+function openJSAntarPage() {
+    var page = document.getElementById('jsAntarPage');
+    if (!page) return;
+    page.classList.remove('hidden');
+    page.classList.add('jap-first-open');
+    resetJSAntarState();
+    document.getElementById('japPickupText').textContent = '📍 Mendeteksi lokasi...';
 
     if (!_japEventsSetup) {
         _japEventsSetup = true;
@@ -1489,11 +1560,8 @@ function initJapSheetDrag() {
 
 function closeJSAntarPage() {
     var page = document.getElementById('jsAntarPage');
+    resetJSAntarState();
     if (page) page.classList.add('hidden');
-    if (_japMap) {
-        if (_japRouteLine) { _japMap.removeLayer(_japRouteLine); _japRouteLine = null; }
-        if (_japRouteFlowLine) { _japMap.removeLayer(_japRouteFlowLine); _japRouteFlowLine = null; }
-    }
 }
 
 function initJapMap() {
@@ -1759,10 +1827,13 @@ function selectJapDestination(lat, lng, displayName) {
 }
 
 function fetchJapRoute(fromLat, fromLng, toLat, toLng) {
+    var reqToken = ++_japRouteRequestToken;
     var url = 'https://router.project-osrm.org/route/v1/driving/' + fromLng + ',' + fromLat + ';' + toLng + ',' + toLat + '?overview=full&geometries=geojson';
     fetch(url)
         .then(function (r) { return r.json(); })
         .then(function (data) {
+            var page = document.getElementById('jsAntarPage');
+            if (reqToken !== _japRouteRequestToken || !page || page.classList.contains('hidden') || !_japMap || !_japDestCoords) return;
             var distKm = 0;
             var durationMin = 0;
             if (data.routes && data.routes.length > 0) {
@@ -1786,6 +1857,8 @@ function fetchJapRoute(fromLat, fromLng, toLat, toLng) {
             updateJapPriceInfo(distKm, durationMin);
         })
         .catch(function () {
+            var page = document.getElementById('jsAntarPage');
+            if (reqToken !== _japRouteRequestToken || !page || page.classList.contains('hidden') || !_japDestCoords) return;
             var distKm = haversineDistance(fromLat, fromLng, toLat, toLng);
             var durationMin = Math.round(distKm / 0.4);
             _japRouteDistKm = distKm;
