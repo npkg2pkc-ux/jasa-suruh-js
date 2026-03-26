@@ -1418,9 +1418,12 @@ function destroyTrackingMap() {
     _otpStoreMarker = null;
     _otpRouteLine = null;
     _otpRouteFlowLine = null;
+    _otpDriverTrailLayers = [];
+    _otpDriverTrailPoints = [];
     _otpLastTalentPos = null;
     _otpLastTalentTs = 0;
     _otpSpeedKmh = 0;
+    _otpEtaMin = 0;
     _otpAutoFollowPausedUntil = 0;
 }
 
@@ -1454,7 +1457,7 @@ function updateTrackingVisualState(order) {
     }
 }
 
-function renderTrackingMapRouteCard(order) {
+function renderTrackingMapRouteCard(order, animate) {
     var card = document.getElementById('otpMapRouteCard');
     if (!card) return;
     if (!order) {
@@ -1480,6 +1483,7 @@ function renderTrackingMapRouteCard(order) {
     var dropTitle = isProductOrder ? ((buyer && buyer.name) ? ('Antar ke ' + buyer.name) : 'Lokasi Pembeli') : 'Titik Antar';
 
     var speedLabel = _otpSpeedKmh > 2 ? (Math.round(_otpSpeedKmh) + ' km/j') : '';
+    var etaLabel = _otpEtaMin > 0 ? (_otpEtaMin + ' mnt') : '';
     card.innerHTML = '<div class="otp-map-top-row">'
         + '<span class="otp-map-top-icon pickup">↑</span>'
         + '<div class="otp-map-top-text">'
@@ -1495,17 +1499,23 @@ function renderTrackingMapRouteCard(order) {
         + '<div class="otp-map-top-address">' + escapeHtml(dropAddress) + '</div>'
         + '</div>'
         + '<span class="otp-speed-badge' + (speedLabel ? '' : ' hidden') + '">⚡ ' + escapeHtml(speedLabel) + '</span>'
+        + '<span class="otp-eta-badge' + (etaLabel ? '' : ' hidden') + '">⏱ ' + escapeHtml(etaLabel) + '</span>'
         + '</div>';
     card.classList.remove('hidden');
-    card.classList.remove('map-card-refresh');
-    void card.offsetWidth;
-    card.classList.add('map-card-refresh');
+    if (animate !== false) {
+        card.classList.remove('map-card-refresh');
+        void card.offsetWidth;
+        card.classList.add('map-card-refresh');
+    }
 }
 
 var _otpLastTalentPos = null;
 var _otpLastTalentTs = 0;
 var _otpSpeedKmh = 0;
 var _otpAutoFollowPausedUntil = 0;
+var _otpEtaMin = 0;
+var _otpDriverTrailPoints = [];
+var _otpDriverTrailLayers = [];
 
 function updateTrackingMapDepthClass() {
     var mapEl = document.getElementById('otpMapContainer');
@@ -1554,6 +1564,57 @@ function setDriverMarkerHeading(fromLat, fromLng, toLat, toLng) {
     if (!isFinite(dy) || !isFinite(dx) || (Math.abs(dy) < 0.000001 && Math.abs(dx) < 0.000001)) return;
     var deg = Math.atan2(dy, dx) * (180 / Math.PI);
     iconEl.style.setProperty('--heading', String(deg) + 'deg');
+}
+
+function clearDriverTrailLayers() {
+    if (!_otpMap || !_otpDriverTrailLayers || _otpDriverTrailLayers.length === 0) return;
+    _otpDriverTrailLayers.forEach(function (ly) {
+        try { _otpMap.removeLayer(ly); } catch (e) {}
+    });
+    _otpDriverTrailLayers = [];
+}
+
+function renderDriverTrail() {
+    if (!_otpMap) return;
+    clearDriverTrailLayers();
+    if (!_otpDriverTrailPoints || _otpDriverTrailPoints.length < 2) return;
+
+    var p = _otpDriverTrailPoints;
+    var chunks = [
+        { pts: p.slice(Math.max(0, p.length - 20), Math.max(0, p.length - 12)), weight: 3, opacity: 0.16 },
+        { pts: p.slice(Math.max(0, p.length - 13), Math.max(0, p.length - 6)), weight: 4, opacity: 0.28 },
+        { pts: p.slice(Math.max(0, p.length - 7)), weight: 5, opacity: 0.42 }
+    ];
+
+    chunks.forEach(function (chunk) {
+        if (!chunk.pts || chunk.pts.length < 2) return;
+        var layer = L.polyline(chunk.pts, {
+            color: '#2563EB',
+            weight: chunk.weight,
+            opacity: chunk.opacity,
+            lineJoin: 'round',
+            lineCap: 'round'
+        }).addTo(_otpMap);
+        _otpDriverTrailLayers.push(layer);
+    });
+}
+
+function pushDriverTrailPoint(lat, lng) {
+    var point = [Number(lat), Number(lng)];
+    if (!isValidLatLng(point[0], point[1])) return;
+
+    var last = _otpDriverTrailPoints.length > 0 ? _otpDriverTrailPoints[_otpDriverTrailPoints.length - 1] : null;
+    if (last && haversineDistance(last[0], last[1], point[0], point[1]) < 0.005) return;
+
+    _otpDriverTrailPoints.push(point);
+    if (_otpDriverTrailPoints.length > 20) _otpDriverTrailPoints = _otpDriverTrailPoints.slice(_otpDriverTrailPoints.length - 20);
+    renderDriverTrail();
+}
+
+function shouldAutoFollowDriver(lat, lng) {
+    if (!_otpMap || Date.now() < _otpAutoFollowPausedUntil) return false;
+    var centerBounds = _otpMap.getBounds().pad(-0.28);
+    return !centerBounds.contains([Number(lat), Number(lng)]);
 }
 
 function closeTrackingToHome() {
@@ -2474,6 +2535,9 @@ function initTrackingMap(order) {
     _otpLastTalentPos = { lat: talentLat, lng: talentLng };
     _otpLastTalentTs = Date.now();
     _otpSpeedKmh = 0;
+    _otpEtaMin = 0;
+    _otpDriverTrailPoints = [];
+    _otpDriverTrailLayers = [];
     _otpAutoFollowPausedUntil = 0;
     _otpMap = L.map(container, { zoomControl: false }).setView([centerLat, centerLng], 14);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -2500,6 +2564,7 @@ function initTrackingMap(order) {
         className: 'gm-route-pin-wrapper'
     });
     _otpTalentMarker = L.marker([talentLat, talentLng], { icon: talentIcon }).addTo(_otpMap).bindPopup('Driver');
+    pushDriverTrailPoint(talentLat, talentLng);
     bindTrackingMapPremiumEffects();
 
     var points = [[userLat, userLng], [talentLat, talentLng]];
@@ -2562,6 +2627,7 @@ function fetchAndDrawRoute(fromLat, fromLng, toLat, toLng) {
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (data.routes && data.routes.length > 0) {
+                _otpEtaMin = Math.max(1, Math.round((Number(data.routes[0].duration) || 0) / 60));
                 var coords = data.routes[0].geometry.coordinates.map(function (c) {
                     return [c[1], c[0]];
                 });
@@ -2572,6 +2638,8 @@ function fetchAndDrawRoute(fromLat, fromLng, toLat, toLng) {
             }
         })
         .catch(function () {
+            var fallbackKm = haversineDistance(fromLat, fromLng, toLat, toLng);
+            _otpEtaMin = Math.max(1, Math.round(fallbackKm / 0.45));
             if (_otpRouteLine) _otpMap.removeLayer(_otpRouteLine);
             if (_otpRouteFlowLine) _otpMap.removeLayer(_otpRouteFlowLine);
             var straight = [[fromLat, fromLng], [toLat, toLng]];
@@ -2596,13 +2664,14 @@ function updateTalentMarkerPosition(lat, lng) {
         _otpTalentMarker.setLatLng([lat, lng]);
         if (prev) setDriverMarkerHeading(prev.lat, prev.lng, lat, lng);
     }
-    if (_otpMap && Date.now() >= _otpAutoFollowPausedUntil) {
+    pushDriverTrailPoint(lat, lng);
+    if (_otpMap && shouldAutoFollowDriver(lat, lng)) {
         _otpMap.panTo([lat, lng], { animate: true, duration: 0.55, easeLinearity: 0.35 });
     }
     if (_currentOrder) {
         _currentOrder.talentLat = lat;
         _currentOrder.talentLng = lng;
-        renderTrackingMapRouteCard(_currentOrder);
+        renderTrackingMapRouteCard(_currentOrder, false);
         updateTrackingRoute(_currentOrder, false);
     }
 }
