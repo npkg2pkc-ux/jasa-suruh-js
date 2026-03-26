@@ -1463,6 +1463,8 @@ function initJapMap() {
         else _japPickupMarker = createJapMarker(lat, lng, 'pickup').addTo(_japMap);
         _japPickupCoords = { lat: lat, lng: lng };
         updateJapPickupText(session && session.address ? session.address : null, lat, lng);
+        bindJapMapPremiumEffects();
+        updateJapMapDepthClass();
         return;
     }
 
@@ -1473,6 +1475,7 @@ function initJapMap() {
         subdomains: 'abcd'
     }).addTo(_japMap);
     L.control.zoom({ position: 'bottomright' }).addTo(_japMap);
+    bindJapMapPremiumEffects();
 
     _japPickupMarker = createJapMarker(lat, lng, 'pickup').addTo(_japMap);
     _japPickupCoords = { lat: lat, lng: lng };
@@ -1524,6 +1527,40 @@ function animateJapMapTopCard() {
     card.classList.remove('map-card-refresh');
     void card.offsetWidth;
     card.classList.add('map-card-refresh');
+}
+
+function updateJapMapDepthClass() {
+    var mapEl = document.getElementById('japMap');
+    var wrap = mapEl ? mapEl.parentElement : null;
+    if (!wrap || !_japMap) return;
+    var zoom = _japMap.getZoom();
+    wrap.classList.remove('map-zoom-near', 'map-zoom-far');
+    if (zoom >= 16) wrap.classList.add('map-zoom-near');
+    else if (zoom <= 13) wrap.classList.add('map-zoom-far');
+}
+
+function bindJapMapPremiumEffects() {
+    var mapEl = document.getElementById('japMap');
+    var wrap = mapEl ? mapEl.parentElement : null;
+    if (!wrap || !_japMap || _japMap._premiumFxBound) return;
+    _japMap._premiumFxBound = true;
+
+    var collapseTimer = null;
+    function collapseOnMove() {
+        wrap.classList.add('map-card-collapsed');
+        if (collapseTimer) clearTimeout(collapseTimer);
+    }
+    function expandAfterMove() {
+        if (collapseTimer) clearTimeout(collapseTimer);
+        collapseTimer = setTimeout(function () {
+            wrap.classList.remove('map-card-collapsed');
+        }, 220);
+    }
+
+    _japMap.on('zoomend', updateJapMapDepthClass);
+    _japMap.on('movestart', collapseOnMove);
+    _japMap.on('moveend', expandAfterMove);
+    updateJapMapDepthClass();
 }
 
 function updateJapPickupText(addr, lat, lng) {

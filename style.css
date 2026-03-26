@@ -5,6 +5,26 @@
 
 :root {
     --orange: #FF6B00;
+    .jap-map-top-card,
+    .otp-map-top-card {
+        top:8px;
+        left:8px;
+        right:8px;
+        padding:8px 10px;
+        border-radius:14px;
+    }
+    .jap-map-top-address,
+    .otp-map-top-address {
+        font-size:13px;
+    }
+    .jap-map-top-title,
+    .otp-map-top-title {
+        font-size:10px;
+    }
+    .jap-map-top-add {
+        font-size:12px;
+        padding:5px 10px;
+    }
     --orange-light: #FF8A33;
     --orange-dark: #E05E00;
     --orange-subtle: #FFF3E8;
@@ -1608,9 +1628,12 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .otp-map { width:100%; height:45vh; min-height:200px; z-index:1; }
 .otp-map.hidden { display:none; }
 .otp-map-wrap.map-hidden { display:none; }
-.otp-map-top-card { position:absolute; top:12px; left:12px; right:12px; z-index:420; background:rgba(255,255,255,.96); border:1px solid #E5E7EB; border-radius:18px; box-shadow:0 8px 24px rgba(15,23,42,.12); padding:10px 12px; backdrop-filter:blur(2px); }
+.otp-map-top-card { position:absolute; top:12px; left:12px; right:12px; z-index:420; background:rgba(255,255,255,.96); border:1px solid #E5E7EB; border-radius:18px; box-shadow:0 8px 24px rgba(15,23,42,.12); padding:10px 12px; backdrop-filter:blur(2px); transform-origin:top center; transition:transform .22s ease, opacity .22s ease, box-shadow .22s ease, backdrop-filter .22s ease; }
 .otp-map-top-card.hidden { display:none; }
 .otp-map-top-card.map-card-refresh { animation:mapCardRefresh .3s ease; }
+.otp-map-wrap.map-card-collapsed .otp-map-top-card { transform:translateY(-10px) scale(.985); opacity:.45; pointer-events:none; }
+.otp-map-wrap.map-zoom-near .otp-map-top-card { box-shadow:0 12px 30px rgba(15,23,42,.2); backdrop-filter:blur(4px); }
+.otp-map-wrap.map-zoom-far .otp-map-top-card { box-shadow:0 5px 16px rgba(15,23,42,.1); backdrop-filter:blur(1px); }
 .otp-map-top-row { display:flex; align-items:center; gap:10px; }
 .otp-map-top-divider { height:1px; background:#E5E7EB; margin:8px 0; }
 .otp-map-top-icon { width:20px; height:20px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; color:#fff; }
@@ -1713,7 +1736,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .gm-route-pin.dropoff { background:#F97316; color:transparent; }
 .gm-route-pin.dropoff::after { content:''; position:absolute; width:10px; height:10px; border-radius:50%; background:#fff; top:7px; left:7px; transform:rotate(45deg); }
 .gm-route-pin.driver { background:#2563EB; color:#fff; font-size:12px; border-radius:50%; transform:none; }
-.gm-route-pin.driver > span { transform:none; }
+.gm-route-pin.driver > span { transform:rotate(var(--heading, 0deg)); transition:transform .2s ease; }
 
 @keyframes mapCardRefresh {
     0% { transform:translateY(-4px); opacity:.7; }
@@ -2053,8 +2076,11 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 
 .jap-map-wrap { position:relative; flex-shrink:0; }
 .jap-map { width:100%; height:35vh; min-height:0; z-index:1; flex-shrink:0; overflow:hidden; transition:height .35s cubic-bezier(.4,0,.2,1); }
-.jap-map-top-card { position:absolute; top:12px; left:12px; right:12px; z-index:350; background:rgba(255,255,255,.96); border:1px solid #E5E7EB; border-radius:20px; padding:10px 12px; box-shadow:0 8px 24px rgba(15,23,42,.12); backdrop-filter:blur(2px); }
+.jap-map-top-card { position:absolute; top:12px; left:12px; right:12px; z-index:350; background:rgba(255,255,255,.96); border:1px solid #E5E7EB; border-radius:20px; padding:10px 12px; box-shadow:0 8px 24px rgba(15,23,42,.12); backdrop-filter:blur(2px); transform-origin:top center; transition:transform .22s ease, opacity .22s ease, box-shadow .22s ease, backdrop-filter .22s ease; }
 .jap-map-top-card.map-card-refresh { animation:mapCardRefresh .3s ease; }
+.jap-map-wrap.map-card-collapsed .jap-map-top-card { transform:translateY(-10px) scale(.985); opacity:.45; pointer-events:none; }
+.jap-map-wrap.map-zoom-near .jap-map-top-card { box-shadow:0 12px 30px rgba(15,23,42,.2); backdrop-filter:blur(4px); }
+.jap-map-wrap.map-zoom-far .jap-map-top-card { box-shadow:0 5px 16px rgba(15,23,42,.1); backdrop-filter:blur(1px); }
 .jap-map-top-row { display:flex; align-items:center; gap:10px; }
 .jap-map-top-divider { height:1px; background:#E5E7EB; margin:8px 0; }
 .jap-map-top-icon { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:13px; flex-shrink:0; }

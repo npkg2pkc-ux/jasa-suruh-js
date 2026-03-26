@@ -1417,6 +1417,7 @@ function destroyTrackingMap() {
     _otpUserMarker = null;
     _otpStoreMarker = null;
     _otpRouteLine = null;
+    _otpLastTalentPos = null;
 }
 
 function updateTrackingVisualState(order) {
@@ -1434,7 +1435,13 @@ function updateTrackingVisualState(order) {
         if (mapWrap) mapWrap.classList.remove('map-hidden');
         renderTrackingMapRouteCard(order);
         if (!_otpMap) initTrackingMap(order);
-        else setTimeout(function () { if (_otpMap) _otpMap.invalidateSize(); }, 120);
+        else setTimeout(function () {
+            if (_otpMap) {
+                _otpMap.invalidateSize();
+                bindTrackingMapPremiumEffects();
+                updateTrackingMapDepthClass();
+            }
+        }, 120);
     } else {
         mapEl.classList.add('hidden');
         if (mapWrap) mapWrap.classList.add('map-hidden');
@@ -1487,6 +1494,56 @@ function renderTrackingMapRouteCard(order) {
     card.classList.remove('map-card-refresh');
     void card.offsetWidth;
     card.classList.add('map-card-refresh');
+}
+
+var _otpLastTalentPos = null;
+
+function updateTrackingMapDepthClass() {
+    var mapEl = document.getElementById('otpMapContainer');
+    var wrap = mapEl ? mapEl.parentElement : null;
+    if (!wrap || !_otpMap) return;
+    var zoom = _otpMap.getZoom();
+    wrap.classList.remove('map-zoom-near', 'map-zoom-far');
+    if (zoom >= 16) wrap.classList.add('map-zoom-near');
+    else if (zoom <= 13) wrap.classList.add('map-zoom-far');
+}
+
+function bindTrackingMapPremiumEffects() {
+    var mapEl = document.getElementById('otpMapContainer');
+    var wrap = mapEl ? mapEl.parentElement : null;
+    if (!wrap || !_otpMap || _otpMap._premiumFxBound) return;
+    _otpMap._premiumFxBound = true;
+
+    var collapseTimer = null;
+    function collapseOnMove() {
+        wrap.classList.add('map-card-collapsed');
+        if (collapseTimer) clearTimeout(collapseTimer);
+    }
+    function expandAfterMove() {
+        if (collapseTimer) clearTimeout(collapseTimer);
+        collapseTimer = setTimeout(function () {
+            wrap.classList.remove('map-card-collapsed');
+        }, 220);
+    }
+
+    _otpMap.on('zoomend', updateTrackingMapDepthClass);
+    _otpMap.on('movestart', collapseOnMove);
+    _otpMap.on('moveend', expandAfterMove);
+    updateTrackingMapDepthClass();
+}
+
+function setDriverMarkerHeading(fromLat, fromLng, toLat, toLng) {
+    if (!_otpTalentMarker || !isValidLatLng(fromLat, fromLng) || !isValidLatLng(toLat, toLng)) return;
+    var markerEl = _otpTalentMarker.getElement();
+    if (!markerEl) return;
+    var iconEl = markerEl.querySelector('.gm-route-pin.driver > span');
+    if (!iconEl) return;
+
+    var dy = Number(toLat) - Number(fromLat);
+    var dx = Number(toLng) - Number(fromLng);
+    if (!isFinite(dy) || !isFinite(dx) || (Math.abs(dy) < 0.000001 && Math.abs(dx) < 0.000001)) return;
+    var deg = Math.atan2(dy, dx) * (180 / Math.PI);
+    iconEl.style.setProperty('--heading', String(deg) + 'deg');
 }
 
 function closeTrackingToHome() {
@@ -2404,6 +2461,7 @@ function initTrackingMap(order) {
     var centerLat = (userLat + talentLat) / 2;
     var centerLng = (userLng + talentLng) / 2;
 
+    _otpLastTalentPos = { lat: talentLat, lng: talentLng };
     _otpMap = L.map(container, { zoomControl: false }).setView([centerLat, centerLng], 14);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
@@ -2429,6 +2487,7 @@ function initTrackingMap(order) {
         className: 'gm-route-pin-wrapper'
     });
     _otpTalentMarker = L.marker([talentLat, talentLng], { icon: talentIcon }).addTo(_otpMap).bindPopup('Driver');
+    bindTrackingMapPremiumEffects();
 
     var points = [[userLat, userLng], [talentLat, talentLng]];
     _otpStoreMarker = null;
@@ -2461,7 +2520,12 @@ function initTrackingMap(order) {
 
     updateTrackingRoute(order, false);
 
-    setTimeout(function () { if (_otpMap) _otpMap.invalidateSize(); }, 300);
+    setTimeout(function () {
+        if (_otpMap) {
+            _otpMap.invalidateSize();
+            updateTrackingMapDepthClass();
+        }
+    }, 300);
 }
 
 function updateTrackingRoute(order, shouldFitBounds) {
@@ -2499,8 +2563,11 @@ function fetchAndDrawRoute(fromLat, fromLng, toLat, toLng) {
 }
 
 function updateTalentMarkerPosition(lat, lng) {
+    var prev = _otpLastTalentPos;
+    _otpLastTalentPos = { lat: Number(lat), lng: Number(lng) };
     if (_otpTalentMarker) {
         _otpTalentMarker.setLatLng([lat, lng]);
+        if (prev) setDriverMarkerHeading(prev.lat, prev.lng, lat, lng);
     }
     if (_currentOrder) {
         _currentOrder.talentLat = lat;
