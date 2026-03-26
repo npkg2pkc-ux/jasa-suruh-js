@@ -1509,13 +1509,21 @@ function createJapMarker(lat, lng, type) {
     var pinClass = type === 'pickup' ? 'pickup' : 'dropoff';
     var pinText = type === 'pickup' ? '↑' : '';
     var icon = L.divIcon({
-        html: '<div class="gm-route-pin ' + pinClass + '">' + pinText + '</div>',
+        html: '<div class="gm-route-pin ' + pinClass + '"><span>' + pinText + '</span></div>',
         className: 'gm-route-pin-wrapper',
         iconSize: [28, 28],
         iconAnchor: [14, 14],
         popupAnchor: [0, -14]
     });
     return L.marker([lat, lng], { icon: icon });
+}
+
+function animateJapMapTopCard() {
+    var card = document.getElementById('japMapTopCard');
+    if (!card) return;
+    card.classList.remove('map-card-refresh');
+    void card.offsetWidth;
+    card.classList.add('map-card-refresh');
 }
 
 function updateJapPickupText(addr, lat, lng) {
@@ -1525,11 +1533,13 @@ function updateJapPickupText(addr, lat, lng) {
         el.textContent = addr;
         var topPickup = document.getElementById('japTopPickupText');
         if (topPickup) topPickup.textContent = addr.split(',').slice(0, 2).join(',').trim() || addr;
+        animateJapMapTopCard();
     } else {
         reverseGeocode(lat, lng).then(function (a) {
             el.textContent = a;
             var topPickup = document.getElementById('japTopPickupText');
             if (topPickup) topPickup.textContent = a.split(',').slice(0, 2).join(',').trim() || a;
+            animateJapMapTopCard();
         });
     }
 }
@@ -1599,6 +1609,7 @@ function selectJapDestination(lat, lng, displayName) {
     document.getElementById('japDestInput').value = shortDest;
     var topDest = document.getElementById('japTopDestText');
     if (topDest) topDest.textContent = shortDest || displayName;
+    animateJapMapTopCard();
     document.getElementById('japDestSuggestions').classList.add('hidden');
 
     if (_japDestMarker) {

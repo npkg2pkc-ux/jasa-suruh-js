@@ -1484,6 +1484,9 @@ function renderTrackingMapRouteCard(order) {
         + '</div>'
         + '</div>';
     card.classList.remove('hidden');
+    card.classList.remove('map-card-refresh');
+    void card.offsetWidth;
+    card.classList.add('map-card-refresh');
 }
 
 function closeTrackingToHome() {
@@ -2410,7 +2413,7 @@ function initTrackingMap(order) {
     L.control.zoom({ position: 'bottomright' }).addTo(_otpMap);
 
     var userIcon = L.divIcon({
-        html: '<div class="gm-route-pin pickup">↑</div>',
+        html: '<div class="gm-route-pin pickup"><span>↑</span></div>',
         iconSize: [28, 28],
         iconAnchor: [14, 14],
         popupAnchor: [0, -14],
@@ -2419,7 +2422,7 @@ function initTrackingMap(order) {
     _otpUserMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(_otpMap).bindPopup(isProductOrder ? 'Lokasi Pembeli' : (isAntar ? 'Titik Jemput' : 'Lokasi Anda'));
 
     var talentIcon = L.divIcon({
-        html: '<div class="gm-route-pin driver">🏍</div>',
+        html: '<div class="gm-route-pin driver"><span>🏍</span></div>',
         iconSize: [28, 28],
         iconAnchor: [14, 14],
         popupAnchor: [0, -14],
@@ -2431,7 +2434,7 @@ function initTrackingMap(order) {
     _otpStoreMarker = null;
     if (isProductOrder && storeCoords && isValidLatLng(storeCoords.lat, storeCoords.lng)) {
         var storeIcon = L.divIcon({
-            html: '<div class="gm-route-pin dropoff"></div>',
+            html: '<div class="gm-route-pin dropoff"><span></span></div>',
             iconSize: [28, 28],
             iconAnchor: [14, 14],
             popupAnchor: [0, -14],
@@ -2443,7 +2446,7 @@ function initTrackingMap(order) {
 
     if (isAntar && destLat !== null && destLng !== null) {
         var destIcon = L.divIcon({
-            html: '<div class="gm-route-pin dropoff"></div>',
+            html: '<div class="gm-route-pin dropoff"><span></span></div>',
             iconSize: [28, 28],
             iconAnchor: [14, 14],
             popupAnchor: [0, -14],
