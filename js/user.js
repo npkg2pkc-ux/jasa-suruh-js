@@ -183,6 +183,10 @@ function setupServiceClicks() {
                 openJSAntarPage();
                 return;
             }
+            if (name === 'JS Delivery') {
+                openJSDeliveryPage();
+                return;
+            }
             if (STORE_SERVICES[name]) {
                 openStoreListPage(STORE_SERVICES[name]);
                 return;
@@ -2055,6 +2059,675 @@ function onJapOrderClick() {
     });
 }
 
+// ══════════════════════════════════════════
+// ═══ JS DELIVERY (PAKET) ═══
+// ══════════════════════════════════════════
+var _jdpMap = null;
+var _jdpPickupMarker = null;
+var _jdpDestMarker = null;
+var _jdpRouteLine = null;
+var _jdpPickupCoords = null;
+var _jdpDestCoords = null;
+var _jdpDestAddress = '';
+var _jdpRouteDistKm = 0;
+var _jdpRouteRequestToken = 0;
+var _jdpSuggestTimer = null;
+var _jdpPickMode = '';
+var _jdpEventsSetup = false;
+var _jdpSheetDragSetup = false;
+var _jdpSelectedPayment = 'jspay';
+var _jdpServiceFeeAmount = 1000;
+var _jdpPerKm = 2000;
+var _jdpMinimum = 10000;
+var _jdpOverweightPerKg = 2000;
+
+function resetJSDeliveryState() {
+    _jdpRouteRequestToken += 1;
+    _jdpDestCoords = null;
+    _jdpDestAddress = '';
+    _jdpRouteDistKm = 0;
+    _jdpPickMode = '';
+
+    if (_jdpSuggestTimer) {
+        clearTimeout(_jdpSuggestTimer);
+        _jdpSuggestTimer = null;
+    }
+
+    var idsToClear = ['jdpItemDesc', 'jdpWeightInput', 'jdpDestInput', 'jdpPickupNote', 'jdpDestNote'];
+    idsToClear.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+
+    var sugg = document.getElementById('jdpDestSuggestions');
+    if (sugg) { sugg.classList.add('hidden'); sugg.innerHTML = ''; }
+
+    var topDest = document.getElementById('jdpTopDestText');
+    if (topDest) topDest.textContent = 'Tambah tujuan';
+    var topPickup = document.getElementById('jdpTopPickupText');
+    if (topPickup) topPickup.textContent = 'Mendeteksi lokasi...';
+
+    var infoRow = document.getElementById('jdpInfoRow');
+    if (infoRow) infoRow.classList.add('hidden');
+    var bd = document.getElementById('jdpPriceBreakdown');
+    if (bd) bd.classList.add('hidden');
+    var pm = document.getElementById('jdpPayMethod');
+    if (pm) pm.classList.add('hidden');
+    var hint = document.getElementById('jdpMapPickHint');
+    if (hint) hint.classList.add('hidden');
+
+    var btn = document.getElementById('jdpBtnOrder');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '📦 Cari Driver';
+        delete btn.dataset.price;
+        delete btn.dataset.fee;
+        delete btn.dataset.total;
+        delete btn.dataset.distanceFee;
+        delete btn.dataset.weightFee;
+    }
+
+    _jdpSelectedPayment = 'jspay';
+    var pmJ = document.getElementById('jdpPmJspay');
+    var pmC = document.getElementById('jdpPmCod');
+    if (pmJ && pmC) {
+        pmJ.classList.add('active');
+        pmC.classList.remove('active');
+    }
+
+    if (_jdpMap) {
+        if (_jdpDestMarker) { _jdpMap.removeLayer(_jdpDestMarker); _jdpDestMarker = null; }
+        if (_jdpRouteLine) { _jdpMap.removeLayer(_jdpRouteLine); _jdpRouteLine = null; }
+    } else {
+        _jdpDestMarker = null;
+        _jdpRouteLine = null;
+    }
+}
+
+function openJSDeliveryPage() {
+    var page = document.getElementById('jsDeliveryPage');
+    if (!page) return;
+    page.classList.remove('hidden');
+    resetJSDeliveryState();
+    var pText = document.getElementById('jdpPickupText');
+    if (pText) pText.textContent = '📍 Mendeteksi lokasi...';
+
+    if (!_jdpEventsSetup) {
+        _jdpEventsSetup = true;
+        document.getElementById('jdpBtnBack').addEventListener('click', closeJSDeliveryPage);
+        document.getElementById('jdpBtnOrder').addEventListener('click', onJdpOrderClick);
+
+        var destInput = document.getElementById('jdpDestInput');
+        if (destInput) {
+            destInput.addEventListener('input', onJdpDestInput);
+            destInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); hideJdpSuggestions(); }
+            });
+        }
+
+        ['jdpItemDesc', 'jdpWeightInput'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', function () {
+                    if (_jdpRouteDistKm > 0) updateJdpPriceInfo(_jdpRouteDistKm, null);
+                    else evaluateJdpReadyToOrder();
+                });
+            }
+        });
+
+        var topAdd = document.getElementById('jdpTopAddBtn');
+        if (topAdd) topAdd.addEventListener('click', enterJdpAddDestinationMode);
+
+        var pickPickup = document.getElementById('jdpBtnPickPickupOnMap');
+        if (pickPickup) {
+            pickPickup.addEventListener('click', function () {
+                _jdpPickMode = 'pickup';
+                var hint = document.getElementById('jdpMapPickHint');
+                if (hint) {
+                    hint.innerHTML = '👆 Ketuk peta untuk titik jemput &nbsp;<button type="button" id="jdpBtnCancelMapPick" class="jap-cancel-pick">Batal</button>';
+                    hint.classList.remove('hidden');
+                    bindJdpCancelMapPick();
+                }
+            });
+        }
+
+        var pickDest = document.getElementById('jdpBtnPickDestOnMap');
+        if (pickDest) {
+            pickDest.addEventListener('click', function () {
+                _jdpPickMode = 'dest';
+                var hint = document.getElementById('jdpMapPickHint');
+                if (hint) {
+                    hint.innerHTML = '👆 Ketuk peta untuk titik antar &nbsp;<button type="button" id="jdpBtnCancelMapPick" class="jap-cancel-pick">Batal</button>';
+                    hint.classList.remove('hidden');
+                    bindJdpCancelMapPick();
+                }
+            });
+        }
+
+        bindJdpCancelMapPick();
+
+        document.addEventListener('click', function (e) {
+            var sugg = document.getElementById('jdpDestSuggestions');
+            var input = document.getElementById('jdpDestInput');
+            if (sugg && !sugg.contains(e.target) && e.target !== input) {
+                hideJdpSuggestions();
+            }
+        });
+    }
+
+    if (isBackendConnected()) {
+        FB.get('getSettings')
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.success && res.data) {
+                    var feeAmt = Number(res.data.service_fee_amount);
+                    if (!isFinite(feeAmt) || feeAmt < 0) feeAmt = 1000;
+                    _jdpServiceFeeAmount = Math.max(0, Math.round(feeAmt));
+                }
+            })
+            .catch(function () {});
+    }
+
+    setTimeout(function () { initJdpMap(); }, 100);
+    initJdpSheetDrag();
+}
+
+function closeJSDeliveryPage() {
+    var page = document.getElementById('jsDeliveryPage');
+    resetJSDeliveryState();
+    if (page) page.classList.add('hidden');
+}
+
+function bindJdpCancelMapPick() {
+    var btn = document.getElementById('jdpBtnCancelMapPick');
+    if (!btn || btn._jdpBound) return;
+    btn._jdpBound = true;
+    btn.addEventListener('click', function () {
+        _jdpPickMode = '';
+        var hint = document.getElementById('jdpMapPickHint');
+        if (hint) hint.classList.add('hidden');
+    });
+}
+
+function initJdpSheetDrag() {
+    if (_jdpSheetDragSetup) return;
+    var handle = document.getElementById('jdpSheetHandle');
+    var mapEl = document.getElementById('jdpMap');
+    if (!handle || !mapEl) return;
+    _jdpSheetDragSetup = true;
+
+    var startY = 0;
+    var startH = 0;
+    var dragging = false;
+
+    function snapMap(h) {
+        mapEl.style.transition = 'height .35s cubic-bezier(.4,0,.2,1)';
+        mapEl.style.height = Math.max(0, h) + 'px';
+        setTimeout(function () { if (_jdpMap) _jdpMap.invalidateSize(); }, 380);
+    }
+
+    handle.addEventListener('touchstart', function (e) {
+        dragging = true;
+        startY = e.touches[0].clientY;
+        startH = mapEl.offsetHeight;
+        mapEl.style.transition = 'none';
+    }, { passive: true });
+
+    handle.addEventListener('touchmove', function (e) {
+        if (!dragging) return;
+        e.preventDefault();
+        var dy = e.touches[0].clientY - startY;
+        var newH = Math.max(0, Math.min(window.innerHeight - 120, startH + dy));
+        mapEl.style.height = newH + 'px';
+        if (_jdpMap) _jdpMap.invalidateSize();
+    }, { passive: false });
+
+    handle.addEventListener('touchend', function () {
+        if (!dragging) return;
+        dragging = false;
+        var h = mapEl.offsetHeight;
+        var pageH = window.innerHeight;
+        if (h < pageH * 0.12) snapMap(0);
+        else if (h > pageH * 0.45) snapMap(Math.round(pageH * 0.55));
+        else snapMap(Math.round(window.innerHeight * 0.32));
+    });
+
+    mapEl.style.height = Math.round(window.innerHeight * 0.32) + 'px';
+}
+
+function initJdpMap() {
+    var session = getSession();
+    var lat = (session && session.lat) ? Number(session.lat) : -6.2088;
+    var lng = (session && session.lng) ? Number(session.lng) : 106.8456;
+
+    if (_jdpMap) {
+        _jdpMap.invalidateSize();
+        _jdpMap.setView([lat, lng], 15);
+        if (_jdpPickupMarker) _jdpPickupMarker.setLatLng([lat, lng]);
+        else _jdpPickupMarker = createJdpMarker(lat, lng, 'pickup').addTo(_jdpMap);
+        _jdpPickupCoords = { lat: lat, lng: lng };
+        updateJdpPickupText(session && session.address ? session.address : null, lat, lng);
+        return;
+    }
+
+    _jdpMap = L.map('jdpMap', { zoomControl: false }).setView([lat, lng], 15);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+        maxZoom: 20,
+        subdomains: 'abcd'
+    }).addTo(_jdpMap);
+    L.control.zoom({ position: 'bottomright' }).addTo(_jdpMap);
+
+    _jdpPickupMarker = createJdpMarker(lat, lng, 'pickup').addTo(_jdpMap);
+    _jdpPickupCoords = { lat: lat, lng: lng };
+
+    if (session && session.address) {
+        updateJdpPickupText(session.address, lat, lng);
+    } else {
+        reverseGeocode(lat, lng).then(function (addr) {
+            updateJdpPickupText(addr, lat, lng);
+        });
+    }
+
+    _jdpMap.on('click', function (e) {
+        if (_jdpPickMode === 'pickup') {
+            _jdpPickMode = '';
+            _jdpPickupCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
+            _jdpPickupMarker.setLatLng(e.latlng);
+            var hint = document.getElementById('jdpMapPickHint');
+            if (hint) hint.classList.add('hidden');
+            reverseGeocode(e.latlng.lat, e.latlng.lng).then(function (addr) {
+                updateJdpPickupText(addr, e.latlng.lat, e.latlng.lng);
+                if (_jdpDestCoords) fetchJdpRoute(_jdpPickupCoords.lat, _jdpPickupCoords.lng, _jdpDestCoords.lat, _jdpDestCoords.lng);
+            });
+            return;
+        }
+        if (_jdpPickMode === 'dest') {
+            _jdpPickMode = '';
+            var h = document.getElementById('jdpMapPickHint');
+            if (h) h.classList.add('hidden');
+            reverseGeocode(e.latlng.lat, e.latlng.lng).then(function (addr) {
+                selectJdpDestination(e.latlng.lat, e.latlng.lng, addr);
+            });
+        }
+    });
+}
+
+function createJdpMarker(lat, lng, type) {
+    var pinClass = type === 'pickup' ? 'pickup' : 'dropoff';
+    var pinText = type === 'pickup' ? '↑' : '';
+    var icon = L.divIcon({
+        html: '<div class="gm-route-pin ' + pinClass + '"><span>' + pinText + '</span></div>',
+        className: 'gm-route-pin-wrapper',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+    });
+    return L.marker([lat, lng], { icon: icon });
+}
+
+function updateJdpPickupText(addr, lat, lng) {
+    var el = document.getElementById('jdpPickupText');
+    if (!el) return;
+    if (addr) {
+        el.textContent = addr;
+        var top = document.getElementById('jdpTopPickupText');
+        if (top) top.textContent = addr.split(',').slice(0, 2).join(',').trim() || addr;
+    } else {
+        reverseGeocode(lat, lng).then(function (a) {
+            el.textContent = a;
+            var top = document.getElementById('jdpTopPickupText');
+            if (top) top.textContent = a.split(',').slice(0, 2).join(',').trim() || a;
+        });
+    }
+}
+
+function focusJdpDestinationInput() {
+    var input = document.getElementById('jdpDestInput');
+    if (!input) return;
+    input.focus();
+    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function enterJdpAddDestinationMode() {
+    _jdpRouteRequestToken += 1;
+    _jdpDestCoords = null;
+    _jdpDestAddress = '';
+    _jdpRouteDistKm = 0;
+
+    if (_jdpMap && _jdpDestMarker) {
+        _jdpMap.removeLayer(_jdpDestMarker);
+        _jdpDestMarker = null;
+    }
+    if (_jdpMap && _jdpRouteLine) {
+        _jdpMap.removeLayer(_jdpRouteLine);
+        _jdpRouteLine = null;
+    }
+
+    var destInput = document.getElementById('jdpDestInput');
+    if (destInput) destInput.value = '';
+    var topDest = document.getElementById('jdpTopDestText');
+    if (topDest) topDest.textContent = 'Tambah tujuan';
+
+    var infoRow = document.getElementById('jdpInfoRow');
+    if (infoRow) infoRow.classList.add('hidden');
+    var bd = document.getElementById('jdpPriceBreakdown');
+    if (bd) bd.classList.add('hidden');
+    var pm = document.getElementById('jdpPayMethod');
+    if (pm) pm.classList.add('hidden');
+
+    var btn = document.getElementById('jdpBtnOrder');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '📦 Cari Driver';
+    }
+
+    hideJdpSuggestions();
+    focusJdpDestinationInput();
+}
+
+function hideJdpSuggestions() {
+    var sugg = document.getElementById('jdpDestSuggestions');
+    if (sugg) sugg.classList.add('hidden');
+}
+
+function onJdpDestInput() {
+    var val = (this.value || '').trim();
+    if (_jdpSuggestTimer) clearTimeout(_jdpSuggestTimer);
+    var sugg = document.getElementById('jdpDestSuggestions');
+    if (!sugg) return;
+    if (val.length < 3) {
+        sugg.classList.add('hidden');
+        sugg.innerHTML = '';
+        return;
+    }
+    sugg.classList.remove('hidden');
+    sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--gray-400)">Mencari...</div>';
+    _jdpSuggestTimer = setTimeout(function () {
+        searchJdpPlaces(val);
+    }, 450);
+}
+
+function searchJdpPlaces(query) {
+    var lat = _jdpPickupCoords ? _jdpPickupCoords.lat : -6.2088;
+    var lng = _jdpPickupCoords ? _jdpPickupCoords.lng : 106.8456;
+    var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query)
+        + '&format=json&limit=6&accept-language=id&countrycodes=id'
+        + '&viewbox=' + (lng - 0.5) + ',' + (lat + 0.5) + ',' + (lng + 0.5) + ',' + (lat - 0.5)
+        + '&bounded=0';
+    fetch(url)
+        .then(function (r) { return r.json(); })
+        .then(function (results) { renderJdpSuggestions(results); })
+        .catch(function () {
+            var sugg = document.getElementById('jdpDestSuggestions');
+            if (sugg) sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--red)">Gagal mencari lokasi</div>';
+        });
+}
+
+function renderJdpSuggestions(results) {
+    var sugg = document.getElementById('jdpDestSuggestions');
+    if (!sugg) return;
+    if (!results || results.length === 0) {
+        sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--gray-400)">Tidak ditemukan</div>';
+        return;
+    }
+    sugg.innerHTML = '';
+    results.forEach(function (r) {
+        var parts = (r.display_name || '').split(',');
+        var name = parts[0].trim();
+        var addr = parts.slice(1, 4).join(',').trim();
+        var item = document.createElement('div');
+        item.className = 'jap-suggestion-item';
+        item.innerHTML = '<div class="jap-suggestion-name">' + escapeHtml(name) + '</div>'
+            + (addr ? '<div class="jap-suggestion-addr">' + escapeHtml(addr) + '</div>' : '');
+        item.addEventListener('click', function () {
+            selectJdpDestination(Number(r.lat), Number(r.lon), r.display_name || name);
+        });
+        sugg.appendChild(item);
+    });
+    sugg.classList.remove('hidden');
+}
+
+function selectJdpDestination(lat, lng, displayName) {
+    _jdpDestCoords = { lat: lat, lng: lng };
+    _jdpDestAddress = displayName;
+    var shortDest = displayName.split(',').slice(0, 2).join(',').trim();
+    var input = document.getElementById('jdpDestInput');
+    if (input) input.value = shortDest;
+    var topDest = document.getElementById('jdpTopDestText');
+    if (topDest) topDest.textContent = shortDest || displayName;
+    hideJdpSuggestions();
+
+    if (_jdpDestMarker) _jdpDestMarker.setLatLng([lat, lng]);
+    else _jdpDestMarker = createJdpMarker(lat, lng, 'dest').addTo(_jdpMap);
+
+    if (_jdpPickupCoords && _jdpMap) {
+        var bounds = L.latLngBounds([_jdpPickupCoords.lat, _jdpPickupCoords.lng], [lat, lng]);
+        _jdpMap.fitBounds(bounds, { padding: [40, 40] });
+    }
+
+    fetchJdpRoute(_jdpPickupCoords.lat, _jdpPickupCoords.lng, lat, lng);
+}
+
+function fetchJdpRoute(fromLat, fromLng, toLat, toLng) {
+    var reqToken = ++_jdpRouteRequestToken;
+    var url = 'https://router.project-osrm.org/route/v1/driving/' + fromLng + ',' + fromLat + ';' + toLng + ',' + toLat + '?overview=full&geometries=geojson';
+    fetch(url)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            var page = document.getElementById('jsDeliveryPage');
+            if (reqToken !== _jdpRouteRequestToken || !page || page.classList.contains('hidden') || !_jdpMap || !_jdpDestCoords) return;
+            var distKm = 0;
+            var durationMin = 0;
+            if (data.routes && data.routes.length > 0) {
+                distKm = data.routes[0].distance / 1000;
+                durationMin = Math.round(data.routes[0].duration / 60);
+                var coords = data.routes[0].geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
+                if (_jdpRouteLine) _jdpMap.removeLayer(_jdpRouteLine);
+                _jdpRouteLine = L.polyline(coords, { color: '#2563EB', weight: 5, opacity: 0.88, lineJoin: 'round', lineCap: 'round' }).addTo(_jdpMap);
+            } else {
+                distKm = haversineDistance(fromLat, fromLng, toLat, toLng);
+                durationMin = Math.round(distKm / 0.42);
+                if (_jdpRouteLine) _jdpMap.removeLayer(_jdpRouteLine);
+                _jdpRouteLine = L.polyline([[fromLat, fromLng], [toLat, toLng]], { color: '#2563EB', weight: 4, opacity: 0.8, lineJoin: 'round', lineCap: 'round' }).addTo(_jdpMap);
+            }
+            _jdpRouteDistKm = distKm;
+            updateJdpPriceInfo(distKm, durationMin);
+        })
+        .catch(function () {
+            var page = document.getElementById('jsDeliveryPage');
+            if (reqToken !== _jdpRouteRequestToken || !page || page.classList.contains('hidden') || !_jdpDestCoords) return;
+            var distKm = haversineDistance(fromLat, fromLng, toLat, toLng);
+            var durationMin = Math.round(distKm / 0.42);
+            _jdpRouteDistKm = distKm;
+            updateJdpPriceInfo(distKm, durationMin);
+        });
+}
+
+function getJdpWeightKg() {
+    var w = Number(document.getElementById('jdpWeightInput').value || 0);
+    if (!isFinite(w) || w < 0) return 0;
+    return w;
+}
+
+function evaluateJdpReadyToOrder() {
+    var btn = document.getElementById('jdpBtnOrder');
+    if (!btn) return;
+    var hasDesc = String(document.getElementById('jdpItemDesc').value || '').trim().length >= 3;
+    var weight = getJdpWeightKg();
+    var ready = hasDesc && weight > 0 && _jdpPickupCoords && _jdpDestCoords && _jdpRouteDistKm > 0;
+    btn.disabled = !ready;
+    if (!ready && !btn.dataset.total) btn.textContent = '📦 Cari Driver';
+}
+
+function updateJdpPriceInfo(distKm, durationMin) {
+    var weight = getJdpWeightKg();
+    var distanceFee = Math.max(_jdpMinimum, Math.round((_jdpPerKm || 2000) * distKm));
+    var extraWeightKg = Math.max(0, weight - 5);
+    var weightFee = Math.ceil(extraWeightKg) * _jdpOverweightPerKg;
+    var fee = Math.max(0, Math.round(_jdpServiceFeeAmount || 0));
+    var price = distanceFee + weightFee;
+    var total = price + fee;
+
+    var distText = distKm < 1 ? Math.round(distKm * 1000) + ' m' : distKm.toFixed(1) + ' km';
+    var etaText = durationMin < 1 ? '< 1 menit' : durationMin + ' menit';
+    if (durationMin === null || durationMin === undefined) etaText = '-';
+
+    var dEl = document.getElementById('jdpDistance');
+    var eEl = document.getElementById('jdpEta');
+    if (dEl) dEl.textContent = distText;
+    if (eEl) eEl.textContent = etaText;
+
+    var infoRow = document.getElementById('jdpInfoRow');
+    if (infoRow) infoRow.classList.remove('hidden');
+
+    var bd = document.getElementById('jdpPriceBreakdown');
+    if (bd) {
+        bd.classList.remove('hidden');
+        document.getElementById('jdpPbDistance').textContent = formatRupiah(distanceFee);
+        document.getElementById('jdpPbWeight').textContent = formatRupiah(weightFee);
+        document.getElementById('jdpPbFee').textContent = formatRupiah(fee);
+        document.getElementById('jdpPbTotal').textContent = formatRupiah(total);
+    }
+
+    var pmEl = document.getElementById('jdpPayMethod');
+    if (pmEl) {
+        pmEl.classList.remove('hidden');
+        var balEl = document.getElementById('jdpPmBalance');
+        if (balEl) balEl.textContent = formatRupiah(getWalletBalance());
+    }
+    setupJdpPaymentToggle();
+
+    var hint = document.getElementById('jdpWeightHint');
+    if (hint) {
+        hint.textContent = extraWeightKg > 0
+            ? 'Biaya tambahan berat: ' + formatRupiah(weightFee) + ' (' + extraWeightKg.toFixed(1) + ' kg di atas 5 kg)'
+            : 'Lebih dari 5 kg dikenakan Rp 2.000/kg';
+    }
+
+    var btn = document.getElementById('jdpBtnOrder');
+    if (btn) {
+        btn.dataset.price = String(price);
+        btn.dataset.distanceFee = String(distanceFee);
+        btn.dataset.weightFee = String(weightFee);
+        btn.dataset.fee = String(fee);
+        btn.dataset.total = String(total);
+        btn.textContent = '📦 Cari Driver — ' + formatRupiah(total);
+    }
+
+    evaluateJdpReadyToOrder();
+}
+
+function setupJdpPaymentToggle() {
+    var jspayBtn = document.getElementById('jdpPmJspay');
+    var codBtn = document.getElementById('jdpPmCod');
+    if (!jspayBtn || !codBtn || jspayBtn._pmSetup) return;
+    jspayBtn._pmSetup = true;
+    function selectPM(method) {
+        _jdpSelectedPayment = method;
+        jspayBtn.classList.toggle('active', method === 'jspay');
+        codBtn.classList.toggle('active', method === 'cod');
+    }
+    jspayBtn.addEventListener('click', function () { selectPM('jspay'); });
+    codBtn.addEventListener('click', function () { selectPM('cod'); });
+}
+
+function onJdpOrderClick() {
+    if (!_jdpPickupCoords || !_jdpDestCoords) {
+        showToast('Lengkapi titik jemput dan titik antar dulu!', 'error');
+        return;
+    }
+    var session = getSession();
+    if (!session) { showToast('Login dulu ya!', 'error'); return; }
+    if (!isBackendConnected()) { showToast('Tidak ada koneksi ke server', 'error'); return; }
+
+    var itemDesc = String(document.getElementById('jdpItemDesc').value || '').trim();
+    var weightKg = getJdpWeightKg();
+    if (itemDesc.length < 3) {
+        showToast('Deskripsi barang minimal 3 karakter', 'error');
+        return;
+    }
+    if (weightKg <= 0) {
+        showToast('Isi berat estimasi barang dulu', 'error');
+        return;
+    }
+
+    var btn = document.getElementById('jdpBtnOrder');
+    var price = Number(btn.dataset.price) || 0;
+    var distanceFee = Number(btn.dataset.distanceFee) || 0;
+    var weightFee = Number(btn.dataset.weightFee) || 0;
+    var fee = Number(btn.dataset.fee);
+    if (!isFinite(fee) || fee < 0) fee = Math.max(0, Math.round(_jdpServiceFeeAmount || 0));
+    var totalCost = Number(btn.dataset.total) || (price + fee);
+    var paymentMethod = _jdpSelectedPayment || 'jspay';
+
+    if (paymentMethod === 'jspay' && getWalletBalance() < totalCost) {
+        showToast('Saldo JsPay tidak cukup! Butuh ' + formatRupiah(totalCost), 'error');
+        return;
+    }
+
+    var pickupAddr = document.getElementById('jdpPickupText').textContent || '';
+    var destAddr = document.getElementById('jdpDestInput').value || _jdpDestAddress;
+    var pickupNote = String(document.getElementById('jdpPickupNote').value || '').trim();
+    var destNote = String(document.getElementById('jdpDestNote').value || '').trim();
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Mencari driver...';
+
+    var desc = 'Barang: ' + itemDesc
+        + '\nBerat: ' + weightKg.toFixed(1) + ' kg'
+        + '\nJemput: ' + pickupAddr
+        + '\nAntar: ' + destAddr
+        + '\nJarak: ' + _jdpRouteDistKm.toFixed(1) + ' km';
+    if (pickupNote) desc += '\nCatatan Jemput: ' + pickupNote;
+    if (destNote) desc += '\nCatatan Antar: ' + destNote;
+
+    var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+    var orderData = {
+        action: 'createOrder',
+        id: orderId,
+        userId: session.id,
+        talentId: '',
+        skillType: 'js_delivery',
+        serviceType: 'JS Delivery',
+        status: 'searching',
+        description: desc,
+        itemDescription: itemDesc,
+        estimatedWeightKg: weightKg,
+        pickupNote: pickupNote,
+        destNote: destNote,
+        price: price,
+        distanceFee: distanceFee,
+        overweightFee: weightFee,
+        fee: fee,
+        totalCost: totalCost,
+        paymentMethod: paymentMethod,
+        userLat: _jdpPickupCoords.lat,
+        userLng: _jdpPickupCoords.lng,
+        userAddr: pickupAddr,
+        destLat: _jdpDestCoords.lat,
+        destLng: _jdpDestCoords.lng,
+        destAddr: destAddr,
+        distanceKm: _jdpRouteDistKm
+    };
+
+    backendPost(orderData).then(function (res) {
+        if (res && res.success && res.data) {
+            var order = res.data;
+            closeJSDeliveryPage();
+            openOrderTracking(order);
+            searchNearbyDriver(order);
+        } else {
+            btn.disabled = false;
+            btn.textContent = '📦 Cari Driver — ' + formatRupiah(totalCost);
+            showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'coba lagi'), 'error');
+        }
+    }).catch(function () {
+        btn.disabled = false;
+        btn.textContent = '📦 Cari Driver — ' + formatRupiah(totalCost);
+        showToast('Koneksi error, coba lagi', 'error');
+    });
+}
+
 // ── Search for nearest online driver ──
 var _searchDriverTimer = null;
 var _searchDriverAttempts = 0;
@@ -2111,10 +2784,22 @@ function _doSearchDriver(order) {
         var nearest = res.data[0];
         var distText = nearest.distance < 1 ? (nearest.distance * 1000).toFixed(0) + 'm' : nearest.distance.toFixed(1) + 'km';
         var isProduct = !!order.sellerId;
-        var notifTitle = isProduct ? '📦 Pesanan Ambil & Antar!' : '🏍️ Pesanan JS Antar Baru!';
-        var notifDesc = isProduct
-            ? 'Ambil di ' + (order.storeName || 'Toko') + ' (' + distText + ') - ' + formatRupiah(order.deliveryFee || order.price)
-            : 'Jarak ' + distText + ' - ' + formatRupiah(order.price);
+        var isDelivery = order.skillType === 'js_delivery';
+        var notifTitle = isProduct
+            ? '📦 Pesanan Ambil & Antar!'
+            : (isDelivery ? '📦 Pesanan JS Delivery Baru!' : '🏍️ Pesanan JS Antar Baru!');
+        var notifDesc = '';
+        if (isProduct) {
+            notifDesc = 'Ambil di ' + (order.storeName || 'Toko') + ' (' + distText + ') - ' + formatRupiah(order.deliveryFee || order.price);
+        } else if (isDelivery) {
+            var wt = Number(order.estimatedWeightKg) || 0;
+            var wtText = wt > 0 ? (wt.toFixed(1) + ' kg') : '-';
+            var itemShort = String(order.itemDescription || '').trim();
+            if (itemShort.length > 36) itemShort = itemShort.slice(0, 33) + '...';
+            notifDesc = (itemShort ? (itemShort + ' • ') : '') + 'Berat ' + wtText + ' • Jarak ' + distText + ' • Total ' + formatRupiah(order.totalCost || (order.price + (order.fee || 0)));
+        } else {
+            notifDesc = 'Jarak ' + distText + ' - ' + formatRupiah(order.price);
+        }
 
         backendPost({
             action: 'updateOrder',

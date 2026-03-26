@@ -1639,6 +1639,147 @@
         </div>
     </div>
 
+    <!-- ════════════════════════════════════════ -->
+    <!-- ════════  JS DELIVERY PAGE  ═══════════ -->
+    <!-- ════════════════════════════════════════ -->
+    <div id="jsDeliveryPage" class="stp-page hidden">
+        <div class="jap-header">
+            <button class="stp-back" id="jdpBtnBack">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="jap-header-info">
+                <h2>📦 JS Delivery</h2>
+                <span class="stp-subtitle">Kirim Barang Cepat</span>
+            </div>
+        </div>
+
+        <div class="jap-map-wrap">
+            <div id="jdpMap" class="jap-map"></div>
+            <div class="jap-map-top-card" id="jdpMapTopCard">
+                <div class="jap-top-route-mode" id="jdpTopRouteMode">
+                    <div class="jap-map-top-row">
+                        <span class="jap-map-top-icon pickup">↑</span>
+                        <div class="jap-map-top-text">
+                            <div class="jap-map-top-title">Titik Jemput</div>
+                            <div id="jdpTopPickupText" class="jap-map-top-address">Mendeteksi lokasi...</div>
+                        </div>
+                    </div>
+                    <div class="jap-map-top-divider"></div>
+                    <div class="jap-map-top-row">
+                        <span class="jap-map-top-icon dropoff"></span>
+                        <div class="jap-map-top-text">
+                            <div class="jap-map-top-title">Titik Antar</div>
+                            <div id="jdpTopDestText" class="jap-map-top-address">Tambah tujuan</div>
+                        </div>
+                        <button type="button" id="jdpTopAddBtn" class="jap-map-top-add">Tambah</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="jap-sheet" id="jdpSheet">
+            <div class="jap-sheet-handle" id="jdpSheetHandle"><div class="jap-sheet-handle-bar"></div></div>
+            <div class="jap-sheet-scroll">
+                <div class="jap-input-group">
+                    <div class="jap-dot jap-dot-dest"></div>
+                    <div class="jap-input-wrap">
+                        <label class="jap-input-label">Deskripsi Barang</label>
+                        <textarea id="jdpItemDesc" class="form-textarea" rows="2" placeholder="Contoh: Dokumen penting dalam map plastik"></textarea>
+                    </div>
+                </div>
+
+                <div class="jap-input-group">
+                    <div class="jap-dot jap-dot-pickup"></div>
+                    <div class="jap-input-wrap">
+                        <label class="jap-input-label">Berat Estimasi (kg)</label>
+                        <div class="input-wrap"><input type="number" id="jdpWeightInput" min="0.1" step="0.1" placeholder="Maks 5 kg tanpa surcharge"></div>
+                        <span class="jap-info-label-sm" id="jdpWeightHint" style="color:#6B7280; margin-top:6px; display:block;">Lebih dari 5 kg dikenakan Rp 2.000/kg</span>
+                    </div>
+                </div>
+
+                <div class="jap-input-group jap-input-group--pickup">
+                    <div class="jap-dot jap-dot-pickup"></div>
+                    <div class="jap-input-wrap">
+                        <label class="jap-input-label">Titik Jemput Barang</label>
+                        <div class="jap-addr-row"><span id="jdpPickupText" class="jap-addr-text">📍 Mendeteksi lokasi...</span></div>
+                        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+                            <button type="button" id="jdpBtnPickPickupOnMap" class="jap-pick-map-btn" title="Pilih titik jemput di peta">🗺️ Pilih di Peta</button>
+                        </div>
+                        <input type="text" id="jdpPickupNote" class="jap-dest-input" style="margin-top:8px;" placeholder="Catatan jemput (opsional)">
+                    </div>
+                </div>
+
+                <div class="jap-line"></div>
+
+                <div class="jap-input-group">
+                    <div class="jap-dot jap-dot-dest"></div>
+                    <div class="jap-input-wrap">
+                        <label class="jap-input-label">Titik Antar</label>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <input type="text" id="jdpDestInput" class="jap-dest-input" style="flex:1" placeholder="Ketik alamat tujuan..." autocomplete="off">
+                            <button type="button" id="jdpBtnPickDestOnMap" class="jap-pick-map-btn" title="Pilih titik antar di peta">🗺️</button>
+                        </div>
+                        <div id="jdpDestSuggestions" class="jap-suggestions hidden"></div>
+                        <input type="text" id="jdpDestNote" class="jap-dest-input" style="margin-top:8px;" placeholder="Catatan antar (opsional)">
+                    </div>
+                </div>
+
+                <div id="jdpMapPickHint" class="jap-map-pick-hint hidden">👆 Ketuk peta untuk menentukan titik &nbsp;<button type="button" id="jdpBtnCancelMapPick" class="jap-cancel-pick">Batal</button></div>
+
+                <div class="jap-info-row hidden" id="jdpInfoRow">
+                    <div class="jap-info-item">
+                        <span class="jap-info-icon">📏</span>
+                        <div>
+                            <span class="jap-info-val" id="jdpDistance">-</span>
+                            <span class="jap-info-label-sm">Jarak</span>
+                        </div>
+                    </div>
+                    <div class="jap-info-divider"></div>
+                    <div class="jap-info-item">
+                        <span class="jap-info-icon">⏱️</span>
+                        <div>
+                            <span class="jap-info-val" id="jdpEta">-</span>
+                            <span class="jap-info-label-sm">Estimasi</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="jap-price-breakdown hidden" id="jdpPriceBreakdown">
+                    <div class="jap-pb-title">Rincian Biaya Delivery</div>
+                    <div class="jap-pb-row"><span>Biaya Jarak</span><span id="jdpPbDistance">-</span></div>
+                    <div class="jap-pb-row"><span>Biaya Tambahan Berat</span><span id="jdpPbWeight">-</span></div>
+                    <div class="jap-pb-row"><span>Biaya Platform</span><span id="jdpPbFee">-</span></div>
+                    <div class="jap-pb-divider"></div>
+                    <div class="jap-pb-row jap-pb-total"><span>Total Bayar</span><span id="jdpPbTotal">-</span></div>
+                </div>
+
+                <div class="jap-pay-method hidden" id="jdpPayMethod">
+                    <div class="jap-pm-label">Metode Pembayaran</div>
+                    <div class="jap-pm-options">
+                        <button class="jap-pm-btn active" id="jdpPmJspay" data-method="jspay">
+                            <span class="jap-pm-icon">💳</span>
+                            <div class="jap-pm-info">
+                                <span class="jap-pm-name">JsPay</span>
+                                <span class="jap-pm-desc">Saldo: <span id="jdpPmBalance">Rp 0</span></span>
+                            </div>
+                            <span class="jap-pm-check">✓</span>
+                        </button>
+                        <button class="jap-pm-btn" id="jdpPmCod" data-method="cod">
+                            <span class="jap-pm-icon">💵</span>
+                            <div class="jap-pm-info">
+                                <span class="jap-pm-name">Tunai (COD)</span>
+                                <span class="jap-pm-desc">Bayar langsung ke driver</span>
+                            </div>
+                            <span class="jap-pm-check">✓</span>
+                        </button>
+                    </div>
+                </div>
+
+                <button class="btn-primary" id="jdpBtnOrder" style="margin-top:12px;" disabled>📦 Cari Driver</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ===== NOTIFICATION POPUP ===== -->
     <div id="notifPopup" class="notif-popup hidden">
         <div class="notif-popup-overlay" id="notifPopupOverlay"></div>
