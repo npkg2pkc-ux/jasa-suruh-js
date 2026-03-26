@@ -1208,6 +1208,7 @@ function getTrackingRouteEndpoints(order) {
     var driverLng = Number(order.talentLng);
     var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
     var isAntar = order.skillType === 'js_antar';
+    var isDelivery = order.skillType === 'js_delivery';
     var storeCoords = isProductOrder ? getOrderStoreCoords(order) : null;
 
     if (!isValidLatLng(driverLat, driverLng)) {
@@ -1254,7 +1255,7 @@ function getTrackingRouteEndpoints(order) {
         return null;
     }
 
-    if (isAntar) {
+    if (isAntar || isDelivery) {
         var destLat = Number(order.destLat);
         var destLng = Number(order.destLng);
         var goingToDestination = ['in_progress', 'completed', 'rated'].indexOf(order.status) >= 0;
@@ -1282,6 +1283,7 @@ function getTrackingRouteEndpoints(order) {
 function buildTrackingProgressSteps(order) {
     var isProductOrder = !!(order && (order.skillType === 'js_food' || order.sellerId));
     var isAntar = !!(order && order.skillType === 'js_antar');
+    var isDelivery = !!(order && order.skillType === 'js_delivery');
     if (isProductOrder) {
         return [
             { key: 'pending_seller', icon: '🧾', text: 'Menunggu penjual menerima pesanan' },
@@ -1294,6 +1296,18 @@ function buildTrackingProgressSteps(order) {
             { key: 'in_progress', icon: '🛵', text: 'Driver menuju lokasimu' },
             { key: 'completed', icon: '📦', text: 'Pesanan sampai ke pembeli' },
             { key: 'rated', icon: '⭐', text: 'Pesanan selesai dinilai' }
+        ];
+    }
+    if (isDelivery) {
+        return [
+            { key: 'searching', icon: '🔎', text: 'Mencari driver delivery terdekat' },
+            { key: 'pending', icon: '📲', text: 'Menunggu driver menerima order delivery' },
+            { key: 'accepted', icon: '✅', text: 'Driver menerima order delivery' },
+            { key: 'on_the_way', icon: '🛵', text: 'Driver menuju titik jemput barang' },
+            { key: 'arrived', icon: '📍', text: 'Driver tiba di titik jemput barang' },
+            { key: 'in_progress', icon: '📦', text: 'Barang diantar ke titik tujuan' },
+            { key: 'completed', icon: '🏁', text: 'Barang sampai di titik antar' },
+            { key: 'rated', icon: '⭐', text: 'Pesanan delivery selesai dinilai' }
         ];
     }
     return [
@@ -1471,16 +1485,30 @@ function renderTrackingMapRouteCard(order, animate) {
     var seller = users.find(function (u) { return String(u.id) === String(order.sellerId); }) || null;
     var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
     var isAntar = order.skillType === 'js_antar';
+    var isDelivery = order.skillType === 'js_delivery';
+    var isRideFlow = isAntar || isDelivery;
     var storeName = String(order.storeName || (seller && seller.name) || 'Toko').trim();
     var storeAddr = String(order.storeAddr || (seller && seller.address) || '').trim();
 
     var pickupAddress = isProductOrder ? (storeAddr || 'Lokasi toko') : String(order.userAddr || 'Lokasi jemput').trim();
-    var dropAddress = isAntar
+    var dropAddress = isRideFlow
         ? String(order.destAddr || order.userAddr || 'Lokasi antar').trim()
         : String((buyer && buyer.address) || order.userAddr || 'Lokasi pembeli').trim();
 
-    var pickupTitle = isProductOrder ? ('Ambil di ' + storeName) : 'Titik Jemput';
-    var dropTitle = isProductOrder ? ((buyer && buyer.name) ? ('Antar ke ' + buyer.name) : 'Lokasi Pembeli') : 'Titik Antar';
+    var pickupTitle = isProductOrder
+        ? ('Ambil di ' + storeName)
+        : (isDelivery ? 'Titik Jemput Barang' : 'Titik Jemput');
+    var dropTitle = isProductOrder
+        ? ((buyer && buyer.name) ? ('Antar ke ' + buyer.name) : 'Lokasi Pembeli')
+        : (isDelivery ? 'Titik Antar Barang' : 'Titik Antar');
+
+    var deliveryStage = '';
+    if (isDelivery) {
+        if (order.status === 'on_the_way') deliveryStage = 'Menuju Jemput';
+        else if (order.status === 'arrived') deliveryStage = 'Pickup Barang';
+        else if (order.status === 'in_progress') deliveryStage = 'Menuju Antar';
+        else if (order.status === 'completed' || order.status === 'rated') deliveryStage = 'Terkirim';
+    }
 
     var speedLabel = _otpSpeedKmh > 2 ? (Math.round(_otpSpeedKmh) + ' km/j') : '';
     var etaLabel = _otpEtaMin > 0 ? (_otpEtaMin + ' mnt') : '';
@@ -1501,6 +1529,7 @@ function renderTrackingMapRouteCard(order, animate) {
         + '</div>'
         + '<span class="otp-speed-badge' + (speedLabel ? '' : ' hidden') + '">⚡ ' + escapeHtml(speedLabel) + '</span>'
         + '<span class="otp-eta-badge' + (etaLabel ? '' : ' hidden') + '">⏱ ' + escapeHtml(etaLabel) + '</span>'
+        + '<span class="otp-delivery-chip' + (deliveryStage ? '' : ' hidden') + '">📦 ' + escapeHtml(deliveryStage) + '</span>'
         + '<span class="otp-follow-badge' + (followOn ? '' : ' paused') + '">' + (followOn ? '📍 Auto' : '✋ Pause') + '</span>'
         + '</div>';
     card.classList.remove('hidden');
@@ -1681,6 +1710,7 @@ function updateOrderStatusBadge(status) {
     var badge = document.getElementById('otpStatus');
     if (!badge) return;
     var isAntar = _currentOrder && _currentOrder.skillType === 'js_antar';
+    var isDelivery = _currentOrder && _currentOrder.skillType === 'js_delivery';
     var isProductOrder = _currentOrder && (_currentOrder.skillType === 'js_food' || _currentOrder.sellerId);
     var TRACKING_STATUS = isAntar ? {
         searching: 'Mencari Driver...',
@@ -1690,6 +1720,17 @@ function updateOrderStatusBadge(status) {
         arrived: 'Driver Tiba',
         in_progress: 'Dalam Perjalanan',
         completed: 'Sampai Tujuan',
+        rated: 'Sudah Dinilai',
+        cancelled: 'Dibatalkan',
+        rejected: 'Ditolak'
+    } : isDelivery ? {
+        searching: 'Mencari Driver Delivery...',
+        pending: 'Menunggu Konfirmasi Driver',
+        accepted: 'Driver Delivery Ditemukan',
+        on_the_way: 'Driver Menuju Titik Jemput',
+        arrived: 'Driver di Titik Jemput',
+        in_progress: 'Barang Menuju Titik Antar',
+        completed: 'Barang Terkirim',
         rated: 'Sudah Dinilai',
         cancelled: 'Dibatalkan',
         rejected: 'Ditolak'
@@ -2135,6 +2176,8 @@ function renderOrderActions(order, isTalent, isUser) {
     if (!el) return;
     el.innerHTML = '';
     var isAntar = order.skillType === 'js_antar';
+    var isDelivery = order.skillType === 'js_delivery';
+    var isRideFlow = isAntar || isDelivery;
     var isProductOrder = order.skillType === 'js_food' || order.sellerId;
     var session = getSession();
     var isSeller = session && String(session.id) === String(order.sellerId);
@@ -2310,7 +2353,7 @@ function renderOrderActions(order, isTalent, isUser) {
                 });
             });
         } else if (order.status === 'accepted') {
-            var otwLabel = isAntar ? 'Menuju Lokasi Jemput' : 'Menuju Lokasi';
+            var otwLabel = isAntar ? 'Menuju Lokasi Jemput' : (isDelivery ? 'Menuju Titik Jemput Barang' : 'Menuju Lokasi');
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnOtw">' + otwLabel + '</button>';
             document.getElementById('otpBtnOtw').addEventListener('click', function () { updateOrderStatus(order.id, 'on_the_way', {}); startTalentLocationBroadcast(order.id); });
         } else if (order.status === 'on_the_way' && isProductOrder) {
@@ -2337,20 +2380,20 @@ function renderOrderActions(order, isTalent, isUser) {
                 this.value = '';
             });
         } else if (order.status === 'on_the_way') {
-            var arriveLabel = isAntar ? 'Sudah di Lokasi Jemput' : 'Sudah Tiba';
+            var arriveLabel = isAntar ? 'Sudah di Lokasi Jemput' : (isDelivery ? 'Sudah di Titik Jemput Barang' : 'Sudah Tiba');
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnArrive">' + arriveLabel + '</button>';
             document.getElementById('otpBtnArrive').addEventListener('click', function () { updateOrderStatus(order.id, 'arrived', {}); });
         } else if (order.status === 'arrived') {
-            var startLabel = isAntar ? 'Mulai Perjalanan' : 'Mulai Mengerjakan';
+            var startLabel = isAntar ? 'Mulai Perjalanan' : (isDelivery ? 'Mulai Antar ke Titik Tujuan' : 'Mulai Mengerjakan');
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnStart">' + startLabel + '</button>';
             document.getElementById('otpBtnStart').addEventListener('click', function () { updateOrderStatus(order.id, 'in_progress', { startedAt: Date.now() }); });
         } else if (order.status === 'in_progress') {
-            var completeLabel = isAntar ? 'Sampai Tujuan' : 'Selesai + Upload Bukti';
-            el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnComplete">' + completeLabel + '</button>' + (isAntar ? '' : '<input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">');
-            if (isAntar) {
-                // JS Antar: no photo proof needed, just mark complete
+            var completeLabel = isRideFlow ? 'Sampai Tujuan' : 'Selesai + Upload Bukti';
+            el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnComplete">' + completeLabel + '</button>' + (isRideFlow ? '' : '<input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">');
+            if (isRideFlow) {
                 document.getElementById('otpBtnComplete').addEventListener('click', function () {
-                    if (!confirm('Konfirmasi penumpang sudah sampai tujuan?')) return;
+                    var msg = isAntar ? 'Konfirmasi penumpang sudah sampai tujuan?' : 'Konfirmasi barang sudah sampai di titik antar?';
+                    if (!confirm(msg)) return;
                     updateOrderStatus(order.id, 'completed', { completedAt: Date.now() });
                 });
             } else {
@@ -2422,9 +2465,12 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
             var notifOrder = isCurrentOrderTarget ? _currentOrder : null;
             if (notifOrder) {
                 var isAntarOrder = notifOrder.skillType === 'js_antar';
+                var isDeliveryOrder = notifOrder.skillType === 'js_delivery';
                 var statusLabels = isAntarOrder
                     ? { accepted: 'Driver Ditemukan', on_the_way: 'Driver Menuju Lokasi', arrived: 'Driver Tiba', in_progress: 'Dalam Perjalanan', completed: 'Sampai Tujuan' }
-                    : { accepted: 'Diterima', on_the_way: 'Dalam Perjalanan', arrived: 'Talent Tiba', in_progress: 'Dikerjakan', completed: 'Selesai' };
+                    : (isDeliveryOrder
+                        ? { accepted: 'Driver Delivery Ditemukan', on_the_way: 'Driver Menuju Jemput', arrived: 'Driver di Titik Jemput', in_progress: 'Menuju Titik Antar', completed: 'Barang Terkirim' }
+                        : { accepted: 'Diterima', on_the_way: 'Dalam Perjalanan', arrived: 'Talent Tiba', in_progress: 'Dikerjakan', completed: 'Selesai' });
                 var label = statusLabels[newStatus] || newStatus;
                 var svc = notifOrder.serviceType || notifOrder.skillType || 'Pesanan';
                 // Notify the other party
