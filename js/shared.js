@@ -3339,39 +3339,39 @@ function _talentOrderTimestamp(order) {
     return Number(order.completedAt || order.ratedAt || order.updatedAt || order.createdAt || 0);
 }
 
-function _buildTalentEarningsData(orders, talentId) {
-    function _getDriverNetIncome(order) {
-        if (!order) return 0;
+function _getDriverNetIncome(order) {
+    if (!order) return 0;
 
-        var isProductDelivery = !!(order.sellerId && String(order.sellerId) !== String(order.talentId));
-        var subtotal = Number(order.price) || 0;
-        var deliveryFee = Number(order.deliveryFee) || 0;
-        var platformFee = Number(order.fee) || 0;
-        var paymentMethod = String(order.paymentMethod || 'jspay').toLowerCase();
-        var isCOD = paymentMethod === 'cod';
+    var isProductDelivery = !!(order.sellerId && String(order.sellerId) !== String(order.talentId));
+    var subtotal = Number(order.price) || 0;
+    var deliveryFee = Number(order.deliveryFee) || 0;
+    var platformFee = Number(order.fee) || 0;
+    var paymentMethod = String(order.paymentMethod || 'jspay').toLowerCase();
+    var isCOD = paymentMethod === 'cod';
 
-        var defaultCommissionPercent = isProductDelivery ? 10 : 15;
-        var commissionPercent = Number(order.commissionPercent);
-        if (!isFinite(commissionPercent) || commissionPercent < 0) {
-            commissionPercent = defaultCommissionPercent;
-        }
-
-        var commissionAmount = Number(order.commissionAmount);
-        if (!isFinite(commissionAmount) || commissionAmount < 0) {
-            commissionAmount = Math.round(subtotal * commissionPercent / 100);
-        }
-
-        var grossDriverIncome = isProductDelivery ? deliveryFee : subtotal;
-        var driverDeduction = 0;
-        if (isCOD) {
-            driverDeduction = platformFee + commissionAmount;
-        } else if (!isProductDelivery) {
-            driverDeduction = commissionAmount;
-        }
-
-        return grossDriverIncome - driverDeduction;
+    var defaultCommissionPercent = isProductDelivery ? 10 : 15;
+    var commissionPercent = Number(order.commissionPercent);
+    if (!isFinite(commissionPercent) || commissionPercent < 0) {
+        commissionPercent = defaultCommissionPercent;
     }
 
+    var commissionAmount = Number(order.commissionAmount);
+    if (!isFinite(commissionAmount) || commissionAmount < 0) {
+        commissionAmount = Math.round(subtotal * commissionPercent / 100);
+    }
+
+    var grossDriverIncome = isProductDelivery ? deliveryFee : subtotal;
+    var driverDeduction = 0;
+    if (isCOD) {
+        driverDeduction = platformFee + commissionAmount;
+    } else if (!isProductDelivery) {
+        driverDeduction = commissionAmount;
+    }
+
+    return grossDriverIncome - driverDeduction;
+}
+
+function _buildTalentEarningsData(orders, talentId) {
     var myCompleted = orders.filter(function (o) {
         return o.talentId === talentId && (o.status === 'completed' || o.status === 'rated');
     });
