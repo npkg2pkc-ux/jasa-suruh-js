@@ -1310,6 +1310,18 @@ function buildTrackingProgressSteps(order) {
             { key: 'rated', icon: '⭐', text: 'Pesanan delivery selesai dinilai' }
         ];
     }
+    if (isAntar) {
+        return [
+            { key: 'searching', icon: '🔎', text: 'Mencari driver terdekat' },
+            { key: 'pending', icon: '📲', text: 'Menunggu konfirmasi driver' },
+            { key: 'accepted', icon: '✅', text: 'Driver menerima pesanan' },
+            { key: 'on_the_way', icon: '🏍️', text: 'Driver menuju titik jemput' },
+            { key: 'arrived', icon: '📍', text: 'Driver tiba di titik jemput' },
+            { key: 'in_progress', icon: '🛵', text: 'Menuju titik antar' },
+            { key: 'completed', icon: '🏁', text: 'Pesanan Anda telah selesai' },
+            { key: 'rated', icon: '⭐', text: 'Pesanan selesai dinilai' }
+        ];
+    }
     return [
         { key: 'searching', icon: '🔎', text: isAntar ? 'Mencari driver terdekat' : 'Mencari talent terdekat' },
         { key: 'pending', icon: '📲', text: 'Menunggu konfirmasi' },
