@@ -892,13 +892,23 @@ function _currentRolePushIds(role) {
     return null;
 }
 
-function _setRolePushMiniStatus(role, text, state, showButton, buttonText, buttonDisabled) {
+function _shortPushEndpoint(endpoint) {
+    if (!endpoint) return '';
+    try {
+        return new URL(endpoint).host || '';
+    } catch (e) {
+        return String(endpoint).slice(0, 28);
+    }
+}
+
+function _setRolePushMiniStatus(role, text, state, showButton, buttonText, buttonDisabled, endpointTitle) {
     var ids = _currentRolePushIds(role);
     if (!ids) return;
 
     var statusEl = document.getElementById(ids.statusId);
     if (statusEl) {
         statusEl.textContent = text;
+        statusEl.title = endpointTitle || '';
         statusEl.classList.remove('is-active', 'is-warning', 'is-error', 'is-checking');
         if (state) statusEl.classList.add(state);
     }
@@ -951,7 +961,12 @@ function _refreshRolePushMiniStatus(forceEnsure) {
         })
         .then(function (sub) {
             if (sub) {
-                _setRolePushMiniStatus(role, 'Push aktif realtime', 'is-active', false, '', false);
+                var endpointFull = String(sub.endpoint || '');
+                var endpointShort = _shortPushEndpoint(endpointFull);
+                var activeText = endpointShort
+                    ? ('Push aktif realtime · ' + endpointShort)
+                    : 'Push aktif realtime';
+                _setRolePushMiniStatus(role, activeText, 'is-active', false, '', false, endpointFull);
                 return true;
             }
             if (_pushRetryTimer && String(_pushRetryUserId || '') === String(session.id)) {
