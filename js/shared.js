@@ -881,6 +881,92 @@ var _notifPollTimer = null;
 var _pushSetupPromise = null;
 var _pushPermissionHooked = false;
 var _pushVisibilityHooked = false;
+var _pushRetryTimer = null;
+var _pushRetryAttempt = 0;
+var _pushRetryUserId = null;
+
+function _clearPushRetryState() {
+    if (_pushRetryTimer) {
+        clearTimeout(_pushRetryTimer);
+        _pushRetryTimer = null;
+    }
+    _pushRetryAttempt = 0;
+    _pushRetryUserId = null;
+}
+
+function _schedulePushRetry(session, reason) {
+    if (!session || !session.id) return;
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (_pushRetryTimer) return;
+
+    if (_pushRetryUserId && String(_pushRetryUserId) !== String(session.id)) {
+        _clearPushRetryState();
+    }
+    _pushRetryUserId = session.id;
+    _pushRetryAttempt += 1;
+
+    var baseDelay = 2000;
+    var maxDelay = 120000;
+    var jitter = Math.floor(Math.random() * 700);
+    var delay = Math.min(maxDelay, (baseDelay * Math.pow(2, _pushRetryAttempt - 1)) + jitter);
+
+    _pushRetryTimer = setTimeout(function () {
+        _pushRetryTimer = null;
+        var latest = getSession();
+        if (!latest || String(latest.id) !== String(session.id)) {
+            _clearPushRetryState();
+            return;
+        }
+        _ensurePushSubscriptionWithRetry(latest, { reason: reason || 'retry', askPermission: false });
+    }, delay);
+}
+
+function _ensurePushSubscriptionWithRetry(session, options) {
+    options = options || {};
+    if (!session || !session.id) {
+        _clearPushRetryState();
+        return Promise.resolve(false);
+    }
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        _clearPushRetryState();
+        return Promise.resolve(false);
+    }
+
+    if (_pushRetryUserId && String(_pushRetryUserId) !== String(session.id)) {
+        _clearPushRetryState();
+    }
+
+    var askPermission = !!options.askPermission;
+    if (Notification.permission === 'default') {
+        if (!askPermission) return Promise.resolve(false);
+        return Notification.requestPermission()
+            .then(function (perm) {
+                if (perm !== 'granted') {
+                    _clearPushRetryState();
+                    return false;
+                }
+                return _ensurePushSubscriptionWithRetry(session, { reason: options.reason || 'permission-granted' });
+            })
+            .catch(function () { return false; });
+    }
+
+    if (Notification.permission !== 'granted') {
+        _clearPushRetryState();
+        return Promise.resolve(false);
+    }
+
+    return _ensurePushSubscription(session).then(function (ok) {
+        if (ok) {
+            _clearPushRetryState();
+            return true;
+        }
+        _schedulePushRetry(session, options.reason || 'subscription-failed');
+        return false;
+    }).catch(function () {
+        _schedulePushRetry(session, options.reason || 'subscription-error');
+        return false;
+    });
+}
 
 var _prevUnreadCount = 0;
 function initNotifications() {
@@ -891,7 +977,7 @@ function initNotifications() {
     _prevUnreadCount = 0;
 
     _setupPushPermissionFlow(session);
-    _ensurePushSubscription(session);
+    _ensurePushSubscriptionWithRetry(session, { reason: 'init-notifications' });
 
     // Try realtime first, fall back to polling
     _notifUnsub = FB.onNotifications(session.id, function (items) {
@@ -921,14 +1007,12 @@ function _setupPushPermissionFlow(session) {
             if (!s || !s.id) return;
 
             if (Notification.permission === 'granted') {
-                _ensurePushSubscription(s);
+                _ensurePushSubscriptionWithRetry(s, { reason: 'user-gesture' });
                 return;
             }
 
             if (Notification.permission === 'default') {
-                Notification.requestPermission().then(function (perm) {
-                    if (perm === 'granted') _ensurePushSubscription(s);
-                }).catch(function () {});
+                _ensurePushSubscriptionWithRetry(s, { reason: 'user-gesture-permission', askPermission: true });
             }
         };
 
@@ -943,13 +1027,13 @@ function _setupPushPermissionFlow(session) {
             if (document.visibilityState !== 'visible') return;
             var s = getSession();
             if (!s || !s.id) return;
-            if (Notification.permission === 'granted') _ensurePushSubscription(s);
+            if (Notification.permission === 'granted') _ensurePushSubscriptionWithRetry(s, { reason: 'visibility' });
         });
 
         window.addEventListener('focus', function () {
             var s = getSession();
             if (!s || !s.id) return;
-            if (Notification.permission === 'granted') _ensurePushSubscription(s);
+            if (Notification.permission === 'granted') _ensurePushSubscriptionWithRetry(s, { reason: 'focus' });
         });
     }
 }
@@ -1016,6 +1100,16 @@ function ensurePushSubscriptionForCurrentUser() {
     return _ensurePushSubscription(session);
 }
 window.ensurePushSubscriptionForCurrentUser = ensurePushSubscriptionForCurrentUser;
+
+function primePushForCurrentUser(askPermission) {
+    var session = getSession();
+    if (!session || !session.id) return Promise.resolve(false);
+    return _ensurePushSubscriptionWithRetry(session, {
+        reason: 'manual-prime',
+        askPermission: !!askPermission
+    });
+}
+window.primePushForCurrentUser = primePushForCurrentUser;
 
 function _postServiceWorkerNotification(payload) {
     if (!payload || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;

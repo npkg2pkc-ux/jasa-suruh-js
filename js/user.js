@@ -12,7 +12,12 @@ function setupUserNotifBtn(userId) {
     if (!btn) return;
     if (!btn._eventsSetup) {
         btn._eventsSetup = true;
-        btn.addEventListener('click', function () { openNotifPopup(); });
+        btn.addEventListener('click', function () {
+            openNotifPopup();
+            if (typeof window.primePushForCurrentUser === 'function') {
+                window.primePushForCurrentUser(true);
+            }
+        });
     }
     // initNotifications() is called from core.js updateRoleUI() for all roles
 }

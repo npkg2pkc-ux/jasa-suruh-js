@@ -44,7 +44,12 @@ function init() {
 
     // Penjual: notif button
     var penjualNotifBtn = document.getElementById('penjualNotifBtn');
-    if (penjualNotifBtn) penjualNotifBtn.addEventListener('click', function () { openNotifPopup(); });
+    if (penjualNotifBtn) penjualNotifBtn.addEventListener('click', function () {
+        openNotifPopup();
+        if (typeof window.primePushForCurrentUser === 'function') {
+            window.primePushForCurrentUser(true);
+        }
+    });
 
     // Penjual: add product button
     var btnAddProduct = document.getElementById('btnAddProduct');
