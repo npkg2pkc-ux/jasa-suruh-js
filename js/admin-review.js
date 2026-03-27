@@ -471,9 +471,9 @@ function _aorpApprove(order, btn, page) {
             }
 
             var pm = order.paymentMethod || 'jspay';
-            var walletPromise;
+            var payoutRequest;
             if (pm === 'cod') {
-                walletPromise = backendPost({
+                payoutRequest = {
                     action: 'walletCompleteOrderCOD',
                     orderId: order.id,
                     talentId: order.talentId,
@@ -482,9 +482,9 @@ function _aorpApprove(order, btn, page) {
                     totalCost: order.totalCost,
                     commissionPercent: commPercent,
                     serviceType: order.serviceType || order.skillType || ''
-                });
+                };
             } else {
-                walletPromise = backendPost({
+                payoutRequest = {
                     action: 'walletCompleteOrder',
                     orderId: order.id,
                     talentId: order.talentId,
@@ -494,6 +494,26 @@ function _aorpApprove(order, btn, page) {
                     fee: order.fee,
                     commissionPercent: commPercent,
                     serviceType: order.serviceType || order.skillType || ''
+                };
+            }
+
+            function runPayoutWithRetry() {
+                return backendPost(payoutRequest).then(function (walletRes) {
+                    if (walletRes && walletRes.success) return walletRes;
+                    var msg = (walletRes && walletRes.message) ? String(walletRes.message) : 'Pencairan gagal diproses';
+                    if (msg.toLowerCase().indexOf('belum disetujui admin') >= 0) {
+                        return new Promise(function (resolve) {
+                            setTimeout(function () {
+                                backendPost(payoutRequest).then(resolve).catch(function (err) { resolve({ success: false, message: (err && err.message) || msg }); });
+                            }, 450);
+                        }).then(function (retryRes) {
+                            if (!retryRes || !retryRes.success) {
+                                throw new Error((retryRes && retryRes.message) ? retryRes.message : msg);
+                            }
+                            return retryRes;
+                        });
+                    }
+                    throw new Error(msg);
                 });
             }
 
@@ -516,11 +536,7 @@ function _aorpApprove(order, btn, page) {
                     throw new Error((approveRes && approveRes.message) ? approveRes.message : 'Gagal menyimpan approval admin');
                 }
 
-                return walletPromise.then(function (walletRes) {
-                    if (!walletRes || !walletRes.success) {
-                        throw new Error((walletRes && walletRes.message) ? walletRes.message : 'Pencairan gagal diproses');
-                    }
-                }).catch(function (walletErr) {
+                return runPayoutWithRetry().catch(function (walletErr) {
                     // Rollback to queue so admin can retry when payout backend recovers.
                     return backendPost({
                         action: 'updateOrder',
