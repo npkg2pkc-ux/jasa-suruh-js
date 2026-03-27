@@ -544,6 +544,8 @@ var OwnerDashboard = (function () {
                 _renderAdminWorkPriority(res.data);
                 _renderChart(res.data, 7);
                 _renderActivity(res.data);
+                // Re-render user cards so order-derived stats are visible on first load.
+                renderOwnerUsers();
             }).catch(function () {});
     }
 
@@ -1433,7 +1435,7 @@ var OwnerDashboard = (function () {
 
             var actionBtn = '';
             if (_isAdmin()) {
-                if (u.role === 'talent' || u.role === 'user') {
+                if (u.role === 'talent' || u.role === 'user' || u.role === 'penjual') {
                     actionBtn = '<button class="od-user-action ' + (isActive ? 'is-suspend' : 'is-activate') + '" data-uid="' + u.id + '" data-next-active="' + (isActive ? '0' : '1') + '">'
                         + (isActive ? 'Suspend' : 'Aktifkan')
                         + '</button>';
