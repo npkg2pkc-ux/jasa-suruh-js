@@ -120,6 +120,7 @@ var OwnerDashboard = (function () {
             } else {
                 _renderAdminReviewFocus(_ordersCache);
                 _renderAdminFlow(_ordersCache);
+                _renderAdminReportSummary(_ordersCache);
             }
         }
         if (panel === 'settings' && _isOwner()) {
@@ -213,6 +214,8 @@ var OwnerDashboard = (function () {
                 else if (action === 'staff-list') { if (typeof openStaffManagement === 'function') openStaffManagement('list'); }
                 else if (action === 'view-report') { if (typeof openAdminTransactions === 'function') openAdminTransactions(); }
                 else if (action === 'order-review') { if (typeof openAdminOrderReview === 'function') openAdminOrderReview(); }
+                else if (action === 'activity-latest') { _openOwnerPanel('activity'); }
+                else if (action === 'manage-users') { _openOwnerPanel('users'); }
                 else if (action === 'settings') openOwnerSettings();
             });
         });
@@ -354,19 +357,19 @@ var OwnerDashboard = (function () {
 
         var navActivity = $('ownerNavActivityLabel');
         if (navActivity) {
-            navActivity.textContent = _isOwner() ? 'Aktivitas Terbaru' : 'Order';
+            navActivity.textContent = 'Aktivitas Terbaru';
         }
 
         var activityTitle = $('ownerActivityTitle');
         if (activityTitle) {
-            activityTitle.textContent = _isOwner() ? 'Timeline Aktivitas' : 'Monitoring Semua Order';
+            activityTitle.textContent = _isOwner() ? 'Timeline Aktivitas' : 'Aktivitas Terbaru Sistem';
         }
 
         var activitySubtitle = $('ownerActivitySubtitle');
         if (activitySubtitle) {
             activitySubtitle.textContent = _isOwner()
                 ? 'Dipisah rapi antara aktivitas order dan pengguna'
-                : 'Pantau alur order dari dibuat sampai verifikasi komisi';
+                : 'Pantau order dibuat, order selesai, komisi approve, dan komisi reject';
         }
     }
 
@@ -466,6 +469,7 @@ var OwnerDashboard = (function () {
         _renderAdminReviewFocus(_ordersCache);
         _renderAdminFlow(_ordersCache);
         _renderAdminQuickMonitor(_ordersCache);
+        _renderAdminReportSummary(_ordersCache);
         _renderActivity(_ordersCache);
     }
 
@@ -507,6 +511,7 @@ var OwnerDashboard = (function () {
                 _renderAdminReviewFocus(res.data);
                 _renderAdminFlow(res.data);
                 _renderAdminQuickMonitor(res.data);
+                _renderAdminReportSummary(res.data);
                 _renderChart(res.data, 7);
                 _renderActivity(res.data);
             }).catch(function () {});
@@ -616,6 +621,32 @@ var OwnerDashboard = (function () {
         _setKPIValue('adminFlowPending', pending);
         _setKPIValue('adminFlowApproved', approved);
         _setKPIValue('adminFlowRejected', rejected);
+    }
+
+    function _renderAdminReportSummary(orders) {
+        if (!_isAdmin()) return;
+
+        var list = Array.isArray(orders) ? orders : [];
+        var startToday = _getStartOfTodayTs();
+
+        var totalOrders = list.length;
+        var totalRevenue = list
+            .filter(function (o) { return o.status === 'completed' || o.status === 'rated'; })
+            .reduce(function (sum, o) { return sum + (Number(o.fee) || 0); }, 0);
+
+        var todayOrders = list.filter(function (o) { return Number(o.createdAt || 0) >= startToday; });
+        var todayCompleted = todayOrders.filter(function (o) {
+            return o.status === 'completed' || o.status === 'rated';
+        }).length;
+        var perf = todayOrders.length > 0 ? Math.round((todayCompleted / todayOrders.length) * 100) : 0;
+
+        _setKPIValue('adminReportTotalOrders', totalOrders);
+        var revenueEl = $('adminReportTotalRevenue');
+        if (revenueEl) revenueEl.textContent = formatRp(totalRevenue);
+        var perfEl = $('adminReportDailyPerformance');
+        if (perfEl) {
+            perfEl.textContent = perf + '% selesai hari ini (' + todayCompleted + '/' + todayOrders.length + ' order)';
+        }
     }
 
     function _filterByRange(orders) {
@@ -1056,6 +1087,11 @@ var OwnerDashboard = (function () {
         if (!container) return;
         var allUsers = typeof getUsers === 'function' ? getUsers() : [];
         var users = allUsers.filter(function (u) { return u.role !== 'owner'; });
+        if (_isAdmin()) {
+            users = users.filter(function (u) {
+                return u.role === 'talent' || u.role === 'user';
+            });
+        }
 
         if (users.length === 0) {
             container.innerHTML = '<div class="od-empty"><span>👥</span><p>Belum ada pengguna</p></div>';
@@ -1130,13 +1166,23 @@ var OwnerDashboard = (function () {
             }, 0);
             var joinedAt = Number(u.createdAt || 0);
             var roleText = roleLabels[u.role] || String(u.role || 'User');
-            // Admin can only delete CS, Owner can delete anyone (except owner)
-            var canDelete = _isOwner() || (_currentRole === 'admin' && u.role === 'cs');
-            var deleteBtn = canDelete
-                ? '<button class="od-user-delete" data-uid="' + u.id + '" title="Hapus user">'
+            var isActive = u.is_active !== false;
+            var statusChip = '<span class="od-user-status-chip ' + (isActive ? 'is-active' : 'is-suspended') + '">'
+                + (isActive ? 'Aktif' : 'Suspended')
+                + '</span>';
+
+            var actionBtn = '';
+            if (_isAdmin() && (u.role === 'talent' || u.role === 'user')) {
+                actionBtn = '<button class="od-user-action ' + (isActive ? 'is-suspend' : 'is-activate') + '" data-uid="' + u.id + '" data-next-active="' + (isActive ? '0' : '1') + '">'
+                    + (isActive ? 'Suspend' : 'Aktifkan')
+                    + '</button>';
+            } else {
+                // Owner can delete any non-owner account.
+                actionBtn = '<button class="od-user-delete" data-uid="' + u.id + '" title="Hapus user">'
                     + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-                    + '</button>'
-                : '';
+                    + '</button>';
+            }
+
             var avatarUrl = resolveUserAvatar(u);
             var avatarContent = avatarUrl
                 ? '<span class="od-user-avatar-fallback" style="display:none">' + initial + '</span>'
@@ -1149,11 +1195,12 @@ var OwnerDashboard = (function () {
                 + '<div class="od-user-topline">'
                 + '<div class="od-user-name">' + escapeHtml(displayName) + '</div>'
                 + '<span class="od-user-role-chip ' + (roleChipClass[u.role] || '') + '">' + escapeHtml(roleText) + '</span>'
+                + statusChip
                 + '</div>'
                 + '<div class="od-user-meta">@' + escapeHtml(String(displayUsername)) + '</div>'
                 + '<div class="od-user-submeta">Gabung: ' + escapeHtml(fmtDate(joinedAt)) + '</div>'
                 + '</div>'
-                + deleteBtn
+                + actionBtn
                 + '</div>'
                 + '<div class="od-user-stats-inline">'
                 + '<span><strong>' + userOrders.length + '</strong> Total Order</span>'
@@ -1173,6 +1220,30 @@ var OwnerDashboard = (function () {
                 if (typeof backendPost === 'function') backendPost({ action: 'delete', id: uid });
                 if (typeof showToast === 'function') showToast('Pengguna dihapus', 'success');
                 renderOwnerStats();
+                renderOwnerUsers();
+            });
+        });
+
+        container.querySelectorAll('.od-user-action').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var uid = this.dataset.uid;
+                var nextActive = this.dataset.nextActive === '1';
+                var list = typeof getUsers === 'function' ? getUsers() : [];
+                var idx = list.findIndex(function (u) { return String(u.id) === String(uid); });
+                if (idx < 0) return;
+
+                var user = Object.assign({}, list[idx], {
+                    is_active: nextActive,
+                    suspendedAt: nextActive ? 0 : Date.now()
+                });
+                list[idx] = user;
+                if (typeof saveUsers === 'function') saveUsers(list);
+                if (typeof backendPost === 'function') {
+                    backendPost(Object.assign({ action: 'register' }, user));
+                }
+                if (typeof showToast === 'function') {
+                    showToast(nextActive ? 'Akun diaktifkan kembali' : 'Akun disuspend', 'success');
+                }
                 renderOwnerUsers();
             });
         });

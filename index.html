@@ -646,7 +646,7 @@
                             <section class="od-quick-section">
                                 <div class="od-section-head"><h3 id="ownerQuickTitle">⚡ Aksi Cepat Owner</h3></div>
                                 <div class="od-quick-grid">
-                                    <button class="od-quick-btn od-admin-hide" data-action="add-staff">
+                                    <button class="od-quick-btn od-owner-only" data-action="add-staff">
                                         <div class="od-quick-icon od-qi-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8.5" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
                                         <span class="od-quick-title">Tambah Staff</span>
                                         <span class="od-quick-desc">Buat akun admin/CS</span>
@@ -654,23 +654,46 @@
                                     <button class="od-quick-btn" data-action="staff-list">
                                         <div class="od-quick-icon od-qi-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
                                         <span class="od-quick-title">Kelola Staff</span>
-                                        <span class="od-quick-desc">Edit data & status</span>
+                                        <span class="od-quick-desc">Tambah admin, role, aktif/nonaktif</span>
                                     </button>
-                                    <button class="od-quick-btn od-admin-hide" data-action="view-report">
+                                    <button class="od-quick-btn od-admin-only" data-action="activity-latest">
+                                        <div class="od-quick-icon od-qi-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 12h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 6h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+                                        <span class="od-quick-title">Aktivitas Terbaru</span>
+                                        <span class="od-quick-desc">Order dibuat, selesai, approve, reject</span>
+                                    </button>
+                                    <button class="od-quick-btn od-admin-only" data-action="manage-users">
+                                        <div class="od-quick-icon od-qi-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 8v6M20 11h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+                                        <span class="od-quick-title">Kelola Pengguna</span>
+                                        <span class="od-quick-desc">Suspend/aktifkan driver & customer</span>
+                                    </button>
+                                    <button class="od-quick-btn" data-action="view-report">
                                         <div class="od-quick-icon od-qi-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                                         <span class="od-quick-title">Laporan</span>
-                                        <span class="od-quick-desc">Lihat transaksi penuh</span>
-                                    </button>
-                                    <button class="od-quick-btn od-admin-only" data-action="order-review">
-                                        <div class="od-quick-icon od-qi-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12c0 4.97-4.03 9-9 9S3 16.97 3 12 7.03 3 12 3a9.03 9.03 0 0 1 6.36 2.64" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-                                        <span class="od-quick-title">Review Komisi</span>
-                                        <span class="od-quick-desc">Approve order selesai sebelum payout</span>
+                                        <span class="od-quick-desc">Total order, pendapatan, performa harian</span>
                                     </button>
                                     <button class="od-quick-btn od-owner-only" data-action="settings">
                                         <div class="od-quick-icon od-qi-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                                         <span class="od-quick-title">Pengaturan</span>
                                         <span class="od-quick-desc">Atur biaya & komisi</span>
                                     </button>
+                                </div>
+                            </section>
+
+                            <section class="od-admin-report-card od-admin-only" id="adminReportSummaryCard">
+                                <div class="od-section-head"><h3>📊 Laporan Ringkas Admin</h3></div>
+                                <div class="od-admin-report-grid">
+                                    <div class="od-admin-report-item">
+                                        <span>Total Order</span>
+                                        <strong id="adminReportTotalOrders">0</strong>
+                                    </div>
+                                    <div class="od-admin-report-item">
+                                        <span>Total Pendapatan</span>
+                                        <strong id="adminReportTotalRevenue">Rp 0</strong>
+                                    </div>
+                                    <div class="od-admin-report-item od-admin-report-wide">
+                                        <span>Performa Harian</span>
+                                        <strong id="adminReportDailyPerformance">0% selesai hari ini</strong>
+                                    </div>
                                 </div>
                             </section>
                         </div>
