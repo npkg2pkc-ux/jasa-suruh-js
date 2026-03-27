@@ -1687,6 +1687,13 @@ function syncTrackingPickupMarkerVisibility(order) {
     if (!_otpUserMarker) return;
     var hidePickup = shouldHidePassedSegment(order);
     _otpUserMarker.setOpacity(hidePickup ? 0 : 1);
+    var markerEl = _otpUserMarker.getElement();
+    if (markerEl) {
+        markerEl.style.transition = 'opacity 220ms ease, transform 220ms ease';
+        markerEl.style.opacity = hidePickup ? '0' : '1';
+        markerEl.style.transform = hidePickup ? 'scale(0.9)' : 'scale(1)';
+        markerEl.style.pointerEvents = hidePickup ? 'none' : 'auto';
+    }
     if (hidePickup) {
         try { _otpUserMarker.closePopup(); } catch (e) {}
     }
