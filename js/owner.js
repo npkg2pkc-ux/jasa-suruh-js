@@ -1783,6 +1783,7 @@ function openAdminProblemOrders() {
             '</div>'
         ].join('');
         document.body.appendChild(page);
+        page.dataset.apoFilter = 'baru';
 
         page.querySelector('#apoBtnBack').addEventListener('click', function () {
             page.classList.add('hidden');
@@ -1793,6 +1794,40 @@ function openAdminProblemOrders() {
     loadAdminProblemOrders(page);
 }
 window.openAdminProblemOrders = openAdminProblemOrders;
+
+function _apoFormatAge(ms) {
+    var min = Math.max(1, Math.floor(Number(ms || 0) / 60000));
+    if (min < 60) return min + ' mnt';
+    var hr = Math.floor(min / 60);
+    if (hr < 24) return hr + ' jam';
+    var day = Math.floor(hr / 24);
+    return day + ' hari';
+}
+
+function _apoSlaBadge(complaintTs) {
+    var ageMs = Math.max(0, Date.now() - Number(complaintTs || 0));
+    var ageMin = Math.floor(ageMs / 60000);
+
+    if (ageMin > 120) {
+        return {
+            text: 'Lewat SLA',
+            age: _apoFormatAge(ageMs),
+            style: 'background:#FEE2E2;color:#B91C1C;border:1px solid #FECACA;'
+        };
+    }
+    if (ageMin > 30) {
+        return {
+            text: 'Mendekati SLA',
+            age: _apoFormatAge(ageMs),
+            style: 'background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;'
+        };
+    }
+    return {
+        text: 'SLA Aman',
+        age: _apoFormatAge(ageMs),
+        style: 'background:#DCFCE7;color:#166534;border:1px solid #86EFAC;'
+    };
+}
 
 function loadAdminProblemOrders(page) {
     var listEl = page ? page.querySelector('#apoList') : null;
@@ -1811,52 +1846,144 @@ function loadAdminProblemOrders(page) {
         }
 
         var users = typeof getUsers === 'function' ? getUsers() : [];
-        var complaints = res.data.filter(function (o) {
-            var hasComplaint = !!(o.userComplaint || o.userComplaintText || o.userComplaintAt);
-            var status = String(o.complaintStatus || '').toLowerCase();
-            return hasComplaint && status !== 'resolved' && status !== 'closed';
-        }).sort(function (a, b) {
-            return Number(b.userComplaintAt || b.updatedAt || b.createdAt || 0) - Number(a.userComplaintAt || a.updatedAt || a.createdAt || 0);
-        });
+        var allOrders = res.data.slice();
 
-        if (!complaints.length) {
-            listEl.innerHTML = [
-                '<div style="text-align:center;padding:64px 20px;">',
-                    '<div style="font-size:48px;margin-bottom:10px;">✅</div>',
-                    '<div style="font-size:16px;font-weight:700;color:#111;margin-bottom:6px;">Tidak Ada Aduan Aktif</div>',
-                    '<div style="font-size:13px;color:#6B7280;">Semua aduan user sudah ditindaklanjuti.</div>',
-                '</div>'
-            ].join('');
-            return;
+        function hasComplaint(order) {
+            return !!(order.userComplaint || order.userComplaintText || order.userComplaintAt);
         }
 
-        listEl.innerHTML = complaints.map(function (o) {
+        function isHandled(order) {
+            var status = String(order.complaintStatus || '').toLowerCase();
+            return status === 'resolved' || status === 'closed';
+        }
+
+        var openComplaints = allOrders.filter(function (o) { return hasComplaint(o) && !isHandled(o); })
+            .sort(function (a, b) {
+                return Number(b.userComplaintAt || b.updatedAt || b.createdAt || 0) - Number(a.userComplaintAt || a.updatedAt || a.createdAt || 0);
+            });
+
+        var handledComplaints = allOrders.filter(function (o) { return hasComplaint(o) && isHandled(o); })
+            .sort(function (a, b) {
+                return Number(b.complaintResolvedAt || b.updatedAt || b.createdAt || 0) - Number(a.complaintResolvedAt || a.updatedAt || a.createdAt || 0);
+            });
+
+        var activeFilter = String(page.dataset.apoFilter || 'baru');
+        if (activeFilter !== 'baru' && activeFilter !== 'ditangani') {
+            activeFilter = 'baru';
+            page.dataset.apoFilter = activeFilter;
+        }
+
+        function renderComplaintCard(o, mode) {
             var customer = users.find(function (u) { return String(u.id || '') === String(o.userId || ''); }) || {};
             var driver = users.find(function (u) { return String(u.id || '') === String(o.talentId || ''); }) || {};
+            var seller = users.find(function (u) { return String(u.id || '') === String(o.sellerId || ''); }) || {};
             var complaintTs = Number(o.userComplaintAt || o.updatedAt || o.createdAt || Date.now());
             var complaintDate = new Date(complaintTs).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+            var sla = _apoSlaBadge(complaintTs);
+            var handledTs = Number(o.complaintResolvedAt || 0);
+            var handledDate = handledTs > 0
+                ? new Date(handledTs).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                : '-';
+
+            var statusBadge = mode === 'ditangani'
+                ? '<span style="background:#DCFCE7;color:#166534;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">Ditangani</span>'
+                : '<span style="background:#FEE2E2;color:#B91C1C;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">Aduan Baru</span>';
+
+            var slaBadge = mode === 'ditangani'
+                ? '<span style="background:#ECFDF5;color:#065F46;border:1px solid #A7F3D0;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;">Selesai ' + (typeof escapeHtml === 'function' ? escapeHtml(handledDate) : handledDate) + '</span>'
+                : '<span style="' + sla.style + 'border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;">' + sla.text + ' • ' + sla.age + '</span>';
+
+            var sellerRow = o.sellerId
+                ? ('<div style="font-size:12px;color:#374151;margin-top:4px;">🏪 Seller: ' + (typeof escapeHtml === 'function' ? escapeHtml(seller.name || seller.nama || '-') : (seller.name || seller.nama || '-')) + '</div>')
+                : '';
 
             return [
                 '<div style="background:#fff;border:1px solid #FDE68A;border-radius:14px;padding:14px;box-shadow:0 1px 6px rgba(0,0,0,.04);">',
                     '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">',
                         '<div style="font-size:13px;font-weight:700;color:#111;">Order #' + String(o.id || '').substr(0, 10) + '</div>',
-                        '<span style="background:#FEE2E2;color:#B91C1C;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">Aduan Aktif</span>',
+                        statusBadge,
                     '</div>',
-                    '<div style="font-size:12px;color:#6B7280;margin-top:4px;">' + (o.serviceType || o.skillType || 'Pesanan') + ' • ' + complaintDate + '</div>',
+                    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">',
+                        slaBadge,
+                        '<span style="background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;">' + (typeof escapeHtml === 'function' ? escapeHtml(o.serviceType || o.skillType || 'Pesanan') : (o.serviceType || o.skillType || 'Pesanan')) + '</span>',
+                    '</div>',
+                    '<div style="font-size:12px;color:#6B7280;margin-top:6px;">Aduan masuk: ' + complaintDate + '</div>',
                     '<div style="font-size:12px;color:#374151;margin-top:8px;">👤 Customer: ' + (typeof escapeHtml === 'function' ? escapeHtml(customer.name || customer.nama || '-') : (customer.name || customer.nama || '-')) + '</div>',
                     '<div style="font-size:12px;color:#374151;margin-top:4px;">🛵 Driver: ' + (typeof escapeHtml === 'function' ? escapeHtml(driver.name || driver.nama || '-') : (driver.name || driver.nama || '-')) + '</div>',
+                    sellerRow,
                     '<div style="margin-top:10px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:10px;">',
                         '<div style="font-size:11px;color:#9A3412;font-weight:700;margin-bottom:4px;">Isi aduan user</div>',
                         '<div style="font-size:13px;color:#7C2D12;line-height:1.45;">' + (typeof escapeHtml === 'function' ? escapeHtml(String(o.userComplaintText || 'Aduan tanpa detail')) : String(o.userComplaintText || 'Aduan tanpa detail')) + '</div>',
                     '</div>',
                     '<div style="display:flex;gap:8px;margin-top:12px;">',
-                        '<button class="apo-btn-resolve" data-order-id="' + String(o.id || '') + '" style="flex:1;border:none;border-radius:10px;padding:10px 12px;background:linear-gradient(135deg,#16A34A,#15803D);color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Tandai Selesai</button>',
+                        '<button class="apo-btn-detail" data-order-id="' + String(o.id || '') + '" style="flex:1;border:1px solid #D1D5DB;border-radius:10px;padding:10px 12px;background:#fff;color:#374151;font-size:13px;font-weight:700;cursor:pointer;">Lihat Detail Order</button>',
+                        (mode === 'baru'
+                            ? '<button class="apo-btn-resolve" data-order-id="' + String(o.id || '') + '" style="flex:1;border:none;border-radius:10px;padding:10px 12px;background:linear-gradient(135deg,#16A34A,#15803D);color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Tandai Selesai</button>'
+                            : ''),
                     '</div>',
                 '</div>'
             ].join('');
-        }).join('');
+        }
 
-        listEl.querySelectorAll('.apo-btn-resolve').forEach(function (btn) {
+        function renderByFilter() {
+            var currentFilter = String(page.dataset.apoFilter || 'baru');
+            var source = currentFilter === 'ditangani' ? handledComplaints : openComplaints;
+
+            var filterBar = [
+                '<div style="background:#fff;border:1px solid #FDE68A;border-radius:12px;padding:8px;display:flex;gap:8px;">',
+                    '<button class="apo-filter-btn" data-filter="baru" style="flex:1;border:0;border-radius:10px;padding:9px 10px;font-size:12px;font-weight:700;cursor:pointer;',
+                    (currentFilter === 'baru' ? 'background:#F97316;color:#fff;' : 'background:#FFF7ED;color:#9A3412;'),
+                    '">Baru (' + openComplaints.length + ')</button>',
+                    '<button class="apo-filter-btn" data-filter="ditangani" style="flex:1;border:0;border-radius:10px;padding:9px 10px;font-size:12px;font-weight:700;cursor:pointer;',
+                    (currentFilter === 'ditangani' ? 'background:#16A34A;color:#fff;' : 'background:#ECFDF5;color:#166534;'),
+                    '">Ditangani (' + handledComplaints.length + ')</button>',
+                '</div>'
+            ].join('');
+
+            if (!source.length) {
+                var emptyTitle = currentFilter === 'ditangani' ? 'Belum Ada Aduan Ditangani' : 'Tidak Ada Aduan Baru';
+                var emptyDesc = currentFilter === 'ditangani'
+                    ? 'Belum ada aduan yang ditandai selesai.'
+                    : 'Semua aduan aktif sudah ditindaklanjuti.';
+
+                listEl.innerHTML = filterBar + [
+                    '<div style="text-align:center;padding:56px 20px;background:#fff;border:1px dashed #FDE68A;border-radius:14px;">',
+                        '<div style="font-size:40px;margin-bottom:10px;">📭</div>',
+                        '<div style="font-size:16px;font-weight:700;color:#111;margin-bottom:6px;">' + emptyTitle + '</div>',
+                        '<div style="font-size:13px;color:#6B7280;">' + emptyDesc + '</div>',
+                    '</div>'
+                ].join('');
+            } else {
+                listEl.innerHTML = filterBar + source.map(function (o) { return renderComplaintCard(o, currentFilter); }).join('');
+            }
+
+            listEl.querySelectorAll('.apo-filter-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var filter = this.dataset.filter || 'baru';
+                    page.dataset.apoFilter = filter;
+                    renderByFilter();
+                });
+            });
+
+            listEl.querySelectorAll('.apo-btn-detail').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var orderId = this.dataset.orderId || '';
+                    if (!orderId) return;
+                    var orderObj = allOrders.find(function (o) { return String(o.id || '') === String(orderId); }) || null;
+                    if (!orderObj) {
+                        if (typeof showToast === 'function') showToast('Detail order tidak ditemukan.', 'error');
+                        return;
+                    }
+                    if (typeof openOrderTracking === 'function') {
+                        openOrderTracking(orderObj);
+                        page.classList.add('hidden');
+                    } else if (typeof showToast === 'function') {
+                        showToast('Halaman detail order belum tersedia.', 'error');
+                    }
+                });
+            });
+
+            listEl.querySelectorAll('.apo-btn-resolve').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var orderId = this.dataset.orderId || '';
                 if (!orderId) return;
@@ -1882,7 +2009,7 @@ function loadAdminProblemOrders(page) {
                         throw new Error((saveRes && saveRes.message) ? saveRes.message : 'Gagal menyimpan tindak lanjut');
                     }
 
-                    var targetOrder = complaints.find(function (x) { return String(x.id || '') === String(orderId); }) || null;
+                    var targetOrder = allOrders.find(function (x) { return String(x.id || '') === String(orderId); }) || null;
                     if (typeof addNotifItem === 'function' && targetOrder) {
                         if (targetOrder.userId) {
                             addNotifItem({
@@ -1919,6 +2046,12 @@ function loadAdminProblemOrders(page) {
                     if (typeof showToast === 'function') showToast('Aduan berhasil ditandai selesai.', 'success');
                     if (typeof renderOwnerStats === 'function') renderOwnerStats();
                     if (typeof renderOwnerUsers === 'function') renderOwnerUsers();
+
+                    if (targetOrder) {
+                        targetOrder.complaintStatus = 'resolved';
+                        targetOrder.complaintResolvedAt = Date.now();
+                    }
+                    page.dataset.apoFilter = 'baru';
                     loadAdminProblemOrders(page);
                 }).catch(function (err) {
                     if (typeof showToast === 'function') showToast((err && err.message) ? err.message : 'Gagal menindaklanjuti aduan', 'error');
@@ -1926,7 +2059,10 @@ function loadAdminProblemOrders(page) {
                     btn.textContent = 'Tandai Selesai';
                 });
             });
-        });
+            });
+        }
+
+        renderByFilter();
     }).catch(function () {
         listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">&#10060; Gagal memuat aduan</div>';
     });
