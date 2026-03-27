@@ -189,9 +189,9 @@ Catatan:
 - [x] RLS secure untuk wallets dan transactions aktif.
 - [x] Trusted wallet endpoints deployed.
 - [x] Frontend sudah switch ke endpoint trusted.
-- [ ] Rekonsiliasi saldo pass.
-- [ ] Smoke test pass.
-- [ ] Monitoring go-live pass.
+- [x] Rekonsiliasi saldo pass.
+- [x] Smoke test pass.
+- [x] Monitoring go-live pass.
 - [ ] Sign-off backend, DB, QA, ops.
 
 ## Runbook Operasional Harian
@@ -211,6 +211,18 @@ Aturan respons operasional:
 - QA Lead:
 - Ops Lead:
 - Tanggal Go-Live:
+
+## Final Validasi Cutover (2026-03-28)
+- Cutover timestamp operasional: `1774636847000`
+- Query audit transaksi tanpa `ledgerId` pasca-cutover: `0 row`
+- Uji endpoint trusted:
+	- `wallet/get`: lulus
+	- `wallet/pay` operasi `pay`: lulus
+	- `wallet/pay` operasi `completeOrder`: lulus (idempotent `alreadySettled=true`)
+	- `wallet/pay` operasi `completeOrderCOD`: lulus (idempotent `alreadySettled=true`)
+- Abuse test direct write client ke tabel finansial: lulus (ditolak by design)
+
+Status: **GO** untuk mode wallet hardening real-money, dengan monitoring harian aktif.
 
 ## Rencana Eksekusi Harian (Day 1 - Day 5)
 
