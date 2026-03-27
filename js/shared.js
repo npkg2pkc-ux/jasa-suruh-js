@@ -961,12 +961,7 @@ function _refreshRolePushMiniStatus(forceEnsure) {
         })
         .then(function (sub) {
             if (sub) {
-                var endpointFull = String(sub.endpoint || '');
-                var endpointShort = _shortPushEndpoint(endpointFull);
-                var activeText = endpointShort
-                    ? ('Push aktif realtime · ' + endpointShort)
-                    : 'Push aktif realtime';
-                _setRolePushMiniStatus(role, activeText, 'is-active', false, '', false, endpointFull);
+                _setRolePushMiniStatus(role, 'Push aktif realtime', 'is-active', false, '', false, '');
                 return true;
             }
             if (_pushRetryTimer && String(_pushRetryUserId || '') === String(session.id)) {

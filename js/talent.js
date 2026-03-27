@@ -555,7 +555,7 @@ function _scheduleTalentPushRetry(reason) {
 
 function _refreshTalentPushDiagnostics(permission, endpoint, lastSyncText) {
     _setTalentPushDiag('talentPushDiagPermission', _permissionLabel(permission));
-    _setTalentPushDiag('talentPushDiagEndpoint', _shortPushEndpoint(endpoint));
+    _setTalentPushDiag('talentPushDiagEndpoint', '-');
     _setTalentPushDiag('talentPushDiagLastSync', lastSyncText || '-');
     if (_talentPushRetryTimer && _talentPushRetryDueAt > Date.now()) {
         var sec = Math.max(1, Math.ceil((_talentPushRetryDueAt - Date.now()) / 1000));
@@ -671,7 +671,7 @@ function refreshTalentPushStatus(forceEnsure) {
             var endpoint = result && result.endpoint ? result.endpoint : '';
             var nowLabel = _formatTalentPushClock(Date.now());
             if (ok) {
-                _setTalentPushStatus('Push aktif - order masuk realtime', 'is-active');
+                _setTalentPushStatus('Push aktif realtime', 'is-active');
                 _setTalentPushAction(false, '', false);
                 _refreshTalentPushDiagnostics(permission, endpoint, nowLabel);
                 _clearTalentPushRetry();
