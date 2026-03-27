@@ -200,7 +200,8 @@ function setupServiceClicks() {
             if (skillType && ACTIVE_SERVICES.indexOf(skillType) >= 0) {
                 openServiceTalentPage(skillType);
             } else {
-                showToast('Layanan "' + name + '" segera hadir! 🚀');
+                openServiceTalentPage('js_other');
+                showToast('Layanan "' + name + '" dialihkan ke kategori layanan lainnya.', 'info');
             }
         });
     });

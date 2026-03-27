@@ -257,7 +257,7 @@ var AccountPage = (function () {
 
         // PIN (placeholder)
         $('accItemPin').addEventListener('click', function () {
-            if (typeof showToast === 'function') showToast('Fitur Ubah PIN segera hadir', 'info');
+            _openEditModal('pin', 'PIN', '');
         });
 
         // Delete account
@@ -288,8 +288,18 @@ var AccountPage = (function () {
             storeItem.addEventListener('click', function () {
                 if (typeof openSellerStoreModal === 'function') {
                     openSellerStoreModal();
+                    $('settingsPage').classList.add('hidden');
+                } else if (typeof openPenjualProductsModal === 'function') {
+                    openPenjualProductsModal();
+                    $('settingsPage').classList.add('hidden');
                 } else if (typeof showToast === 'function') {
-                    showToast('Menu Toko belum tersedia', 'error');
+                    var prodSec = document.getElementById('penjualProductsSection');
+                    if (prodSec && typeof prodSec.scrollIntoView === 'function') {
+                        $('settingsPage').classList.add('hidden');
+                        prodSec.scrollIntoView({ behavior: 'smooth' });
+                    } else {
+                        showToast('Menu toko tidak ditemukan pada halaman ini', 'error');
+                    }
                 }
             });
         }
@@ -304,9 +314,16 @@ var AccountPage = (function () {
         var input = $('accModalInput');
         input.value = currentValue === '-' ? '' : currentValue;
         input.placeholder = title;
+        input.removeAttribute('maxlength');
         if (field === 'no_hp') input.type = 'tel';
         else if (field === 'email') input.type = 'email';
-        else input.type = 'text';
+        else if (field === 'pin') {
+            input.type = 'password';
+            input.maxLength = 6;
+            input.inputMode = 'numeric';
+            input.value = '';
+            input.placeholder = 'Masukkan PIN 4-6 digit';
+        } else input.type = 'text';
 
         $('accModalError').classList.add('hidden');
         $('accEditModal').classList.remove('hidden');
@@ -337,6 +354,13 @@ var AccountPage = (function () {
             error.textContent = 'Format email tidak valid';
             error.classList.remove('hidden');
             return;
+        }
+        if (_editField === 'pin') {
+            if (!/^\d{4,6}$/.test(val)) {
+                error.textContent = 'PIN harus 4-6 digit angka';
+                error.classList.remove('hidden');
+                return;
+            }
         }
 
         var saveBtn = $('accModalSave');
@@ -390,6 +414,8 @@ var AccountPage = (function () {
                 session.no_hp = val;
             } else if (_editField === 'email') {
                 session.email = val;
+            } else if (_editField === 'pin') {
+                session.pin = val;
             }
             setSession(session);
         }

@@ -2032,8 +2032,11 @@ function loadAdminProblemOrders(page) {
                     if (typeof openOrderTracking === 'function') {
                         openOrderTracking(orderObj);
                         page.classList.add('hidden');
+                    } else if (typeof openAdminTransactions === 'function') {
+                        openAdminTransactions();
+                        page.classList.add('hidden');
                     } else if (typeof showToast === 'function') {
-                        showToast('Halaman detail order belum tersedia.', 'error');
+                        showToast('Detail order tidak bisa dibuka di halaman ini.', 'error');
                     }
                 });
             });

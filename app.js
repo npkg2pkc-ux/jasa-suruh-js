@@ -1356,7 +1356,8 @@
                 if (skillType && ACTIVE_SERVICES.indexOf(skillType) >= 0) {
                     openServiceTalentPage(skillType);
                 } else {
-                    showToast('Layanan "' + name + '" segera hadir! 🚀');
+                    openServiceTalentPage('js_other');
+                    showToast('Layanan "' + name + '" dialihkan ke kategori layanan lainnya.', 'info');
                 }
             });
         });
@@ -4087,7 +4088,14 @@
                         var prodSec = document.getElementById('penjualProductsSection');
                         if (prodSec) prodSec.scrollIntoView({ behavior: 'smooth' });
                     } else if (page === 'earning') {
-                        showToast('Rincian pendapatan segera hadir! 🚀');
+                        var earningSession = getSession();
+                        if (earningSession && earningSession.role === 'talent' && typeof openTalentEarningsModal === 'function') {
+                            openTalentEarningsModal();
+                        } else if (earningSession && (earningSession.role === 'penjual' || earningSession.role === 'seller') && typeof openSellerEarningsModal === 'function') {
+                            openSellerEarningsModal();
+                        } else if (typeof showToast === 'function') {
+                            showToast('Menu pendapatan khusus Talent/Penjual', 'info');
+                        }
                     } else if (page === 'home') {
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                     } else if (page === 'akun' || page === 'profil' || page === 'settings') {
