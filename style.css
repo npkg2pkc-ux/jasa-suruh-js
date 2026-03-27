@@ -3415,8 +3415,15 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 
 .od-admin-driver-filters {
     display:flex;
-    flex-wrap:wrap;
-    gap:6px;
+    flex-wrap:nowrap;
+    gap:4px;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+}
+
+.od-admin-driver-filters::-webkit-scrollbar {
+    display:none;
 }
 
 .od-admin-driver-filter {
@@ -3424,11 +3431,13 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     border-radius:999px;
     background:#FFFFFF;
     color:#9A3412;
-    font-size:11px;
+    font-size:10px;
     font-weight:700;
-    padding:6px 10px;
+    padding:5px 8px;
     cursor:pointer;
     font-family:var(--font);
+    white-space:nowrap;
+    flex:0 0 auto;
 }
 
 .od-admin-driver-filter.active {
