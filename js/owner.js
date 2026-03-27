@@ -349,6 +349,32 @@ var OwnerDashboard = (function () {
         if (recruitForm && !recruitForm._bound) {
             recruitForm._bound = true;
             recruitForm.addEventListener('submit', handleDriverRecruitSubmit);
+
+            var ktpInput = $('driverRecruitNoKtp');
+            if (ktpInput && !ktpInput._bound) {
+                ktpInput._bound = true;
+                ktpInput.addEventListener('input', function () {
+                    this.value = String(this.value || '').replace(/\D/g, '').slice(0, 16);
+                });
+            }
+
+            var plateInput = $('driverRecruitPlate');
+            if (plateInput && !plateInput._bound) {
+                plateInput._bound = true;
+                plateInput.addEventListener('input', function () {
+                    this.value = _normalizePlate(this.value || '');
+                });
+            }
+
+            var phoneInput = $('driverRecruitPhone');
+            if (phoneInput && !phoneInput._bound) {
+                phoneInput._bound = true;
+                phoneInput.addEventListener('input', function () {
+                    var v = String(this.value || '').replace(/\D/g, '');
+                    if (v.length > 13) v = v.slice(0, 13);
+                    this.value = v;
+                });
+            }
         }
 
         // Owner logout button in settings page
@@ -1731,6 +1757,14 @@ var OwnerDashboard = (function () {
         return String(value || '').trim().toUpperCase().replace(/\s+/g, ' ');
     }
 
+    function _normalizePhone(value) {
+        var v = String(value || '').replace(/\D/g, '');
+        if (!v) return '';
+        if (v.startsWith('0')) return '62' + v.slice(1);
+        if (!v.startsWith('62')) return '62' + v;
+        return v;
+    }
+
     function _defaultDriverSkills() {
         return [
             {
@@ -1765,6 +1799,8 @@ var OwnerDashboard = (function () {
         var photoFile = $('driverRecruitPhoto') && $('driverRecruitPhoto').files ? $('driverRecruitPhoto').files[0] : null;
         var ktpPhotoFile = $('driverRecruitKtpPhoto') && $('driverRecruitKtpPhoto').files ? $('driverRecruitKtpPhoto').files[0] : null;
         var noKtp = String(($('driverRecruitNoKtp') && $('driverRecruitNoKtp').value) || '').replace(/\D/g, '');
+        var phoneRaw = String(($('driverRecruitPhone') && $('driverRecruitPhone').value) || '').replace(/\D/g, '');
+        var phoneNormalized = _normalizePhone(phoneRaw);
         var nama = String(($('driverRecruitName') && $('driverRecruitName').value) || '').trim();
         var jenisKelamin = String(($('driverRecruitGender') && $('driverRecruitGender').value) || '').trim();
         var alamatLengkap = String(($('driverRecruitAddress') && $('driverRecruitAddress').value) || '').trim();
@@ -1776,12 +1812,26 @@ var OwnerDashboard = (function () {
             if (typeof showToast === 'function') showToast('Foto driver dan foto KTP wajib diisi', 'error');
             return;
         }
-        if (noKtp.length < 16) {
-            if (typeof showToast === 'function') showToast('No KTP minimal 16 digit', 'error');
+        if (noKtp.length !== 16) {
+            if (typeof showToast === 'function') showToast('No KTP wajib 16 digit', 'error');
+            return;
+        }
+        if (!/^08\d{8,12}$/.test(phoneRaw)) {
+            if (typeof showToast === 'function') showToast('No HP driver tidak valid (format 08xxxxxxxxxx)', 'error');
             return;
         }
         if (!nama || !jenisKelamin || !alamatLengkap || !jenisMotor || !tahunKendaraan || !platNomor) {
             if (typeof showToast === 'function') showToast('Lengkapi semua data rekrutment driver', 'error');
+            return;
+        }
+
+        var usersExist = typeof getUsers === 'function' ? getUsers() : [];
+        var duplicatedPhone = usersExist.some(function (u) {
+            var a = _normalizePhone(u.no_hp || u.phone || u.username || '');
+            return a && a === phoneNormalized;
+        });
+        if (duplicatedPhone) {
+            if (typeof showToast === 'function') showToast('No HP sudah terdaftar pada akun lain', 'error');
             return;
         }
 
@@ -1795,7 +1845,7 @@ var OwnerDashboard = (function () {
 
         var driverId = generateId();
         var createdAt = Date.now();
-        var username = 'drv_' + String(driverId).slice(-8);
+        var username = phoneNormalized;
         var yearNum = Number(tahunKendaraan);
         if (!isFinite(yearNum)) yearNum = 0;
 
@@ -1821,8 +1871,8 @@ var OwnerDashboard = (function () {
                 name: nama,
                 nama: nama,
                 username: username,
-                phone: '',
-                no_hp: '',
+                phone: phoneNormalized,
+                no_hp: phoneNormalized,
                 email: '',
                 role: 'talent',
                 createdAt: createdAt,
