@@ -1306,7 +1306,7 @@ var OwnerDashboard = (function () {
         var users = allUsers.filter(function (u) { return u.role !== 'owner'; });
         if (_isAdmin()) {
             users = users.filter(function (u) {
-                return u.role === 'talent' || u.role === 'user';
+                return u.role === 'talent' || u.role === 'user' || u.role === 'penjual';
             });
         }
 
@@ -1432,10 +1432,12 @@ var OwnerDashboard = (function () {
                 + '</span>';
 
             var actionBtn = '';
-            if (_isAdmin() && (u.role === 'talent' || u.role === 'user')) {
-                actionBtn = '<button class="od-user-action ' + (isActive ? 'is-suspend' : 'is-activate') + '" data-uid="' + u.id + '" data-next-active="' + (isActive ? '0' : '1') + '">'
-                    + (isActive ? 'Suspend' : 'Aktifkan')
-                    + '</button>';
+            if (_isAdmin()) {
+                if (u.role === 'talent' || u.role === 'user') {
+                    actionBtn = '<button class="od-user-action ' + (isActive ? 'is-suspend' : 'is-activate') + '" data-uid="' + u.id + '" data-next-active="' + (isActive ? '0' : '1') + '">'
+                        + (isActive ? 'Suspend' : 'Aktifkan')
+                        + '</button>';
+                }
             } else {
                 // Owner can delete any non-owner account.
                 actionBtn = '<button class="od-user-delete" data-uid="' + u.id + '" title="Hapus user">'
