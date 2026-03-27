@@ -153,3 +153,155 @@
 - QA Lead:
 - Ops Lead:
 - Tanggal Go-Live:
+
+## Rencana Eksekusi Harian (Day 1 - Day 5)
+
+### Day 1 - Security Baseline Lock (P0)
+Tujuan:
+- Menutup jalur write langsung dari client ke wallet/transaksi.
+
+Task:
+1. Update RLS `wallets` dan `transactions`:
+- hapus policy `anon_all_wallets`
+- hapus policy `anon_all_transactions`
+- buat policy read-only wallet milik sendiri
+- write khusus trusted backend
+2. Batasi akses dashboard Supabase untuk tim inti (MFA + least privilege).
+3. Simpan backup snapshot sebelum policy change.
+
+Output:
+- RLS sudah ketat untuk tabel finansial.
+- Tidak ada write dari anon/client ke saldo.
+
+PIC:
+- DB Lead + Backend Lead
+
+Checklist Day 1:
+- [ ] Policy lama dihapus.
+- [ ] Policy baru aktif.
+- [ ] Uji anon write gagal.
+- [ ] Backup snapshot tersimpan.
+
+---
+
+### Day 2 - Backend Integrity Guard (P0)
+Tujuan:
+- Mencegah manipulasi field finansial lewat update order umum.
+
+Task:
+1. Tambahkan whitelist field di jalur update order umum.
+2. Blok mutasi field finansial dari endpoint generic:
+- `price`, `deliveryFee`, `fee`, `totalCost`, `paidAmount`, `walletSettled`, `refundDone`, `adminReviewStatus`, `pendingAdminReview`.
+3. Pisahkan endpoint khusus untuk perubahan finansial yang tervalidasi.
+
+Output:
+- Update order non-finansial tetap jalan.
+- Update order finansial via jalur generic ditolak.
+
+PIC:
+- Backend Lead
+
+Checklist Day 2:
+- [ ] Whitelist update order aktif.
+- [ ] Payload manipulasi finansial ditolak.
+- [ ] Endpoint finansial khusus tersedia.
+
+---
+
+### Day 3 - COD Settlement Safety (P0)
+Tujuan:
+- Memastikan COD tidak bisa settle jika debit driver gagal.
+
+Task:
+1. Ubah flow COD:
+- debit driver wajib sukses dulu
+- baru owner dapat credit
+- baru tandai `walletSettled=true`
+2. Jika debit gagal:
+- jangan credit owner
+- jangan settle order
+- kembalikan order ke state bisa retry
+3. Tambahkan notifikasi operasional yang jelas untuk admin.
+
+Output:
+- Tidak ada mint saldo dari jalur COD gagal.
+
+PIC:
+- Backend Lead + QA Lead
+
+Checklist Day 3:
+- [ ] Simulasi saldo driver kurang tidak settle.
+- [ ] Owner tidak menerima dana saat debit gagal.
+- [ ] Retry setelah top up berjalan.
+
+---
+
+### Day 4 - Idempotency & Atomic Payout (P0/P1)
+Tujuan:
+- Mencegah double payout dan partial payout.
+
+Task:
+1. Tambahkan idempotency key payout per order.
+2. Terapkan proses atomik (single transaction/RPC).
+3. Hindari race condition approve/retry pada admin review.
+4. Satukan payment charge dan penandaan paid agar konsisten.
+
+Output:
+- Double click approve tidak menyebabkan double payout.
+- Error di tengah proses tidak menghasilkan partial credit.
+
+PIC:
+- Backend Lead
+
+Checklist Day 4:
+- [ ] Idempotency key aktif.
+- [ ] Atomic payout aktif.
+- [ ] Double approve test pass.
+- [ ] Partial failure test pass.
+
+---
+
+### Day 5 - QA Finansial, Rekonsiliasi, Go/No-Go
+Tujuan:
+- Menentukan readiness migrasi berdasarkan bukti tes.
+
+Task:
+1. Jalankan test wajib:
+- manipulasi payload finansial
+- double approve
+- COD debit gagal
+- refund sekali saja
+- mismatch detection
+2. Rekonsiliasi `wallets.balance` vs ledger transaksi.
+3. Review hasil + sign-off lintas fungsi.
+4. Putuskan status:
+- Go jika seluruh P0 pass dan rekonsiliasi bersih
+- No-Go jika ada 1 critical gagal
+
+Output:
+- Berita acara Go/No-Go.
+- Daftar temuan residual (jika ada).
+
+PIC:
+- QA Lead + DB Lead + Backend Lead + Ops Lead
+
+Checklist Day 5:
+- [ ] Semua test wajib pass.
+- [ ] Rekonsiliasi pass.
+- [ ] Sign-off lengkap.
+- [ ] Keputusan Go/No-Go terdokumentasi.
+
+## Aturan Eksekusi
+1. Jangan lanjut ke hari berikutnya jika checklist hari ini belum lulus.
+2. Setiap perubahan finansial wajib punya test case negatif (abuse case).
+3. Jika terjadi regresi pada wallet, aktifkan rollback plan di dokumen ini.
+4. Semua perubahan harus masuk changelog internal harian.
+
+## Template Standup Harian
+Gunakan format ini di akhir setiap hari:
+- Hari:
+- Progress selesai:
+- Blokir utama:
+- Risiko baru:
+- Keputusan lanjut/tunda:
+- Owner aksi besok:
