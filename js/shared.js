@@ -878,6 +878,7 @@ window.clearChatBadge = clearChatBadge;
 var _notifItems = [];
 var _notifUnsub = null;
 var _notifPollTimer = null;
+var _pushSetupPromise = null;
 
 var _prevUnreadCount = 0;
 function initNotifications() {
@@ -890,6 +891,8 @@ function initNotifications() {
     if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission().catch(function () {});
     }
+
+    _ensurePushSubscription(session);
 
     // Try realtime first, fall back to polling
     _notifUnsub = FB.onNotifications(session.id, function (items) {
@@ -907,6 +910,62 @@ function initNotifications() {
     }, 12000);
 }
 window.initNotifications = initNotifications;
+
+function _urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var rawData = atob(base64);
+    var outputArray = new Uint8Array(rawData.length);
+    for (var i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+function _ensurePushSubscription(session) {
+    if (!session || !session.id) return Promise.resolve(false);
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return Promise.resolve(false);
+    if (!('Notification' in window) || Notification.permission !== 'granted') return Promise.resolve(false);
+    if (_pushSetupPromise) return _pushSetupPromise;
+
+    _pushSetupPromise = navigator.serviceWorker.ready
+        .then(function (reg) {
+            return fetch('/api/push/public-key')
+                .then(function (r) { return r.json(); })
+                .then(function (keyRes) {
+                    if (!keyRes || !keyRes.success || !keyRes.publicKey) throw new Error('Public key push tidak tersedia');
+                    return reg.pushManager.getSubscription().then(function (existingSub) {
+                        if (existingSub) return existingSub;
+                        return reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: _urlBase64ToUint8Array(String(keyRes.publicKey || ''))
+                        });
+                    });
+                })
+                .then(function (sub) {
+                    if (!sub) return false;
+                    return fetch('/api/push/subscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: session.id,
+                            subscription: sub,
+                            meta: {
+                                userAgent: navigator.userAgent || '',
+                                platform: navigator.platform || '',
+                                lang: navigator.language || ''
+                            }
+                        })
+                    }).then(function (r) { return r.json(); }).then(function (saveRes) {
+                        return !!(saveRes && saveRes.success);
+                    });
+                });
+        })
+        .catch(function () { return false; })
+        .finally(function () { _pushSetupPromise = null; });
+
+    return _pushSetupPromise;
+}
 
 function _postServiceWorkerNotification(payload) {
     if (!payload || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
@@ -996,9 +1055,11 @@ function addNotifItem(item) {
     // Save to DB
     var session = getSession();
     if (!session || !isBackendConnected()) return;
+    var targetUserId = item.userId || session.id;
+
     backendPost({
         action: 'addNotification',
-        userId: item.userId || session.id,
+        userId: targetUserId,
         icon: item.icon || '🔔',
         title: item.title || '',
         desc: item.desc || '',
@@ -1006,6 +1067,22 @@ function addNotifItem(item) {
         orderId: item.orderId || '',
         extra: item.extra || null
     });
+
+    // Dispatch server-side Web Push for offline/background delivery.
+    fetch('/api/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            userId: targetUserId,
+            title: item.title || 'Jasa Suruh',
+            body: item.desc || 'Ada notifikasi baru',
+            tag: (item.type || 'info') + '-' + (item.orderId || Date.now()),
+            orderId: item.orderId || '',
+            type: item.type || 'info',
+            data: item.extra || {},
+            requireInteraction: !!item.requireInteraction
+        })
+    }).catch(function () {});
 }
 window.addNotifItem = addNotifItem;
 

@@ -185,7 +185,25 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(user_id, created_at);
 
 -- ============================================================
--- 13) STAFF
+-- 13) PUSH SUBSCRIPTIONS (Web Push / FCM)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    endpoint TEXT NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at BIGINT DEFAULT 0,
+    updated_at BIGINT DEFAULT 0,
+    data JSONB NOT NULL DEFAULT '{}'
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint_unique ON push_subscriptions(endpoint);
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_active ON push_subscriptions(user_id, is_active);
+
+-- ============================================================
+-- 14) STAFF
 -- ============================================================
 CREATE TABLE IF NOT EXISTS staff (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -263,6 +281,10 @@ CREATE POLICY "anon_all_transactions" ON transactions FOR ALL TO anon USING (tru
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon_all_notifications" ON notifications;
 CREATE POLICY "anon_all_notifications" ON notifications FOR ALL TO anon USING (true) WITH CHECK (true);
+
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_all_push_subscriptions" ON push_subscriptions;
+CREATE POLICY "anon_all_push_subscriptions" ON push_subscriptions FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE staff ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon_all_staff" ON staff;

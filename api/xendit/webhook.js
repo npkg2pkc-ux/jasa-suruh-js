@@ -5,6 +5,7 @@
 const XENDIT_WEBHOOK_TOKEN = process.env.XENDIT_WEBHOOK_TOKEN;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://aqptkuoazqharfzxvgem.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxcHRrdW9henFoYXJmenh2Z2VtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4OTYyOTUsImV4cCI6MjA4OTQ3MjI5NX0.mFEpJlSB7dJTaubqXj6jZtbh9wki1L37gg7NaCguzQI';
+const { sendPushToUser } = require('../push/_core');
 
 function supaFetch(path, options) {
     return fetch(SUPABASE_URL + '/rest/v1/' + path, Object.assign({
@@ -33,6 +34,14 @@ function insertNotification(userId, icon, title, desc, type) {
             created_at: now,
             data: { id: nId, userId: userId, icon: icon, title: title, desc: desc, type: type, unread: true, createdAt: now }
         })
+    }).then(function () {
+        return sendPushToUser(userId, {
+            title: title,
+            body: desc,
+            type: type,
+            tag: 'xendit-' + type + '-' + now,
+            data: { type: type }
+        }).catch(function () {});
     }).catch(function () {});
 }
 
