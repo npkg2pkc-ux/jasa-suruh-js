@@ -770,6 +770,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 /* Chat badge on bottom nav */
 .chat-badge { position:absolute; top:-2px; right:2px; background:var(--orange); color:var(--white); font-size:9px; font-weight:700; min-width:16px; height:16px; padding:0 4px; border-radius:8px; display:flex; align-items:center; justify-content:center; border:2px solid var(--white); line-height:1; z-index:1; }
 .chat-header-badge { position:absolute; top:-4px; right:-4px; background:#F44336; color:#fff; font-size:9px; font-weight:800; min-width:16px; height:16px; padding:0 4px; border-radius:8px; display:flex; align-items:center; justify-content:center; border:2px solid rgba(255,255,255,.95); line-height:1; z-index:2; box-shadow:0 2px 8px rgba(244,67,54,.35); }
+.order-badge { position:absolute; top:-2px; right:2px; background:#2563EB; color:#fff; font-size:9px; font-weight:800; min-width:16px; height:16px; padding:0 4px; border-radius:8px; display:flex; align-items:center; justify-content:center; border:2px solid var(--white); line-height:1; z-index:2; box-shadow:0 2px 8px rgba(37,99,235,.35); }
 
 /* Mini reminder for unrated completed orders */
 .rating-reminder {

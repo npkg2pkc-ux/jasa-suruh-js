@@ -2184,14 +2184,38 @@ function _ensureRatingReminderEl() {
     return el;
 }
 
-function _applyRatingReminderData(unratedOrders) {
+function _setUnratedOrderNavBadgeCount(count) {
+    var c = Math.max(0, Number(count || 0));
+    var labels = document.querySelectorAll('.bottom-nav .nav-item[data-page="pesanan"]');
+    labels.forEach(function (item) {
+        var badge = item.querySelector('.order-badge');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'order-badge';
+            badge.style.display = 'none';
+            item.appendChild(badge);
+        }
+
+        if (c > 0) {
+            badge.textContent = c > 99 ? '99+' : String(c);
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+            badge.textContent = '0';
+        }
+    });
+}
+
+function _applyRatingReminderData(unratedOrders, options) {
+    options = options || {};
     var el = _ensureRatingReminderEl();
     var nav = _getVisibleBottomNav();
     var titleEl = document.getElementById('ratingReminderTitle');
     var subEl = document.getElementById('ratingReminderSub');
     var count = Array.isArray(unratedOrders) ? unratedOrders.length : 0;
+    _setUnratedOrderNavBadgeCount(count);
 
-    if (!count || !nav) {
+    if (!count || !nav || options.hideFloat) {
         el.classList.add('hidden');
         return;
     }
@@ -2212,14 +2236,11 @@ function refreshUnratedRatingReminder(options) {
     if (!session || session.role !== 'user') {
         var offEl = document.getElementById('ratingReminderFloat');
         if (offEl) offEl.classList.add('hidden');
+        _setUnratedOrderNavBadgeCount(0);
         return;
     }
     if (!isBackendConnected()) return;
-    if (!options.ignoreSnooze && _isRatingReminderSnoozed()) {
-        var snoozeEl = document.getElementById('ratingReminderFloat');
-        if (snoozeEl) snoozeEl.classList.add('hidden');
-        return;
-    }
+    var hideFloatBySnooze = !options.ignoreSnooze && _isRatingReminderSnoozed();
     if (_ratingReminderLoading) return;
 
     _ratingReminderLoading = true;
@@ -2228,7 +2249,7 @@ function refreshUnratedRatingReminder(options) {
         .then(function (res) {
             if (!res || !res.success || !Array.isArray(res.data)) {
                 _ratingReminderOrders = [];
-                _applyRatingReminderData([]);
+                _applyRatingReminderData([], { hideFloat: true });
                 return;
             }
 
@@ -2242,7 +2263,7 @@ function refreshUnratedRatingReminder(options) {
             });
 
             _ratingReminderOrders = unrated;
-            _applyRatingReminderData(unrated);
+            _applyRatingReminderData(unrated, { hideFloat: hideFloatBySnooze });
         })
         .catch(function () {})
         .finally(function () {
