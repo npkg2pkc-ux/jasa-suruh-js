@@ -2872,21 +2872,34 @@ function renderOrderActions(order, isTalent, isUser) {
         if (driverNavHtml) bindDriverNavButtons(order);
     }
 
+    var hasUserRating = (order.status === 'rated') || (Number(order.rating || 0) > 0) || Number(order.ratedAt || 0) > 0;
     if (isUser && (order.status === 'completed' || order.status === 'rated')) {
         var complaintOpen = !!(order.userComplaint || order.userComplaintText || order.userComplaintAt)
             && String(order.complaintStatus || '').toLowerCase() !== 'resolved'
             && String(order.complaintStatus || '').toLowerCase() !== 'closed';
 
-        el.innerHTML = [
-            '<div style="display:flex;gap:8px;flex-wrap:wrap;">',
-                '<button class="sf-btn-solid" style="flex:1" id="otpBtnRate">Beri Rating</button>',
-                (complaintOpen
-                    ? '<button class="sf-btn-outline" style="flex:1;opacity:.7" id="otpBtnComplaint" disabled>Aduan Sudah Dikirim</button>'
-                    : '<button class="sf-btn-outline" style="flex:1" id="otpBtnComplaint">Laporkan Aduan</button>'),
-            '</div>'
-        ].join('');
+        el.innerHTML = hasUserRating
+            ? [
+                '<div style="display:flex;gap:8px;flex-wrap:wrap;">',
+                    '<div style="flex:1;display:flex;align-items:center;justify-content:center;border:1px solid #D1FAE5;background:#ECFDF5;color:#065F46;border-radius:12px;padding:10px 12px;font-size:13px;font-weight:700;">⭐ Rating sudah dikirim</div>',
+                    (complaintOpen
+                        ? '<button class="sf-btn-outline" style="flex:1;opacity:.7" id="otpBtnComplaint" disabled>Aduan Sudah Dikirim</button>'
+                        : '<button class="sf-btn-outline" style="flex:1" id="otpBtnComplaint">Laporkan Aduan</button>'),
+                '</div>'
+            ].join('')
+            : [
+                '<div style="display:flex;gap:8px;flex-wrap:wrap;">',
+                    '<button class="sf-btn-solid" style="flex:1" id="otpBtnRate">Beri Rating</button>',
+                    (complaintOpen
+                        ? '<button class="sf-btn-outline" style="flex:1;opacity:.7" id="otpBtnComplaint" disabled>Aduan Sudah Dikirim</button>'
+                        : '<button class="sf-btn-outline" style="flex:1" id="otpBtnComplaint">Laporkan Aduan</button>'),
+                '</div>'
+            ].join('');
 
-        document.getElementById('otpBtnRate').addEventListener('click', function () { openRatingPage(order); });
+        var rateBtn = document.getElementById('otpBtnRate');
+        if (rateBtn) {
+            rateBtn.addEventListener('click', function () { openRatingPage(order); });
+        }
 
         var complaintBtn = document.getElementById('otpBtnComplaint');
         if (complaintBtn && !complaintBtn.disabled) {
@@ -3872,18 +3885,29 @@ function submitRating() {
         orderId: _ratingOrder.id,
         rating: _ratingValue,
         review: review,
+        ratedAt: Date.now(),
         sellerRating: sellerRating,
         sellerReview: sellerReview
     }).then(function (res) {
         if (res && res.success) {
             showToast('Rating berhasil dikirim! Terima kasih 🎉', 'success');
             document.getElementById('ratingPage').classList.add('hidden');
-                try { localStorage.removeItem('js_rating_prompt_seen_' + _ratingOrder.id); } catch (e) {}
+            try { localStorage.removeItem('js_rating_prompt_seen_' + _ratingOrder.id); } catch (e) {}
+
+            // Keep local objects in sync so CTA rating does not reappear.
+            _ratingOrder.status = 'rated';
+            _ratingOrder.rating = _ratingValue;
+            _ratingOrder.review = review;
+            _ratingOrder.ratedAt = Date.now();
+            if (sellerRating) _ratingOrder.sellerRating = sellerRating;
+            if (sellerReview) _ratingOrder.sellerReview = sellerReview;
+
             if (_ratingOrder.talentId) delete _talentRatingsCache[_ratingOrder.talentId];
-            if (_currentOrder && _currentOrder.id === _ratingOrder.id) {
+            if (_currentOrder && String(_currentOrder.id) === String(_ratingOrder.id)) {
                 _currentOrder.status = 'rated';
                 _currentOrder.rating = _ratingValue;
                 _currentOrder.review = review;
+                _currentOrder.ratedAt = Date.now();
                 if (sellerRating) _currentOrder.sellerRating = sellerRating;
                 if (sellerReview) _currentOrder.sellerReview = sellerReview;
                 var session = getSession();

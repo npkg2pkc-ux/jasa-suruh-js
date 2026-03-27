@@ -672,6 +672,7 @@
                     review: body.review || '',
                     sellerRating: (body.sellerRating !== undefined && body.sellerRating !== null) ? body.sellerRating : current.sellerRating,
                     sellerReview: (body.sellerReview !== undefined && body.sellerReview !== null) ? body.sellerReview : (current.sellerReview || ''),
+                    ratedAt: Number(body.ratedAt || Date.now()),
                     status: 'rated'
                 });
                 return sb.from('orders').update({
