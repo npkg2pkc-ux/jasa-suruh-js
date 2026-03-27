@@ -3074,6 +3074,7 @@ function renderOrderActions(order, isTalent, isUser) {
             }
         }
 
+        _refreshDriverGpsLockedButtons(order);
         if (driverNavHtml) bindDriverNavButtons(order);
     }
 
@@ -3234,6 +3235,100 @@ function submitUserOrderComplaint(order) {
     });
 }
 
+function _getDriverTargetCoords(order, targetType) {
+    if (!order) return null;
+    var targetLat, targetLng;
+    if (targetType === 'store') {
+        var storeCoords = getOrderStoreCoords(order);
+        if (storeCoords) {
+            targetLat = Number(storeCoords.lat);
+            targetLng = Number(storeCoords.lng);
+        }
+    } else if (targetType === 'user' || targetType === 'buyer') {
+        targetLat = Number(order.userLat);
+        targetLng = Number(order.userLng);
+    } else if (targetType === 'dest') {
+        targetLat = Number(order.destLat);
+        targetLng = Number(order.destLng);
+    }
+    if (!isValidLatLng(targetLat, targetLng)) return null;
+    return { lat: targetLat, lng: targetLng };
+}
+
+function _getDriverGpsGateTargetType(order, nextStatus) {
+    if (!order || !nextStatus) return '';
+    var currentStatus = String(order.status || '');
+    var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
+    var isRideFlow = !!(order.skillType === 'js_antar' || order.skillType === 'js_delivery');
+
+    if (nextStatus === 'arrived' && currentStatus === 'on_the_way') {
+        return isProductOrder ? 'store' : 'user';
+    }
+    if (nextStatus === 'completed' && currentStatus === 'in_progress') {
+        if (isProductOrder) return 'buyer';
+        if (isRideFlow) return 'dest';
+        return 'user';
+    }
+    return '';
+}
+
+function _formatDistanceMeters(km) {
+    var meters = Math.max(0, Math.round(Number(km || 0) * 1000));
+    return String(meters) + ' m';
+}
+
+function _checkDriverGpsGateByKnownPosition(order, targetType, maxDistanceKm) {
+    if (!order || !targetType) return { ok: true };
+    var radiusKm = Number(maxDistanceKm);
+    if (!isFinite(radiusKm) || radiusKm <= 0) radiusKm = GPS_MANUAL_ACTION_RADIUS;
+
+    var dLat = Number(order.talentLat);
+    var dLng = Number(order.talentLng);
+    if (!isValidLatLng(dLat, dLng)) return { ok: false, reason: 'driver_location_unavailable' };
+
+    var target = _getDriverTargetCoords(order, targetType);
+    if (!target) return { ok: false, reason: 'target_location_unavailable' };
+
+    var distKm = haversineDistance(dLat, dLng, target.lat, target.lng);
+    return { ok: distKm <= radiusKm, distKm: distKm, radiusKm: radiusKm };
+}
+
+function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
+    var btn = document.getElementById(buttonId);
+    if (!btn || !order) return;
+    var targetType = _getDriverGpsGateTargetType(order, nextStatus);
+    if (!targetType) return;
+
+    var knownCheck = _checkDriverGpsGateByKnownPosition(order, targetType, GPS_MANUAL_ACTION_RADIUS);
+    if (!btn.dataset.baseLabel) btn.dataset.baseLabel = btn.textContent;
+
+    if (knownCheck.ok) {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.baseLabel;
+        btn.style.opacity = '';
+        btn.title = '';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.style.opacity = '0.72';
+    if (knownCheck.reason === 'driver_location_unavailable') {
+        btn.textContent = 'Menunggu GPS Driver...';
+        btn.title = 'GPS driver belum terkunci. Nyalakan lokasi presisi.';
+    } else if (knownCheck.reason === 'target_location_unavailable') {
+        btn.textContent = 'Lokasi Tujuan Belum Valid';
+        btn.title = 'Koordinat tujuan belum valid. Hubungi admin.';
+    } else {
+        btn.textContent = 'Belum Sampai Titik';
+        btn.title = 'Dekati lokasi (maks ' + _formatDistanceMeters(knownCheck.radiusKm) + ') agar tombol aktif.';
+    }
+}
+
+function _refreshDriverGpsLockedButtons(order) {
+    _applyDriverGpsGateButton(order, 'otpBtnArrive', 'arrived');
+    _applyDriverGpsGateButton(order, 'otpBtnComplete', 'completed');
+}
+
 function updateOrderStatus(orderId, newStatus, extraFields) {
     var fields = Object.assign({}, extraFields || {});
     fields.status = newStatus;
@@ -3249,88 +3344,115 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
         refreshTrackingUIFromCurrentOrder();
     }
 
-    backendPost({ action: 'updateOrder', orderId: orderId, fields: fields, actorId: actorId }).then(function (res) {
-        if (res && res.success) {
-            showToast('Status diperbarui!', 'success');
+    function runStatusUpdate() {
+        backendPost({ action: 'updateOrder', orderId: orderId, fields: fields, actorId: actorId }).then(function (res) {
+            if (res && res.success) {
+                showToast('Status diperbarui!', 'success');
 
-            if (newStatus === 'on_the_way') {
-                startTalentLocationBroadcast(orderId);
-            }
-            if (isTrackingTerminalStatus(newStatus)) {
-                stopTalentLocationBroadcast();
-            }
-
-            // Create notifications for order status change
-            var notifOrder = isCurrentOrderTarget ? _currentOrder : null;
-            if (notifOrder) {
-                var isAntarOrder = notifOrder.skillType === 'js_antar';
-                var isDeliveryOrder = notifOrder.skillType === 'js_delivery';
-                var statusLabels = isAntarOrder
-                    ? { accepted: 'Driver Ditemukan', on_the_way: 'Driver Menuju Lokasi', arrived: 'Driver Tiba', in_progress: 'Dalam Perjalanan', completed: 'Sampai Tujuan' }
-                    : (isDeliveryOrder
-                        ? { accepted: 'Driver Delivery Ditemukan', on_the_way: 'Driver Menuju Jemput', arrived: 'Driver di Titik Jemput', in_progress: 'Menuju Titik Antar', completed: 'Barang Terkirim' }
-                        : { accepted: 'Diterima', on_the_way: 'Dalam Perjalanan', arrived: 'Talent Tiba', in_progress: 'Dikerjakan', completed: 'Selesai' });
-                var label = statusLabels[newStatus] || newStatus;
-                var svc = notifOrder.serviceType || notifOrder.skillType || 'Pesanan';
-                // Notify the other party
-                var session = getSession();
-                if (session) {
-                    var otherUserId = (session.id === notifOrder.talentId) ? notifOrder.userId : notifOrder.talentId;
-                    if (otherUserId) {
-                        addNotifItem({ userId: otherUserId, icon: '📦', title: 'Pesanan ' + label, desc: svc + ' - status diperbarui ke ' + label, type: 'order', orderId: notifOrder.id });
-                    }
-                    // Also notify self
-                    addNotifItem({ icon: '📦', title: 'Pesanan ' + label, desc: svc + ' - status diperbarui ke ' + label, type: 'order', orderId: notifOrder.id });
+                if (newStatus === 'on_the_way') {
+                    startTalentLocationBroadcast(orderId);
                 }
-            }
+                if (isTrackingTerminalStatus(newStatus)) {
+                    stopTalentLocationBroadcast();
+                }
 
-            // When completed, always push to admin review queue before any payout.
-            if (newStatus === 'completed') {
-                var orderRef = notifOrder || { id: orderId };
-                backendPost({
-                    action: 'updateOrder',
-                    orderId: orderId,
-                    fields: {
-                        pendingAdminReview: true,
-                        pendingAdminReviewAt: Date.now(),
-                        walletSettled: false,
-                        adminReviewStatus: '',
-                        adminReviewReason: '',
-                        adminReviewNote: 'Menunggu verifikasi admin',
-                        followUpRequired: false,
-                        fraudFlag: false
+                // Create notifications for order status change
+                var notifOrder = isCurrentOrderTarget ? _currentOrder : null;
+                if (notifOrder) {
+                    var isAntarOrder = notifOrder.skillType === 'js_antar';
+                    var isDeliveryOrder = notifOrder.skillType === 'js_delivery';
+                    var statusLabels = isAntarOrder
+                        ? { accepted: 'Driver Ditemukan', on_the_way: 'Driver Menuju Lokasi', arrived: 'Driver Tiba', in_progress: 'Dalam Perjalanan', completed: 'Sampai Tujuan' }
+                        : (isDeliveryOrder
+                            ? { accepted: 'Driver Delivery Ditemukan', on_the_way: 'Driver Menuju Jemput', arrived: 'Driver di Titik Jemput', in_progress: 'Menuju Titik Antar', completed: 'Barang Terkirim' }
+                            : { accepted: 'Diterima', on_the_way: 'Dalam Perjalanan', arrived: 'Talent Tiba', in_progress: 'Dikerjakan', completed: 'Selesai' });
+                    var label = statusLabels[newStatus] || newStatus;
+                    var svc = notifOrder.serviceType || notifOrder.skillType || 'Pesanan';
+                    // Notify the other party
+                    var session = getSession();
+                    if (session) {
+                        var otherUserId = (session.id === notifOrder.talentId) ? notifOrder.userId : notifOrder.talentId;
+                        if (otherUserId) {
+                            addNotifItem({ userId: otherUserId, icon: '📦', title: 'Pesanan ' + label, desc: svc + ' - status diperbarui ke ' + label, type: 'order', orderId: notifOrder.id });
+                        }
+                        // Also notify self
+                        addNotifItem({ icon: '📦', title: 'Pesanan ' + label, desc: svc + ' - status diperbarui ke ' + label, type: 'order', orderId: notifOrder.id });
                     }
-                });
-                addNotifItem({
-                    icon: '🔍',
-                    title: 'Order Selesai - Perlu Review Admin',
-                    desc: 'Pesanan #' + (orderRef.id || '').substr(0, 8) + ' (' + (orderRef.serviceType || orderRef.skillType || 'Pesanan') + ') menunggu persetujuan Admin untuk pencairan komisi driver.',
-                    type: 'review',
-                    orderId: orderId,
-                    extra: { pendingAdminReview: true }
-                });
-                showToast('Pesanan selesai! Masuk antrian review admin sebelum pencairan komisi.', 'success');
-            }
+                }
 
-            if (isTrackingTerminalStatus(newStatus)) {
-                setTimeout(function () {
-                    closeTrackingToHome();
-                }, 900);
+                // When completed, always push to admin review queue before any payout.
+                if (newStatus === 'completed') {
+                    var orderRef = notifOrder || { id: orderId };
+                    backendPost({
+                        action: 'updateOrder',
+                        orderId: orderId,
+                        fields: {
+                            pendingAdminReview: true,
+                            pendingAdminReviewAt: Date.now(),
+                            walletSettled: false,
+                            adminReviewStatus: '',
+                            adminReviewReason: '',
+                            adminReviewNote: 'Menunggu verifikasi admin',
+                            followUpRequired: false,
+                            fraudFlag: false
+                        }
+                    });
+                    addNotifItem({
+                        icon: '🔍',
+                        title: 'Order Selesai - Perlu Review Admin',
+                        desc: 'Pesanan #' + (orderRef.id || '').substr(0, 8) + ' (' + (orderRef.serviceType || orderRef.skillType || 'Pesanan') + ') menunggu persetujuan Admin untuk pencairan komisi driver.',
+                        type: 'review',
+                        orderId: orderId,
+                        extra: { pendingAdminReview: true }
+                    });
+                    showToast('Pesanan selesai! Masuk antrian review admin sebelum pencairan komisi.', 'success');
+                }
+
+                if (isTrackingTerminalStatus(newStatus)) {
+                    setTimeout(function () {
+                        closeTrackingToHome();
+                    }, 900);
+                }
+            } else {
+                if (isCurrentOrderTarget && prevOrderSnapshot) {
+                    _currentOrder = prevOrderSnapshot;
+                    refreshTrackingUIFromCurrentOrder();
+                }
+                showToast((res && res.message) ? res.message : 'Gagal update status', 'error');
             }
-        } else {
+        }).catch(function () {
             if (isCurrentOrderTarget && prevOrderSnapshot) {
                 _currentOrder = prevOrderSnapshot;
                 refreshTrackingUIFromCurrentOrder();
             }
-            showToast((res && res.message) ? res.message : 'Gagal update status', 'error');
-        }
-    }).catch(function () {
-        if (isCurrentOrderTarget && prevOrderSnapshot) {
-            _currentOrder = prevOrderSnapshot;
-            refreshTrackingUIFromCurrentOrder();
-        }
-        showToast('Gagal update status', 'error');
-    });
+            showToast('Gagal update status', 'error');
+        });
+    }
+
+    var mustGpsValidate = !!(session && session.role === 'talent' && !fields.autoProgress);
+    var guardOrder = isCurrentOrderTarget ? Object.assign({}, prevOrderSnapshot || _currentOrder) : null;
+    var gateTargetType = _getDriverGpsGateTargetType(guardOrder, newStatus);
+    if (mustGpsValidate && gateTargetType) {
+        _verifyDriverAtLocation(guardOrder, gateTargetType, function (isNear, meta) {
+            if (!isNear) {
+                if (isCurrentOrderTarget && prevOrderSnapshot) {
+                    _currentOrder = prevOrderSnapshot;
+                    refreshTrackingUIFromCurrentOrder();
+                }
+                var distText = (meta && isFinite(Number(meta.distKm))) ? _formatDistanceMeters(Number(meta.distKm)) : '';
+                var radiusText = (meta && isFinite(Number(meta.radiusKm))) ? _formatDistanceMeters(Number(meta.radiusKm)) : _formatDistanceMeters(GPS_MANUAL_ACTION_RADIUS);
+                var msg = distText
+                    ? ('⚠️ Belum sampai titik. Jarak saat ini ' + distText + ' (maks ' + radiusText + ').')
+                    : ('⚠️ Belum sampai titik. Dekati lokasi tujuan (maks ' + radiusText + ').');
+                showToast(msg, 'error');
+                return;
+            }
+            runStatusUpdate();
+        }, GPS_MANUAL_ACTION_RADIUS);
+        return;
+    }
+
+    runStatusUpdate();
 }
 
 // ══════════════════════════════════════════
@@ -3527,6 +3649,7 @@ function updateTalentMarkerPosition(lat, lng) {
     if (_currentOrder) {
         _currentOrder.talentLat = lat;
         _currentOrder.talentLng = lng;
+        _refreshDriverGpsLockedButtons(_currentOrder);
         renderTrackingMapRouteCard(_currentOrder, false);
         updateTrackingRoute(_currentOrder, false);
     }
@@ -3624,6 +3747,7 @@ function pollOrderUpdate(orderId) {
 
 // Radius in km within which driver is considered "arrived"
 var GPS_ARRIVE_RADIUS = 0.15; // 150 meters
+var GPS_MANUAL_ACTION_RADIUS = 0.08; // 80 meters for manual action button lock
 var GPS_NEARBY_RADIUS = 0.5;  // 500 meters — send "driver nearby" notif
 var _nearbyAlertSent = {}; // per orderId, prevent repeat alerts
 var _watchPositionId = null;
@@ -5233,40 +5357,31 @@ function registerSW() {
 
 // ── Driver GPS location verification helper ──
 // Checks current position vs target; callback(isNear:bool)
-function _verifyDriverAtLocation(order, targetType, callback) {
+function _verifyDriverAtLocation(order, targetType, callback, maxDistanceKm) {
     if (!('geolocation' in navigator)) {
         showToast('⚠️ GPS wajib aktif untuk mengubah progress pesanan.', 'error');
-        callback(false);
+        callback(false, { distKm: NaN, radiusKm: Number(maxDistanceKm) || GPS_MANUAL_ACTION_RADIUS, targetType: targetType });
         return;
     }
+    var radiusKm = Number(maxDistanceKm);
+    if (!isFinite(radiusKm) || radiusKm <= 0) radiusKm = GPS_MANUAL_ACTION_RADIUS;
+
     navigator.geolocation.getCurrentPosition(function (pos) {
         var dLat = pos.coords.latitude;
         var dLng = pos.coords.longitude;
-        var targetLat, targetLng;
-
-        if (targetType === 'store') {
-            var storeCoords = getOrderStoreCoords(order);
-            if (storeCoords) { targetLat = storeCoords.lat; targetLng = storeCoords.lng; }
-        } else if (targetType === 'user' || targetType === 'buyer') {
-            targetLat = Number(order.userLat);
-            targetLng = Number(order.userLng);
-        } else if (targetType === 'dest') {
-            targetLat = Number(order.destLat);
-            targetLng = Number(order.destLng);
-        }
-
-        if (!isValidLatLng(targetLat, targetLng)) {
+        var target = _getDriverTargetCoords(order, targetType);
+        if (!target) {
             showToast('⚠️ Titik tujuan belum valid. Hubungi admin untuk sinkronisasi koordinat.', 'error');
-            callback(false);
+            callback(false, { distKm: NaN, radiusKm: radiusKm, targetType: targetType });
             return;
         }
 
-        var dist = haversineDistance(dLat, dLng, targetLat, targetLng);
-        callback(dist <= GPS_ARRIVE_RADIUS);
+        var dist = haversineDistance(dLat, dLng, target.lat, target.lng);
+        callback(dist <= radiusKm, { distKm: dist, radiusKm: radiusKm, targetType: targetType });
     }, function () {
         showToast('⚠️ GPS tidak tersedia. Progress tidak dapat dilanjutkan.', 'error');
-        callback(false);
-    }, { enableHighAccuracy: true, timeout: 10000 });
+        callback(false, { distKm: NaN, radiusKm: radiusKm, targetType: targetType });
+    }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
 }
 
 function _showUpdatePopup(waitingWorker) {
