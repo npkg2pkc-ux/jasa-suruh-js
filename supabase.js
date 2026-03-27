@@ -482,6 +482,133 @@
         });
     }
 
+    function _isProtectedDriverStatus(status) {
+        return status === 'on_the_way' || status === 'arrived' || status === 'in_progress' || status === 'completed';
+    }
+
+    function _isAllowedDriverTransition(prevStatus, nextStatus) {
+        if (prevStatus === nextStatus) return true;
+        if (nextStatus === 'on_the_way') return prevStatus === 'accepted';
+        if (nextStatus === 'arrived') return prevStatus === 'on_the_way';
+        if (nextStatus === 'in_progress') return prevStatus === 'arrived';
+        if (nextStatus === 'completed') return prevStatus === 'in_progress';
+        return true;
+    }
+
+    function _isValidLatLng(lat, lng) {
+        var nLat = Number(lat);
+        var nLng = Number(lng);
+        if (!isFinite(nLat) || !isFinite(nLng)) return false;
+        if (Math.abs(nLat) > 90 || Math.abs(nLng) > 180) return false;
+        if (nLat === 0 && nLng === 0) return false;
+        return true;
+    }
+
+    function _haversineKm(lat1, lon1, lat2, lon2) {
+        var R = 6371;
+        var dLat = (lat2 - lat1) * Math.PI / 180;
+        var dLon = (lon2 - lon1) * Math.PI / 180;
+        var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function _resolveOrderTargetCoords(order, nextStatus) {
+        if (!order) return null;
+        var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
+        var isRideFlow = (order.skillType === 'js_antar' || order.skillType === 'js_delivery');
+
+        var userLat = Number(order.userLat);
+        var userLng = Number(order.userLng);
+        var storeLat = Number(order.storeLat);
+        var storeLng = Number(order.storeLng);
+        var destLat = Number(order.destLat);
+        var destLng = Number(order.destLng);
+
+        if (nextStatus === 'arrived') {
+            if (isProductOrder && _isValidLatLng(storeLat, storeLng)) return { lat: storeLat, lng: storeLng, label: 'titik toko' };
+            if (_isValidLatLng(userLat, userLng)) return { lat: userLat, lng: userLng, label: 'titik jemput' };
+            return null;
+        }
+
+        if (nextStatus === 'in_progress') {
+            if (isProductOrder && _isValidLatLng(storeLat, storeLng)) return { lat: storeLat, lng: storeLng, label: 'titik toko' };
+            if (_isValidLatLng(userLat, userLng)) return { lat: userLat, lng: userLng, label: isRideFlow ? 'titik jemput' : 'lokasi user' };
+            return null;
+        }
+
+        if (nextStatus === 'completed') {
+            if (isRideFlow && _isValidLatLng(destLat, destLng)) return { lat: destLat, lng: destLng, label: 'titik tujuan' };
+            if (_isValidLatLng(userLat, userLng)) return { lat: userLat, lng: userLng, label: 'lokasi user/pembeli' };
+            return null;
+        }
+
+        return null;
+    }
+
+    function _resolveDriverCoords(orderId, currentOrder, fields) {
+        var fLat = Number(fields && fields.talentLat);
+        var fLng = Number(fields && fields.talentLng);
+        if (_isValidLatLng(fLat, fLng)) {
+            return Promise.resolve({ lat: fLat, lng: fLng });
+        }
+
+        var oLat = Number(currentOrder && currentOrder.talentLat);
+        var oLng = Number(currentOrder && currentOrder.talentLng);
+        if (_isValidLatLng(oLat, oLng)) {
+            return Promise.resolve({ lat: oLat, lng: oLng });
+        }
+
+        return sb.from('locations').select('lat,lng').eq('order_id', orderId).single()
+            .then(function (res) {
+                if (res.error || !res.data) return null;
+                var lat = Number(res.data.lat);
+                var lng = Number(res.data.lng);
+                if (_isValidLatLng(lat, lng)) return { lat: lat, lng: lng };
+                return null;
+            })
+            .catch(function () { return null; });
+    }
+
+    function _validateProtectedStatusUpdate(orderId, currentOrder, mergedOrder, fields, body) {
+        var nextStatus = String((fields && fields.status) || '');
+        var prevStatus = String((currentOrder && currentOrder.status) || '');
+
+        if (!_isProtectedDriverStatus(nextStatus)) return Promise.resolve('');
+        if (!currentOrder || !currentOrder.talentId) return Promise.resolve('');
+
+        var actorId = String((body && body.actorId) || (fields && fields.actorId) || '');
+        if (!actorId || actorId !== String(currentOrder.talentId)) {
+            return Promise.resolve('Update progress ditolak: hanya driver aktif yang dapat mengubah progress.');
+        }
+
+        if (!_isAllowedDriverTransition(prevStatus, nextStatus)) {
+            return Promise.resolve('Update progress ditolak: urutan status tidak valid dari "' + prevStatus + '" ke "' + nextStatus + '".');
+        }
+
+        if (nextStatus === 'on_the_way') return Promise.resolve('');
+
+        var target = _resolveOrderTargetCoords(mergedOrder, nextStatus);
+        if (!target) {
+            return Promise.resolve('Update progress ditolak: titik koordinat tujuan belum tersedia.');
+        }
+
+        return _resolveDriverCoords(orderId, currentOrder, fields).then(function (driverPos) {
+            if (!driverPos) {
+                return 'Update progress ditolak: koordinat driver tidak tersedia.';
+            }
+
+            var distKm = _haversineKm(driverPos.lat, driverPos.lng, target.lat, target.lng);
+            var maxKm = 0.2;
+            if (distKm > maxKm) {
+                return 'Update progress ditolak: driver belum berada di sekitar ' + target.label + ' (jarak ' + Math.round(distKm * 1000) + ' m).';
+            }
+
+            return '';
+        });
+    }
+
     function doUpdateOrder(body) {
         var fields = Object.assign({}, body.fields);
         var orderId = body.orderId;
@@ -491,15 +618,23 @@
                 throwIfError(res);
                 var current = (res.data && res.data.data) || {};
                 var merged = Object.assign({}, current, fields);
-                return sb.from('orders').update({
-                    data: merged,
-                    user_id: merged.userId || null,
-                    talent_id: merged.talentId || null
-                }).eq('id', orderId);
+
+                return _validateProtectedStatusUpdate(orderId, current, merged, fields, body).then(function (validationError) {
+                    if (validationError) return fail(validationError);
+
+                    return sb.from('orders').update({
+                        data: merged,
+                        user_id: merged.userId || null,
+                        talent_id: merged.talentId || null
+                    }).eq('id', orderId).then(function (uRes) {
+                        throwIfError(uRes);
+                        return ok(null);
+                    });
+                });
             })
-            .then(function (res) {
-                throwIfError(res);
-                return ok(null);
+            .catch(function (err) {
+                if (err && err.success === false) return err;
+                throw err;
             });
     }
 
@@ -552,18 +687,34 @@
     }
 
     function doUpdateTalentLocation(body) {
+        var lat = Number(body.lat);
+        var lng = Number(body.lng);
+        if (!_isValidLatLng(lat, lng)) {
+            return Promise.resolve(fail('Koordinat driver tidak valid'));
+        }
+
+        return getOrderDataById(body.orderId).then(function (order) {
+            if (!order) return fail('Order tidak ditemukan');
+            var actorId = String(body.actorId || '');
+            var talentId = String(order.talentId || '');
+            if (!actorId || !talentId || actorId !== talentId) {
+                return fail('Update lokasi ditolak: hanya driver aktif order yang boleh update lokasi.');
+            }
+
         // Upsert to locations table (replaces Firebase RTDB)
-        return sb.from('locations').upsert({
-            order_id: body.orderId,
-            lat: body.lat,
-            lng: body.lng,
-            updated_at: Date.now()
-        }).then(function (res) {
-            throwIfError(res);
-            // Also update order document with talentLat/talentLng
-            return doUpdateOrder({
-                orderId: body.orderId,
-                fields: { talentLat: body.lat, talentLng: body.lng }
+            return sb.from('locations').upsert({
+                order_id: body.orderId,
+                lat: lat,
+                lng: lng,
+                updated_at: Date.now()
+            }).then(function (res) {
+                throwIfError(res);
+                // Also update order document with talentLat/talentLng
+                return doUpdateOrder({
+                    orderId: body.orderId,
+                    actorId: actorId,
+                    fields: { talentLat: lat, talentLng: lng, talentLastLocationAt: Date.now() }
+                });
             });
         });
     }
@@ -1003,6 +1154,9 @@
             if (order.walletSettled) {
                 return ok({ alreadySettled: true });
             }
+            if (order.pendingAdminReview || String(order.adminReviewStatus || '') !== 'approved') {
+                return fail('Payout ditolak: order belum disetujui admin.');
+            }
 
             var settings = (settingsRes && settingsRes.success && settingsRes.data) ? settingsRes.data : {};
 
@@ -1111,6 +1265,9 @@
             }
             if (order.walletSettled) {
                 return ok({ alreadySettled: true });
+            }
+            if (order.pendingAdminReview || String(order.adminReviewStatus || '') !== 'approved') {
+                return fail('Payout COD ditolak: order belum disetujui admin.');
             }
 
             var settings = (settingsRes && settingsRes.success && settingsRes.data) ? settingsRes.data : {};

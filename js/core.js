@@ -27,6 +27,7 @@ var _otpStoreMarker = null;
 var _otpRouteLine = null;
 var _otpRouteFlowLine = null;
 var _locationPollTimer = null;
+var _orderFallbackPollTimer = null;
 var _chatPollTimer = null;
 var _fbOrderUnsub = null;
 var _fbLocUnsub = null;

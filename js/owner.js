@@ -228,6 +228,10 @@ var OwnerDashboard = (function () {
                 }
                 if (action === 'transactions') {
                     if (typeof openAdminTransactions === 'function') openAdminTransactions();
+                    return;
+                }
+                if (action === 'order-review') {
+                    if (typeof openAdminOrderReview === 'function') openAdminOrderReview();
                 }
             });
         }

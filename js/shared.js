@@ -828,6 +828,16 @@ function _checkOrderMessages(order, session) {
                     type: 'chat',
                     orderId: order.id
                 });
+
+                if (document.hidden) {
+                    _postServiceWorkerNotification({
+                        title: '💬 Pesan dari ' + senderName,
+                        body: lastMsg.text || 'Ada pesan baru',
+                        tag: 'chat-' + String(order.id || ''),
+                        data: { orderId: order.id, type: 'chat' },
+                        vibrate: [100, 50, 100]
+                    });
+                }
             }
             _lastKnownMsgCounts[order.id] = currentCount;
         })
@@ -877,6 +887,10 @@ function initNotifications() {
     if (_notifPollTimer) { clearInterval(_notifPollTimer); _notifPollTimer = null; }
     _prevUnreadCount = 0;
 
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().catch(function () {});
+    }
+
     // Try realtime first, fall back to polling
     _notifUnsub = FB.onNotifications(session.id, function (items) {
         _onNotifUpdate(items);
@@ -894,6 +908,16 @@ function initNotifications() {
 }
 window.initNotifications = initNotifications;
 
+function _postServiceWorkerNotification(payload) {
+    if (!payload || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    navigator.serviceWorker.ready.then(function (reg) {
+        var worker = navigator.serviceWorker.controller || reg.active || reg.waiting;
+        if (!worker) return;
+        worker.postMessage(Object.assign({ type: 'SHOW_NOTIFICATION' }, payload));
+    }).catch(function () {});
+}
+
 function _onNotifUpdate(items) {
     _notifItems = items || [];
     var newUnread = _notifItems.filter(function (n) { return n.unread; }).length;
@@ -909,6 +933,20 @@ function _onNotifUpdate(items) {
         }
         if (s && s.role === 'talent' && typeof loadTalentDashboardOrders === 'function') {
             setTimeout(function () { loadTalentDashboardOrders(); }, 0);
+        }
+
+        if (document.hidden) {
+            var latestUnread = _notifItems.filter(function (n) { return !!n.unread; })
+                .sort(function (a, b) { return Number(b.createdAt || 0) - Number(a.createdAt || 0); })[0];
+            if (latestUnread) {
+                _postServiceWorkerNotification({
+                    title: latestUnread.title || 'Jasa Suruh',
+                    body: latestUnread.desc || 'Ada notifikasi baru',
+                    tag: latestUnread.type ? ('notif-' + latestUnread.type) : 'notif-general',
+                    data: { orderId: latestUnread.orderId || '', type: latestUnread.type || 'info' },
+                    vibrate: [200, 100, 200]
+                });
+            }
         }
     }
     _prevUnreadCount = newUnread;
@@ -1141,6 +1179,11 @@ function openOrderTracking(order) {
     }
 
     startOrderPolling(order.id);
+
+    // Ensure driver location stream keeps running while this order is active.
+    if (isTalent && ['accepted', 'on_the_way', 'arrived', 'in_progress'].indexOf(order.status) >= 0) {
+        startTalentLocationBroadcast(order.id);
+    }
 }
 
 function shouldShowTrackingMap(order) {
@@ -2369,15 +2412,33 @@ function renderOrderActions(order, isTalent, isUser) {
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnOtw">' + otwLabel + '</button>';
             document.getElementById('otpBtnOtw').addEventListener('click', function () { updateOrderStatus(order.id, 'on_the_way', {}); startTalentLocationBroadcast(order.id); });
         } else if (order.status === 'on_the_way' && isProductOrder) {
-            el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnArrive">Sampai di Toko</button>';
-            document.getElementById('otpBtnArrive').addEventListener('click', function () { updateOrderStatus(order.id, 'arrived', {}); });
+            // GPS-gated: Only show "Sampai di Toko" button, but auto-advance handles it via proximity
+            var storeCoords = getOrderStoreCoords(order);
+            el.innerHTML = driverNavHtml
+                + '<div class="gps-progress-hint" style="text-align:center;font-size:12px;color:#FF6B00;margin-bottom:8px;">📍 Progress akan otomatis saat Anda tiba di lokasi</div>'
+                + '<button class="sf-btn-outline" style="width:100%;font-size:13px;" id="otpBtnArrive">Tandai Tiba Secara Manual</button>';
+            document.getElementById('otpBtnArrive').addEventListener('click', function () {
+                _verifyDriverAtLocation(order, 'store', function(isNear) {
+                    if (isNear) {
+                        updateOrderStatus(order.id, 'arrived', {});
+                    } else {
+                        showToast('⚠️ Anda harus berada di dekat lokasi toko untuk menandai tiba. Progress akan otomatis saat Anda sampai.', 'error');
+                    }
+                });
+            });
         } else if (order.status === 'arrived' && isProductOrder) {
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnStart">Ambil Pesanan & Antar</button>';
             document.getElementById('otpBtnStart').addEventListener('click', function () { updateOrderStatus(order.id, 'in_progress', { pickedUpAt: Date.now() }); });
         } else if (order.status === 'in_progress' && isProductOrder) {
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnComplete">Selesai + Upload Bukti</button><input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">';
             document.getElementById('otpBtnComplete').addEventListener('click', function () {
-                document.getElementById('otpProofInput').click();
+                _verifyDriverAtLocation(order, 'buyer', function(isNear) {
+                    if (isNear) {
+                        document.getElementById('otpProofInput').click();
+                    } else {
+                        showToast('⚠️ Anda harus berada di dekat lokasi pembeli untuk menyelesaikan pesanan.', 'error');
+                    }
+                });
             });
             document.getElementById('otpProofInput').addEventListener('change', function () {
                 var file = this.files[0];
@@ -2393,8 +2454,18 @@ function renderOrderActions(order, isTalent, isUser) {
             });
         } else if (order.status === 'on_the_way') {
             var arriveLabel = isAntar ? 'Sudah di Lokasi Jemput' : (isDelivery ? 'Sudah di Titik Jemput Barang' : 'Sudah Tiba');
-            el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnArrive">' + arriveLabel + '</button>';
-            document.getElementById('otpBtnArrive').addEventListener('click', function () { updateOrderStatus(order.id, 'arrived', {}); });
+            el.innerHTML = driverNavHtml
+                + '<div class="gps-progress-hint" style="text-align:center;font-size:12px;color:#FF6B00;margin-bottom:8px;">📍 Progress akan otomatis saat Anda tiba di lokasi</div>'
+                + '<button class="sf-btn-outline" style="width:100%;font-size:13px;" id="otpBtnArrive">' + arriveLabel + ' (Manual)</button>';
+            document.getElementById('otpBtnArrive').addEventListener('click', function () {
+                _verifyDriverAtLocation(order, 'user', function(isNear) {
+                    if (isNear) {
+                        updateOrderStatus(order.id, 'arrived', {});
+                    } else {
+                        showToast('⚠️ Anda harus berada di dekat lokasi tujuan untuk menandai tiba. Progress akan otomatis saat Anda sampai.', 'error');
+                    }
+                });
+            });
         } else if (order.status === 'arrived') {
             var startLabel = isAntar ? 'Mulai Perjalanan' : (isDelivery ? 'Mulai Antar ke Titik Tujuan' : 'Mulai Mengerjakan');
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnStart">' + startLabel + '</button>';
@@ -2404,9 +2475,15 @@ function renderOrderActions(order, isTalent, isUser) {
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnComplete">' + completeLabel + '</button>' + (isRideFlow ? '' : '<input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">');
             if (isRideFlow) {
                 document.getElementById('otpBtnComplete').addEventListener('click', function () {
-                    var msg = isAntar ? 'Konfirmasi penumpang sudah sampai tujuan?' : 'Konfirmasi barang sudah sampai di titik antar?';
-                    if (!confirm(msg)) return;
-                    updateOrderStatus(order.id, 'completed', { completedAt: Date.now() });
+                    _verifyDriverAtLocation(order, 'dest', function(isNear) {
+                        if (isNear) {
+                            var msg = isAntar ? 'Konfirmasi penumpang sudah sampai tujuan?' : 'Konfirmasi barang sudah sampai di titik antar?';
+                            if (!confirm(msg)) return;
+                            updateOrderStatus(order.id, 'completed', { completedAt: Date.now() });
+                        } else {
+                            showToast('⚠️ Anda harus berada di dekat lokasi tujuan untuk menyelesaikan perjalanan.', 'error');
+                        }
+                    });
                 });
             } else {
                 document.getElementById('otpBtnComplete').addEventListener('click', function () {
@@ -2461,6 +2538,9 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
     var fields = Object.assign({}, extraFields || {});
     fields.status = newStatus;
 
+    var session = getSession();
+    var actorId = session && session.id ? session.id : '';
+
     var isCurrentOrderTarget = !!(_currentOrder && String(_currentOrder.id) === String(orderId));
     var prevOrderSnapshot = null;
     if (isCurrentOrderTarget) {
@@ -2469,9 +2549,16 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
         refreshTrackingUIFromCurrentOrder();
     }
 
-    backendPost({ action: 'updateOrder', orderId: orderId, fields: fields }).then(function (res) {
+    backendPost({ action: 'updateOrder', orderId: orderId, fields: fields, actorId: actorId }).then(function (res) {
         if (res && res.success) {
             showToast('Status diperbarui!', 'success');
+
+            if (newStatus === 'on_the_way') {
+                startTalentLocationBroadcast(orderId);
+            }
+            if (isTrackingTerminalStatus(newStatus)) {
+                stopTalentLocationBroadcast();
+            }
 
             // Create notifications for order status change
             var notifOrder = isCurrentOrderTarget ? _currentOrder : null;
@@ -2497,51 +2584,29 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                 }
             }
 
-            // When order is completed, distribute funds to talent/penjual + owner commission
+            // When order is completed, mark as pending admin review BEFORE distributing funds
             if (newStatus === 'completed' && notifOrder) {
                 var order = notifOrder;
-                var pm = order.paymentMethod || 'jspay';
-                // Get commission settings to calculate proper rates
-                FB.get('getSettings')
-                    .then(function (r) { return r.json(); })
-                    .then(function (settingsRes) {
-                        var commPercent = 10; // default
-                        if (settingsRes.success && settingsRes.data) {
-                            var s = settingsRes.data;
-                            if (order.skillType === 'js_food') {
-                                commPercent = Number(s.commission_penjual_percent) || 10;
-                            } else {
-                                commPercent = Number(s.commission_talent_percent) || 15;
-                            }
-                        }
-                        if (pm === 'cod') {
-                            // COD: Talent received cash from user.
-                            // Deduct platform cut (fee + commission) from talent's wallet
-                            backendPost({
-                                action: 'walletCompleteOrderCOD',
-                                orderId: order.id,
-                                talentId: order.talentId,
-                                price: order.price,
-                                fee: order.fee,
-                                totalCost: order.totalCost,
-                                commissionPercent: commPercent,
-                                serviceType: order.serviceType || order.skillType || ''
-                            });
-                        } else {
-                            // JSpay: Standard flow — distribute from platform to talent + owner
-                            backendPost({
-                                action: 'walletCompleteOrder',
-                                orderId: order.id,
-                                talentId: order.talentId,
-                                sellerId: order.sellerId || '',
-                                price: order.price,
-                                deliveryFee: order.deliveryFee || 0,
-                                fee: order.fee,
-                                commissionPercent: commPercent,
-                                serviceType: order.serviceType || order.skillType || ''
-                            });
-                        }
-                    });
+                // Mark the order as pending admin approval for earnings payout
+                backendPost({
+                    action: 'updateOrder',
+                    orderId: order.id,
+                    fields: {
+                        pendingAdminReview: true,
+                        pendingAdminReviewAt: Date.now(),
+                        walletSettled: false
+                    }
+                });
+                // Notify owner/admin to review
+                addNotifItem({
+                    icon: '🔍',
+                    title: 'Order Selesai - Perlu Review Admin',
+                    desc: 'Pesanan #' + (order.id || '').substr(0, 8) + ' (' + (order.serviceType || order.skillType || 'Pesanan') + ') menunggu persetujuan Admin untuk pencairan komisi driver.',
+                    type: 'review',
+                    orderId: order.id,
+                    extra: { pendingAdminReview: true }
+                });
+                showToast('Pesanan selesai! Menunggu konfirmasi admin untuk pencairan komisi 📋', 'success');
             }
 
             if (isTrackingTerminalStatus(newStatus)) {
@@ -2554,7 +2619,7 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                 _currentOrder = prevOrderSnapshot;
                 refreshTrackingUIFromCurrentOrder();
             }
-            showToast('Gagal update status', 'error');
+            showToast((res && res.message) ? res.message : 'Gagal update status', 'error');
         }
     }).catch(function () {
         if (isCurrentOrderTarget && prevOrderSnapshot) {
@@ -2789,6 +2854,9 @@ function startOrderPolling(orderId) {
             }
         });
         // Chat badge is handled by global message polling in startGlobalMessageListener
+
+        // Backup polling if realtime stream drops or device resumes from background sleep.
+        _orderFallbackPollTimer = setInterval(function () { pollOrderUpdate(orderId); }, 6000);
     } else {
         pollOrderUpdate(orderId);
         _locationPollTimer = setInterval(function () { pollOrderUpdate(orderId); }, 8000);
@@ -2797,9 +2865,11 @@ function startOrderPolling(orderId) {
 
 function stopPolling() {
     if (_locationPollTimer) { clearInterval(_locationPollTimer); _locationPollTimer = null; }
+    if (_orderFallbackPollTimer) { clearInterval(_orderFallbackPollTimer); _orderFallbackPollTimer = null; }
     if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
     if (_fbOrderUnsub) { _fbOrderUnsub(); _fbOrderUnsub = null; }
     if (_fbLocUnsub) { _fbLocUnsub(); _fbLocUnsub = null; }
+    stopTalentLocationBroadcast();
 }
 
 function pollOrderUpdate(orderId) {
@@ -2835,20 +2905,181 @@ function pollOrderUpdate(orderId) {
         .catch(function () {});
 }
 
+// Radius in km within which driver is considered "arrived"
+var GPS_ARRIVE_RADIUS = 0.15; // 150 meters
+var GPS_NEARBY_RADIUS = 0.5;  // 500 meters — send "driver nearby" notif
+var _nearbyAlertSent = {}; // per orderId, prevent repeat alerts
+var _watchPositionId = null;
+var _gpsAutoProgressLock = {};
+
+function _lockAutoProgress(orderId, toStatus) {
+    var k = String(orderId || '') + '::' + String(toStatus || '');
+    if (_gpsAutoProgressLock[k]) return false;
+    _gpsAutoProgressLock[k] = true;
+    setTimeout(function () { delete _gpsAutoProgressLock[k]; }, 6000);
+    return true;
+}
+
 function startTalentLocationBroadcast(orderId) {
-    function broadcast() {
-        getCurrentPosition().then(function (pos) {
-            backendPost({
-                action: 'updateTalentLocation',
-                orderId: orderId,
-                lat: pos.lat,
-                lng: pos.lng
-            });
-        }).catch(function () {});
+    // Use watchPosition for real-time continuous GPS tracking instead of intervals
+    if (_watchPositionId !== null) {
+        try { navigator.geolocation.clearWatch(_watchPositionId); } catch(e) {}
+        _watchPositionId = null;
     }
-    broadcast();
+
+    function onPosition(geoPos) {
+        var lat = geoPos.coords.latitude;
+        var lng = geoPos.coords.longitude;
+
+        // Update backend with new real-time position
+        backendPost({
+            action: 'updateTalentLocation',
+            orderId: orderId,
+            actorId: (getSession() && getSession().id) || '',
+            lat: lat,
+            lng: lng
+        });
+
+        // Auto-advance progress based on coordinates
+        _checkGpsAutoProgress(orderId, lat, lng);
+
+        // Notify SW so it can broadcast even if app is minimised
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+                type: 'DRIVER_LOCATION_UPDATE',
+                orderId: orderId,
+                lat: lat,
+                lng: lng
+            });
+        }
+    }
+
+    if ('geolocation' in navigator) {
+        _watchPositionId = navigator.geolocation.watchPosition(
+            onPosition,
+            function() {},
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+        );
+    }
+
+    // Fallback interval in case watchPosition is not reliable
     if (!_locationPollTimer) {
-        _locationPollTimer = setInterval(broadcast, 10000);
+        _locationPollTimer = setInterval(function () {
+            if (!_currentOrder || String(_currentOrder.id) !== String(orderId)) return;
+            getCurrentPosition().then(function (pos) {
+                backendPost({
+                    action: 'updateTalentLocation',
+                    orderId: orderId,
+                    actorId: (getSession() && getSession().id) || '',
+                    lat: pos.lat,
+                    lng: pos.lng
+                });
+                _checkGpsAutoProgress(orderId, pos.lat, pos.lng);
+            }).catch(function () {});
+        }, 7000);
+    }
+}
+
+function stopTalentLocationBroadcast() {
+    if (_watchPositionId !== null) {
+        try { navigator.geolocation.clearWatch(_watchPositionId); } catch(e) {}
+        _watchPositionId = null;
+    }
+}
+
+// Auto advance order progress based on GPS proximity
+function _checkGpsAutoProgress(orderId, driverLat, driverLng) {
+    if (!_currentOrder || String(_currentOrder.id) !== String(orderId)) return;
+    var order = _currentOrder;
+    var session = getSession();
+    if (!session || String(session.id) !== String(order.talentId)) return;
+
+    var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
+    var isAntar = order.skillType === 'js_antar';
+    var isDelivery = order.skillType === 'js_delivery';
+
+    // Check proximity to target and send buyer "driver nearby" alert
+    _maybeSendNearbyAlert(order, driverLat, driverLng);
+
+    // Auto-advance: "on_the_way" → "arrived" when driver reaches destination
+    if (order.status === 'on_the_way') {
+        var targetLat, targetLng;
+        if (isProductOrder) {
+            var storeCoords = getOrderStoreCoords(order);
+            if (storeCoords) {
+                targetLat = Number(storeCoords.lat);
+                targetLng = Number(storeCoords.lng);
+            }
+        } else {
+            targetLat = Number(order.userLat);
+            targetLng = Number(order.userLng);
+        }
+        if (isValidLatLng(targetLat, targetLng)) {
+            var distToTarget = haversineDistance(driverLat, driverLng, targetLat, targetLng);
+            if (distToTarget <= GPS_ARRIVE_RADIUS) {
+                if (_lockAutoProgress(orderId, 'arrived')) {
+                    updateOrderStatus(orderId, 'arrived', { autoProgress: true, autoProgressAt: Date.now() });
+                    showToast('✅ Anda telah tiba di lokasi! Status diperbarui otomatis.', 'success');
+                }
+                return;
+            }
+        }
+    }
+
+    // For non-product/non-passenger service, start work automatically once arrived.
+    if (order.status === 'arrived' && !isProductOrder && !isAntar && !isDelivery) {
+        var nearUserLat = Number(order.userLat);
+        var nearUserLng = Number(order.userLng);
+        if (isValidLatLng(nearUserLat, nearUserLng)) {
+            var distToUser = haversineDistance(driverLat, driverLng, nearUserLat, nearUserLng);
+            if (distToUser <= GPS_ARRIVE_RADIUS && _lockAutoProgress(orderId, 'in_progress')) {
+                updateOrderStatus(orderId, 'in_progress', { startedAt: Date.now(), autoProgress: true, autoProgressAt: Date.now() });
+            }
+        }
+    }
+
+    // For delivery/antar: auto-advance "arrived" → "in_progress" NOT automatic,
+    // user must confirm pickup. But for food order: driver needs to click pickup.
+    // For non-product: "arrived" → driver presses start manually.
+    // So no auto-advance beyond "arrived" — driver confirms they have picked up.
+}
+
+function _maybeSendNearbyAlert(order, driverLat, driverLng) {
+    // If we already sent notification for this order+status, skip
+    var alertKey = (order.id || '') + '_' + (order.status || '');
+    if (_nearbyAlertSent[alertKey]) return;
+
+    var buyerLat = Number(order.userLat);
+    var buyerLng = Number(order.userLng);
+    if (!isValidLatLng(buyerLat, buyerLng)) return;
+
+    // Only send "driver nearby" for in_progress status (driver heading to buyer)
+    if (order.status !== 'in_progress') return;
+
+    var distToBuyer = haversineDistance(driverLat, driverLng, buyerLat, buyerLng);
+    if (distToBuyer <= GPS_NEARBY_RADIUS) {
+        _nearbyAlertSent[alertKey] = true;
+        // Notify buyer/user
+        addNotifItem({
+            userId: order.userId,
+            icon: '🛵',
+            title: 'Driver Sudah Dekat!',
+            desc: 'Driver sedang menuju ke lokasimu, siapkan diri ya!',
+            type: 'order',
+            orderId: order.id
+        });
+        // Show SW notification to buyer if app is closed
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+                type: 'SHOW_NOTIFICATION',
+                title: '🛵 Driver Sudah Dekat!',
+                body: 'Driver hampir sampai ke lokasimu. Estimasi < 2 menit!',
+                tag: 'driver-nearby-' + order.id,
+                vibrate: [300, 100, 300, 100, 300],
+                requireInteraction: false,
+                data: { orderId: order.id, type: 'driver_nearby' }
+            });
+        }
     }
 }
 
@@ -4212,7 +4443,46 @@ function registerSW() {
                     }
                 });
             });
+
+            // Register periodic background sync if supported
+            if ('periodicSync' in reg) {
+                reg.periodicSync.register('js-background-poll', { minInterval: 60 * 1000 })
+                    .catch(function () {});
+            }
         }).catch(function () {});
+
+        // Listen for messages from Service Worker
+        navigator.serviceWorker.addEventListener('message', function (event) {
+            var msg = event.data || {};
+
+            // SW asked this tab to poll orders/notifications
+            if (msg.type === 'SW_BACKGROUND_POLL' || msg.type === 'SW_ORDER_POLL_REQUEST') {
+                if (typeof initNotifications === 'function') initNotifications();
+                var s = getSession();
+                if (s && s.role === 'talent' && typeof loadTalentDashboardOrders === 'function') {
+                    loadTalentDashboardOrders();
+                }
+                if (s && s.role === 'penjual' && typeof loadPenjualOrders === 'function') {
+                    loadPenjualOrders();
+                }
+            }
+
+            // Notification was clicked — open order tracking
+            if (msg.type === 'NOTIF_CLICK' && msg.orderId) {
+                var orderId = msg.orderId;
+                setTimeout(function () {
+                    if (typeof FB !== 'undefined' && FB.isReady()) {
+                        FB.get('getAllOrders').then(function (r) { return r.json(); }).then(function (res) {
+                            if (res.success && res.data) {
+                                var tgt = res.data.find(function (o) { return String(o.id) === String(orderId); });
+                                if (tgt && typeof openOrderTracking === 'function') openOrderTracking(tgt);
+                            }
+                        }).catch(function () {});
+                    }
+                }, 500);
+            }
+        });
+
         // Reload when new SW takes control
         var refreshing = false;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
@@ -4222,6 +4492,44 @@ function registerSW() {
             }
         });
     }
+}
+
+// ── Driver GPS location verification helper ──
+// Checks current position vs target; callback(isNear:bool)
+function _verifyDriverAtLocation(order, targetType, callback) {
+    if (!('geolocation' in navigator)) {
+        showToast('⚠️ GPS wajib aktif untuk mengubah progress pesanan.', 'error');
+        callback(false);
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(function (pos) {
+        var dLat = pos.coords.latitude;
+        var dLng = pos.coords.longitude;
+        var targetLat, targetLng;
+
+        if (targetType === 'store') {
+            var storeCoords = getOrderStoreCoords(order);
+            if (storeCoords) { targetLat = storeCoords.lat; targetLng = storeCoords.lng; }
+        } else if (targetType === 'user' || targetType === 'buyer') {
+            targetLat = Number(order.userLat);
+            targetLng = Number(order.userLng);
+        } else if (targetType === 'dest') {
+            targetLat = Number(order.destLat);
+            targetLng = Number(order.destLng);
+        }
+
+        if (!isValidLatLng(targetLat, targetLng)) {
+            showToast('⚠️ Titik tujuan belum valid. Hubungi admin untuk sinkronisasi koordinat.', 'error');
+            callback(false);
+            return;
+        }
+
+        var dist = haversineDistance(dLat, dLng, targetLat, targetLng);
+        callback(dist <= GPS_ARRIVE_RADIUS);
+    }, function () {
+        showToast('⚠️ GPS tidak tersedia. Progress tidak dapat dilanjutkan.', 'error');
+        callback(false);
+    }, { enableHighAccuracy: true, timeout: 10000 });
 }
 
 function _showUpdatePopup(waitingWorker) {
