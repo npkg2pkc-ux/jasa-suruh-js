@@ -1670,7 +1670,8 @@ var OwnerDashboard = (function () {
         var originalLabel = btn ? btn.textContent : '';
         if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
         if (typeof backendPost === 'function') {
-            backendPost({ action: 'updateSettings', settings: settings })
+            var actorId = (window.currentUser && window.currentUser.id) || '';
+            backendPost({ action: 'updateSettings', settings: settings, actorId: actorId })
                 .then(function (res) {
                     if (btn) { btn.disabled = false; btn.textContent = originalLabel || '💾 Simpan Pengaturan'; }
                     if (res && res.success) {

@@ -1181,15 +1181,19 @@ function openShopCheckoutModal() {
             var btnJ = document.getElementById('shopPmJspay');
             var btnC = document.getElementById('shopPmCod');
             var info = document.getElementById('shopPmInfo');
+            btnC.disabled = true;
+            btnC.style.opacity = '0.55';
+            btnC.title = 'COD untuk pesanan produk sedang dinonaktifkan';
+            if (_shopSelectedPayment === 'cod') _shopSelectedPayment = 'jspay';
             btnJ.style.borderColor = _shopSelectedPayment === 'jspay' ? '#FF6B00' : '#ddd';
             btnC.style.borderColor = _shopSelectedPayment === 'cod' ? '#FF6B00' : '#ddd';
             info.textContent = _shopSelectedPayment === 'jspay'
                 ? 'Saldo JsPay: ' + formatRupiah(getWalletBalance())
-                : 'Bayar tunai saat pesanan sampai.';
+                : 'COD untuk pesanan produk sedang dinonaktifkan.';
         }
 
         document.getElementById('shopPmJspay').onclick = function () { _shopSelectedPayment = 'jspay'; applyPaymentUI(); };
-        document.getElementById('shopPmCod').onclick = function () { _shopSelectedPayment = 'cod'; applyPaymentUI(); };
+        document.getElementById('shopPmCod').onclick = function () { _shopSelectedPayment = 'jspay'; applyPaymentUI(); };
         applyPaymentUI();
 
         document.getElementById('shopCheckoutItems').querySelectorAll('button[data-act]').forEach(function (btn) {
@@ -1227,6 +1231,10 @@ function createProductOrder(cartItems, store, paymentMethod, pricing, checkoutMo
     var fee = Number(pricing && pricing.fee) || 0;
     var totalCost = Number(pricing && pricing.total) || (price + deliveryFee + fee);
     paymentMethod = paymentMethod || 'jspay';
+    if (String(paymentMethod).toLowerCase() === 'cod') {
+        showToast('COD untuk pesanan produk belum didukung. Gunakan JsPay.', 'error');
+        paymentMethod = 'jspay';
+    }
 
     if (paymentMethod === 'jspay') {
         var balance = (typeof getWalletBalance === 'function') ? getWalletBalance() : 0;

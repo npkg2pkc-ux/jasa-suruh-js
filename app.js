@@ -3229,7 +3229,8 @@
         };
         var btn = e.target.querySelector('.btn-primary');
         if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
-        backendPost({ action: 'updateSettings', settings: settings })
+        var actorId = (window.currentUser && window.currentUser.id) || '';
+        backendPost({ action: 'updateSettings', settings: settings, actorId: actorId })
             .then(function(res) {
                 if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan Pengaturan'; }
                 if (res && res.success) {

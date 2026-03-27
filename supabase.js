@@ -721,13 +721,20 @@
     }
 
     function doUpdateSettings(body) {
-        var settings = Object.assign({}, body.settings);
-        return sb.from('settings').upsert({
-            key: 'config',
-            data: settings
-        }).then(function (res) {
-            throwIfError(res);
-            return ok(null);
+        var actorId = String(body && body.actorId || '').trim();
+        if (!actorId) return Promise.resolve(fail('Akses ditolak: actorId wajib diisi'));
+
+        return resolveUserRoleById(actorId).then(function (role) {
+            if (role !== 'owner') return fail('Akses ditolak: hanya owner yang boleh mengubah pengaturan finansial');
+
+            var settings = Object.assign({}, body.settings);
+            return sb.from('settings').upsert({
+                key: 'config',
+                data: settings
+            }).then(function (res) {
+                throwIfError(res);
+                return ok(null);
+            });
         });
     }
 
@@ -834,6 +841,52 @@
                 throwIfError(res);
                 return (res.data && res.data.data) || null;
             });
+    }
+
+    function _findOrderTransaction(userId, orderId, txType, expectedAmount) {
+        var uid = String(userId || '');
+        var oid = String(orderId || '');
+        var type = String(txType || '');
+        if (!uid || !oid || !type) return Promise.resolve(null);
+
+        return sb.from('transactions').select('id, amount, data, created_at')
+            .eq('user_id', uid)
+            .eq('type', type)
+            .order('created_at', { ascending: false })
+            .limit(80)
+            .then(function (res) {
+                if (res.error || !res.data) return null;
+                var expected = Number(expectedAmount);
+                var found = (res.data || []).find(function (row) {
+                    var data = row && row.data ? row.data : {};
+                    if (typeof data === 'string') {
+                        try { data = JSON.parse(data); } catch (e) { data = {}; }
+                    }
+                    var sameOrder = String((data && data.orderId) || '') === oid;
+                    if (!sameOrder) return false;
+                    if (!isFinite(expected)) return true;
+                    return Number(row.amount) === expected;
+                });
+                return found || null;
+            })
+            .catch(function () { return null; });
+    }
+
+    function resolveUserRoleById(userId) {
+        var uid = String(userId || '').trim();
+        if (!uid) return Promise.resolve('');
+        return sb.from('users').select('role, data').eq('id', uid).single()
+            .then(function (res) {
+                if (res.error || !res.data) return '';
+                var role = String(res.data.role || '').toLowerCase();
+                if (role) return role;
+                var d = res.data.data;
+                if (typeof d === 'string') {
+                    try { d = JSON.parse(d); } catch (e) { d = {}; }
+                }
+                return String((d && d.role) || '').toLowerCase();
+            })
+            .catch(function () { return ''; });
     }
 
     function markOrderWalletFlag(orderId, flagFields) {
@@ -948,7 +1001,25 @@
         var txType = body.txType || 'payment';
         if (amount <= 0) return Promise.resolve(fail('Nominal debit harus lebih dari 0'));
 
-        return sb.from('wallets').select('*').eq('user_id', userId).single()
+        var maybeExistingTx = Promise.resolve(null);
+        if (orderId) {
+            maybeExistingTx = _findOrderTransaction(userId, orderId, txType, -amount);
+        }
+
+        return maybeExistingTx.then(function (existingTx) {
+            if (existingTx) {
+                var existingData = existingTx.data || {};
+                if (typeof existingData === 'string') {
+                    try { existingData = JSON.parse(existingData); } catch (e) { existingData = {}; }
+                }
+                return ok({
+                    balance: Number(existingData.balanceAfter),
+                    alreadyProcessed: true,
+                    transactionId: existingTx.id
+                });
+            }
+
+            return sb.from('wallets').select('*').eq('user_id', userId).single()
             .then(function (res) {
                 if (res.error || !res.data) return fail('Wallet tidak ditemukan. Silakan top up terlebih dahulu.');
                 var currentBalance = Number(res.data.balance) || 0;
@@ -985,6 +1056,7 @@
                     });
                 });
             });
+        });
     }
 
     function doWalletPay(body) {
@@ -1022,6 +1094,16 @@
                     orderId: orderId,
                     description: desc,
                     txType: 'payment'
+                }).then(function (debitRes) {
+                    if (!debitRes || !debitRes.success) return debitRes || fail('Pembayaran gagal diproses');
+
+                    return markOrderWalletFlag(orderId, {
+                        paidAmount: amount,
+                        paidAt: Date.now(),
+                        paymentStatus: 'paid'
+                    }).then(function () {
+                        return debitRes;
+                    });
                 });
             });
     }
@@ -1033,7 +1115,25 @@
         var type = body.type || 'earning';
         var desc = body.description || 'Pendapatan';
 
-        return sb.from('wallets').select('*').eq('user_id', userId).single()
+        var maybeExistingTx = Promise.resolve(null);
+        if (orderId) {
+            maybeExistingTx = _findOrderTransaction(userId, orderId, type, amount);
+        }
+
+        return maybeExistingTx.then(function (existingTx) {
+            if (existingTx) {
+                var existingData = existingTx.data || {};
+                if (typeof existingData === 'string') {
+                    try { existingData = JSON.parse(existingData); } catch (e) { existingData = {}; }
+                }
+                return ok({
+                    balance: Number(existingData.balanceAfter),
+                    alreadyProcessed: true,
+                    transactionId: existingTx.id
+                });
+            }
+
+            return sb.from('wallets').select('*').eq('user_id', userId).single()
             .then(function (res) {
                 var currentBalance = 0;
                 if (!res.error && res.data) {
@@ -1071,6 +1171,7 @@
                     });
                 });
             });
+        });
     }
 
     function doRefundOrderPayment(body) {
@@ -1149,6 +1250,9 @@
             var order = allRes[0];
             var settingsRes = allRes[1];
             if (!order) return fail('Order tidak ditemukan');
+            if (String(order.paymentMethod || 'jspay').toLowerCase() === 'cod') {
+                return fail('Order COD harus diproses lewat penyelesaian COD');
+            }
             if (!(order.status === 'completed' || order.status === 'rated')) {
                 return fail('Payout hanya diproses untuk order selesai');
             }
@@ -1157,6 +1261,9 @@
             }
             if (order.pendingAdminReview || String(order.adminReviewStatus || '') !== 'approved') {
                 return fail('Payout ditolak: order belum disetujui admin.');
+            }
+            if (Number(order.paidAmount || 0) <= 0) {
+                return fail('Payout ditolak: order belum tercatat lunas.');
             }
 
             var settings = (settingsRes && settingsRes.success && settingsRes.data) ? settingsRes.data : {};
@@ -1210,7 +1317,11 @@
                 }));
 
                 return Promise.all(promises)
-                    .then(function () { return markOrderWalletFlag(orderId, { walletSettled: true, walletSettledAt: Date.now() }); })
+                    .then(function (results) {
+                        var failed = (results || []).find(function (r) { return r && r.success === false; });
+                        if (failed) return failed;
+                        return markOrderWalletFlag(orderId, { walletSettled: true, walletSettledAt: Date.now() });
+                    })
                     .then(function () {
                         return ok({ sellerEarning: sellerEarning, driverEarning: driverEarning, ownerTotal: ownerTotal });
                     });
@@ -1241,7 +1352,11 @@
             }));
 
             return Promise.all(promises)
-                .then(function () { return markOrderWalletFlag(orderId, { walletSettled: true, walletSettledAt: Date.now() }); })
+                .then(function (results) {
+                    var failed = (results || []).find(function (r) { return r && r.success === false; });
+                    if (failed) return failed;
+                    return markOrderWalletFlag(orderId, { walletSettled: true, walletSettledAt: Date.now() });
+                })
                 .then(function () {
                     return ok({ talentEarning: talentEarning, ownerTotal: ownerTotal, commission: commission });
                 });
@@ -1260,6 +1375,9 @@
             if (!order) return fail('Order tidak ditemukan');
             if (String(order.paymentMethod || '').toLowerCase() !== 'cod') {
                 return fail('Aksi ini khusus order COD');
+            }
+            if (order.sellerId) {
+                return fail('COD untuk pesanan produk belum didukung. Gunakan pembayaran JSPay/non-COD.');
             }
             if (!(order.status === 'completed' || order.status === 'rated')) {
                 return fail('Payout COD hanya diproses untuk order selesai');
@@ -1316,7 +1434,11 @@
                 var deductRes = results[0];
                 if (deductRes && !deductRes.success) {
                     doAddNotification({ userId: talentId, icon: '⚠️', title: 'Saldo Minus', desc: 'Saldo tidak cukup untuk potongan platform COD. Harap top up.', type: 'payment', orderId: orderIdSafe });
+                    return deductRes;
                 }
+                var ownerRes = results[1];
+                if (ownerRes && ownerRes.success === false) return ownerRes;
+
                 return markOrderWalletFlag(orderIdSafe, { walletSettled: true, walletSettledAt: Date.now() })
                     .then(function () {
                         return ok({ platformCut: platformCut, commission: commission, fee: fee });
