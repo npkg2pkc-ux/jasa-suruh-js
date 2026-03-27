@@ -19,6 +19,14 @@ var LoginPage = (function () {
 
     function $(id) { return document.getElementById(id); }
 
+    function _toRawPhone(value) {
+        var v = String(value || '').replace(/\D/g, '');
+        if (v.startsWith('62')) v = v.slice(2);
+        if (v.startsWith('0')) v = v.slice(1);
+        if (v.length > 13) v = v.slice(0, 13);
+        return v;
+    }
+
     // ─── Init (call once) ───
     function init() {
         if (_initialized) return;
@@ -31,11 +39,8 @@ var LoginPage = (function () {
         // Restore last phone
         var lastPhone = localStorage.getItem(LAST_PHONE_KEY);
         if (lastPhone) {
-            var restored = String(lastPhone || '').replace(/\D/g, '');
-            if (restored.startsWith('62')) restored = restored.slice(2);
-            if (restored.startsWith('0')) restored = restored.slice(1);
-            _phoneRaw = restored;
-            $('loginPhoneInput').value = _phoneRaw ? ('0' + _phoneRaw) : '';
+            _phoneRaw = _toRawPhone(lastPhone);
+            $('loginPhoneInput').value = _phoneRaw;
             _validatePhone();
             _checkAndRenderCooldown(lastPhone);
         }
@@ -51,13 +56,12 @@ var LoginPage = (function () {
         var btn = $('loginBtnSendOTP');
 
         input.addEventListener('input', function () {
-            // Normalize any input (8..., 08..., 62...) into display format 08...
+            // Accept legacy (8...), common (08...), and intl (62...) formats.
             var v = this.value.replace(/\D/g, '');
             if (v.startsWith('62')) v = '0' + v.slice(2);
-            if (v.startsWith('8')) v = '0' + v;
             if (v.length > 13) v = v.slice(0, 13);
             this.value = v;
-            _phoneRaw = v.startsWith('0') ? v.slice(1) : v;
+            _phoneRaw = _toRawPhone(v);
             _validatePhone();
         });
 
