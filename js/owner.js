@@ -1744,6 +1744,7 @@ var OwnerDashboard = (function () {
     return {
         init: init,
         loadDashboard: loadDashboard,
+        refreshDashboardOrders: _loadOrdersAndRevenue,
         renderOwnerStats: renderOwnerStats,
         renderOwnerUsers: renderOwnerUsers,
         loadOwnerCommissionSettings: loadOwnerCommissionSettings,
@@ -1752,6 +1753,12 @@ var OwnerDashboard = (function () {
         syncOwnerFinancePreview: syncOwnerFinancePreview
     };
 })();
+
+window.refreshOwnerDashboardOrders = function () {
+    if (typeof OwnerDashboard !== 'undefined' && OwnerDashboard && typeof OwnerDashboard.refreshDashboardOrders === 'function') {
+        OwnerDashboard.refreshDashboardOrders();
+    }
+};
 
 // Expose globals for backward compatibility
 function renderOwnerStats() { OwnerDashboard.renderOwnerStats(); }

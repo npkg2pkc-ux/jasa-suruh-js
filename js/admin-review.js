@@ -576,6 +576,7 @@ function _aorpApprove(order, btn, page) {
                 }
                 if (typeof showToast === 'function') showToast('Komisi berhasil dicairkan setelah verifikasi admin.', 'success');
                 _loadPendingReviewOrders(page);
+                _refreshAdminDashboardAfterReviewAction();
             }).catch(function (err) {
                 if (typeof showToast === 'function') showToast((err && err.message) ? err.message : 'Gagal mencairkan komisi', 'error');
                 if (btn) { btn.disabled = false; btn.textContent = 'Setujui & Cairkan'; }
@@ -604,6 +605,16 @@ function _aorpApprove(order, btn, page) {
             doApprove();
         }
     });
+}
+
+function _refreshAdminDashboardAfterReviewAction() {
+    if (typeof window !== 'undefined' && typeof window.refreshOwnerDashboardOrders === 'function') {
+        window.refreshOwnerDashboardOrders();
+        return;
+    }
+    if (typeof OwnerDashboard !== 'undefined' && OwnerDashboard && typeof OwnerDashboard.refreshDashboardOrders === 'function') {
+        OwnerDashboard.refreshDashboardOrders();
+    }
 }
 
 function _aorpReject(order, btn, page) {
@@ -638,6 +649,7 @@ function _aorpReject(order, btn, page) {
         }
         if (typeof showToast === 'function') showToast('Review ditolak. Komisi tidak dicairkan.', 'success');
         _loadPendingReviewOrders(page);
+        _refreshAdminDashboardAfterReviewAction();
     }).catch(function () {
         if (typeof showToast === 'function') showToast('Gagal menolak pesanan', 'error');
         if (btn) btn.disabled = false;
