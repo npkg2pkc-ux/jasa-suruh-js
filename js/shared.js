@@ -4532,6 +4532,11 @@ function registerSW() {
         navigator.serviceWorker.addEventListener('message', function (event) {
             var msg = event.data || {};
 
+            if (msg.type === 'PUSH_SUBSCRIPTION_CHANGED') {
+                var s0 = getSession();
+                if (s0) _ensurePushSubscription(s0);
+            }
+
             // SW asked this tab to poll orders/notifications
             if (msg.type === 'SW_BACKGROUND_POLL' || msg.type === 'SW_ORDER_POLL_REQUEST') {
                 if (typeof initNotifications === 'function') initNotifications();
