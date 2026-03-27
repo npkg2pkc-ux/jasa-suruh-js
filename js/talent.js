@@ -478,6 +478,92 @@ function renderTalentSkills() {
 // ══════════════════════════════════════════
 var _talentPushStatusTimer = null;
 var _talentPushWatchHooked = false;
+var _talentPushRetryTimer = null;
+var _talentPushRetryAttempt = 0;
+var _talentPushRetryDueAt = 0;
+
+function _formatTalentPushClock(ts) {
+    if (!ts) return '-';
+    var d = new Date(ts);
+    return d.toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+}
+
+function _setTalentPushDiag(id, text) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+}
+
+function _permissionLabel(permission) {
+    if (permission === 'granted') return 'Diizinkan';
+    if (permission === 'denied') return 'Diblokir';
+    return 'Belum dipilih';
+}
+
+function _shortPushEndpoint(endpoint) {
+    if (!endpoint) return '-';
+    try {
+        var u = new URL(endpoint);
+        return u.host;
+    } catch (e) {
+        return String(endpoint).slice(0, 36);
+    }
+}
+
+function _setTalentPushRetryText(text) {
+    _setTalentPushDiag('talentPushDiagRetry', text || 'Tidak aktif');
+}
+
+function _clearTalentPushRetry() {
+    if (_talentPushRetryTimer) {
+        clearTimeout(_talentPushRetryTimer);
+        _talentPushRetryTimer = null;
+    }
+    _talentPushRetryDueAt = 0;
+    _talentPushRetryAttempt = 0;
+    _setTalentPushRetryText('Tidak aktif');
+}
+
+function _scheduleTalentPushRetry(reason) {
+    var session = getSession();
+    if (!session || session.role !== 'talent') return;
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (_talentPushRetryTimer) return;
+
+    _talentPushRetryAttempt += 1;
+    var baseDelay = 2000;
+    var maxDelay = 120000;
+    var jitter = Math.floor(Math.random() * 700);
+    var delay = Math.min(maxDelay, (baseDelay * Math.pow(2, _talentPushRetryAttempt - 1)) + jitter);
+    _talentPushRetryDueAt = Date.now() + delay;
+
+    var sec = Math.max(1, Math.ceil(delay / 1000));
+    _setTalentPushRetryText('Aktif (#' + _talentPushRetryAttempt + ', ' + sec + ' dtk' + (reason ? ', ' + reason : '') + ')');
+
+    _talentPushRetryTimer = setTimeout(function () {
+        _talentPushRetryTimer = null;
+        _talentPushRetryDueAt = 0;
+        refreshTalentPushStatus(true).then(function (ok) {
+            if (!ok) _scheduleTalentPushRetry('masih gagal');
+        });
+    }, delay);
+}
+
+function _refreshTalentPushDiagnostics(permission, endpoint, lastSyncText) {
+    _setTalentPushDiag('talentPushDiagPermission', _permissionLabel(permission));
+    _setTalentPushDiag('talentPushDiagEndpoint', _shortPushEndpoint(endpoint));
+    _setTalentPushDiag('talentPushDiagLastSync', lastSyncText || '-');
+    if (_talentPushRetryTimer && _talentPushRetryDueAt > Date.now()) {
+        var sec = Math.max(1, Math.ceil((_talentPushRetryDueAt - Date.now()) / 1000));
+        _setTalentPushRetryText('Aktif (#' + _talentPushRetryAttempt + ', ' + sec + ' dtk)');
+    } else if (!_talentPushRetryTimer) {
+        _setTalentPushRetryText('Tidak aktif');
+    }
+}
 
 function _setTalentPushStatus(text, status) {
     var statusEl = document.getElementById('talentPushStatusText');
@@ -500,16 +586,22 @@ function refreshTalentPushStatus(forceEnsure) {
     var session = getSession();
     if (!session || session.role !== 'talent') return Promise.resolve(false);
 
+    var permission = ('Notification' in window) ? Notification.permission : 'unsupported';
+
     var supportsPush = ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
     if (!supportsPush) {
         _setTalentPushStatus('Push tidak didukung browser ini', 'is-error');
         _setTalentPushAction(false, '', false);
+        _refreshTalentPushDiagnostics(permission, '', _formatTalentPushClock(Date.now()));
+        _clearTalentPushRetry();
         return Promise.resolve(false);
     }
 
     if (Notification.permission === 'denied') {
         _setTalentPushStatus('Push diblokir di browser', 'is-error');
         _setTalentPushAction(true, 'Buka Pengaturan', false);
+        _refreshTalentPushDiagnostics(permission, '', _formatTalentPushClock(Date.now()));
+        _clearTalentPushRetry();
         return Promise.resolve(false);
     }
 
@@ -518,12 +610,16 @@ function refreshTalentPushStatus(forceEnsure) {
             if (perm !== 'granted') {
                 _setTalentPushStatus('Izin notifikasi belum diberikan', 'is-warning');
                 _setTalentPushAction(true, 'Izinkan', false);
+                _refreshTalentPushDiagnostics(perm, '', _formatTalentPushClock(Date.now()));
+                _clearTalentPushRetry();
                 return false;
             }
             return refreshTalentPushStatus(true);
         }).catch(function () {
             _setTalentPushStatus('Gagal meminta izin notifikasi', 'is-error');
             _setTalentPushAction(true, 'Coba Lagi', false);
+            _refreshTalentPushDiagnostics(permission, '', _formatTalentPushClock(Date.now()));
+            _scheduleTalentPushRetry('izin gagal');
             return false;
         });
     }
@@ -531,6 +627,8 @@ function refreshTalentPushStatus(forceEnsure) {
     if (Notification.permission === 'default') {
         _setTalentPushStatus('Izin notifikasi belum diberikan', 'is-warning');
         _setTalentPushAction(true, 'Izinkan', false);
+        _refreshTalentPushDiagnostics(permission, '', _formatTalentPushClock(Date.now()));
+        _clearTalentPushRetry();
         return Promise.resolve(false);
     }
 
@@ -540,29 +638,57 @@ function refreshTalentPushStatus(forceEnsure) {
     return navigator.serviceWorker.ready
         .then(function (reg) {
             return reg.pushManager.getSubscription().then(function (sub) {
+                var currentEndpoint = sub && sub.endpoint ? sub.endpoint : '';
                 if (sub) return true;
 
                 if (forceEnsure && typeof window.ensurePushSubscriptionForCurrentUser === 'function') {
-                    return window.ensurePushSubscriptionForCurrentUser();
+                    return window.ensurePushSubscriptionForCurrentUser().then(function (ok) {
+                        return reg.pushManager.getSubscription().then(function (latestSub) {
+                            var latestEndpoint = latestSub && latestSub.endpoint ? latestSub.endpoint : currentEndpoint;
+                            return { ok: !!ok, endpoint: latestEndpoint };
+                        }).catch(function () {
+                            return { ok: !!ok, endpoint: currentEndpoint };
+                        });
+                    });
                 }
 
-                return false;
+                return { ok: false, endpoint: currentEndpoint };
+            }).then(function (res) {
+                if (res === true) {
+                    return reg.pushManager.getSubscription().then(function (latestSub2) {
+                        return {
+                            ok: true,
+                            endpoint: latestSub2 && latestSub2.endpoint ? latestSub2.endpoint : ''
+                        };
+                    });
+                }
+                if (typeof res === 'object' && res) return res;
+                return { ok: !!res, endpoint: '' };
             });
         })
-        .then(function (ok) {
+        .then(function (result) {
+            var ok = !!(result && result.ok);
+            var endpoint = result && result.endpoint ? result.endpoint : '';
+            var nowLabel = _formatTalentPushClock(Date.now());
             if (ok) {
                 _setTalentPushStatus('Push aktif - order masuk realtime', 'is-active');
                 _setTalentPushAction(false, '', false);
+                _refreshTalentPushDiagnostics(permission, endpoint, nowLabel);
+                _clearTalentPushRetry();
                 return true;
             }
 
             _setTalentPushStatus('Push belum aktif di perangkat ini', 'is-warning');
             _setTalentPushAction(true, 'Sinkronkan', false);
+            _refreshTalentPushDiagnostics(permission, endpoint, nowLabel);
+            _scheduleTalentPushRetry('belum aktif');
             return false;
         })
         .catch(function () {
             _setTalentPushStatus('Gagal cek status push', 'is-error');
             _setTalentPushAction(true, 'Coba Lagi', false);
+            _refreshTalentPushDiagnostics(permission, '', _formatTalentPushClock(Date.now()));
+            _scheduleTalentPushRetry('cek gagal');
             return false;
         });
 }

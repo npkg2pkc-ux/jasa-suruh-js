@@ -362,6 +362,9 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .talent-push-chip.is-checking { background:rgba(255,255,255,.28); color:rgba(255,255,255,.95); }
 .talent-push-btn { border:none; border-radius:999px; background:#FFFFFF; color:#C2410C; font-size:11px; font-weight:700; padding:6px 10px; cursor:pointer; transition:var(--tr); box-shadow:0 2px 6px rgba(0,0,0,.12); }
 .talent-push-btn:active { transform:scale(.96); }
+.talent-push-diagnostics { margin-top:8px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px 10px; padding:8px 10px; border-radius:10px; background:rgba(255,255,255,.14); }
+.talent-push-diag-item { font-size:11px; color:rgba(255,255,255,.88); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.talent-push-diag-item span { color:#FFFFFF; font-weight:700; }
 .status-label { font-size:14px; font-weight:600; color:rgba(255,255,255,.8); }
 .status-label.online { color:#DCFCE7; }
 
