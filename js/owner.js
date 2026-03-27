@@ -13,7 +13,7 @@ var OwnerDashboard = (function () {
     var _ordersCache = [];
     var _currentRange = 'all'; // today, week, month, all
     var _activityFilter = 'orders'; // orders, users, all
-    var _adminDriverFilter = 'all'; // all, active, suspended, problem
+    var _adminDriverFilter = 'all'; // all, user, talent, penjual
     var _currentRole = 'owner'; // 'owner' or 'admin'
     var _activeOwnerPanel = 'home';
     var _ownerPanelConfig = {
@@ -51,7 +51,7 @@ var OwnerDashboard = (function () {
 
         if (panel === 'home') return { title: 'Home', subtitle: 'Ringkasan operasional admin' };
         if (panel === 'activity') return { title: 'Order', subtitle: 'Monitoring order dari dibuat sampai verifikasi komisi' };
-        if (panel === 'users') return { title: 'Pengguna', subtitle: 'Kontrol driver aktif, performa, dan penanganan masalah' };
+        if (panel === 'users') return { title: 'Pengguna', subtitle: 'Kontrol akun global: user, driver, dan seller' };
         if (panel === 'settings') return { title: 'Akun', subtitle: 'Profil admin, review pesanan, dan logout' };
         return cfg;
     }
@@ -1342,15 +1342,17 @@ var OwnerDashboard = (function () {
         }
 
         if (_isAdmin()) {
-            var drivers = allUsers.filter(function (u) { return u.role === 'talent'; });
-            var activeDrivers = drivers.filter(function (d) { return d.is_active !== false; }).length;
-            var suspendedDrivers = drivers.filter(function (d) { return d.is_active === false; }).length;
-            var problemDrivers = drivers.filter(function (d) { return buildDriverPerformance(d).isProblem; }).length;
+            var managed = allUsers.filter(function (u) {
+                return u.role === 'user' || u.role === 'talent' || u.role === 'penjual';
+            });
+            var totalUsers = managed.filter(function (u) { return u.role === 'user'; }).length;
+            var totalDrivers = managed.filter(function (u) { return u.role === 'talent'; }).length;
+            var totalSellers = managed.filter(function (u) { return u.role === 'penjual'; }).length;
 
-            _setKPIValue('adminDriverTotal', drivers.length);
-            _setKPIValue('adminDriverActive', activeDrivers);
-            _setKPIValue('adminDriverSuspended', suspendedDrivers);
-            _setKPIValue('adminDriverProblem', problemDrivers);
+            _setKPIValue('adminDriverTotal', managed.length);
+            _setKPIValue('adminDriverActive', totalUsers);
+            _setKPIValue('adminDriverSuspended', totalDrivers);
+            _setKPIValue('adminDriverProblem', totalSellers);
         }
 
         function fmtDate(ts) {
@@ -1402,11 +1404,9 @@ var OwnerDashboard = (function () {
 
         if (_isAdmin() && _adminDriverFilter !== 'all') {
             users = users.filter(function (u) {
-                if (u.role !== 'talent') return false;
-                var perf = buildDriverPerformance(u);
-                if (_adminDriverFilter === 'active') return u.is_active !== false;
-                if (_adminDriverFilter === 'suspended') return u.is_active === false;
-                if (_adminDriverFilter === 'problem') return perf.isProblem;
+                if (_adminDriverFilter === 'user') return u.role === 'user';
+                if (_adminDriverFilter === 'talent') return u.role === 'talent';
+                if (_adminDriverFilter === 'penjual') return u.role === 'penjual';
                 return true;
             });
         }
