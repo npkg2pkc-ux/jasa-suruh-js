@@ -1881,6 +1881,41 @@ function loadAdminProblemOrders(page) {
                     if (!saveRes || !saveRes.success) {
                         throw new Error((saveRes && saveRes.message) ? saveRes.message : 'Gagal menyimpan tindak lanjut');
                     }
+
+                    var targetOrder = complaints.find(function (x) { return String(x.id || '') === String(orderId); }) || null;
+                    if (typeof addNotifItem === 'function' && targetOrder) {
+                        if (targetOrder.userId) {
+                            addNotifItem({
+                                userId: targetOrder.userId,
+                                icon: '✅',
+                                title: 'Aduan Sudah Ditangani',
+                                desc: 'Aduan Anda untuk order #' + String(orderId).substr(0, 8) + ' telah ditindaklanjuti admin.',
+                                type: 'report',
+                                orderId: orderId
+                            });
+                        }
+                        if (targetOrder.talentId) {
+                            addNotifItem({
+                                userId: targetOrder.talentId,
+                                icon: '✅',
+                                title: 'Aduan Order Diselesaikan',
+                                desc: 'Aduan pada order #' + String(orderId).substr(0, 8) + ' sudah ditutup admin.',
+                                type: 'order',
+                                orderId: orderId
+                            });
+                        }
+                        if (targetOrder.sellerId) {
+                            addNotifItem({
+                                userId: targetOrder.sellerId,
+                                icon: '✅',
+                                title: 'Aduan Order Diselesaikan',
+                                desc: 'Aduan pada order #' + String(orderId).substr(0, 8) + ' sudah ditutup admin.',
+                                type: 'order',
+                                orderId: orderId
+                            });
+                        }
+                    }
+
                     if (typeof showToast === 'function') showToast('Aduan berhasil ditandai selesai.', 'success');
                     if (typeof renderOwnerStats === 'function') renderOwnerStats();
                     if (typeof renderOwnerUsers === 'function') renderOwnerUsers();

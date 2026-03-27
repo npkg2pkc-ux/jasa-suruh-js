@@ -2395,9 +2395,23 @@ function renderOrderInfo(order, isTalent) {
     var formattedDate = pad(orderDate.getDate()) + ' ' + ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'][orderDate.getMonth()] + ' ' + orderDate.getFullYear() + ' ' + pad(orderDate.getHours()) + ':' + pad(orderDate.getMinutes());
 
     var notesText = (order.notes === null || order.notes === undefined) ? '' : String(order.notes).trim();
+    var complaintOpen = !!(order.userComplaint || order.userComplaintText || order.userComplaintAt)
+        && String(order.complaintStatus || '').toLowerCase() !== 'resolved'
+        && String(order.complaintStatus || '').toLowerCase() !== 'closed';
+    var complaintResolved = !!(order.userComplaint || order.userComplaintText || order.userComplaintAt)
+        && (String(order.complaintStatus || '').toLowerCase() === 'resolved' || String(order.complaintStatus || '').toLowerCase() === 'closed');
+
+    var complaintRow = '';
+    if (complaintOpen) {
+        complaintRow = '<div class="sf-oi-row"><span class="sf-oi-label">Status Aduan</span><span class="sf-oi-val" style="color:#B91C1C;font-weight:700;">Menunggu tindak lanjut admin</span></div>';
+    } else if (complaintResolved) {
+        complaintRow = '<div class="sf-oi-row"><span class="sf-oi-label">Status Aduan</span><span class="sf-oi-val" style="color:#166534;font-weight:700;">Sudah ditangani admin</span></div>';
+    }
+
     var orderInfoHtml = '<div class="sf-order-info-block">'
         + '<div class="sf-oi-header">Informasi Pesanan</div>'
         + '<div class="sf-oi-row"><span class="sf-oi-label">Catatan Tambahan</span><span class="sf-oi-val">' + (notesText ? escapeHtml(notesText) : 'Tidak ada') + '</span></div>'
+        + complaintRow
         + '<div class="sf-oi-row"><span class="sf-oi-label">No. Pesanan</span><div class="sf-oi-val">' + escapeHtml(order.id).substring(0, 10) + '... <span class="sf-oi-copy" onclick="navigator.clipboard.writeText(\'' + escapeHtml(order.id) + '\')">SALIN</span></div></div>'
         + '<div class="sf-oi-row"><span class="sf-oi-label">Waktu Pemesanan</span><span class="sf-oi-val">' + formattedDate + '</span></div>'
         + '<div class="sf-oi-row"><span class="sf-oi-label">Pembayaran</span><span class="sf-oi-val bold">' + pmLabel + '</span></div>'
@@ -2911,6 +2925,22 @@ function submitUserOrderComplaint(order) {
         if (typeof showToast === 'function') showToast('Hanya user customer yang bisa membuat aduan.', 'error');
         return;
     }
+    if (String(session.id || '') !== String(order.userId || '')) {
+        if (typeof showToast === 'function') showToast('Anda tidak berhak membuat aduan untuk order ini.', 'error');
+        return;
+    }
+    if (!((order.status === 'completed') || (order.status === 'rated'))) {
+        if (typeof showToast === 'function') showToast('Aduan hanya bisa dibuat setelah order selesai.', 'error');
+        return;
+    }
+
+    var complaintOpen = !!(order.userComplaint || order.userComplaintText || order.userComplaintAt)
+        && String(order.complaintStatus || '').toLowerCase() !== 'resolved'
+        && String(order.complaintStatus || '').toLowerCase() !== 'closed';
+    if (complaintOpen) {
+        if (typeof showToast === 'function') showToast('Aduan untuk order ini sudah ada dan sedang diproses.', 'info');
+        return;
+    }
 
     var text = prompt('Tulis aduan Anda (minimal 10 karakter):');
     if (!text || !text.trim()) return;
@@ -2956,6 +2986,28 @@ function submitUserOrderComplaint(order) {
                 orderId: order.id,
                 extra: { complaint: true }
             });
+
+            if (order.talentId) {
+                addNotifItem({
+                    userId: order.talentId,
+                    icon: '⚠️',
+                    title: 'Order Diadukan Customer',
+                    desc: 'Order #' + String(order.id || '').substr(0, 8) + ' mendapat aduan customer. Tunggu tindak lanjut admin.',
+                    type: 'order',
+                    orderId: order.id
+                });
+            }
+
+            if (order.sellerId) {
+                addNotifItem({
+                    userId: order.sellerId,
+                    icon: '⚠️',
+                    title: 'Order Diadukan Customer',
+                    desc: 'Order #' + String(order.id || '').substr(0, 8) + ' mendapat aduan customer. Tunggu tindak lanjut admin.',
+                    type: 'order',
+                    orderId: order.id
+                });
+            }
         }
 
         if (typeof showToast === 'function') showToast('Aduan berhasil dikirim ke admin. Kami akan menindaklanjuti.', 'success');
