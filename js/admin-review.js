@@ -65,6 +65,12 @@ function _loadPendingReviewOrders(page) {
                 && !o.walletSettled;
         });
 
+        // Prioritize oldest review requests first so they are not ignored too long
+        pending.sort(function (a, b) {
+            return Number(a.pendingAdminReviewAt || a.completedAt || a.createdAt || 0)
+                - Number(b.pendingAdminReviewAt || b.completedAt || b.createdAt || 0);
+        });
+
         if (pending.length === 0) {
             listEl.innerHTML = [
                 '<div style="text-align:center;padding:60px 20px;">',
@@ -78,7 +84,21 @@ function _loadPendingReviewOrders(page) {
 
         var users = typeof getUsers === 'function' ? getUsers() : [];
 
-        listEl.innerHTML = pending.map(function (o, idx) {
+        var nowTs = Date.now();
+        var overdueMs = 2 * 60 * 60 * 1000;
+        var overdueCount = pending.filter(function (o) {
+            return nowTs - Number(o.pendingAdminReviewAt || o.completedAt || o.createdAt || 0) >= overdueMs;
+        }).length;
+
+        var overdueBanner = overdueCount > 0
+            ? ('<div style="background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;border-radius:12px;padding:10px 12px;font-size:12px;font-weight:700;">'
+                + 'Ada ' + overdueCount + ' order yang sudah terlalu lama menunggu keputusan. Admin wajib pilih Approve/Reject sekarang.'
+                + '</div>')
+            : ('<div style="background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46;border-radius:12px;padding:10px 12px;font-size:12px;font-weight:700;">'
+                + 'Semua review masih dalam batas aman. Tetap pastikan setiap order diputuskan secepatnya.'
+                + '</div>');
+
+        listEl.innerHTML = overdueBanner + pending.map(function (o, idx) {
             var user   = users.find(function (u) { return u.id === o.userId; })   || {};
             var driver = users.find(function (u) { return u.id === o.talentId; }) || {};
             var seller = users.find(function (u) { return u.id === o.sellerId; }) || {};
@@ -90,6 +110,13 @@ function _loadPendingReviewOrders(page) {
             var deliveryLabel = isEscortService
                 ? 'Driver benar-benar mengantar user'
                 : 'Driver benar-benar mengantar pesanan';
+            var pendingSinceTs = Number(o.pendingAdminReviewAt || o.completedAt || o.createdAt || 0);
+            var pendingAgeMs = nowTs - pendingSinceTs;
+            var isOverdue = pendingAgeMs >= overdueMs;
+            var pendingAgeMinutes = Math.max(1, Math.floor(pendingAgeMs / 60000));
+            var pendingAgeText = pendingAgeMinutes < 60
+                ? (pendingAgeMinutes + ' menit')
+                : (Math.floor(pendingAgeMinutes / 60) + ' jam');
 
             var dateStr = o.completedAt || o.createdAt
                 ? new Date(Number(o.completedAt || o.createdAt)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -102,6 +129,17 @@ function _loadPendingReviewOrders(page) {
             var sellerRow = o.sellerId
                 ? ('<div style="font-size:12px;color:#374151;margin-bottom:4px;">&#127978; Penjual: ' + (typeof escapeHtml === 'function' ? escapeHtml(o.storeName || seller.name || seller.nama || '-') : (o.storeName || seller.name || seller.nama || '-')) + '</div>')
                 : '';
+
+            var locationParts = [];
+            if (o.userAddr) locationParts.push('<div style="font-size:12px;color:#374151;margin-bottom:4px;">&#128205; Lokasi Customer: ' + (typeof escapeHtml === 'function' ? escapeHtml(String(o.userAddr)) : String(o.userAddr)) + '</div>');
+            if (o.storeAddr) locationParts.push('<div style="font-size:12px;color:#374151;margin-bottom:4px;">&#127978; Lokasi Toko: ' + (typeof escapeHtml === 'function' ? escapeHtml(String(o.storeAddr)) : String(o.storeAddr)) + '</div>');
+            if (o.destAddr) locationParts.push('<div style="font-size:12px;color:#374151;margin-bottom:4px;">&#128205; Tujuan Antar: ' + (typeof escapeHtml === 'function' ? escapeHtml(String(o.destAddr)) : String(o.destAddr)) + '</div>');
+            if (!locationParts.length && o.userLat && o.userLng) {
+                locationParts.push('<div style="font-size:12px;color:#6B7280;margin-bottom:4px;">&#128205; Koordinat Customer: ' + Number(o.userLat).toFixed(5) + ', ' + Number(o.userLng).toFixed(5) + '</div>');
+            }
+            var locationHtml = locationParts.length
+                ? ('<div style="margin-top:6px;">' + locationParts.join('') + '</div>')
+                : '<div style="font-size:12px;color:#9CA3AF;margin-top:6px;">Lokasi tidak tersedia (opsional).</div>';
 
             var ratingBadge = o.rating
                 ? '<span style="background:#FEF9C3;color:#854D0E;border-radius:6px;padding:2px 6px;font-size:11px;font-weight:600;margin-left:6px;">&#9733; ' + o.rating + '/5</span>'
@@ -126,6 +164,7 @@ function _loadPendingReviewOrders(page) {
                         '<div>',
                             '<div style="font-size:13px;font-weight:700;color:#111;">#' + String(o.id || '').substr(0, 8) + '</div>',
                             '<div style="font-size:12px;color:#6B7280;">' + (o.serviceType || o.skillType || 'Pesanan') + ' &bull; ' + dateStr + ratingBadge + '</div>',
+                            '<div style="font-size:11px;color:' + (isOverdue ? '#B91C1C' : '#9A3412') + ';font-weight:700;margin-top:3px;">Menunggu keputusan: ' + pendingAgeText + (isOverdue ? ' (MELEWATI BATAS)' : '') + '</div>',
                         '</div>',
                         '<span style="background:#FEF3C7;color:#D97706;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:600;">&#9203; Perlu Review</span>',
                     '</div>',
@@ -133,6 +172,7 @@ function _loadPendingReviewOrders(page) {
                     '<div style="font-size:12px;color:#374151;margin-bottom:4px;">&#128661; Driver: ' + (typeof escapeHtml === 'function' ? escapeHtml(driver.name || driver.nama || '-') : (driver.name || driver.nama || '-')) + '</div>',
                     sellerRow,
                     '<div style="font-size:12px;color:#374151;margin-bottom:4px;">&#128176; Total: Rp ' + Number(o.totalCost || o.price || 0).toLocaleString('id-ID') + ' &bull; ' + String(o.paymentMethod || 'JsPay').toUpperCase() + '</div>',
+                    locationHtml,
                     '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">' + proofStatus + customerStatus + '</div>',
                     proofHtml,
                     evidenceAlert,
@@ -271,7 +311,8 @@ function _aorpApprove(order, btn, page) {
                         pendingAdminReview: false,
                         adminReviewedAt: Date.now(),
                         adminReviewStatus: 'approved',
-                        adminReviewedBy: (typeof getSession === 'function' && getSession()) ? getSession().id : ''
+                        adminReviewedBy: (typeof getSession === 'function' && getSession()) ? getSession().id : '',
+                        adminReviewNote: 'Valid - komisi disetujui admin'
                     }
                 });
                 // Notify driver
@@ -328,7 +369,9 @@ function _aorpReject(order, btn, page) {
             pendingAdminReview: false,
             adminReviewedAt: Date.now(),
             adminReviewStatus: 'rejected',
-            adminReviewReason: reason.trim()
+            adminReviewReason: reason.trim(),
+            adminReviewNote: 'Tidak valid - komisi ditolak admin',
+            fraudFlag: true
         }
     }).then(function () {
         if (typeof addNotifItem === 'function') {

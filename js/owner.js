@@ -907,6 +907,22 @@ var OwnerDashboard = (function () {
                     });
                 }
             }
+
+            if (o.adminReviewStatus === 'approved' && Number(o.adminReviewedAt || 0) > 0) {
+                events.push({
+                    type: 'review_approved',
+                    ts: Number(o.adminReviewedAt || 0),
+                    order: o
+                });
+            }
+
+            if (o.adminReviewStatus === 'rejected' && Number(o.adminReviewedAt || 0) > 0) {
+                events.push({
+                    type: 'review_rejected',
+                    ts: Number(o.adminReviewedAt || 0),
+                    order: o
+                });
+            }
         });
 
         users.forEach(function (u) {
@@ -923,10 +939,17 @@ var OwnerDashboard = (function () {
 
         var createdCount = events.filter(function (e) { return e.type === 'order_created'; }).length;
         var doneCount = events.filter(function (e) { return e.type === 'order_completed'; }).length;
+        var approvedCount = events.filter(function (e) { return e.type === 'review_approved'; }).length;
+        var rejectedCount = events.filter(function (e) { return e.type === 'review_rejected'; }).length;
         var userCount = events.filter(function (e) { return e.type === 'user_joined'; }).length;
 
         if (_activityFilter === 'orders') {
-            events = events.filter(function (e) { return e.type === 'order_created' || e.type === 'order_completed'; });
+            events = events.filter(function (e) {
+                return e.type === 'order_created'
+                    || e.type === 'order_completed'
+                    || e.type === 'review_approved'
+                    || e.type === 'review_rejected';
+            });
         } else if (_activityFilter === 'users') {
             events = events.filter(function (e) { return e.type === 'user_joined'; });
         }
@@ -934,10 +957,13 @@ var OwnerDashboard = (function () {
         events.sort(function (a, b) { return b.ts - a.ts; });
         var recent = events.slice(0, 18);
 
+        var summaryThirdLabel = _isAdmin() ? '✔️ Approve/Tolak' : '👥 User Baru';
+        var summaryThirdCount = _isAdmin() ? (approvedCount + rejectedCount) : userCount;
+
         var summaryHtml = '<div class="od-activity-summary">'
             + '<div class="od-activity-chip"><span>🆕 Order Masuk</span><strong>' + createdCount + '</strong></div>'
             + '<div class="od-activity-chip"><span>✅ Order Selesai</span><strong>' + doneCount + '</strong></div>'
-            + '<div class="od-activity-chip"><span>👥 User Baru</span><strong>' + userCount + '</strong></div>'
+            + '<div class="od-activity-chip"><span>' + summaryThirdLabel + '</span><strong>' + summaryThirdCount + '</strong></div>'
             + '</div>';
 
         if (recent.length === 0) {
@@ -978,9 +1004,18 @@ var OwnerDashboard = (function () {
             var o = evt.order || {};
             var meta = buildOrderMeta(o);
             var isDone = evt.type === 'order_completed';
-            var badgeType = isDone ? 'type-done' : 'type-order';
-            var badgeText = isDone ? 'Order Selesai' : 'Order Baru';
+            var isReviewApproved = evt.type === 'review_approved';
+            var isReviewRejected = evt.type === 'review_rejected';
+            var badgeType = isReviewRejected ? 'type-order' : (isDone || isReviewApproved ? 'type-done' : 'type-order');
+            var badgeText = isReviewApproved
+                ? 'Komisi Disetujui'
+                : (isReviewRejected
+                    ? 'Komisi Ditolak'
+                    : (isDone ? 'Order Selesai' : 'Order Baru'));
             var feeText = meta.fee > 0 ? formatRp(meta.fee) : '-';
+            var reviewReasonTag = isReviewRejected && o.adminReviewReason
+                ? ('<span class="od-activity-tag">Alasan: ' + escapeHtml(String(o.adminReviewReason)) + '</span>')
+                : '';
 
             return dayHead + '<article class="od-activity-card od-activity-order-card">'
                 + '<div class="od-activity-card-top">'
@@ -994,6 +1029,7 @@ var OwnerDashboard = (function () {
                 + '<span class="od-activity-tag">Bayar: ' + escapeHtml(meta.payment) + '</span>'
                 + '<span class="od-activity-tag">Driver: ' + escapeHtml(meta.driver) + '</span>'
                 + '<span class="od-activity-tag">Toko: ' + escapeHtml(meta.seller) + '</span>'
+                + reviewReasonTag
                 + '</div>'
                 + '<div class="od-activity-order-footer">'
                 + '<span class="od-activity-price">Total ' + formatRp(meta.total) + '</span>'
