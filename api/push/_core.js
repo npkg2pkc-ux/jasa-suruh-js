@@ -85,6 +85,7 @@ async function sendPushToUser(userId, payload) {
     }
 
     const msg = buildPushPayload(payload);
+    const type = String((payload && payload.type) || 'info');
     let sent = 0;
     let failed = 0;
 
@@ -103,7 +104,11 @@ async function sendPushToUser(userId, payload) {
         };
 
         try {
-            await webpush.sendNotification(sub, msg, { TTL: 120 });
+            await webpush.sendNotification(sub, msg, {
+                TTL: type === 'new_order' ? 3600 : 300,
+                urgency: type === 'new_order' ? 'high' : 'normal',
+                topic: String((payload && payload.tag) || ('js-' + type)).slice(0, 32)
+            });
             sent++;
         } catch (err) {
             failed++;

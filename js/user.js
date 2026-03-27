@@ -3038,8 +3038,13 @@ function _doSearchDriver(order) {
                 icon: isProduct ? '📦' : '🏍️',
                 title: notifTitle,
                 desc: notifDesc,
-                type: 'order',
-                orderId: order.id
+                type: 'new_order',
+                orderId: order.id,
+                requireInteraction: true,
+                extra: {
+                    orderId: order.id,
+                    target: 'driver-dashboard'
+                }
             });
         });
     }).catch(function () {

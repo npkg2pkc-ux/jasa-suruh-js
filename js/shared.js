@@ -879,6 +879,8 @@ var _notifItems = [];
 var _notifUnsub = null;
 var _notifPollTimer = null;
 var _pushSetupPromise = null;
+var _pushPermissionHooked = false;
+var _pushVisibilityHooked = false;
 
 var _prevUnreadCount = 0;
 function initNotifications() {
@@ -888,10 +890,7 @@ function initNotifications() {
     if (_notifPollTimer) { clearInterval(_notifPollTimer); _notifPollTimer = null; }
     _prevUnreadCount = 0;
 
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission().catch(function () {});
-    }
-
+    _setupPushPermissionFlow(session);
     _ensurePushSubscription(session);
 
     // Try realtime first, fall back to polling
@@ -910,6 +909,50 @@ function initNotifications() {
     }, 12000);
 }
 window.initNotifications = initNotifications;
+
+function _setupPushPermissionFlow(session) {
+    if (!session || !session.id) return;
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    if (!_pushPermissionHooked) {
+        _pushPermissionHooked = true;
+        var activatePush = function () {
+            var s = getSession();
+            if (!s || !s.id) return;
+
+            if (Notification.permission === 'granted') {
+                _ensurePushSubscription(s);
+                return;
+            }
+
+            if (Notification.permission === 'default') {
+                Notification.requestPermission().then(function (perm) {
+                    if (perm === 'granted') _ensurePushSubscription(s);
+                }).catch(function () {});
+            }
+        };
+
+        document.addEventListener('click', activatePush, true);
+        document.addEventListener('touchend', activatePush, true);
+        document.addEventListener('keydown', activatePush, true);
+    }
+
+    if (!_pushVisibilityHooked) {
+        _pushVisibilityHooked = true;
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState !== 'visible') return;
+            var s = getSession();
+            if (!s || !s.id) return;
+            if (Notification.permission === 'granted') _ensurePushSubscription(s);
+        });
+
+        window.addEventListener('focus', function () {
+            var s = getSession();
+            if (!s || !s.id) return;
+            if (Notification.permission === 'granted') _ensurePushSubscription(s);
+        });
+    }
+}
 
 function _urlBase64ToUint8Array(base64String) {
     var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
