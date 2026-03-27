@@ -557,11 +557,19 @@ var OwnerDashboard = (function () {
         return ['accepted', 'on_the_way', 'arrived', 'in_progress'].indexOf(String(status || '')) >= 0;
     }
 
+    function _isAwaitingAdminReview(order) {
+        var o = order || {};
+        var status = String(o.status || '');
+        if (status !== 'completed' && status !== 'rated') return false;
+        if (!!o.walletSettled) return false;
+        var reviewStatus = String(o.adminReviewStatus || '').toLowerCase();
+        if (reviewStatus === 'approved' || reviewStatus === 'rejected') return false;
+        return true;
+    }
+
     function _countPendingReview(orders) {
         return (orders || []).filter(function (o) {
-            return (o.status === 'completed' || o.status === 'rated')
-                && o.pendingAdminReview
-                && !o.walletSettled;
+            return _isAwaitingAdminReview(o);
         }).length;
     }
 
@@ -586,9 +594,7 @@ var OwnerDashboard = (function () {
             var baseTs = Number(o.updatedAt || o.createdAt || 0);
             var age = baseTs > 0 ? (now - baseTs) : 0;
             var isStaleActive = _isActiveOrderStatus(o.status) && age > activeMaxMs;
-            var isStaleReview = (o.status === 'completed' || o.status === 'rated')
-                && o.pendingAdminReview
-                && !o.walletSettled
+            var isStaleReview = _isAwaitingAdminReview(o)
                 && age > reviewMaxMs;
             return isStaleActive || isStaleReview;
         }).length;

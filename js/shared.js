@@ -3329,6 +3329,48 @@ function _refreshDriverGpsLockedButtons(order) {
     _applyDriverGpsGateButton(order, 'otpBtnComplete', 'completed');
 }
 
+function _getAdminUserIds() {
+    var users = (typeof getUsers === 'function') ? getUsers() : [];
+    var ids = {};
+    users.forEach(function (u) {
+        if (!u || !u.id) return;
+        var role = String(u.role || '').toLowerCase();
+        if (role === 'admin' || role === 'owner') {
+            ids[String(u.id)] = true;
+        }
+    });
+    return Object.keys(ids);
+}
+
+function _notifyAdminReviewQueue(orderRef) {
+    if (typeof addNotifItem !== 'function') return;
+    var oid = (orderRef && orderRef.id) ? String(orderRef.id) : '';
+    var svc = (orderRef && (orderRef.serviceType || orderRef.skillType)) ? (orderRef.serviceType || orderRef.skillType) : 'Pesanan';
+    var admins = _getAdminUserIds();
+    if (!admins || !admins.length) {
+        addNotifItem({
+            icon: '🔍',
+            title: 'Order Selesai - Perlu Review Admin',
+            desc: 'Pesanan #' + oid.substr(0, 8) + ' (' + svc + ') menunggu persetujuan Admin untuk pencairan komisi driver/seller.',
+            type: 'review',
+            orderId: oid,
+            extra: { pendingAdminReview: true }
+        });
+        return;
+    }
+    admins.forEach(function (adminId) {
+        addNotifItem({
+            userId: adminId,
+            icon: '🔍',
+            title: 'Order Selesai - Perlu Review Admin',
+            desc: 'Pesanan #' + oid.substr(0, 8) + ' (' + svc + ') menunggu persetujuan Admin untuk pencairan komisi driver/seller.',
+            type: 'review',
+            orderId: oid,
+            extra: { pendingAdminReview: true }
+        });
+    });
+}
+
 function updateOrderStatus(orderId, newStatus, extraFields) {
     var fields = Object.assign({}, extraFields || {});
     fields.status = newStatus;
@@ -3397,14 +3439,7 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                             fraudFlag: false
                         }
                     });
-                    addNotifItem({
-                        icon: '🔍',
-                        title: 'Order Selesai - Perlu Review Admin',
-                        desc: 'Pesanan #' + (orderRef.id || '').substr(0, 8) + ' (' + (orderRef.serviceType || orderRef.skillType || 'Pesanan') + ') menunggu persetujuan Admin untuk pencairan komisi driver.',
-                        type: 'review',
-                        orderId: orderId,
-                        extra: { pendingAdminReview: true }
-                    });
+                    _notifyAdminReviewQueue(orderRef);
                     showToast('Pesanan selesai! Masuk antrian review admin sebelum pencairan komisi.', 'success');
                 }
 

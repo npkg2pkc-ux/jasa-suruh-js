@@ -5,6 +5,20 @@
    ======================================== */
 'use strict';
 
+function _isAwaitingAdminReview(order) {
+    var o = order || {};
+    var status = String(o.status || '');
+    if (status !== 'completed' && status !== 'rated') return false;
+    if (!!o.walletSettled) return false;
+
+    var reviewStatus = String(o.adminReviewStatus || '').toLowerCase();
+    if (reviewStatus === 'approved' || reviewStatus === 'rejected') return false;
+
+    // Fallback: even if pendingAdminReview flag is missing/corrupt,
+    // keep the order visible so admin can still approve payout.
+    return true;
+}
+
 // ── Open the review panel ──
 function openAdminOrderReview() {
     var page = document.getElementById('adminOrderReviewPage');
@@ -58,11 +72,27 @@ function _loadPendingReviewOrders(page) {
             return;
         }
 
-        // Filter orders that are completed but not yet wallet-settled, awaiting admin review
+        // Include queue fallback so corrupted/missing pendingAdminReview flag does not hide orders.
         var pending = res.data.filter(function (o) {
-            return (o.status === 'completed' || o.status === 'rated')
-                && o.pendingAdminReview
-                && !o.walletSettled;
+            return _isAwaitingAdminReview(o);
+        });
+
+        // Self-heal queue flag in background for legacy/inconsistent records.
+        pending.forEach(function (o) {
+            if (o && !o.pendingAdminReview) {
+                backendPost({
+                    action: 'updateOrder',
+                    orderId: o.id,
+                    fields: {
+                        pendingAdminReview: true,
+                        pendingAdminReviewAt: Number(o.pendingAdminReviewAt || o.completedAt || o.createdAt || Date.now()),
+                        walletSettled: false,
+                        adminReviewStatus: String(o.adminReviewStatus || ''),
+                        adminReviewReason: String(o.adminReviewReason || ''),
+                        adminReviewNote: String(o.adminReviewNote || 'Menunggu verifikasi admin')
+                    }
+                }).catch(function () {});
+            }
         });
 
         // Prioritize oldest review requests first so they are not ignored too long
