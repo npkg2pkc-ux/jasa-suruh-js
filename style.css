@@ -2602,6 +2602,25 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .od-header-content { position:relative; z-index:1; padding:calc(12px + env(safe-area-inset-top, 0px)) 20px 12px; }
 .od-header-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:10px; }
 .od-greeting { display:flex; flex-direction:column; gap:2px; }
+.od-greeting-brand {
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    margin-bottom:2px;
+}
+.od-greeting-logo {
+    width:20px;
+    height:20px;
+    border-radius:6px;
+    border:1px solid rgba(255,255,255,.5);
+    box-shadow:0 2px 8px rgba(0,0,0,.14);
+}
+.od-greeting-app {
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.2px;
+    color:rgba(255,255,255,.9);
+}
 .od-greeting-hi { font-size:18px; font-weight:800; color:var(--white); }
 .od-greeting-sub { font-size:12px; font-weight:500; color:rgba(255,255,255,.8); }
 .od-header-actions { display:flex; gap:8px; }
@@ -2697,6 +2716,37 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     border-color:rgba(255,107,0,.45);
     box-shadow:0 6px 14px rgba(249,115,22,.18);
     background:linear-gradient(135deg,#fff 0%, #fff7ef 100%);
+}
+
+.od-nav-brand {
+    display:none;
+}
+
+.od-nav-brand-logo {
+    width:34px;
+    height:34px;
+    border-radius:10px;
+    border:1px solid rgba(249,115,22,.32);
+    box-shadow:0 6px 14px rgba(194,65,12,.16);
+}
+
+.od-nav-brand-copy {
+    display:flex;
+    flex-direction:column;
+    gap:1px;
+}
+
+.od-nav-brand-copy strong {
+    font-size:13px;
+    line-height:1.2;
+    color:#7C2D12;
+}
+
+.od-nav-brand-copy span {
+    font-size:10px;
+    color:#9A3412;
+    font-weight:700;
+    letter-spacing:.2px;
 }
 
 .od-panel-modal {
@@ -4721,6 +4771,15 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
         z-index:36;
     }
 
+    #page-owner.od-web-desktop .od-nav-brand {
+        display:flex;
+        align-items:center;
+        gap:10px;
+        padding:10px 10px 12px;
+        margin-bottom:2px;
+        border-bottom:1px solid #FED7AA;
+    }
+
     #page-owner.od-web-desktop #ownerBottomNav .nav-item {
         width:100%;
         min-height:44px;
@@ -4815,6 +4874,20 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     #page-owner.od-web-desktop.od-admin-mode .od-panel-modal,
     #page-owner.od-web-desktop.od-admin-mode .od-panel-shell {
         max-width:none;
+    }
+
+    #page-owner.od-web-desktop .od-greeting-brand {
+        margin-bottom:4px;
+    }
+
+    #page-owner.od-web-desktop .od-greeting-logo {
+        width:24px;
+        height:24px;
+        border-radius:8px;
+    }
+
+    #page-owner.od-web-desktop .od-greeting-app {
+        font-size:12px;
     }
 }
 
