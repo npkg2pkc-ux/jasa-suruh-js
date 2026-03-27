@@ -128,15 +128,16 @@ function _loadPendingReviewOrders(page) {
                 + 'Semua review masih dalam batas aman. Tetap pastikan setiap order diputuskan secepatnya.'
                 + '</div>');
 
-        listEl.innerHTML = overdueBanner + pending.map(function (o, idx) {
+        var renderPendingCards = function (evidenceMap) {
+            evidenceMap = evidenceMap || {};
+            listEl.innerHTML = overdueBanner + pending.map(function (o, idx) {
             var user   = users.find(function (u) { return u.id === o.userId; })   || {};
             var driver = users.find(function (u) { return u.id === o.talentId; }) || {};
             var seller = users.find(function (u) { return u.id === o.sellerId; }) || {};
             var isEscortService = o.skillType === 'js_antar';
             var hasProof = !!o.proofPhoto;
-            var ratingValue = Number(o.rating || 0);
-            var hasCustomerValidation = ratingValue >= 4 || o.status === 'rated';
-            var hasEvidence = hasProof || hasCustomerValidation;
+            var hasChatProof = !!evidenceMap[String(o.id)] && !hasProof;
+            var hasEvidence = hasProof || hasChatProof;
             var deliveryLabel = isEscortService
                 ? 'Driver benar-benar mengantar user'
                 : 'Driver benar-benar mengantar pesanan';
@@ -177,15 +178,13 @@ function _loadPendingReviewOrders(page) {
 
             var proofStatus = hasProof
                 ? '<span style="display:inline-block;background:#DCFCE7;color:#166534;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;">Foto bukti tersedia</span>'
-                : '<span style="display:inline-block;background:#FEE2E2;color:#B91C1C;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;">Foto bukti belum ada</span>';
-
-            var customerStatus = hasCustomerValidation
-                ? '<span style="display:inline-block;background:#FEF3C7;color:#92400E;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;">Validasi pelanggan tersedia</span>'
-                : '<span style="display:inline-block;background:#E5E7EB;color:#4B5563;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;">Belum ada rating validasi pelanggan</span>';
+                : (hasChatProof
+                    ? '<span style="display:inline-block;background:#DBEAFE;color:#1D4ED8;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;">Foto bukti tersedia di chat</span>'
+                    : '<span style="display:inline-block;background:#FEE2E2;color:#B91C1C;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;">Foto bukti belum ada</span>');
 
             var evidenceAlert = hasEvidence
                 ? ''
-                : '<div style="margin-top:8px;font-size:12px;color:#B91C1C;background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:8px;">Tidak ada bukti yang cukup. Minta driver lengkapi foto bukti atau minta konfirmasi customer dulu.</div>';
+                : '<div style="margin-top:8px;font-size:12px;color:#B91C1C;background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:8px;">Approve dikunci. Wajib ada foto bukti di order atau di chat user-driver.</div>';
 
             var reviewBadge = '<span style="background:#FEF3C7;color:#D97706;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:600;">&#9203; Perlu Review</span>';
 
@@ -205,7 +204,7 @@ function _loadPendingReviewOrders(page) {
                     sellerRow,
                     '<div style="font-size:12px;color:#374151;margin-bottom:4px;">&#128176; Total: Rp ' + Number(o.totalCost || o.price || 0).toLocaleString('id-ID') + ' &bull; ' + String(o.paymentMethod || 'JsPay').toUpperCase() + '</div>',
                     locationHtml,
-                    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">' + proofStatus + customerStatus + '</div>',
+                    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">' + proofStatus + '</div>',
                     proofHtml,
                     evidenceAlert,
                     '<div style="margin-top:10px;border:1px solid #FED7AA;background:#FFF7ED;border-radius:12px;padding:10px;">',
@@ -239,33 +238,50 @@ function _loadPendingReviewOrders(page) {
                     '</div>',
                 '</div>'
             ].join('');
-        }).join('');
+            }).join('');
 
-        _wireReviewChecklist(listEl);
+            _wireReviewChecklist(listEl);
 
-        // Bind buttons
-        listEl.querySelectorAll('.aorp-btn-approve').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                if (this.disabled) {
-                    if (typeof showToast === 'function') showToast('Lengkapi checklist verifikasi dulu sebelum approve', 'error');
-                    return;
-                }
-                var idx = parseInt(this.dataset.idx, 10);
-                if (pending[idx]) _aorpApprove(pending[idx], this, page);
+            // Bind buttons
+            listEl.querySelectorAll('.aorp-btn-approve').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    if (this.disabled) {
+                        if (typeof showToast === 'function') showToast('Lengkapi checklist verifikasi dulu sebelum approve', 'error');
+                        return;
+                    }
+                    var idx = parseInt(this.dataset.idx, 10);
+                    if (pending[idx]) _aorpApprove(pending[idx], this, page);
+                });
             });
-        });
-        listEl.querySelectorAll('.aorp-btn-reject').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var idx = parseInt(this.dataset.idx, 10);
-                if (pending[idx]) _aorpReject(pending[idx], this, page);
+            listEl.querySelectorAll('.aorp-btn-reject').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var idx = parseInt(this.dataset.idx, 10);
+                    if (pending[idx]) _aorpReject(pending[idx], this, page);
+                });
             });
-        });
-        listEl.querySelectorAll('.aorp-btn-chat').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var idx = parseInt(this.dataset.idx, 10);
-                if (pending[idx]) _openAorpChatDetail(pending[idx]);
+            listEl.querySelectorAll('.aorp-btn-chat').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var idx = parseInt(this.dataset.idx, 10);
+                    if (pending[idx]) _openAorpChatDetail(pending[idx]);
+                });
             });
-        });
+        };
+
+        Promise.all(pending.map(function (o) { return _hasAorpPhotoEvidence(o); }))
+            .then(function (flags) {
+                var evidenceMap = {};
+                pending.forEach(function (o, idx) {
+                    evidenceMap[String(o.id)] = !!flags[idx];
+                });
+                renderPendingCards(evidenceMap);
+            })
+            .catch(function () {
+                var fallbackMap = {};
+                pending.forEach(function (o) {
+                    fallbackMap[String(o.id)] = !!o.proofPhoto;
+                });
+                renderPendingCards(fallbackMap);
+            });
     }).catch(function () {
         listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">&#10060; Gagal memuat pesanan</div>';
     });
@@ -286,6 +302,22 @@ function _isAorpDriverUserMessage(msg, order) {
     if ((sender === userId && recipient === driverId) || (sender === driverId && recipient === userId)) return true;
     if (!recipient && (sender === userId || sender === driverId)) return true;
     return false;
+}
+
+function _hasAorpPhotoEvidence(order) {
+    if (!order) return Promise.resolve(false);
+    if (order.proofPhoto) return Promise.resolve(true);
+    if (typeof FB === 'undefined' || !FB.isReady() || !order.id) return Promise.resolve(false);
+
+    return FB.get('getMessages', { orderId: order.id })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (!res || !res.success || !Array.isArray(res.data)) return false;
+            return res.data.some(function (m) {
+                return _isAorpDriverUserMessage(m, order) && !!String(m.photo || '').trim();
+            });
+        })
+        .catch(function () { return false; });
 }
 
 function _openAorpChatDetail(order) {
@@ -535,15 +567,27 @@ function _aorpApprove(order, btn, page) {
         });
     };
 
-    if (typeof openModernConfirm === 'function') {
-        openModernConfirm({
-            title: 'Setujui Pencairan?',
-            message: 'Komisi driver/penjual untuk pesanan #' + String(order.id).substr(0, 8) + ' akan dicairkan ke saldo mereka. Lanjutkan?'
-        }).then(function (ok) { if (ok) doApprove(); });
-    } else {
-        if (!confirm('Setujui pencairan komisi untuk pesanan #' + String(order.id).substr(0, 8) + '?')) return;
-        doApprove();
-    }
+    _hasAorpPhotoEvidence(order).then(function (hasPhotoEvidence) {
+        if (!hasPhotoEvidence) {
+            if (typeof showToast === 'function') showToast('Approve ditolak: wajib ada foto bukti di order atau chat user-driver.', 'error');
+            if (btn) {
+                btn.disabled = true;
+                btn.style.opacity = '.6';
+                btn.textContent = 'Foto bukti wajib';
+            }
+            return;
+        }
+
+        if (typeof openModernConfirm === 'function') {
+            openModernConfirm({
+                title: 'Setujui Pencairan?',
+                message: 'Komisi driver/penjual untuk pesanan #' + String(order.id).substr(0, 8) + ' akan dicairkan ke saldo mereka. Lanjutkan?'
+            }).then(function (ok) { if (ok) doApprove(); });
+        } else {
+            if (!confirm('Setujui pencairan komisi untuk pesanan #' + String(order.id).substr(0, 8) + '?')) return;
+            doApprove();
+        }
+    });
 }
 
 function _aorpReject(order, btn, page) {
