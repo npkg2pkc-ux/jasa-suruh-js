@@ -42,6 +42,17 @@ var OwnerDashboard = (function () {
     }
 
     function _isOwner() { return _currentRole === 'owner'; }
+    function _isAdmin() { return _currentRole === 'admin'; }
+
+    function _getPanelConfig(panel) {
+        var cfg = _ownerPanelConfig[panel] || _ownerPanelConfig.home;
+        if (_isOwner()) return cfg;
+
+        if (panel === 'home') return { title: 'Home', subtitle: 'Ringkasan operasional admin' };
+        if (panel === 'users') return { title: 'Pengguna', subtitle: 'Pantau akun dan aktivitas pengguna' };
+        if (panel === 'settings') return { title: 'Akun', subtitle: 'Profil admin, review pesanan, dan logout' };
+        return cfg;
+    }
 
     function _setActiveOwnerNav(panel) {
         $$('#ownerBottomNav [data-owner-panel]').forEach(function (btn) {
@@ -58,14 +69,9 @@ var OwnerDashboard = (function () {
     }
 
     function _openOwnerPanel(panel) {
-        var cfg = _ownerPanelConfig[panel] || _ownerPanelConfig.home;
+        var cfg = _getPanelConfig(panel);
         var modal = $('ownerPanelModal');
         if (!modal) return;
-
-        if (panel === 'settings' && !_isOwner()) {
-            if (typeof showToast === 'function') showToast('Hanya owner yang bisa membuka pengaturan', 'error');
-            return;
-        }
 
         _setActiveOwnerNav(panel);
         _syncOwnerHeaderVisibility(panel);
@@ -113,6 +119,10 @@ var OwnerDashboard = (function () {
         if (panel === 'settings' && _isOwner()) {
             _renderOwnerSettingsProfile();
             loadOwnerCommissionSettings();
+            closeOwnerCommissionModal();
+            closeOwnerDeliveryModal();
+        } else if (panel === 'settings') {
+            _renderOwnerSettingsProfile();
             closeOwnerCommissionModal();
             closeOwnerDeliveryModal();
         }
@@ -182,6 +192,7 @@ var OwnerDashboard = (function () {
                 if (action === 'add-staff') { if (typeof openStaffManagement === 'function') openStaffManagement('add'); }
                 else if (action === 'staff-list') { if (typeof openStaffManagement === 'function') openStaffManagement('list'); }
                 else if (action === 'view-report') { if (typeof openAdminTransactions === 'function') openAdminTransactions(); }
+                else if (action === 'order-review') { if (typeof openAdminOrderReview === 'function') openAdminOrderReview(); }
                 else if (action === 'settings') openOwnerSettings();
             });
         });
@@ -292,6 +303,25 @@ var OwnerDashboard = (function () {
             if (!_isOwner()) el.style.display = 'none';
             else el.style.display = '';
         });
+        $$('.od-admin-only').forEach(function (el) {
+            if (!_isAdmin()) el.style.display = 'none';
+            else el.style.display = '';
+        });
+    }
+
+    function _applyRoleCopy() {
+        var sub = $('ownerGreetingSub');
+        if (sub) {
+            sub.textContent = _isOwner()
+                ? 'Ringkasan operasional dan keuangan owner'
+                : 'Ringkasan operasional dan verifikasi komisi admin';
+        }
+    }
+
+    function _applyRoleTheme() {
+        var page = $('page-owner');
+        if (!page) return;
+        page.classList.toggle('od-admin-mode', _isAdmin());
     }
 
     // ─── Load All Dashboard Data ───
@@ -302,6 +332,8 @@ var OwnerDashboard = (function () {
 
         init();
         _applyRoleVisibility();
+        _applyRoleCopy();
+        _applyRoleTheme();
         _setGreeting();
         renderOwnerStats();
         renderOwnerUsers();
@@ -313,7 +345,7 @@ var OwnerDashboard = (function () {
 
     function _setGreeting() {
         var session = typeof getSession === 'function' ? getSession() : null;
-        var name = session ? (session.name || session.nama || (_isOwner() ? 'Owner' : 'Admin')) : 'Owner';
+        var name = session ? (session.name || session.nama || (_isOwner() ? 'Owner' : 'Admin')) : 'Admin';
         var hour = new Date().getHours();
         var greet = hour < 12 ? 'Selamat Pagi' : hour < 17 ? 'Selamat Siang' : 'Selamat Malam';
         var el = $('ownerGreeting');
@@ -349,7 +381,7 @@ var OwnerDashboard = (function () {
         var roleEl = $('ownerSettingsRole');
         if (roleEl) {
             roleEl.textContent = role === 'admin' ? 'Admin' : 'Owner';
-            roleEl.className = 'acc-role-badge ' + (role === 'admin' ? 'role-cs' : 'role-owner');
+            roleEl.className = 'acc-role-badge ' + (role === 'admin' ? 'role-admin' : 'role-owner');
         }
 
         var phoneEl = $('ownerSettingsPhone');

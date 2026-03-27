@@ -459,8 +459,8 @@
                 <div class="od-header-content">
                     <div class="od-header-top">
                         <div class="od-greeting">
-                            <span class="od-greeting-hi" id="ownerGreeting">Halo, Owner 👋</span>
-                            <span class="od-greeting-sub">Ringkasan operasional dan keuangan owner</span>
+                            <span class="od-greeting-hi" id="ownerGreeting">Halo, Admin 👋</span>
+                            <span class="od-greeting-sub" id="ownerGreetingSub">Ringkasan operasional dan verifikasi komisi admin</span>
                         </div>
                         <div class="od-header-actions">
                             <button class="od-notif-btn" id="ownerNotifBtn">
@@ -494,6 +494,10 @@
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                     <span>Pengguna</span>
                 </button>
+                <button class="nav-item od-admin-only" data-owner-panel="settings">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>
+                    <span>Akun</span>
+                </button>
                 <button class="nav-item od-owner-only" data-owner-panel="settings">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     <span>Pengaturan</span>
@@ -507,7 +511,7 @@
                     <header class="od-panel-head">
                         <div>
                             <h3 id="ownerPanelTitle">Home</h3>
-                            <p id="ownerPanelSubtitle">Ringkasan platform owner</p>
+                            <p id="ownerPanelSubtitle">Ringkasan platform admin</p>
                         </div>
                         <button class="od-panel-close" id="ownerPanelClose">&times;</button>
                     </header>
@@ -609,6 +613,11 @@
                                         <span class="od-quick-title">Laporan</span>
                                         <span class="od-quick-desc">Lihat transaksi penuh</span>
                                     </button>
+                                    <button class="od-quick-btn od-admin-only" data-action="order-review">
+                                        <div class="od-quick-icon od-qi-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12c0 4.97-4.03 9-9 9S3 16.97 3 12 7.03 3 12 3a9.03 9.03 0 0 1 6.36 2.64" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                                        <span class="od-quick-title">Review Komisi</span>
+                                        <span class="od-quick-desc">Approve order selesai sebelum payout</span>
+                                    </button>
                                     <button class="od-quick-btn od-owner-only" data-action="settings">
                                         <div class="od-quick-icon od-qi-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                                         <span class="od-quick-title">Pengaturan</span>
@@ -678,15 +687,15 @@
                                                     <svg id="ownerSettingsAvatarFallback" class="acc-avatar-fallback" width="44" height="44" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4 20c0-3.5 3.5-6 8-6s8 2.5 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                                                 </div>
                                             </div>
-                                            <h3 class="acc-profile-name" id="ownerSettingsName">Owner</h3>
+                                            <h3 class="acc-profile-name" id="ownerSettingsName">Admin</h3>
                                             <span class="acc-role-badge role-owner" id="ownerSettingsRole">Owner</span>
                                             <p class="acc-profile-phone" id="ownerSettingsPhone">-</p>
                                         </div>
 
                                         <section class="acc-section">
-                                            <p class="acc-section-title">Pengaturan Platform</p>
+                                            <p class="acc-section-title">Akun & Operasional</p>
                                             <div class="acc-card" id="ownerSettingsList">
-                                                <button class="acc-item" data-owner-setting="commission-modal" type="button">
+                                                <button class="acc-item od-owner-only" data-owner-setting="commission-modal" type="button">
                                                     <span class="acc-item-icon">💰</span>
                                                     <span class="acc-item-body">
                                                         <span class="acc-item-label">Komisi</span>
@@ -694,7 +703,7 @@
                                                     </span>
                                                     <span class="acc-item-chevron">›</span>
                                                 </button>
-                                                <button class="acc-item" data-owner-setting="delivery-modal" type="button">
+                                                <button class="acc-item od-owner-only" data-owner-setting="delivery-modal" type="button">
                                                     <span class="acc-item-icon">🚚</span>
                                                     <span class="acc-item-body">
                                                         <span class="acc-item-label">Pengaturan Ongkir</span>
@@ -718,7 +727,7 @@
                                                     </span>
                                                     <span class="acc-item-chevron">›</span>
                                                 </button>
-                                                <button class="acc-item" data-owner-setting="order-review" type="button">
+                                                <button class="acc-item od-admin-only" data-owner-setting="order-review" type="button">
                                                     <span class="acc-item-icon">🔎</span>
                                                     <span class="acc-item-body">
                                                         <span class="acc-item-label">Review Order Driver</span>

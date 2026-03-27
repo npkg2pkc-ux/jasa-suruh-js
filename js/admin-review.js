@@ -20,16 +20,16 @@ function _buildAdminOrderReviewPage() {
     page.className = 'stp-page hidden';
     page.style.cssText = [
         'position:fixed;top:0;left:0;right:0;bottom:0;z-index:1200;',
-        'background:#F8FAFC;overflow-y:auto;font-family:var(--font,sans-serif);'
+        'background:#FFF7ED;overflow-y:auto;font-family:var(--font,sans-serif);'
     ].join('');
     page.innerHTML = [
-        '<div style="background:#fff;border-bottom:1px solid #E5E7EB;padding:16px 20px;',
+        '<div style="background:#fff;border-bottom:1px solid #FED7AA;padding:16px 20px;',
         'display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.05);">',
             '<button id="aorpBtnBack" style="background:none;border:none;font-size:22px;cursor:pointer;',
             'padding:0 6px;color:#374151;line-height:1;">&#8592;</button>',
             '<div>',
                 '<div style="font-size:16px;font-weight:700;color:#111;">Review Pesanan Selesai</div>',
-                '<div style="font-size:12px;color:#6B7280;">Setujui pencairan komisi driver / penjual</div>',
+                '<div style="font-size:12px;color:#6B7280;">Verifikasi bukti antar sebelum komisi dicairkan</div>',
             '</div>',
         '</div>',
         '<div id="aorpList" style="padding:16px;display:flex;flex-direction:column;gap:12px;">',
@@ -82,6 +82,14 @@ function _loadPendingReviewOrders(page) {
             var user   = users.find(function (u) { return u.id === o.userId; })   || {};
             var driver = users.find(function (u) { return u.id === o.talentId; }) || {};
             var seller = users.find(function (u) { return u.id === o.sellerId; }) || {};
+            var isEscortService = o.skillType === 'js_antar';
+            var hasProof = !!o.proofPhoto;
+            var ratingValue = Number(o.rating || 0);
+            var hasCustomerValidation = ratingValue >= 4 || o.status === 'rated';
+            var hasEvidence = hasProof || hasCustomerValidation;
+            var deliveryLabel = isEscortService
+                ? 'Driver benar-benar mengantar user'
+                : 'Driver benar-benar mengantar pesanan';
 
             var dateStr = o.completedAt || o.createdAt
                 ? new Date(Number(o.completedAt || o.createdAt)).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -99,8 +107,20 @@ function _loadPendingReviewOrders(page) {
                 ? '<span style="background:#FEF9C3;color:#854D0E;border-radius:6px;padding:2px 6px;font-size:11px;font-weight:600;margin-left:6px;">&#9733; ' + o.rating + '/5</span>'
                 : '';
 
+            var proofStatus = hasProof
+                ? '<span style="display:inline-block;background:#DCFCE7;color:#166534;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;">Foto bukti tersedia</span>'
+                : '<span style="display:inline-block;background:#FEE2E2;color:#B91C1C;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;">Foto bukti belum ada</span>';
+
+            var customerStatus = hasCustomerValidation
+                ? '<span style="display:inline-block;background:#FEF3C7;color:#92400E;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;">Validasi pelanggan tersedia</span>'
+                : '<span style="display:inline-block;background:#E5E7EB;color:#4B5563;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;">Belum ada rating validasi pelanggan</span>';
+
+            var evidenceAlert = hasEvidence
+                ? ''
+                : '<div style="margin-top:8px;font-size:12px;color:#B91C1C;background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:8px;">Tidak ada bukti yang cukup. Minta driver lengkapi foto bukti atau minta konfirmasi customer dulu.</div>';
+
             return [
-                '<div class="aorp-card" data-idx="' + idx + '" style="background:#fff;border-radius:16px;',
+                '<div class="aorp-card" data-idx="' + idx + '" data-has-evidence="' + (hasEvidence ? '1' : '0') + '" style="background:#fff;border-radius:16px;',
                 'padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.07);border:1px solid #F3F4F6;">',
                     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">',
                         '<div>',
@@ -113,13 +133,26 @@ function _loadPendingReviewOrders(page) {
                     '<div style="font-size:12px;color:#374151;margin-bottom:4px;">&#128661; Driver: ' + (typeof escapeHtml === 'function' ? escapeHtml(driver.name || driver.nama || '-') : (driver.name || driver.nama || '-')) + '</div>',
                     sellerRow,
                     '<div style="font-size:12px;color:#374151;margin-bottom:4px;">&#128176; Total: Rp ' + Number(o.totalCost || o.price || 0).toLocaleString('id-ID') + ' &bull; ' + String(o.paymentMethod || 'JsPay').toUpperCase() + '</div>',
+                    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">' + proofStatus + customerStatus + '</div>',
                     proofHtml,
+                    evidenceAlert,
+                    '<div style="margin-top:10px;border:1px solid #FED7AA;background:#FFF7ED;border-radius:12px;padding:10px;">',
+                        '<div style="font-size:12px;font-weight:700;color:#9A3412;margin-bottom:8px;">Checklist Verifikasi Admin</div>',
+                        '<label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#374151;margin-bottom:8px;cursor:pointer;">',
+                            '<input type="checkbox" class="aorp-verify-check" data-idx="' + idx + '" style="margin-top:2px;">',
+                            '<span>' + deliveryLabel + '</span>',
+                        '</label>',
+                        '<label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#374151;cursor:pointer;">',
+                            '<input type="checkbox" class="aorp-verify-check" data-idx="' + idx + '" style="margin-top:2px;">',
+                            '<span>Bukti dan kronologi di atas sudah sesuai untuk pencairan komisi</span>',
+                        '</label>',
+                    '</div>',
                     '<div style="display:flex;gap:10px;margin-top:14px;">',
-                        '<button class="aorp-btn-approve" data-idx="' + idx + '" style="',
-                        'flex:1;background:linear-gradient(135deg,#22C55E,#16A34A);color:#fff;',
+                        '<button class="aorp-btn-approve" data-idx="' + idx + '" disabled style="',
+                        'flex:1;background:linear-gradient(135deg,#F97316,#EA580C);color:#fff;',
                         'border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;',
-                        'box-shadow:0 2px 8px rgba(34,197,94,.3);">',
-                        '&#10003; Setujui &amp; Cairkan',
+                        'box-shadow:0 2px 8px rgba(249,115,22,.28);opacity:.6;">',
+                        'Checklist dulu',
                         '</button>',
                         '<button class="aorp-btn-reject" data-idx="' + idx + '" style="',
                         'flex:0 0 auto;background:#FEE2E2;color:#EF4444;border:none;',
@@ -131,9 +164,15 @@ function _loadPendingReviewOrders(page) {
             ].join('');
         }).join('');
 
+        _wireReviewChecklist(listEl);
+
         // Bind buttons
         listEl.querySelectorAll('.aorp-btn-approve').forEach(function (btn) {
             btn.addEventListener('click', function () {
+                if (this.disabled) {
+                    if (typeof showToast === 'function') showToast('Lengkapi checklist verifikasi dulu sebelum approve', 'error');
+                    return;
+                }
                 var idx = parseInt(this.dataset.idx, 10);
                 if (pending[idx]) _aorpApprove(pending[idx], this, page);
             });
@@ -149,7 +188,38 @@ function _loadPendingReviewOrders(page) {
     });
 }
 
+function _wireReviewChecklist(listEl) {
+    if (!listEl) return;
+    listEl.querySelectorAll('.aorp-card').forEach(function (card) {
+        var approveBtn = card.querySelector('.aorp-btn-approve');
+        var checks = card.querySelectorAll('.aorp-verify-check');
+        if (!approveBtn || !checks.length) return;
+
+        var hasEvidence = card.dataset.hasEvidence === '1';
+        var syncState = function () {
+            var allChecked = true;
+            checks.forEach(function (el) {
+                if (!el.checked) allChecked = false;
+            });
+            var ready = allChecked && hasEvidence;
+            approveBtn.disabled = !ready;
+            approveBtn.style.opacity = ready ? '1' : '.6';
+            approveBtn.textContent = ready ? 'Setujui & Cairkan' : (hasEvidence ? 'Checklist dulu' : 'Bukti belum cukup');
+        };
+
+        checks.forEach(function (el) {
+            el.addEventListener('change', syncState);
+        });
+        syncState();
+    });
+}
+
 function _aorpApprove(order, btn, page) {
+    if (btn && btn.disabled) {
+        if (typeof showToast === 'function') showToast('Lengkapi verifikasi sebelum approve', 'error');
+        return;
+    }
+
     var doApprove = function () {
         if (btn) { btn.disabled = true; btn.textContent = 'Memproses...'; }
 
@@ -200,7 +270,8 @@ function _aorpApprove(order, btn, page) {
                     fields: {
                         pendingAdminReview: false,
                         adminReviewedAt: Date.now(),
-                        adminReviewStatus: 'approved'
+                        adminReviewStatus: 'approved',
+                        adminReviewedBy: (typeof getSession === 'function' && getSession()) ? getSession().id : ''
                     }
                 });
                 // Notify driver
@@ -224,7 +295,7 @@ function _aorpApprove(order, btn, page) {
                         });
                     }
                 }
-                if (typeof showToast === 'function') showToast('✅ Komisi dicairkan! Driver sudah dapat saldo.', 'success');
+                if (typeof showToast === 'function') showToast('Komisi berhasil dicairkan setelah verifikasi admin.', 'success');
                 _loadPendingReviewOrders(page);
             }).catch(function (err) {
                 if (typeof showToast === 'function') showToast((err && err.message) ? err.message : 'Gagal mencairkan komisi', 'error');
