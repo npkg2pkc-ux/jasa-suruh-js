@@ -369,6 +369,7 @@ function _aorpReject(order, btn, page) {
             pendingAdminReview: false,
             adminReviewedAt: Date.now(),
             adminReviewStatus: 'rejected',
+            adminReviewedBy: (typeof getSession === 'function' && getSession()) ? getSession().id : '',
             adminReviewReason: reason.trim(),
             adminReviewNote: 'Tidak valid - komisi ditolak admin',
             fraudFlag: true

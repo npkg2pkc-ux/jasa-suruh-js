@@ -919,6 +919,11 @@ var OwnerDashboard = (function () {
             };
         }
 
+        function _resolveActorName(id, fallback) {
+            var actor = usersById[String(id || '')] || {};
+            return actor.name || actor.nama || fallback || 'Sistem';
+        }
+
         var rangeOrders = _filterByRange(Array.isArray(orders) ? orders : []);
 
         var events = [];
@@ -969,12 +974,26 @@ var OwnerDashboard = (function () {
                     user: u
                 });
             }
+
+            if (u.role === 'talent' && u.is_active === false) {
+                var suspendedTs = Number(u.suspendedAt || 0);
+                if (suspendedTs > 0 && inCurrentRange(suspendedTs)) {
+                    events.push({
+                        type: 'driver_suspended',
+                        ts: suspendedTs,
+                        user: u,
+                        actorId: u.suspendedBy || '',
+                        actorName: u.suspendedByName || ''
+                    });
+                }
+            }
         });
 
         var createdCount = events.filter(function (e) { return e.type === 'order_created'; }).length;
         var doneCount = events.filter(function (e) { return e.type === 'order_completed'; }).length;
         var approvedCount = events.filter(function (e) { return e.type === 'review_approved'; }).length;
         var rejectedCount = events.filter(function (e) { return e.type === 'review_rejected'; }).length;
+        var suspendedCount = events.filter(function (e) { return e.type === 'driver_suspended'; }).length;
         var userCount = events.filter(function (e) { return e.type === 'user_joined'; }).length;
 
         if (_activityFilter === 'orders') {
@@ -982,7 +1001,8 @@ var OwnerDashboard = (function () {
                 return e.type === 'order_created'
                     || e.type === 'order_completed'
                     || e.type === 'review_approved'
-                    || e.type === 'review_rejected';
+                    || e.type === 'review_rejected'
+                    || e.type === 'driver_suspended';
             });
         } else if (_activityFilter === 'users') {
             events = events.filter(function (e) { return e.type === 'user_joined'; });
@@ -991,8 +1011,8 @@ var OwnerDashboard = (function () {
         events.sort(function (a, b) { return b.ts - a.ts; });
         var recent = events.slice(0, 18);
 
-        var summaryThirdLabel = _isAdmin() ? '✔️ Approve/Tolak' : '👥 User Baru';
-        var summaryThirdCount = _isAdmin() ? (approvedCount + rejectedCount) : userCount;
+        var summaryThirdLabel = _isAdmin() ? '🛡️ Audit Admin' : '👥 User Baru';
+        var summaryThirdCount = _isAdmin() ? (approvedCount + rejectedCount + suspendedCount) : userCount;
 
         var summaryHtml = '<div class="od-activity-summary">'
             + '<div class="od-activity-chip"><span>🆕 Order Masuk</span><strong>' + createdCount + '</strong></div>'
@@ -1035,6 +1055,27 @@ var OwnerDashboard = (function () {
                     + '</article>';
             }
 
+                    if (evt.type === 'driver_suspended') {
+                    var d = evt.user || {};
+                    var driverName = d.name || d.nama || 'Driver';
+                    var driverInitial = driverName.charAt(0).toUpperCase();
+                    var actorText = evt.actorName || _resolveActorName(evt.actorId, 'Admin');
+                    return dayHead + '<article class="od-activity-card od-activity-user-card">'
+                        + '<div class="od-activity-card-top">'
+                        + '<span class="od-activity-badge type-order">Driver Disuspend</span>'
+                        + '<span class="od-activity-time">' + formatDateTime(evt.ts) + '</span>'
+                        + '</div>'
+                        + '<div class="od-activity-row">'
+                        + '<div class="od-activity-avatar" style="background:' + _roleColor('talent') + '">' + driverInitial + '</div>'
+                        + '<div class="od-activity-info">'
+                        + '<div class="od-activity-title">' + escapeHtml(driverName) + '</div>'
+                        + '<div class="od-activity-meta">Role: Driver / Talent</div>'
+                        + '<div class="od-activity-meta">Aksi oleh: ' + escapeHtml(actorText) + '</div>'
+                        + '</div>'
+                        + '</div>'
+                        + '</article>';
+                    }
+
             var o = evt.order || {};
             var meta = buildOrderMeta(o);
             var isDone = evt.type === 'order_completed';
@@ -1051,6 +1092,12 @@ var OwnerDashboard = (function () {
                 ? ('<span class="od-activity-tag">Alasan: ' + escapeHtml(String(o.adminReviewReason)) + '</span>')
                 : '';
 
+            var actorName = isReviewApproved || isReviewRejected
+                ? _resolveActorName(o.adminReviewedBy, 'Admin')
+                : (isDone ? meta.driver : meta.customer);
+
+            var actorTag = '<span class="od-activity-tag">Aksi oleh: ' + escapeHtml(actorName || 'Sistem') + '</span>';
+
             return dayHead + '<article class="od-activity-card od-activity-order-card">'
                 + '<div class="od-activity-card-top">'
                 + '<span class="od-activity-badge ' + badgeType + '">' + badgeText + '</span>'
@@ -1063,6 +1110,7 @@ var OwnerDashboard = (function () {
                 + '<span class="od-activity-tag">Bayar: ' + escapeHtml(meta.payment) + '</span>'
                 + '<span class="od-activity-tag">Driver: ' + escapeHtml(meta.driver) + '</span>'
                 + '<span class="od-activity-tag">Toko: ' + escapeHtml(meta.seller) + '</span>'
+                + actorTag
                 + reviewReasonTag
                 + '</div>'
                 + '<div class="od-activity-order-footer">'
@@ -1232,9 +1280,14 @@ var OwnerDashboard = (function () {
                 var idx = list.findIndex(function (u) { return String(u.id) === String(uid); });
                 if (idx < 0) return;
 
+                var actor = (typeof getSession === 'function' && getSession()) ? getSession() : null;
+
                 var user = Object.assign({}, list[idx], {
                     is_active: nextActive,
-                    suspendedAt: nextActive ? 0 : Date.now()
+                    suspendedAt: nextActive ? 0 : Date.now(),
+                    suspendedBy: nextActive ? '' : (actor ? actor.id : ''),
+                    suspendedByName: nextActive ? '' : (actor ? (actor.name || actor.nama || 'Admin') : 'Admin'),
+                    statusUpdatedAt: Date.now()
                 });
                 list[idx] = user;
                 if (typeof saveUsers === 'function') saveUsers(list);
