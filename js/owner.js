@@ -122,6 +122,7 @@ var OwnerDashboard = (function () {
                 _renderAdminReviewFocus(_ordersCache);
                 _renderAdminFlow(_ordersCache);
                 _renderAdminReportSummary(_ordersCache);
+                _renderAdminWorkPriority(_ordersCache);
             }
         }
         if (panel === 'settings' && _isOwner()) {
@@ -195,6 +196,14 @@ var OwnerDashboard = (function () {
                 var target = this.dataset.adminTarget || 'orders';
                 if (target === 'review') {
                     if (typeof openAdminOrderReview === 'function') openAdminOrderReview();
+                    return;
+                }
+                if (target === 'drivers') {
+                    _openOwnerPanel('users');
+                    return;
+                }
+                if (target === 'reports') {
+                    if (typeof openAdminTransactions === 'function') openAdminTransactions();
                     return;
                 }
                 _openOwnerPanel('activity');
@@ -485,6 +494,7 @@ var OwnerDashboard = (function () {
         _renderAdminFlow(_ordersCache);
         _renderAdminQuickMonitor(_ordersCache);
         _renderAdminReportSummary(_ordersCache);
+        _renderAdminWorkPriority(_ordersCache);
         _renderActivity(_ordersCache);
     }
 
@@ -527,6 +537,7 @@ var OwnerDashboard = (function () {
                 _renderAdminFlow(res.data);
                 _renderAdminQuickMonitor(res.data);
                 _renderAdminReportSummary(res.data);
+                _renderAdminWorkPriority(res.data);
                 _renderChart(res.data, 7);
                 _renderActivity(res.data);
             }).catch(function () {});
@@ -548,6 +559,132 @@ var OwnerDashboard = (function () {
                 && o.pendingAdminReview
                 && !o.walletSettled;
         }).length;
+    }
+
+    function _countProblemOrders(orders) {
+        return (orders || []).filter(function (o) {
+            return o.status === 'cancelled'
+                || o.status === 'rejected'
+                || o.adminReviewStatus === 'rejected';
+        }).length;
+    }
+
+    function _countHangingOrders(orders) {
+        var now = Date.now();
+        var activeMaxMs = 45 * 60 * 1000;
+        var reviewMaxMs = 30 * 60 * 1000;
+        return (orders || []).filter(function (o) {
+            var baseTs = Number(o.updatedAt || o.createdAt || 0);
+            var age = baseTs > 0 ? (now - baseTs) : 0;
+            var isStaleActive = _isActiveOrderStatus(o.status) && age > activeMaxMs;
+            var isStaleReview = (o.status === 'completed' || o.status === 'rated')
+                && o.pendingAdminReview
+                && !o.walletSettled
+                && age > reviewMaxMs;
+            return isStaleActive || isStaleReview;
+        }).length;
+    }
+
+    function _countDriverIssues(orders) {
+        var users = typeof getUsers === 'function' ? getUsers() : [];
+        var drivers = users.filter(function (u) { return u.role === 'talent'; });
+        return drivers.filter(function (d) {
+            var assigned = (orders || []).filter(function (o) {
+                return String(o.talentId || '') === String(d.id);
+            });
+            var completed = assigned.filter(function (o) {
+                return o.status === 'completed' || o.status === 'rated';
+            }).length;
+            var failed = assigned.filter(function (o) {
+                return o.status === 'cancelled' || o.status === 'rejected';
+            }).length;
+            var completionRate = assigned.length > 0 ? Math.round((completed / assigned.length) * 100) : 0;
+            return d.is_active === false || failed >= 2 || (assigned.length >= 3 && completionRate < 60);
+        }).length;
+    }
+
+    function _setWorkItemState(id, count) {
+        var item = $(id);
+        if (!item) return;
+        item.classList.toggle('is-alert', Number(count || 0) > 0);
+        item.classList.toggle('is-safe', Number(count || 0) === 0);
+    }
+
+    function _renderAdminWorkPriority(orders) {
+        if (!_isAdmin()) return;
+        var list = Array.isArray(orders) ? orders : [];
+
+        var pendingReview = _countPendingReview(list);
+        var problemOrders = _countProblemOrders(list) + _countHangingOrders(list);
+        var activeOrders = list.filter(function (o) { return _isActiveOrderStatus(o.status); }).length;
+        var driverIssues = _countDriverIssues(list);
+        var reportCount = list.length;
+
+        _setKPIValue('adminPriorityReviewCount', pendingReview);
+        _setKPIValue('adminPriorityProblemCount', problemOrders);
+        _setKPIValue('adminPriorityActiveCount', activeOrders);
+        _setKPIValue('adminPriorityDriverCount', driverIssues);
+        _setKPIValue('adminPriorityReportCount', reportCount);
+
+        _setWorkItemState('adminWorkItemReview', pendingReview);
+        _setWorkItemState('adminWorkItemProblem', problemOrders);
+        _setWorkItemState('adminWorkItemActive', activeOrders);
+        _setWorkItemState('adminWorkItemDriver', driverIssues);
+        _setWorkItemState('adminWorkItemReport', reportCount);
+
+        var checkEl = $('adminDashboardLastCheck');
+        if (checkEl) {
+            checkEl.textContent = new Date().toLocaleString('id-ID', {
+                day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+        var priorityText = $('adminPriorityText');
+        var priorityBtn = $('adminPriorityBtn');
+        var priorityBox = $('adminPriorityBox');
+        if (!priorityText || !priorityBtn || !priorityBox) return;
+
+        if (pendingReview > 0) {
+            priorityBox.classList.add('is-alert');
+            priorityBox.classList.remove('is-safe');
+            priorityText.textContent = pendingReview + ' order selesai menunggu verifikasi. Prioritas #1 admin: review komisi agar pembayaran tidak terlambat.';
+            priorityBtn.textContent = 'Review Komisi Sekarang';
+            priorityBtn.dataset.adminTarget = 'review';
+            return;
+        }
+
+        if (problemOrders > 0) {
+            priorityBox.classList.add('is-alert');
+            priorityBox.classList.remove('is-safe');
+            priorityText.textContent = problemOrders + ' order bermasalah/menggantung perlu ditangani. Prioritas #2: selesaikan kendala operasional segera.';
+            priorityBtn.textContent = 'Tangani Order Bermasalah';
+            priorityBtn.dataset.adminTarget = 'orders';
+            return;
+        }
+
+        if (activeOrders > 0) {
+            priorityBox.classList.add('is-safe');
+            priorityBox.classList.remove('is-alert');
+            priorityText.textContent = activeOrders + ' order aktif sedang berjalan. Prioritas #3: monitoring progres agar tidak ada order menggantung.';
+            priorityBtn.textContent = 'Monitoring Order Aktif';
+            priorityBtn.dataset.adminTarget = 'orders';
+            return;
+        }
+
+        if (driverIssues > 0) {
+            priorityBox.classList.add('is-safe');
+            priorityBox.classList.remove('is-alert');
+            priorityText.textContent = driverIssues + ' driver perlu evaluasi. Prioritas #4: kelola suspend/aktifkan untuk jaga kualitas layanan.';
+            priorityBtn.textContent = 'Kelola Driver';
+            priorityBtn.dataset.adminTarget = 'drivers';
+            return;
+        }
+
+        priorityBox.classList.add('is-safe');
+        priorityBox.classList.remove('is-alert');
+        priorityText.textContent = 'Prioritas #5 laporan: operasional stabil, tidak ada keterlambatan pembayaran komisi.';
+        priorityBtn.textContent = 'Buka Laporan';
+        priorityBtn.dataset.adminTarget = 'reports';
     }
 
     function _renderAdminReviewFocus(orders) {
@@ -607,6 +744,8 @@ var OwnerDashboard = (function () {
             priorityBtn.dataset.adminTarget = 'orders';
             if (pendingApproveCard) pendingApproveCard.classList.remove('is-priority');
         }
+
+        _renderAdminWorkPriority(list);
     }
 
     function _renderAdminFlow(orders) {

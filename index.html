@@ -561,6 +561,45 @@
                                     <p class="od-admin-priority-text" id="adminPriorityText">Semua order aman. Tidak ada order menunggu approve.</p>
                                     <button class="od-admin-priority-btn" id="adminPriorityBtn" type="button" data-admin-target="orders">Lihat Detail Order</button>
                                 </div>
+
+                                <div class="od-admin-work-priority" id="adminWorkPriorityCard">
+                                    <p class="od-admin-work-priority-title">Urutan Prioritas Kerja Admin</p>
+                                    <div class="od-admin-work-priority-list">
+                                        <button type="button" class="od-admin-work-item" id="adminWorkItemReview" data-admin-target="review">
+                                            <span class="od-admin-work-rank">1</span>
+                                            <span class="od-admin-work-label">Review komisi</span>
+                                            <strong id="adminPriorityReviewCount">0</strong>
+                                        </button>
+                                        <button type="button" class="od-admin-work-item" id="adminWorkItemProblem" data-admin-target="orders">
+                                            <span class="od-admin-work-rank">2</span>
+                                            <span class="od-admin-work-label">Order bermasalah</span>
+                                            <strong id="adminPriorityProblemCount">0</strong>
+                                        </button>
+                                        <button type="button" class="od-admin-work-item" id="adminWorkItemActive" data-admin-target="orders">
+                                            <span class="od-admin-work-rank">3</span>
+                                            <span class="od-admin-work-label">Monitoring order aktif</span>
+                                            <strong id="adminPriorityActiveCount">0</strong>
+                                        </button>
+                                        <button type="button" class="od-admin-work-item" id="adminWorkItemDriver" data-admin-target="drivers">
+                                            <span class="od-admin-work-rank">4</span>
+                                            <span class="od-admin-work-label">Pengelolaan driver</span>
+                                            <strong id="adminPriorityDriverCount">0</strong>
+                                        </button>
+                                        <button type="button" class="od-admin-work-item" id="adminWorkItemReport" data-admin-target="reports">
+                                            <span class="od-admin-work-rank">5</span>
+                                            <span class="od-admin-work-label">Laporan</span>
+                                            <strong id="adminPriorityReportCount">0</strong>
+                                        </button>
+                                    </div>
+                                    <div class="od-admin-work-rules">
+                                        <p>Aturan Operasional:</p>
+                                        <ul>
+                                            <li>Semua order selesai harus diverifikasi admin.</li>
+                                            <li>Tidak boleh ada order menggantung lebih dari 45 menit.</li>
+                                            <li>Admin wajib cek dashboard rutin. Terakhir dicek: <strong id="adminDashboardLastCheck">-</strong>.</li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </section>
 
                             <section class="od-admin-flow od-admin-only" id="adminFlowCard">
