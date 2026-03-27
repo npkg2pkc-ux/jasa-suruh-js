@@ -198,6 +198,10 @@ var OwnerDashboard = (function () {
                     if (typeof openAdminOrderReview === 'function') openAdminOrderReview();
                     return;
                 }
+                if (target === 'problem-orders') {
+                    if (typeof openAdminProblemOrders === 'function') openAdminProblemOrders();
+                    return;
+                }
                 if (target === 'drivers') {
                     _openOwnerPanel('users');
                     return;
@@ -561,11 +565,16 @@ var OwnerDashboard = (function () {
         }).length;
     }
 
+    function _isOpenUserComplaint(order) {
+        var o = order || {};
+        var hasComplaint = !!(o.userComplaint || o.userComplaintText || o.userComplaintAt);
+        var status = String(o.complaintStatus || '').toLowerCase();
+        return hasComplaint && status !== 'resolved' && status !== 'closed';
+    }
+
     function _countProblemOrders(orders) {
         return (orders || []).filter(function (o) {
-            return o.status === 'cancelled'
-                || o.status === 'rejected'
-                || o.adminReviewStatus === 'rejected';
+            return _isOpenUserComplaint(o);
         }).length;
     }
 
@@ -615,7 +624,7 @@ var OwnerDashboard = (function () {
         var list = Array.isArray(orders) ? orders : [];
 
         var pendingReview = _countPendingReview(list);
-        var problemOrders = _countProblemOrders(list) + _countHangingOrders(list);
+        var problemOrders = _countProblemOrders(list);
         var activeOrders = list.filter(function (o) { return _isActiveOrderStatus(o.status); }).length;
         var driverIssues = _countDriverIssues(list);
         var reportCount = list.length;
@@ -656,9 +665,9 @@ var OwnerDashboard = (function () {
         if (problemOrders > 0) {
             priorityBox.classList.add('is-alert');
             priorityBox.classList.remove('is-safe');
-            priorityText.textContent = problemOrders + ' order bermasalah/menggantung perlu ditangani. Prioritas #2: selesaikan kendala operasional segera.';
-            priorityBtn.textContent = 'Tangani Order Bermasalah';
-            priorityBtn.dataset.adminTarget = 'orders';
+            priorityText.textContent = problemOrders + ' aduan user pada order menunggu tindak lanjut admin. Prioritas #2: selesaikan aduan agar operasional tetap sehat.';
+            priorityBtn.textContent = 'Tangani Aduan Order';
+            priorityBtn.dataset.adminTarget = 'problem-orders';
             return;
         }
 
@@ -1747,6 +1756,146 @@ function handleCommissionFormSubmit(e) { OwnerDashboard.handleCommissionFormSubm
 function loadOwnerRevenue() { /* handled by loadDashboard now */ }
 function syncOwnerFinancePreview() { OwnerDashboard.syncOwnerFinancePreview(); }
 window.syncOwnerFinancePreview = syncOwnerFinancePreview;
+
+// ══════════════════════════════════════════
+// ═══ ADMIN PROBLEM ORDERS (USER COMPLAINTS) ═══
+// ══════════════════════════════════════════
+function openAdminProblemOrders() {
+    var page = document.getElementById('adminProblemOrderPage');
+    if (!page) {
+        page = document.createElement('div');
+        page.id = 'adminProblemOrderPage';
+        page.className = 'stp-page hidden';
+        page.style.cssText = [
+            'position:fixed;top:0;left:0;right:0;bottom:0;z-index:1250;',
+            'background:#FFFBEB;overflow-y:auto;font-family:var(--font,sans-serif);'
+        ].join('');
+        page.innerHTML = [
+            '<div style="background:#fff;border-bottom:1px solid #FDE68A;padding:16px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.05);">',
+                '<button id="apoBtnBack" style="background:none;border:none;font-size:22px;cursor:pointer;padding:0 6px;color:#374151;line-height:1;">&#8592;</button>',
+                '<div>',
+                    '<div style="font-size:16px;font-weight:700;color:#111;">Penanganan Aduan Order</div>',
+                    '<div style="font-size:12px;color:#6B7280;">Hanya aduan yang dibuat user customer</div>',
+                '</div>',
+            '</div>',
+            '<div id="apoList" style="padding:16px;display:flex;flex-direction:column;gap:12px;">',
+                '<div style="text-align:center;padding:40px;color:#9CA3AF;">Memuat aduan...</div>',
+            '</div>'
+        ].join('');
+        document.body.appendChild(page);
+
+        page.querySelector('#apoBtnBack').addEventListener('click', function () {
+            page.classList.add('hidden');
+        });
+    }
+
+    page.classList.remove('hidden');
+    loadAdminProblemOrders(page);
+}
+window.openAdminProblemOrders = openAdminProblemOrders;
+
+function loadAdminProblemOrders(page) {
+    var listEl = page ? page.querySelector('#apoList') : null;
+    if (!listEl) return;
+    listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#9CA3AF;">Memuat aduan...</div>';
+
+    if (typeof FB === 'undefined' || !FB.isReady()) {
+        listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">&#10060; Tidak terhubung ke server</div>';
+        return;
+    }
+
+    FB.get('getAllOrders').then(function (r) { return r.json(); }).then(function (res) {
+        if (!res || !res.success || !Array.isArray(res.data)) {
+            listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">&#10060; Gagal memuat order</div>';
+            return;
+        }
+
+        var users = typeof getUsers === 'function' ? getUsers() : [];
+        var complaints = res.data.filter(function (o) {
+            var hasComplaint = !!(o.userComplaint || o.userComplaintText || o.userComplaintAt);
+            var status = String(o.complaintStatus || '').toLowerCase();
+            return hasComplaint && status !== 'resolved' && status !== 'closed';
+        }).sort(function (a, b) {
+            return Number(b.userComplaintAt || b.updatedAt || b.createdAt || 0) - Number(a.userComplaintAt || a.updatedAt || a.createdAt || 0);
+        });
+
+        if (!complaints.length) {
+            listEl.innerHTML = [
+                '<div style="text-align:center;padding:64px 20px;">',
+                    '<div style="font-size:48px;margin-bottom:10px;">✅</div>',
+                    '<div style="font-size:16px;font-weight:700;color:#111;margin-bottom:6px;">Tidak Ada Aduan Aktif</div>',
+                    '<div style="font-size:13px;color:#6B7280;">Semua aduan user sudah ditindaklanjuti.</div>',
+                '</div>'
+            ].join('');
+            return;
+        }
+
+        listEl.innerHTML = complaints.map(function (o) {
+            var customer = users.find(function (u) { return String(u.id || '') === String(o.userId || ''); }) || {};
+            var driver = users.find(function (u) { return String(u.id || '') === String(o.talentId || ''); }) || {};
+            var complaintTs = Number(o.userComplaintAt || o.updatedAt || o.createdAt || Date.now());
+            var complaintDate = new Date(complaintTs).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+            return [
+                '<div style="background:#fff;border:1px solid #FDE68A;border-radius:14px;padding:14px;box-shadow:0 1px 6px rgba(0,0,0,.04);">',
+                    '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">',
+                        '<div style="font-size:13px;font-weight:700;color:#111;">Order #' + String(o.id || '').substr(0, 10) + '</div>',
+                        '<span style="background:#FEE2E2;color:#B91C1C;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">Aduan Aktif</span>',
+                    '</div>',
+                    '<div style="font-size:12px;color:#6B7280;margin-top:4px;">' + (o.serviceType || o.skillType || 'Pesanan') + ' • ' + complaintDate + '</div>',
+                    '<div style="font-size:12px;color:#374151;margin-top:8px;">👤 Customer: ' + (typeof escapeHtml === 'function' ? escapeHtml(customer.name || customer.nama || '-') : (customer.name || customer.nama || '-')) + '</div>',
+                    '<div style="font-size:12px;color:#374151;margin-top:4px;">🛵 Driver: ' + (typeof escapeHtml === 'function' ? escapeHtml(driver.name || driver.nama || '-') : (driver.name || driver.nama || '-')) + '</div>',
+                    '<div style="margin-top:10px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:10px;">',
+                        '<div style="font-size:11px;color:#9A3412;font-weight:700;margin-bottom:4px;">Isi aduan user</div>',
+                        '<div style="font-size:13px;color:#7C2D12;line-height:1.45;">' + (typeof escapeHtml === 'function' ? escapeHtml(String(o.userComplaintText || 'Aduan tanpa detail')) : String(o.userComplaintText || 'Aduan tanpa detail')) + '</div>',
+                    '</div>',
+                    '<div style="display:flex;gap:8px;margin-top:12px;">',
+                        '<button class="apo-btn-resolve" data-order-id="' + String(o.id || '') + '" style="flex:1;border:none;border-radius:10px;padding:10px 12px;background:linear-gradient(135deg,#16A34A,#15803D);color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Tandai Selesai</button>',
+                    '</div>',
+                '</div>'
+            ].join('');
+        }).join('');
+
+        listEl.querySelectorAll('.apo-btn-resolve').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var orderId = this.dataset.orderId || '';
+                if (!orderId) return;
+
+                var ok = confirm('Tandai aduan order ini sudah selesai ditangani?');
+                if (!ok) return;
+
+                this.disabled = true;
+                this.textContent = 'Menyimpan...';
+
+                backendPost({
+                    action: 'updateOrder',
+                    orderId: orderId,
+                    fields: {
+                        complaintStatus: 'resolved',
+                        complaintResolvedAt: Date.now(),
+                        complaintHandledBy: (typeof getSession === 'function' && getSession()) ? getSession().id : '',
+                        followUpRequired: false,
+                        fraudFlag: false
+                    }
+                }).then(function (saveRes) {
+                    if (!saveRes || !saveRes.success) {
+                        throw new Error((saveRes && saveRes.message) ? saveRes.message : 'Gagal menyimpan tindak lanjut');
+                    }
+                    if (typeof showToast === 'function') showToast('Aduan berhasil ditandai selesai.', 'success');
+                    if (typeof renderOwnerStats === 'function') renderOwnerStats();
+                    if (typeof renderOwnerUsers === 'function') renderOwnerUsers();
+                    loadAdminProblemOrders(page);
+                }).catch(function (err) {
+                    if (typeof showToast === 'function') showToast((err && err.message) ? err.message : 'Gagal menindaklanjuti aduan', 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Tandai Selesai';
+                });
+            });
+        });
+    }).catch(function () {
+        listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">&#10060; Gagal memuat aduan</div>';
+    });
+}
 
 // ══════════════════════════════════════════
 // ═══ ADMIN TRANSACTIONS PAGE ═══

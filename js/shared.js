@@ -2858,9 +2858,28 @@ function renderOrderActions(order, isTalent, isUser) {
         if (driverNavHtml) bindDriverNavButtons(order);
     }
 
-    if (isUser && order.status === 'completed') {
-        el.innerHTML = '<button class="sf-btn-solid" style="width:100%" id="otpBtnRate">Beri Rating</button>';
+    if (isUser && (order.status === 'completed' || order.status === 'rated')) {
+        var complaintOpen = !!(order.userComplaint || order.userComplaintText || order.userComplaintAt)
+            && String(order.complaintStatus || '').toLowerCase() !== 'resolved'
+            && String(order.complaintStatus || '').toLowerCase() !== 'closed';
+
+        el.innerHTML = [
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;">',
+                '<button class="sf-btn-solid" style="flex:1" id="otpBtnRate">Beri Rating</button>',
+                (complaintOpen
+                    ? '<button class="sf-btn-outline" style="flex:1;opacity:.7" id="otpBtnComplaint" disabled>Aduan Sudah Dikirim</button>'
+                    : '<button class="sf-btn-outline" style="flex:1" id="otpBtnComplaint">Laporkan Aduan</button>'),
+            '</div>'
+        ].join('');
+
         document.getElementById('otpBtnRate').addEventListener('click', function () { openRatingPage(order); });
+
+        var complaintBtn = document.getElementById('otpBtnComplaint');
+        if (complaintBtn && !complaintBtn.disabled) {
+            complaintBtn.addEventListener('click', function () {
+                submitUserOrderComplaint(order);
+            });
+        }
     }
 
     // ── Show status messages for cancelled/rejected ──
@@ -2883,6 +2902,66 @@ function ensureDriverSingleOrder(driverId, currentOrderId) {
             return active.length > 0;
         })
         .catch(function () { return false; });
+}
+
+function submitUserOrderComplaint(order) {
+    if (!order || !order.id) return;
+    var session = typeof getSession === 'function' ? getSession() : null;
+    if (!session || session.role !== 'user') {
+        if (typeof showToast === 'function') showToast('Hanya user customer yang bisa membuat aduan.', 'error');
+        return;
+    }
+
+    var text = prompt('Tulis aduan Anda (minimal 10 karakter):');
+    if (!text || !text.trim()) return;
+    var reason = text.trim();
+    if (reason.length < 10) {
+        if (typeof showToast === 'function') showToast('Aduan terlalu singkat. Jelaskan masalah minimal 10 karakter.', 'error');
+        return;
+    }
+
+    backendPost({
+        action: 'updateOrder',
+        orderId: order.id,
+        fields: {
+            userComplaint: true,
+            userComplaintText: reason,
+            userComplaintAt: Date.now(),
+            userComplaintBy: session.id,
+            complaintStatus: 'open',
+            complaintResolvedAt: 0,
+            complaintHandledBy: '',
+            followUpRequired: true
+        }
+    }).then(function (res) {
+        if (!res || !res.success) {
+            throw new Error((res && res.message) ? res.message : 'Gagal mengirim aduan');
+        }
+
+        if (_currentOrder && String(_currentOrder.id) === String(order.id)) {
+            _currentOrder.userComplaint = true;
+            _currentOrder.userComplaintText = reason;
+            _currentOrder.userComplaintAt = Date.now();
+            _currentOrder.userComplaintBy = session.id;
+            _currentOrder.complaintStatus = 'open';
+            refreshTrackingUIFromCurrentOrder();
+        }
+
+        if (typeof addNotifItem === 'function') {
+            addNotifItem({
+                icon: '🛎️',
+                title: 'Aduan User Masuk',
+                desc: 'Order #' + String(order.id || '').substr(0, 8) + ' memiliki aduan user dan perlu tindak lanjut admin.',
+                type: 'report',
+                orderId: order.id,
+                extra: { complaint: true }
+            });
+        }
+
+        if (typeof showToast === 'function') showToast('Aduan berhasil dikirim ke admin. Kami akan menindaklanjuti.', 'success');
+    }).catch(function (err) {
+        if (typeof showToast === 'function') showToast((err && err.message) ? err.message : 'Gagal mengirim aduan', 'error');
+    });
 }
 
 function updateOrderStatus(orderId, newStatus, extraFields) {
@@ -2935,29 +3014,32 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                 }
             }
 
-            // When order is completed, mark as pending admin review BEFORE distributing funds
-            if (newStatus === 'completed' && notifOrder) {
-                var order = notifOrder;
-                // Mark the order as pending admin approval for earnings payout
+            // When completed, always push to admin review queue before any payout.
+            if (newStatus === 'completed') {
+                var orderRef = notifOrder || { id: orderId };
                 backendPost({
                     action: 'updateOrder',
-                    orderId: order.id,
+                    orderId: orderId,
                     fields: {
                         pendingAdminReview: true,
                         pendingAdminReviewAt: Date.now(),
-                        walletSettled: false
+                        walletSettled: false,
+                        adminReviewStatus: '',
+                        adminReviewReason: '',
+                        adminReviewNote: 'Menunggu verifikasi admin',
+                        followUpRequired: false,
+                        fraudFlag: false
                     }
                 });
-                // Notify owner/admin to review
                 addNotifItem({
                     icon: '🔍',
                     title: 'Order Selesai - Perlu Review Admin',
-                    desc: 'Pesanan #' + (order.id || '').substr(0, 8) + ' (' + (order.serviceType || order.skillType || 'Pesanan') + ') menunggu persetujuan Admin untuk pencairan komisi driver.',
+                    desc: 'Pesanan #' + (orderRef.id || '').substr(0, 8) + ' (' + (orderRef.serviceType || orderRef.skillType || 'Pesanan') + ') menunggu persetujuan Admin untuk pencairan komisi driver.',
                     type: 'review',
-                    orderId: order.id,
+                    orderId: orderId,
                     extra: { pendingAdminReview: true }
                 });
-                showToast('Pesanan selesai! Menunggu konfirmasi admin untuk pencairan komisi 📋', 'success');
+                showToast('Pesanan selesai! Masuk antrian review admin sebelum pencairan komisi.', 'success');
             }
 
             if (isTrackingTerminalStatus(newStatus)) {

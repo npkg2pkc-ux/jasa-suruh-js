@@ -157,6 +157,8 @@ function _loadPendingReviewOrders(page) {
                 ? ''
                 : '<div style="margin-top:8px;font-size:12px;color:#B91C1C;background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:8px;">Tidak ada bukti yang cukup. Minta driver lengkapi foto bukti atau minta konfirmasi customer dulu.</div>';
 
+            var reviewBadge = '<span style="background:#FEF3C7;color:#D97706;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:600;">&#9203; Perlu Review</span>';
+
             return [
                 '<div class="aorp-card" data-idx="' + idx + '" data-has-evidence="' + (hasEvidence ? '1' : '0') + '" style="background:#fff;border-radius:16px;',
                 'padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.07);border:1px solid #F3F4F6;">',
@@ -166,7 +168,7 @@ function _loadPendingReviewOrders(page) {
                             '<div style="font-size:12px;color:#6B7280;">' + (o.serviceType || o.skillType || 'Pesanan') + ' &bull; ' + dateStr + ratingBadge + '</div>',
                             '<div style="font-size:11px;color:' + (isOverdue ? '#B91C1C' : '#9A3412') + ';font-weight:700;margin-top:3px;">Menunggu keputusan: ' + pendingAgeText + (isOverdue ? ' (MELEWATI BATAS)' : '') + '</div>',
                         '</div>',
-                        '<span style="background:#FEF3C7;color:#D97706;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:600;">&#9203; Perlu Review</span>',
+                        reviewBadge,
                     '</div>',
                     '<div style="font-size:12px;color:#374151;margin-bottom:4px;">&#128100; Customer: ' + (typeof escapeHtml === 'function' ? escapeHtml(user.name || user.nama || '-') : (user.name || user.nama || '-')) + '</div>',
                     '<div style="font-size:12px;color:#374151;margin-bottom:4px;">&#128661; Driver: ' + (typeof escapeHtml === 'function' ? escapeHtml(driver.name || driver.nama || '-') : (driver.name || driver.nama || '-')) + '</div>',
@@ -299,22 +301,46 @@ function _aorpApprove(order, btn, page) {
                 });
             }
 
-            walletPromise.then(function (walletRes) {
-                if (!walletRes || !walletRes.success) {
-                    throw new Error((walletRes && walletRes.message) ? walletRes.message : 'Pencairan gagal diproses');
+            // Mark approved first, then run payout. Backend payout requires admin approval state.
+            backendPost({
+                action: 'updateOrder',
+                orderId: order.id,
+                fields: {
+                    pendingAdminReview: false,
+                    adminReviewedAt: Date.now(),
+                    adminReviewStatus: 'approved',
+                    adminReviewedBy: (typeof getSession === 'function' && getSession()) ? getSession().id : '',
+                    adminReviewReason: '',
+                    adminReviewNote: 'Valid - komisi disetujui admin',
+                    followUpRequired: false,
+                    fraudFlag: false
                 }
-                // Mark review as done
-                backendPost({
-                    action: 'updateOrder',
-                    orderId: order.id,
-                    fields: {
-                        pendingAdminReview: false,
-                        adminReviewedAt: Date.now(),
-                        adminReviewStatus: 'approved',
-                        adminReviewedBy: (typeof getSession === 'function' && getSession()) ? getSession().id : '',
-                        adminReviewNote: 'Valid - komisi disetujui admin'
+            }).then(function (approveRes) {
+                if (!approveRes || !approveRes.success) {
+                    throw new Error((approveRes && approveRes.message) ? approveRes.message : 'Gagal menyimpan approval admin');
+                }
+
+                return walletPromise.then(function (walletRes) {
+                    if (!walletRes || !walletRes.success) {
+                        throw new Error((walletRes && walletRes.message) ? walletRes.message : 'Pencairan gagal diproses');
                     }
+                }).catch(function (walletErr) {
+                    // Rollback to queue so admin can retry when payout backend recovers.
+                    return backendPost({
+                        action: 'updateOrder',
+                        orderId: order.id,
+                        fields: {
+                            pendingAdminReview: true,
+                            pendingAdminReviewAt: Date.now(),
+                            adminReviewStatus: '',
+                            adminReviewNote: 'Rollback approval: payout gagal',
+                            followUpRequired: false
+                        }
+                    }).then(function () {
+                        throw walletErr;
+                    });
                 });
+            }).then(function () {
                 // Notify driver
                 if (typeof addNotifItem === 'function') {
                     addNotifItem({
@@ -372,7 +398,8 @@ function _aorpReject(order, btn, page) {
             adminReviewedBy: (typeof getSession === 'function' && getSession()) ? getSession().id : '',
             adminReviewReason: reason.trim(),
             adminReviewNote: 'Tidak valid - komisi ditolak admin',
-            fraudFlag: true
+            fraudFlag: false,
+            followUpRequired: false
         }
     }).then(function () {
         if (typeof addNotifItem === 'function') {
@@ -385,7 +412,7 @@ function _aorpReject(order, btn, page) {
                 orderId: order.id
             });
         }
-        if (typeof showToast === 'function') showToast('Pesanan ditolak dan driver dinotifikasi.', 'success');
+        if (typeof showToast === 'function') showToast('Review ditolak. Komisi tidak dicairkan.', 'success');
         _loadPendingReviewOrders(page);
     }).catch(function () {
         if (typeof showToast === 'function') showToast('Gagal menolak pesanan', 'error');
