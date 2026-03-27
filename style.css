@@ -2878,6 +2878,78 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     border-color:#FED7AA;
 }
 
+#page-owner.od-admin-mode .od-filter-pills,
+#page-owner.od-admin-mode .od-chart-section,
+#page-owner.od-admin-mode .od-wallet-section,
+#page-owner.od-admin-mode .od-admin-hide {
+    display:none;
+}
+
+#page-owner.od-admin-mode .od-header {
+    border-radius:0 0 24px 24px;
+}
+
+.od-admin-review-focus {
+    background:linear-gradient(180deg,#FFFFFF 0%,#FFF7ED 100%);
+    border:1px solid #FED7AA;
+    border-radius:18px;
+    padding:16px;
+    box-shadow:0 8px 20px rgba(249,115,22,.12);
+    margin-bottom:18px;
+}
+
+.od-admin-review-desc {
+    font-size:12px;
+    line-height:1.5;
+    color:#7C2D12;
+    margin:0 0 12px;
+}
+
+.od-admin-review-kpi {
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:12px;
+    padding:12px;
+    border-radius:12px;
+    border:1px solid #FDBA74;
+    background:#FFF;
+    margin-bottom:12px;
+}
+
+.od-admin-review-kpi-label {
+    font-size:11px;
+    color:#9A3412;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.3px;
+}
+
+.od-admin-review-kpi strong {
+    font-size:34px;
+    line-height:1;
+    color:#EA580C;
+    font-weight:900;
+}
+
+.od-admin-review-btn {
+    width:100%;
+    border:none;
+    border-radius:12px;
+    padding:12px;
+    background:linear-gradient(135deg,#F97316,#EA580C);
+    color:#fff;
+    font-family:var(--font);
+    font-size:13px;
+    font-weight:800;
+    cursor:pointer;
+    box-shadow:0 8px 16px rgba(249,115,22,.26);
+}
+
+.od-admin-review-btn:active {
+    transform:scale(.98);
+}
+
 /* ─── See All Button ─── */
 .od-see-all { background:none; border:none; color:var(--orange); font-family:var(--font); font-size:12px; font-weight:700; cursor:pointer; transition:var(--tr); padding:4px 8px; border-radius:var(--r-sm); }
 .od-see-all:active { background:var(--orange-subtle); }

@@ -113,8 +113,12 @@ var OwnerDashboard = (function () {
         _activeOwnerPanel = panel;
 
         if (panel === 'home') {
-            var chartDays = parseInt(($('ownerChartRange') && $('ownerChartRange').value) || '7', 10);
-            _renderChart(_ordersCache, chartDays);
+            if (_isOwner()) {
+                var chartDays = parseInt(($('ownerChartRange') && $('ownerChartRange').value) || '7', 10);
+                _renderChart(_ordersCache, chartDays);
+            } else {
+                _renderAdminReviewFocus(_ordersCache);
+            }
         }
         if (panel === 'settings' && _isOwner()) {
             _renderOwnerSettingsProfile();
@@ -316,6 +320,16 @@ var OwnerDashboard = (function () {
                 ? 'Ringkasan operasional dan keuangan owner'
                 : 'Ringkasan operasional dan verifikasi komisi admin';
         }
+
+        var quickTitle = $('ownerQuickTitle');
+        if (quickTitle) {
+            quickTitle.textContent = _isOwner() ? '⚡ Aksi Cepat Owner' : '⚡ Aksi Cepat Admin';
+        }
+
+        var revenueLabel = $('ownerRevenueLabel');
+        if (revenueLabel) {
+            revenueLabel.textContent = _isOwner() ? 'Fee Platform' : 'Perlu Review';
+        }
     }
 
     function _applyRoleTheme() {
@@ -411,6 +425,7 @@ var OwnerDashboard = (function () {
     function _refreshWithRange() {
         renderOwnerStats();
         _updateRevenueKPI(_ordersCache);
+        _renderAdminReviewFocus(_ordersCache);
         _renderActivity(_ordersCache);
     }
 
@@ -449,9 +464,32 @@ var OwnerDashboard = (function () {
                 _ordersCache = res.data;
                 _setKPIValue('ownerTotalOrders', res.data.length);
                 _updateRevenueKPI(res.data);
+                _renderAdminReviewFocus(res.data);
                 _renderChart(res.data, 7);
                 _renderActivity(res.data);
             }).catch(function () {});
+    }
+
+    function _countPendingReview(orders) {
+        return (orders || []).filter(function (o) {
+            return (o.status === 'completed' || o.status === 'rated')
+                && o.pendingAdminReview
+                && !o.walletSettled;
+        }).length;
+    }
+
+    function _renderAdminReviewFocus(orders) {
+        if (!_isAdmin()) return;
+        var count = _countPendingReview(orders);
+        var countEl = $('adminPendingReviewCount');
+        if (countEl) countEl.textContent = String(count);
+
+        var hintEl = $('adminReviewFocusHint');
+        if (hintEl) {
+            hintEl.textContent = count > 0
+                ? 'Ada ' + count + ' order selesai yang wajib diverifikasi admin sebelum transfer komisi.'
+                : 'Tidak ada antrian review. Pantau order selesai agar komisi hanya dicairkan setelah verifikasi.';
+        }
     }
 
     function _filterByRange(orders) {
@@ -468,6 +506,11 @@ var OwnerDashboard = (function () {
     }
 
     function _updateRevenueKPI(orders) {
+        if (_isAdmin()) {
+            _setKPIValue('ownerRevenue', _countPendingReview(orders));
+            return;
+        }
+
         var completed = orders.filter(function (o) { return o.status === 'completed' || o.status === 'rated'; });
         var filtered = _filterByRange(completed);
         var totalRevenue = filtered.reduce(function (sum, o) { return sum + (Number(o.fee) || 0); }, 0);
@@ -503,6 +546,7 @@ var OwnerDashboard = (function () {
     }
 
     function _syncOwnerFinancialSummary(totalRevenue) {
+        if (_isAdmin()) return;
         var walletBalance = _getOwnerWalletBalance();
         var gap = walletBalance - (Number(totalRevenue) || 0);
         var gapEl = $('ownerRevenueGap');
@@ -515,6 +559,7 @@ var OwnerDashboard = (function () {
     }
 
     function syncOwnerFinancePreview() {
+        if (_isAdmin()) return;
         var ownerRevenueText = ($('ownerRevenue') && $('ownerRevenue').textContent) || 'Rp 0';
         var revenue = Number(String(ownerRevenueText).replace(/[^0-9-]/g, '')) || 0;
         _syncOwnerFinancialSummary(revenue);
@@ -522,6 +567,7 @@ var OwnerDashboard = (function () {
 
     // ─── Chart ───
     function _renderChart(orders, days) {
+        if (_isAdmin()) return;
         var canvas = $('ownerRevenueChart');
         var emptyEl = $('ownerChartEmpty');
         if (!canvas) return;
