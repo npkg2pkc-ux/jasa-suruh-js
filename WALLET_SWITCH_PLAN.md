@@ -17,6 +17,33 @@
 - Tabel wallet sudah berjalan untuk kebutuhan pengujian.
 - Belum ada kewajiban settlement uang nyata ke pihak eksternal.
 
+## Temuan Kritis Saat Ini (Wajib Ditutup)
+1. `wallets` dan `transactions` masih punya policy `anon_all_*` (full read/write dari client).
+2. Jalur finansial Xendit backend masih bisa mengarah ke anon key jika env tidak dipasang benar.
+3. Mutasi saldo masih memakai update langsung ke tabel `wallets` (belum single secured mutation function).
+
+Dampak:
+- Client yang dimodifikasi bisa mengubah saldo/riwayat transaksi.
+- Risiko race condition dan partial update saat beban tinggi.
+- Sulit audit forensik karena ledger belum immutable penuh.
+
+## Prinsip Arsitektur Real-Money (Target)
+1. Client tidak boleh write ke `wallets`, `transactions`, `wallet_ledger`.
+2. Semua mutasi uang lewat backend trusted + service role.
+3. Mutasi uang wajib atomic + idempotent + audit trail immutable.
+4. Rekonsiliasi saldo wajib berbasis ledger, bukan angka balance semata.
+
+## Artefak Migrasi di Repo
+- SQL hardening: `wallet_real_money_hardening.sql`
+- Rencana cutover: dokumen ini
+
+Urutan pakai:
+1. Jalankan SQL backup/snapshot.
+2. Deploy env `SUPABASE_SERVICE_KEY` untuk endpoint finansial.
+3. Eksekusi `wallet_real_money_hardening.sql`.
+4. Uji topup/withdraw/webhook di staging.
+5. Baru aktifkan ke produksi.
+
 ## Fase 0 - Persiapan & Freeze
 1. Tetapkan jadwal cutover dan maintenance window.
 2. Freeze perubahan fitur yang menyentuh wallet.

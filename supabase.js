@@ -841,25 +841,54 @@
     // ── Wallet Functions ──
 
     function getWallet(userId) {
-        return sb.from('wallets').select('*').eq('user_id', userId).single()
-            .then(function (res) {
-                if (res.error && res.error.code === 'PGRST116') {
-                    // No wallet yet — return zero balance
-                    return ok({ userId: userId, balance: 0 });
+        return fetch('/api/wallet/get', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: userId })
+        })
+            .then(function (res) { return res.json(); })
+            .then(function (apiRes) {
+                if (apiRes && apiRes.success && apiRes.data) {
+                    return ok(apiRes.data);
                 }
-                throwIfError(res);
-                var w = res.data;
-                return ok({ userId: w.user_id, balance: Number(w.balance) || 0, updatedAt: w.updated_at });
+                return fail((apiRes && apiRes.message) || 'Gagal memuat wallet');
+            })
+            .catch(function () {
+                return sb.from('wallets').select('*').eq('user_id', userId).single()
+                    .then(function (res) {
+                        if (res.error && res.error.code === 'PGRST116') {
+                            return ok({ userId: userId, balance: 0 });
+                        }
+                        throwIfError(res);
+                        var w = res.data;
+                        return ok({ userId: w.user_id, balance: Number(w.balance) || 0, updatedAt: w.updated_at });
+                    })
+                    .catch(function () { return ok({ userId: userId, balance: 0, updatedAt: 0 }); });
             });
     }
 
     function getTransactions(userId) {
-        return sb.from('transactions').select('data')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false })
-            .then(function (res) {
-                throwIfError(res);
-                return ok(rowsToArr(res.data));
+        return fetch('/api/wallet/transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: userId, limit: 100 })
+        })
+            .then(function (res) { return res.json(); })
+            .then(function (apiRes) {
+                if (apiRes && apiRes.success && Array.isArray(apiRes.data)) {
+                    return ok(apiRes.data);
+                }
+                return fail((apiRes && apiRes.message) || 'Gagal memuat transaksi');
+            })
+            .catch(function () {
+                return sb.from('transactions').select('data')
+                    .eq('user_id', userId)
+                    .order('created_at', { ascending: false })
+                    .then(function (res) {
+                        throwIfError(res);
+                        return ok(rowsToArr(res.data));
+                    })
+                    .catch(function () { return ok([]); });
             });
     }
 
@@ -1096,43 +1125,31 @@
 
         if (!orderId) return Promise.resolve(fail('OrderId wajib diisi untuk pembayaran'));
 
-        return getOrderDataById(orderId)
-            .then(function (order) {
-                if (!order) return fail('Order tidak ditemukan');
-                if (String(order.userId || '') !== String(userId || '')) {
-                    return fail('Pembayaran ditolak: user order tidak cocok');
+        return fetch('/api/wallet/pay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: userId,
+                amount: amount,
+                orderId: orderId,
+                description: desc,
+                actorId: body.actorId || userId
+            })
+        })
+            .then(function (res) { return res.json().catch(function () { return {}; }); })
+            .then(function (apiRes) {
+                if (!apiRes || apiRes.success === false) {
+                    return fail((apiRes && apiRes.message) || 'Pembayaran gagal diproses');
                 }
-                if (String(order.paymentMethod || 'jspay').toLowerCase() === 'cod') {
-                    return fail('Order COD tidak boleh dipotong saldo');
-                }
-                if (Number(order.paidAmount || 0) > 0) {
-                    return fail('Order sudah dibayar sebelumnya');
-                }
-                var expected = Number(order.totalCost);
-                if (!isFinite(expected) || expected <= 0) {
-                    expected = (Number(order.price) || 0) + (Number(order.deliveryFee) || 0) + (Number(order.fee) || 0);
-                }
-                if (Math.round(expected) !== Math.round(amount)) {
-                    return fail('Pembayaran ditolak: nominal tidak sesuai order');
-                }
-
-                return doWalletDebitDirect({
-                    userId: userId,
-                    amount: amount,
-                    orderId: orderId,
-                    description: desc,
-                    txType: 'payment'
-                }).then(function (debitRes) {
-                    if (!debitRes || !debitRes.success) return debitRes || fail('Pembayaran gagal diproses');
-
-                    return markOrderWalletFlag(orderId, {
-                        paidAmount: amount,
-                        paidAt: Date.now(),
-                        paymentStatus: 'paid'
-                    }).then(function () {
-                        return debitRes;
-                    });
+                return ok({
+                    balance: Number(apiRes.balance) || 0,
+                    transactionId: apiRes.transactionId || '',
+                    ledgerId: apiRes.ledgerId || '',
+                    alreadyProcessed: !!apiRes.alreadyProcessed
                 });
+            })
+            .catch(function () {
+                return fail('Pembayaran gagal diproses');
             });
     }
 
@@ -1984,20 +2001,15 @@
             getWallet(userId).then(function (res) {
                 if (res.success) callback(res.data);
             });
-            // Realtime
-            var channel = sb.channel('wallet-' + userId)
-                .on('postgres_changes', {
-                    event: '*',
-                    schema: 'public',
-                    table: 'wallets',
-                    filter: 'user_id=eq.' + userId
-                }, function () {
-                    getWallet(userId).then(function (res) {
-                        if (res.success) callback(res.data);
-                    });
-                })
-                .subscribe();
-            return function () { sb.removeChannel(channel); };
+            // Under strict RLS wallet table is not readable by client realtime; poll via trusted API.
+            var timer = setInterval(function () {
+                getWallet(userId).then(function (res) {
+                    if (res.success) callback(res.data);
+                });
+            }, 8000);
+            return function () {
+                clearInterval(timer);
+            };
         },
 
         onNotifications: function (userId, callback) {
