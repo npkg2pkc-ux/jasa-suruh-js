@@ -1300,6 +1300,7 @@ function createProductOrder(cartItems, store, paymentMethod, pricing, checkoutMo
 // ═══ JS ANTAR (OJEK) ═══
 // ══════════════════════════════════════════
 var _japRouteRequestToken = 0;
+var _japSuggestSourceId = 'japDestInput';
 
 function resetJSAntarState() {
     _japRouteRequestToken += 1;
@@ -1419,7 +1420,7 @@ function openJSAntarPage() {
                 if (e.key === 'Enter') { e.preventDefault(); hideJapSuggestions(); }
             });
             topSearchInputBind.addEventListener('focus', function () {
-                if (this.value.trim().length >= 3) searchPlaces(this.value.trim());
+                if (this.value.trim().length >= 3) searchPlaces(this.value.trim(), 'japTopSearchInput');
             });
         }
         document.getElementById('japBtnOrder').addEventListener('click', onJapOrderClick);
@@ -1718,9 +1719,17 @@ function enterJapAddDestinationMode() {
 }
 
 function getActiveJapSuggestionsEl() {
-    var page = document.getElementById('jsAntarPage');
-    var firstOpen = page && page.classList.contains('jap-first-open');
-    if (firstOpen) return document.getElementById('japTopSuggestions') || document.getElementById('japDestSuggestions');
+    var active = document.activeElement;
+    if (active && active.id === 'japTopSearchInput') return document.getElementById('japTopSuggestions') || document.getElementById('japDestSuggestions');
+    if (active && active.id === 'japDestInput') return document.getElementById('japDestSuggestions') || document.getElementById('japTopSuggestions');
+    if (_japSuggestSourceId === 'japTopSearchInput') return document.getElementById('japTopSuggestions') || document.getElementById('japDestSuggestions');
+    return document.getElementById('japDestSuggestions') || document.getElementById('japTopSuggestions');
+}
+
+function getJapSuggestionsElBySource(sourceId) {
+    if (sourceId === 'japTopSearchInput') {
+        return document.getElementById('japTopSuggestions') || document.getElementById('japDestSuggestions');
+    }
     return document.getElementById('japDestSuggestions') || document.getElementById('japTopSuggestions');
 }
 
@@ -1792,9 +1801,11 @@ function updateJapPickupText(addr, lat, lng) {
 
 function onJapDestInput() {
     var val = this.value.trim();
+    var sourceId = this.id || 'japDestInput';
+    _japSuggestSourceId = sourceId;
     syncJapDestinationInputs(this.value, this.id);
     if (_japSuggestTimer) clearTimeout(_japSuggestTimer);
-    var sugg = getActiveJapSuggestionsEl();
+    var sugg = getJapSuggestionsElBySource(sourceId);
     if (!sugg) return;
     if (val.length < 3) {
         hideJapSuggestions();
@@ -1805,30 +1816,43 @@ function onJapDestInput() {
     sugg.classList.remove('hidden');
     sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--gray-400)">Mencari...</div>';
     _japSuggestTimer = setTimeout(function () {
-        searchPlaces(val);
+        searchPlaces(val, sourceId);
     }, 600);
 }
 
-function searchPlaces(query) {
+function searchPlaces(query, sourceId) {
+    _japSuggestSourceId = sourceId || _japSuggestSourceId || 'japDestInput';
     var lat = _japPickupCoords ? _japPickupCoords.lat : -6.2088;
     var lng = _japPickupCoords ? _japPickupCoords.lng : 106.8456;
     var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query)
-        + '&format=json&limit=6&accept-language=id&countrycodes=id'
-        + '&viewbox=' + (lng - 0.5) + ',' + (lat + 0.5) + ',' + (lng + 0.5) + ',' + (lat - 0.5)
+        + '&format=json&limit=12&accept-language=id&countrycodes=id&addressdetails=1'
+        + '&viewbox=' + (lng - 0.35) + ',' + (lat + 0.35) + ',' + (lng + 0.35) + ',' + (lat - 0.35)
         + '&bounded=0';
     fetch(url)
         .then(function (r) { return r.json(); })
         .then(function (results) {
-            renderJapSuggestions(results);
+            var list = Array.isArray(results) ? results.slice() : [];
+            list.forEach(function (r) {
+                var rLat = Number(r.lat || 0);
+                var rLng = Number(r.lon || 0);
+                r._distKm = haversineDistance(lat, lng, rLat, rLng);
+            });
+
+            // Prioritaskan area sekitar user agar hasil relevan lokal.
+            list.sort(function (a, b) { return (Number(a._distKm) || 9999) - (Number(b._distKm) || 9999); });
+            var near = list.filter(function (r) { return Number(r._distKm) <= 60; });
+            var ranked = (near.length > 0 ? near : list).slice(0, 6);
+
+            renderJapSuggestions(ranked, sourceId || _japSuggestSourceId);
         })
         .catch(function () {
-            var sugg = getActiveJapSuggestionsEl();
+            var sugg = getJapSuggestionsElBySource(sourceId || _japSuggestSourceId);
             if (sugg) sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--red)">Gagal mencari lokasi</div>';
         });
 }
 
-function renderJapSuggestions(results) {
-    var sugg = getActiveJapSuggestionsEl();
+function renderJapSuggestions(results, sourceId) {
+    var sugg = getJapSuggestionsElBySource(sourceId || _japSuggestSourceId);
     if (!sugg) return;
     if (!results || results.length === 0) {
         sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--gray-400)">Tidak ditemukan</div>';
