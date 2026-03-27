@@ -3576,6 +3576,7 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .od-settings-form { display:flex; flex-direction:column; gap:14px; }
 .od-form-row { display:flex; flex-direction:column; gap:5px; }
 .od-form-row label { font-size:12px; font-weight:600; color:var(--gray-600); }
+.od-form-hint { margin:0; font-size:11px; color:var(--gray-500); line-height:1.4; }
 .od-form-row input[type="text"],
 .od-form-row input[type="password"] { width:100%; padding:11px 14px; background:var(--gray-50); border:1.5px solid var(--gray-200); border-radius:var(--r-md); font-family:var(--font); font-size:14px; color:var(--black); transition:var(--tr); }
 .od-form-row input[type="text"]:focus,
