@@ -569,20 +569,23 @@ var OwnerDashboard = (function () {
         var priorityBox = $('adminPriorityBox');
         var priorityText = $('adminPriorityText');
         var priorityBtn = $('adminPriorityBtn');
+        var pendingApproveCard = $('adminPendingApproveCard');
         if (!priorityBox || !priorityText || !priorityBtn) return;
 
         if (pendingReview > 0) {
             priorityBox.classList.add('is-alert');
             priorityBox.classList.remove('is-safe');
-            priorityText.textContent = pendingReview + ' order perlu review komisi sekarang. Ini prioritas utama admin.';
+            priorityText.textContent = pendingReview + ' order menunggu approve. Ini indikator kerja utama admin hari ini, segera masuk halaman Review Komisi.';
             priorityBtn.textContent = 'Review Komisi Sekarang';
             priorityBtn.dataset.adminTarget = 'review';
+            if (pendingApproveCard) pendingApproveCard.classList.add('is-priority');
         } else {
             priorityBox.classList.add('is-safe');
             priorityBox.classList.remove('is-alert');
-            priorityText.textContent = 'Status aman. Tidak ada order yang perlu review komisi saat ini.';
+            priorityText.textContent = 'Status aman. Semua order sudah diverifikasi, tidak ada komisi yang tertunda.';
             priorityBtn.textContent = 'Lihat Detail Order';
             priorityBtn.dataset.adminTarget = 'orders';
+            if (pendingApproveCard) pendingApproveCard.classList.remove('is-priority');
         }
     }
 

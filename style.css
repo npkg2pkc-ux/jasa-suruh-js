@@ -2971,6 +2971,12 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     transform:scale(.98);
 }
 
+.od-admin-approve-card.is-priority {
+    border-color:#FCA5A5;
+    background:#FEF2F2;
+    box-shadow:0 0 0 2px rgba(239,68,68,.12) inset;
+}
+
 .od-admin-metric-label {
     display:block;
     font-size:10px;
