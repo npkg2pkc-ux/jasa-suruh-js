@@ -15,6 +15,7 @@ var OwnerDashboard = (function () {
     var _activityFilter = 'orders'; // orders, users, all
     var _adminDriverFilter = 'all'; // all, user, talent, penjual
     var _currentRole = 'owner'; // 'owner' or 'admin'
+    var _desktopMq = null;
     var _activeOwnerPanel = 'home';
     var _ownerPanelConfig = {
         home: { title: 'Home', subtitle: 'Ringkasan performa platform' },
@@ -149,6 +150,7 @@ var OwnerDashboard = (function () {
         // Detect current role
         var session = typeof getSession === 'function' ? getSession() : null;
         _currentRole = session ? (session.role || 'owner') : 'owner';
+        _bindDesktopModeWatcher();
 
         // Hide owner-only elements for admin
         _applyRoleVisibility();
@@ -405,6 +407,41 @@ var OwnerDashboard = (function () {
         var page = $('page-owner');
         if (!page) return;
         page.classList.toggle('od-admin-mode', _isAdmin());
+        _applyDesktopWebMode();
+    }
+
+    function _isDesktopViewport() {
+        if (typeof window === 'undefined') return false;
+        if (window.matchMedia) return window.matchMedia('(min-width: 1024px)').matches;
+        return (window.innerWidth || 0) >= 1024;
+    }
+
+    function _applyDesktopWebMode() {
+        var page = $('page-owner');
+        if (!page) return;
+        var app = $('app');
+        var enableDesktop = (_isOwner() || _isAdmin()) && _isDesktopViewport();
+        page.classList.toggle('od-web-desktop', enableDesktop);
+        if (app) app.classList.toggle('owner-webapp-mode', enableDesktop);
+    }
+
+    function _bindDesktopModeWatcher() {
+        if (typeof window === 'undefined') return;
+        var onViewportChange = function () { _applyDesktopWebMode(); };
+
+        if (!_desktopMq && window.matchMedia) {
+            _desktopMq = window.matchMedia('(min-width: 1024px)');
+            if (_desktopMq && typeof _desktopMq.addEventListener === 'function') {
+                _desktopMq.addEventListener('change', onViewportChange);
+            } else if (_desktopMq && typeof _desktopMq.addListener === 'function') {
+                _desktopMq.addListener(onViewportChange);
+            }
+        }
+
+        if (!window._odDesktopResizeBound) {
+            window._odDesktopResizeBound = true;
+            window.addEventListener('resize', onViewportChange, { passive: true });
+        }
     }
 
     // ─── Load All Dashboard Data ───

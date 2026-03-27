@@ -4661,6 +4661,163 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     }
 }
 
+/* ─── Owner/Admin Desktop Web App Layout (POS-like) ─── */
+@media (min-width:1024px) {
+    #app.owner-webapp-mode {
+        max-width:none;
+        width:100%;
+        margin:0;
+        box-shadow:none;
+        background:linear-gradient(180deg,#FFF9F3 0%, #FFFDF9 100%);
+    }
+
+    #page-owner.od-web-desktop {
+        min-height:100vh;
+        display:grid;
+        grid-template-columns:228px minmax(0, 1fr);
+        grid-template-areas:
+            "sidebar header"
+            "sidebar content";
+        align-items:start;
+        column-gap:0;
+    }
+
+    #page-owner.od-web-desktop .od-header {
+        grid-area:header;
+        position:sticky;
+        top:0;
+        z-index:40;
+        border-radius:0;
+        margin:0;
+    }
+
+    #page-owner.od-web-desktop.owner-subpage-active .od-header {
+        display:block;
+    }
+
+    #page-owner.od-web-desktop .od-main {
+        display:none;
+    }
+
+    #page-owner.od-web-desktop #ownerBottomNav {
+        grid-area:sidebar;
+        position:sticky;
+        top:0;
+        left:auto;
+        transform:none;
+        width:100%;
+        max-width:none;
+        height:100vh;
+        padding:16px 10px;
+        display:flex;
+        flex-direction:column;
+        align-items:stretch;
+        justify-content:flex-start;
+        gap:8px;
+        border-right:1px solid #FED7AA;
+        border-top:none;
+        box-shadow:none;
+        background:linear-gradient(180deg,#FFF7ED 0%, #FFFDF9 100%);
+        z-index:36;
+    }
+
+    #page-owner.od-web-desktop #ownerBottomNav .nav-item {
+        width:100%;
+        min-height:44px;
+        padding:10px 12px;
+        border-radius:12px;
+        border:1px solid transparent;
+        display:flex;
+        flex-direction:row;
+        align-items:center;
+        justify-content:flex-start;
+        gap:10px;
+        font-size:12px;
+        font-weight:700;
+        color:#7C2D12;
+        background:transparent;
+    }
+
+    #page-owner.od-web-desktop #ownerBottomNav .nav-item span {
+        margin-top:0;
+    }
+
+    #page-owner.od-web-desktop #ownerBottomNav .nav-item.active {
+        color:#9A3412;
+        border-color:#FDBA74;
+        background:#FFFFFF;
+        box-shadow:0 8px 16px rgba(194,65,12,.14);
+    }
+
+    #page-owner.od-web-desktop #ownerBottomNav .nav-item.active svg {
+        stroke:#C2410C;
+    }
+
+    #page-owner.od-web-desktop .od-panel-modal {
+        grid-area:content;
+        max-width:none;
+        width:100%;
+        margin:0;
+        padding:16px 18px 22px;
+    }
+
+    #page-owner.od-web-desktop.owner-subpage-active .od-panel-modal {
+        padding-top:16px;
+    }
+
+    #page-owner.od-web-desktop .od-panel-shell {
+        max-width:none;
+        width:100%;
+        border-radius:20px;
+    }
+
+    #page-owner.od-web-desktop .od-panel-head {
+        position:sticky;
+        top:0;
+        z-index:5;
+    }
+
+    #page-owner.od-web-desktop .od-panel-close,
+    #page-owner.od-web-desktop .od-panel-backdrop {
+        display:none;
+    }
+
+    #page-owner.od-web-desktop .od-panel-view {
+        padding:16px 16px 20px;
+    }
+
+    #page-owner.od-web-desktop .od-kpi-grid {
+        grid-template-columns:repeat(4, minmax(0,1fr));
+    }
+
+    #page-owner.od-web-desktop .od-quick-grid,
+    #page-owner.od-web-desktop .od-admin-monitor-grid,
+    #page-owner.od-web-desktop .od-admin-report-grid {
+        grid-template-columns:repeat(4, minmax(0,1fr));
+    }
+
+    #page-owner.od-web-desktop .od-admin-report-wide {
+        grid-column:span 2;
+    }
+
+    #page-owner.od-web-desktop .od-user-list {
+        max-height:62vh;
+        grid-template-columns:repeat(2, minmax(0,1fr));
+    }
+
+    #page-owner.od-web-desktop .od-activity-feed {
+        max-height:58vh;
+        overflow:auto;
+        padding-right:4px;
+    }
+
+    #page-owner.od-web-desktop.od-admin-mode .od-header-content,
+    #page-owner.od-web-desktop.od-admin-mode .od-panel-modal,
+    #page-owner.od-web-desktop.od-admin-mode .od-panel-shell {
+        max-width:none;
+    }
+}
+
 @media (max-width:360px) {
     #page-owner .od-panel-view {
         padding:10px 10px calc(92px + env(safe-area-inset-bottom, 0px));
