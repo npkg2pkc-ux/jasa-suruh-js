@@ -35,6 +35,7 @@ Dampak:
 
 ## Artefak Migrasi di Repo
 - SQL hardening: `wallet_real_money_hardening.sql`
+- SQL rekonsiliasi harian: `wallet_reconciliation_daily.sql`
 - Rencana cutover: dokumen ini
 
 Urutan pakai:
@@ -43,6 +44,25 @@ Urutan pakai:
 3. Eksekusi `wallet_real_money_hardening.sql`.
 4. Uji topup/withdraw/webhook di staging.
 5. Baru aktifkan ke produksi.
+
+## Status Implementasi Terkini (Update 2026-03-28)
+Sudah selesai:
+- Endpoint finansial Xendit dipaksa pakai service role key (`SUPABASE_SERVICE_KEY`).
+- RLS finansial wallet/transaksi dikunci (deny direct client write).
+- Trigger guard anti direct update balance aktif.
+- Fungsi trusted mutation `wallet_apply_mutation` aktif + lulus uji idempotency.
+- Endpoint trusted wallet read aktif (`/api/wallet/get`, `/api/wallet/transactions`).
+- Endpoint trusted wallet pay aktif (`/api/wallet/pay`) untuk:
+	- operasi `pay`
+	- operasi `completeOrder`
+	- operasi `completeOrderCOD`
+- Frontend adapter sudah switch ke endpoint trusted untuk wallet read/pay/settlement.
+- Uji abuse client write ke `wallets` dan `transactions` lulus (tidak bisa insert).
+
+Catatan:
+- Validasi `completeOrder` untuk skenario `alreadySettled` sudah lulus.
+- Validasi `completeOrderCOD` untuk skenario `alreadySettled` sudah lulus.
+- Skenario settlement baru (belum settled) perlu diuji saat data kandidat tersedia.
 
 ## Fase 0 - Persiapan & Freeze
 1. Tetapkan jadwal cutover dan maintenance window.
@@ -165,14 +185,25 @@ Urutan pakai:
 - Monitoring, alert, dan SOP incident wallet tersedia.
 
 ## Checklist Eksekusi
-- [ ] Backup dan baseline metric selesai.
-- [ ] RLS secure untuk wallets dan transactions aktif.
-- [ ] Trusted wallet endpoints deployed.
-- [ ] Frontend sudah switch ke endpoint trusted.
+- [x] Backup dan baseline metric selesai.
+- [x] RLS secure untuk wallets dan transactions aktif.
+- [x] Trusted wallet endpoints deployed.
+- [x] Frontend sudah switch ke endpoint trusted.
 - [ ] Rekonsiliasi saldo pass.
 - [ ] Smoke test pass.
 - [ ] Monitoring go-live pass.
 - [ ] Sign-off backend, DB, QA, ops.
+
+## Runbook Operasional Harian
+Gunakan file `wallet_reconciliation_daily.sql` setiap hari (minimal 1x):
+1. Cek ringkasan saldo wallet vs ledger.
+2. Cek mismatch per user.
+3. Cek transaksi finansial tanpa pasangan ledger.
+4. Cek duplikasi idempotency key.
+
+Aturan respons operasional:
+- Jika total mismatch = 0 dan orphan tx = 0: status sehat.
+- Jika ada mismatch atau orphan tx: freeze payout baru, investigasi, lalu lakukan adjustment terkontrol.
 
 ## PIC Sign-off
 - Backend Lead:
