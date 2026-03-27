@@ -4329,6 +4329,108 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     padding:8px 16px 0;
 }
 
+/* ─── Admin Stage 2: Typography + Motion Polish ─── */
+#page-owner.od-admin-mode .od-section-head h3 {
+    font-size:18px;
+    font-weight:900;
+    letter-spacing:-.2px;
+    color:#7C2D12;
+}
+
+#page-owner.od-admin-mode .od-section-head .od-see-all {
+    font-size:12px;
+    font-weight:800;
+    color:#C2410C;
+}
+
+#page-owner.od-admin-mode .od-admin-review-desc,
+#page-owner.od-admin-mode .od-admin-priority-text,
+#page-owner.od-admin-mode .od-admin-flow-list li,
+#page-owner.od-admin-mode .od-admin-work-label,
+#page-owner.od-admin-mode .od-activity-title-wrap p {
+    font-size:13px;
+    line-height:1.5;
+}
+
+#page-owner.od-admin-mode .od-admin-driver-title,
+#page-owner.od-admin-mode .od-admin-review-kpi-label,
+#page-owner.od-admin-mode .od-admin-report-item span,
+#page-owner.od-admin-mode .od-admin-metric-label {
+    font-size:11px;
+    letter-spacing:.35px;
+}
+
+#page-owner.od-admin-mode .od-user-name {
+    font-size:16px;
+    font-weight:900;
+}
+
+#page-owner.od-admin-mode .od-user-meta {
+    font-size:13px;
+}
+
+#page-owner.od-admin-mode .od-user-submeta {
+    font-size:12px;
+}
+
+#page-owner.od-admin-mode .od-user-stats-inline strong {
+    font-size:13px;
+}
+
+#page-owner.od-admin-mode .od-panel-view-active .od-kpi-grid {
+    animation:odAdminRise .42s cubic-bezier(.2,.75,.25,1) both;
+}
+
+#page-owner.od-admin-mode .od-panel-view-active .od-admin-review-focus,
+#page-owner.od-admin-mode .od-panel-view-active .od-admin-order-monitor,
+#page-owner.od-admin-mode .od-panel-view-active .od-admin-flow,
+#page-owner.od-admin-mode .od-panel-view-active .od-admin-report-card,
+#page-owner.od-admin-mode .od-panel-view-active .od-users-section,
+#page-owner.od-admin-mode .od-panel-view-active .od-activity-section {
+    animation:odAdminRise .44s cubic-bezier(.2,.75,.25,1) both;
+}
+
+#page-owner.od-admin-mode .od-panel-view-active .od-admin-review-focus { animation-delay:.05s; }
+#page-owner.od-admin-mode .od-panel-view-active .od-admin-order-monitor { animation-delay:.08s; }
+#page-owner.od-admin-mode .od-panel-view-active .od-admin-flow { animation-delay:.12s; }
+#page-owner.od-admin-mode .od-panel-view-active .od-admin-report-card { animation-delay:.16s; }
+#page-owner.od-admin-mode .od-panel-view-active .od-users-section { animation-delay:.20s; }
+#page-owner.od-admin-mode .od-panel-view-active .od-activity-section { animation-delay:.24s; }
+
+@media (hover:hover) and (pointer:fine) {
+    #page-owner.od-admin-mode .od-kpi-card:hover,
+    #page-owner.od-admin-mode .od-admin-metric-card:hover,
+    #page-owner.od-admin-mode .od-user-card:hover,
+    #page-owner.od-admin-mode .od-admin-work-item:hover,
+    #page-owner.od-admin-mode .od-setting-item:hover {
+        transform:translateY(-2px);
+        box-shadow:0 14px 26px rgba(124,45,18,.12);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #page-owner.od-admin-mode .od-panel-view-active .od-kpi-grid,
+    #page-owner.od-admin-mode .od-panel-view-active .od-admin-review-focus,
+    #page-owner.od-admin-mode .od-panel-view-active .od-admin-order-monitor,
+    #page-owner.od-admin-mode .od-panel-view-active .od-admin-flow,
+    #page-owner.od-admin-mode .od-panel-view-active .od-admin-report-card,
+    #page-owner.od-admin-mode .od-panel-view-active .od-users-section,
+    #page-owner.od-admin-mode .od-panel-view-active .od-activity-section {
+        animation:none !important;
+    }
+}
+
+@keyframes odAdminRise {
+    from {
+        opacity:0;
+        transform:translateY(14px) scale(.992);
+    }
+    to {
+        opacity:1;
+        transform:translateY(0) scale(1);
+    }
+}
+
 @media (max-width:360px) {
     #page-owner .od-panel-view {
         padding:10px 10px calc(92px + env(safe-area-inset-bottom, 0px));
