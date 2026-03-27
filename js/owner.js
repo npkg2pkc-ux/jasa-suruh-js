@@ -185,6 +185,20 @@ var OwnerDashboard = (function () {
         var panelBackdrop = $('ownerPanelBackdrop');
         if (panelBackdrop) panelBackdrop.addEventListener('click', _closeOwnerPanel);
 
+        $$('[data-admin-target]').forEach(function (btn) {
+            if (btn._odAdminBound) return;
+            btn._odAdminBound = true;
+            btn.addEventListener('click', function () {
+                if (!_isAdmin()) return;
+                var target = this.dataset.adminTarget || 'orders';
+                if (target === 'review') {
+                    if (typeof openAdminOrderReview === 'function') openAdminOrderReview();
+                    return;
+                }
+                _openOwnerPanel('activity');
+            });
+        });
+
         var settingsBackBtn = $('ownerSettingsBackBtn');
         if (settingsBackBtn && !settingsBackBtn._bound) {
             settingsBackBtn._bound = true;
@@ -451,6 +465,7 @@ var OwnerDashboard = (function () {
         _updateRevenueKPI(_ordersCache);
         _renderAdminReviewFocus(_ordersCache);
         _renderAdminFlow(_ordersCache);
+        _renderAdminQuickMonitor(_ordersCache);
         _renderActivity(_ordersCache);
     }
 
@@ -491,9 +506,20 @@ var OwnerDashboard = (function () {
                 _updateRevenueKPI(res.data);
                 _renderAdminReviewFocus(res.data);
                 _renderAdminFlow(res.data);
+                _renderAdminQuickMonitor(res.data);
                 _renderChart(res.data, 7);
                 _renderActivity(res.data);
             }).catch(function () {});
+    }
+
+    function _getStartOfTodayTs() {
+        var start = new Date();
+        start.setHours(0, 0, 0, 0);
+        return start.getTime();
+    }
+
+    function _isActiveOrderStatus(status) {
+        return ['accepted', 'on_the_way', 'arrived', 'in_progress'].indexOf(String(status || '')) >= 0;
     }
 
     function _countPendingReview(orders) {
@@ -517,6 +543,46 @@ var OwnerDashboard = (function () {
             hintEl.textContent = count > 0
                 ? 'Ada ' + count + ' order selesai yang wajib diverifikasi admin sebelum transfer komisi.'
                 : 'Tidak ada antrian review. Pantau order selesai agar komisi hanya dicairkan setelah verifikasi.';
+        }
+    }
+
+    function _renderAdminQuickMonitor(orders) {
+        if (!_isAdmin()) return;
+        var list = Array.isArray(orders) ? orders : [];
+        var startToday = _getStartOfTodayTs();
+        var todayOrders = list.filter(function (o) {
+            return Number(o.createdAt || 0) >= startToday;
+        });
+
+        var totalToday = todayOrders.length;
+        var activeToday = todayOrders.filter(function (o) { return _isActiveOrderStatus(o.status); }).length;
+        var completedToday = todayOrders.filter(function (o) {
+            return o.status === 'completed' || o.status === 'rated';
+        }).length;
+        var pendingReview = _countPendingReview(list);
+
+        _setKPIValue('adminTodayTotalOrders', totalToday);
+        _setKPIValue('adminTodayActiveOrders', activeToday);
+        _setKPIValue('adminTodayCompletedOrders', completedToday);
+        _setKPIValue('adminPendingReviewCount', pendingReview);
+
+        var priorityBox = $('adminPriorityBox');
+        var priorityText = $('adminPriorityText');
+        var priorityBtn = $('adminPriorityBtn');
+        if (!priorityBox || !priorityText || !priorityBtn) return;
+
+        if (pendingReview > 0) {
+            priorityBox.classList.add('is-alert');
+            priorityBox.classList.remove('is-safe');
+            priorityText.textContent = pendingReview + ' order perlu review komisi sekarang. Ini prioritas utama admin.';
+            priorityBtn.textContent = 'Review Komisi Sekarang';
+            priorityBtn.dataset.adminTarget = 'review';
+        } else {
+            priorityBox.classList.add('is-safe');
+            priorityBox.classList.remove('is-alert');
+            priorityText.textContent = 'Status aman. Tidak ada order yang perlu review komisi saat ini.';
+            priorityBtn.textContent = 'Lihat Detail Order';
+            priorityBtn.dataset.adminTarget = 'orders';
         }
     }
 

@@ -2950,6 +2950,92 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     transform:scale(.98);
 }
 
+.od-admin-monitor-grid {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+    margin-bottom:12px;
+}
+
+.od-admin-metric-card {
+    border:1px solid #FED7AA;
+    border-radius:12px;
+    background:#fff;
+    padding:10px;
+    text-align:left;
+    cursor:pointer;
+    font-family:var(--font);
+}
+
+.od-admin-metric-card:active {
+    transform:scale(.98);
+}
+
+.od-admin-metric-label {
+    display:block;
+    font-size:10px;
+    font-weight:800;
+    color:#9A3412;
+    text-transform:uppercase;
+    letter-spacing:.3px;
+}
+
+.od-admin-metric-value {
+    display:block;
+    margin-top:6px;
+    font-size:30px;
+    line-height:1;
+    font-weight:900;
+    color:#EA580C;
+}
+
+.od-admin-priority {
+    border-radius:12px;
+    border:1px solid #FDE68A;
+    background:#FFFBEB;
+    padding:10px;
+}
+
+.od-admin-priority.is-alert {
+    border-color:#FCA5A5;
+    background:#FEF2F2;
+}
+
+.od-admin-priority.is-safe {
+    border-color:#A7F3D0;
+    background:#ECFDF5;
+}
+
+.od-admin-priority-text {
+    margin:0;
+    font-size:12px;
+    line-height:1.45;
+    color:#7C2D12;
+    font-weight:700;
+}
+
+.od-admin-priority.is-safe .od-admin-priority-text {
+    color:#065F46;
+}
+
+.od-admin-priority-btn {
+    margin-top:8px;
+    width:100%;
+    border:none;
+    border-radius:10px;
+    padding:10px;
+    background:#EA580C;
+    color:#fff;
+    font-family:var(--font);
+    font-size:12px;
+    font-weight:800;
+    cursor:pointer;
+}
+
+.od-admin-priority-btn:active {
+    transform:scale(.98);
+}
+
 .od-admin-flow {
     background:#FFFFFF;
     border:1px solid #FED7AA;

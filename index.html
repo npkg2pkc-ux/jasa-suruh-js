@@ -537,13 +537,30 @@
                             </section>
 
                             <section class="od-admin-review-focus od-admin-only" id="adminReviewFocusCard">
-                                <div class="od-section-head"><h3>Prioritas Admin: Review Komisi</h3></div>
-                                <p class="od-admin-review-desc" id="adminReviewFocusHint">Verifikasi order selesai sebelum komisi ditransfer ke seller atau driver.</p>
-                                <div class="od-admin-review-kpi">
-                                    <span class="od-admin-review-kpi-label">Order Menunggu Approve</span>
-                                    <strong id="adminPendingReviewCount">0</strong>
+                                <div class="od-section-head"><h3>Pusat Monitoring Cepat</h3></div>
+                                <p class="od-admin-review-desc">Ringkasan operasional hari ini agar admin bisa paham kondisi dalam 3 detik.</p>
+                                <div class="od-admin-monitor-grid">
+                                    <button class="od-admin-metric-card" type="button" data-admin-target="orders">
+                                        <span class="od-admin-metric-label">Total Pesanan Hari Ini</span>
+                                        <strong class="od-admin-metric-value" id="adminTodayTotalOrders">0</strong>
+                                    </button>
+                                    <button class="od-admin-metric-card" type="button" data-admin-target="orders">
+                                        <span class="od-admin-metric-label">Order Aktif</span>
+                                        <strong class="od-admin-metric-value" id="adminTodayActiveOrders">0</strong>
+                                    </button>
+                                    <button class="od-admin-metric-card" type="button" data-admin-target="orders">
+                                        <span class="od-admin-metric-label">Order Selesai</span>
+                                        <strong class="od-admin-metric-value" id="adminTodayCompletedOrders">0</strong>
+                                    </button>
+                                    <button class="od-admin-metric-card" type="button" data-admin-target="review">
+                                        <span class="od-admin-metric-label">Perlu Review Komisi</span>
+                                        <strong class="od-admin-metric-value" id="adminPendingReviewCount">0</strong>
+                                    </button>
                                 </div>
-                                <button class="od-quick-btn od-admin-review-btn" data-action="order-review" type="button">Buka Antrian Review Komisi</button>
+                                <div class="od-admin-priority" id="adminPriorityBox">
+                                    <p class="od-admin-priority-text" id="adminPriorityText">Semua order aman. Tidak ada review komisi tertunda.</p>
+                                    <button class="od-admin-priority-btn" id="adminPriorityBtn" type="button" data-admin-target="orders">Lihat Detail Order</button>
+                                </div>
                             </section>
 
                             <section class="od-admin-flow od-admin-only" id="adminFlowCard">
