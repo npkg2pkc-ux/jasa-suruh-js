@@ -152,21 +152,13 @@
                         <!-- STEP 1: Pilih Jenis Akun -->
                         <div id="regStep1" class="reg-step auth-form reg-step-active">
                             <h3 class="reg-step-title">Pilih Jenis Akun</h3>
-                            <p class="reg-step-subtitle">Kamu mau pakai Jasa Suruh sebagai apa?</p>
+                            <p class="reg-step-subtitle">Pendaftaran mandiri hanya untuk User dan Seller.</p>
                             <div class="reg-role-selector">
                                 <button type="button" class="reg-role-btn active" data-role="user">
                                     <div class="reg-role-icon-wrap"><span class="reg-role-icon">👤</span></div>
                                     <div class="reg-role-info">
                                         <span class="reg-role-name">Pengguna</span>
                                         <span class="reg-role-desc">Cari & pesan jasa untuk kebutuhanmu</span>
-                                    </div>
-                                    <div class="reg-role-check"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-                                </button>
-                                <button type="button" class="reg-role-btn" data-role="talent">
-                                    <div class="reg-role-icon-wrap"><span class="reg-role-icon">💼</span></div>
-                                    <div class="reg-role-info">
-                                        <span class="reg-role-name">Talent</span>
-                                        <span class="reg-role-desc">Tawarkan keahlianmu & dapatkan penghasilan</span>
                                     </div>
                                     <div class="reg-role-check"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                                 </button>
@@ -890,6 +882,14 @@
                                                     </span>
                                                     <span class="acc-item-chevron">›</span>
                                                 </button>
+                                                <button class="acc-item od-admin-only" data-owner-setting="driver-recruit" type="button">
+                                                    <span class="acc-item-icon">🛵</span>
+                                                    <span class="acc-item-body">
+                                                        <span class="acc-item-label">Rekrutment Driver</span>
+                                                        <span class="acc-item-sub">Input data driver baru oleh admin</span>
+                                                    </span>
+                                                    <span class="acc-item-chevron">›</span>
+                                                </button>
                                             </div>
                                         </section>
 
@@ -949,6 +949,61 @@
                                                 <div class="od-input-group"><span class="od-input-prefix">Rp</span><input type="number" id="setMinShopFee" placeholder="10000" min="0"></div>
                                             </div>
                                             <button type="submit" class="od-btn-save">💾 Simpan Pengaturan Ongkir</button>
+                                        </form>
+                                    </div>
+                                </div>
+
+                                <div class="od-settings-modal hidden" id="ownerDriverRecruitModal">
+                                    <div class="od-settings-modal-backdrop" id="ownerDriverRecruitBackdrop"></div>
+                                    <div class="od-settings-modal-card" role="dialog" aria-modal="true" aria-labelledby="ownerDriverRecruitTitle">
+                                        <div class="od-settings-modal-head">
+                                            <h4 id="ownerDriverRecruitTitle">Rekrutment Driver</h4>
+                                            <button class="od-settings-modal-close" id="ownerDriverRecruitClose" type="button">&times;</button>
+                                        </div>
+                                        <form id="driverRecruitForm" class="od-settings-form">
+                                            <div class="od-form-row">
+                                                <label>Foto Driver</label>
+                                                <div class="od-input-group"><input type="file" id="driverRecruitPhoto" accept="image/*" required></div>
+                                            </div>
+                                            <div class="od-form-row">
+                                                <label>Foto KTP</label>
+                                                <div class="od-input-group"><input type="file" id="driverRecruitKtpPhoto" accept="image/*" required></div>
+                                            </div>
+                                            <div class="od-form-row">
+                                                <label>No KTP</label>
+                                                <div class="od-input-group"><input type="text" id="driverRecruitNoKtp" placeholder="NIK 16 digit" maxlength="20" required></div>
+                                            </div>
+                                            <div class="od-form-row">
+                                                <label>Nama</label>
+                                                <div class="od-input-group"><input type="text" id="driverRecruitName" placeholder="Nama driver" required></div>
+                                            </div>
+                                            <div class="od-form-row">
+                                                <label>Jenis Kelamin</label>
+                                                <div class="od-input-group">
+                                                    <select id="driverRecruitGender" required>
+                                                        <option value="">Pilih jenis kelamin</option>
+                                                        <option value="Laki-laki">Laki-laki</option>
+                                                        <option value="Perempuan">Perempuan</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="od-form-row">
+                                                <label>Alamat lengkap</label>
+                                                <div class="od-input-group"><textarea id="driverRecruitAddress" rows="2" placeholder="Alamat domisili lengkap" required></textarea></div>
+                                            </div>
+                                            <div class="od-form-row">
+                                                <label>Jenis Motor</label>
+                                                <div class="od-input-group"><input type="text" id="driverRecruitMotorType" placeholder="Contoh: Honda Beat" required></div>
+                                            </div>
+                                            <div class="od-form-row">
+                                                <label>Tahun Kendaraan</label>
+                                                <div class="od-input-group"><input type="number" id="driverRecruitVehicleYear" placeholder="Contoh: 2021" min="1990" max="2099" required></div>
+                                            </div>
+                                            <div class="od-form-row">
+                                                <label>Plat Nomor Kendaraan</label>
+                                                <div class="od-input-group"><input type="text" id="driverRecruitPlate" placeholder="Contoh: B 1234 XYZ" required></div>
+                                            </div>
+                                            <button type="submit" class="od-btn-save">✅ Rekrut Driver</button>
                                         </form>
                                     </div>
                                 </div>

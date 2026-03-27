@@ -301,6 +301,10 @@ var OwnerDashboard = (function () {
                 }
                 if (action === 'order-review') {
                     if (typeof openAdminOrderReview === 'function') openAdminOrderReview();
+                    return;
+                }
+                if (action === 'driver-recruit') {
+                    openOwnerDriverRecruitModal();
                 }
             });
         }
@@ -327,6 +331,24 @@ var OwnerDashboard = (function () {
         if (deliveryBackdrop && !deliveryBackdrop._bound) {
             deliveryBackdrop._bound = true;
             deliveryBackdrop.addEventListener('click', closeOwnerDeliveryModal);
+        }
+
+        var recruitClose = $('ownerDriverRecruitClose');
+        if (recruitClose && !recruitClose._bound) {
+            recruitClose._bound = true;
+            recruitClose.addEventListener('click', closeOwnerDriverRecruitModal);
+        }
+
+        var recruitBackdrop = $('ownerDriverRecruitBackdrop');
+        if (recruitBackdrop && !recruitBackdrop._bound) {
+            recruitBackdrop._bound = true;
+            recruitBackdrop.addEventListener('click', closeOwnerDriverRecruitModal);
+        }
+
+        var recruitForm = $('driverRecruitForm');
+        if (recruitForm && !recruitForm._bound) {
+            recruitForm._bound = true;
+            recruitForm.addEventListener('submit', handleDriverRecruitSubmit);
         }
 
         // Owner logout button in settings page
@@ -1558,7 +1580,7 @@ var OwnerDashboard = (function () {
                 list[idx] = user;
                 if (typeof saveUsers === 'function') saveUsers(list);
                 if (typeof backendPost === 'function') {
-                    backendPost(Object.assign({ action: 'register' }, user));
+                    backendPost(Object.assign({ action: 'register', actorId: (actor ? actor.id : '') }, user));
                 }
                 if (typeof showToast === 'function') {
                     showToast(nextActive ? 'Akun diaktifkan kembali' : 'Akun disuspend', 'success');
@@ -1653,6 +1675,212 @@ var OwnerDashboard = (function () {
         setTimeout(function () {
             modal.classList.add('hidden');
         }, 180);
+    }
+
+    function openOwnerDriverRecruitModal() {
+        if (!_isAdmin() && !_isOwner()) {
+            if (typeof showToast === 'function') showToast('Akses ditolak', 'error');
+            return;
+        }
+        var modal = $('ownerDriverRecruitModal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        requestAnimationFrame(function () {
+            modal.classList.add('is-open');
+        });
+    }
+
+    function closeOwnerDriverRecruitModal() {
+        var modal = $('ownerDriverRecruitModal');
+        if (!modal) return;
+        modal.classList.remove('is-open');
+        setTimeout(function () {
+            modal.classList.add('hidden');
+        }, 180);
+    }
+
+    function _readFileAsDataUrl(file) {
+        return new Promise(function (resolve, reject) {
+            if (!file) return resolve('');
+            var reader = new FileReader();
+            reader.onload = function () { resolve(String(reader.result || '')); };
+            reader.onerror = function () { reject(new Error('Gagal membaca file')); };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function _uploadDriverAsset(path, file, fallbackDataUrl) {
+        if (!file) return Promise.resolve('');
+        var sb = (window.FB && window.FB._sb) ? window.FB._sb : null;
+        if (!sb || !sb.storage) return Promise.resolve(fallbackDataUrl || '');
+
+        return sb.storage.from('avatars').upload(path, file, {
+            cacheControl: '3600',
+            upsert: true
+        }).then(function (res) {
+            if (res.error) throw res.error;
+            var pub = sb.storage.from('avatars').getPublicUrl(path);
+            if (pub && pub.data && pub.data.publicUrl) return pub.data.publicUrl;
+            return fallbackDataUrl || '';
+        }).catch(function () {
+            return fallbackDataUrl || '';
+        });
+    }
+
+    function _normalizePlate(value) {
+        return String(value || '').trim().toUpperCase().replace(/\s+/g, ' ');
+    }
+
+    function _defaultDriverSkills() {
+        return [
+            {
+                id: generateId(),
+                type: 'js_antar',
+                serviceType: 'JS Antar Motor',
+                description: 'Driver resmi hasil rekrut admin',
+                price: 0,
+                isAvailable: true,
+                createdAt: Date.now()
+            },
+            {
+                id: generateId(),
+                type: 'js_delivery',
+                serviceType: 'JS Delivery Motor',
+                description: 'Driver resmi hasil rekrut admin',
+                price: 0,
+                isAvailable: true,
+                createdAt: Date.now()
+            }
+        ];
+    }
+
+    function handleDriverRecruitSubmit(e) {
+        e.preventDefault();
+        if (!_isAdmin() && !_isOwner()) {
+            if (typeof showToast === 'function') showToast('Hanya admin/owner yang bisa merekrut driver', 'error');
+            return;
+        }
+
+        var session = typeof getSession === 'function' ? getSession() : null;
+        var photoFile = $('driverRecruitPhoto') && $('driverRecruitPhoto').files ? $('driverRecruitPhoto').files[0] : null;
+        var ktpPhotoFile = $('driverRecruitKtpPhoto') && $('driverRecruitKtpPhoto').files ? $('driverRecruitKtpPhoto').files[0] : null;
+        var noKtp = String(($('driverRecruitNoKtp') && $('driverRecruitNoKtp').value) || '').replace(/\D/g, '');
+        var nama = String(($('driverRecruitName') && $('driverRecruitName').value) || '').trim();
+        var jenisKelamin = String(($('driverRecruitGender') && $('driverRecruitGender').value) || '').trim();
+        var alamatLengkap = String(($('driverRecruitAddress') && $('driverRecruitAddress').value) || '').trim();
+        var jenisMotor = String(($('driverRecruitMotorType') && $('driverRecruitMotorType').value) || '').trim();
+        var tahunKendaraan = String(($('driverRecruitVehicleYear') && $('driverRecruitVehicleYear').value) || '').trim();
+        var platNomor = _normalizePlate(($('driverRecruitPlate') && $('driverRecruitPlate').value) || '');
+
+        if (!photoFile || !ktpPhotoFile) {
+            if (typeof showToast === 'function') showToast('Foto driver dan foto KTP wajib diisi', 'error');
+            return;
+        }
+        if (noKtp.length < 16) {
+            if (typeof showToast === 'function') showToast('No KTP minimal 16 digit', 'error');
+            return;
+        }
+        if (!nama || !jenisKelamin || !alamatLengkap || !jenisMotor || !tahunKendaraan || !platNomor) {
+            if (typeof showToast === 'function') showToast('Lengkapi semua data rekrutment driver', 'error');
+            return;
+        }
+
+        var form = $('driverRecruitForm');
+        var submitBtn = form ? form.querySelector('.od-btn-save') : null;
+        var originalText = submitBtn ? submitBtn.textContent : '';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Menyimpan...';
+        }
+
+        var driverId = generateId();
+        var createdAt = Date.now();
+        var username = 'drv_' + String(driverId).slice(-8);
+        var yearNum = Number(tahunKendaraan);
+        if (!isFinite(yearNum)) yearNum = 0;
+
+        Promise.all([
+            _readFileAsDataUrl(photoFile),
+            _readFileAsDataUrl(ktpPhotoFile)
+        ]).then(function (dataUrls) {
+            var driverPhotoData = dataUrls[0] || '';
+            var ktpPhotoData = dataUrls[1] || '';
+
+            return Promise.all([
+                _uploadDriverAsset('driver-' + driverId + '-photo.jpg', photoFile, driverPhotoData),
+                _uploadDriverAsset('driver-' + driverId + '-ktp.jpg', ktpPhotoFile, ktpPhotoData)
+            ]).then(function (urls) {
+                return {
+                    driverPhotoUrl: urls[0] || driverPhotoData,
+                    ktpPhotoUrl: urls[1] || ktpPhotoData
+                };
+            });
+        }).then(function (asset) {
+            var driverUser = {
+                id: driverId,
+                name: nama,
+                nama: nama,
+                username: username,
+                phone: '',
+                no_hp: '',
+                email: '',
+                role: 'talent',
+                createdAt: createdAt,
+                lat: 0,
+                lng: 0,
+                address: alamatLengkap,
+                is_active: true,
+                foto_url: asset.driverPhotoUrl,
+                driver_photo_url: asset.driverPhotoUrl,
+                ktp_photo_url: asset.ktpPhotoUrl,
+                no_ktp: noKtp,
+                jenis_kelamin: jenisKelamin,
+                alamat_lengkap: alamatLengkap,
+                jenis_motor: jenisMotor,
+                tahun_kendaraan: yearNum > 0 ? yearNum : tahunKendaraan,
+                plat_nomor_kendaraan: platNomor,
+                vehicleType: jenisMotor,
+                vehicleYear: yearNum > 0 ? yearNum : tahunKendaraan,
+                plateNo: platNomor,
+                recruitmentSource: 'admin'
+            };
+
+            var backendPromise = Promise.resolve({ success: true, data: driverUser });
+            if (typeof backendPost === 'function') {
+                backendPromise = backendPost(Object.assign({ action: 'register', actorId: (session && session.id) || '' }, driverUser));
+            }
+
+            return backendPromise.then(function (res) {
+                if (res && res.success === false) {
+                    return Promise.reject(new Error(res.message || 'Gagal menyimpan data driver'));
+                }
+
+                var users = typeof getUsers === 'function' ? getUsers() : [];
+                users.push(driverUser);
+                if (typeof saveUsers === 'function') saveUsers(users);
+
+                var driverSkills = _defaultDriverSkills();
+                if (typeof setUserSkills === 'function') {
+                    setUserSkills(driverId, driverSkills);
+                }
+                if (typeof backendPost === 'function') {
+                    backendPost({ action: 'updateSkills', userId: driverId, skills: driverSkills });
+                }
+
+                if (form) form.reset();
+                closeOwnerDriverRecruitModal();
+                renderOwnerStats();
+                renderOwnerUsers();
+                if (typeof showToast === 'function') showToast('Driver berhasil direkrut', 'success');
+            });
+        }).catch(function (err) {
+            if (typeof showToast === 'function') showToast((err && err.message) ? err.message : 'Gagal merekrut driver', 'error');
+        }).finally(function () {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText || '✅ Rekrut Driver';
+            }
+        });
     }
 
     function handleCommissionFormSubmit(e) {

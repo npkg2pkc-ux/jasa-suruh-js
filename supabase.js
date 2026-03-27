@@ -119,7 +119,15 @@
                         createdAt: d.createdAt || row.created_at || Date.now(),
                         lat: d.lat || 0,
                         lng: d.lng || 0,
-                        address: d.address || ''
+                        address: d.address || d.alamat_lengkap || '',
+                        no_ktp: d.no_ktp || d.noKtp || '',
+                        jenis_kelamin: d.jenis_kelamin || d.gender || '',
+                        alamat_lengkap: d.alamat_lengkap || d.address || '',
+                        jenis_motor: d.jenis_motor || d.vehicleType || '',
+                        tahun_kendaraan: d.tahun_kendaraan || d.vehicleYear || '',
+                        plat_nomor_kendaraan: d.plat_nomor_kendaraan || d.plateNo || '',
+                        ktp_photo_url: d.ktp_photo_url || '',
+                        driver_photo_url: d.driver_photo_url || d.foto_url || row.foto_url || ''
                     };
                 });
                 return ok(normalized);
@@ -347,50 +355,70 @@
     function doRegister(body) {
         var userData = Object.assign({}, body);
         delete userData.action;
+        var role = String(userData.role || 'user').toLowerCase();
 
-        // Normalize phone: always store as 62xxx
-        var phone = (userData.phone || userData.no_hp || '').replace(/\D/g, '');
-        if (phone.startsWith('08')) phone = '62' + phone.slice(1);
-        else if (phone.startsWith('8')) phone = '62' + phone;
-        else if (phone && !phone.startsWith('62')) phone = '62' + phone;
-        userData.no_hp = phone;
-        userData.phone = phone;
-        if (!userData.username) userData.username = phone;
+        function proceedUpsert() {
+            // Normalize phone: always store as 62xxx
+            var phone = (userData.phone || userData.no_hp || '').replace(/\D/g, '');
+            if (phone.startsWith('08')) phone = '62' + phone.slice(1);
+            else if (phone.startsWith('8')) phone = '62' + phone;
+            else if (phone && !phone.startsWith('62')) phone = '62' + phone;
+            userData.no_hp = phone;
+            userData.phone = phone;
+            if (!userData.username) {
+                userData.username = phone || (role === 'talent' ? ('drv_' + generateId().slice(-8)) : ('usr_' + generateId().slice(-8)));
+            }
 
-        return getAccountDeletionCooldown(phone)
-            .then(function (cooldownRes) {
-                var cooldown = cooldownRes && cooldownRes.data;
-                if (cooldown && cooldown.blocked) {
-                    return fail(formatCooldownMessage(cooldown.remainingMs));
+            return getAccountDeletionCooldown(phone)
+                .then(function (cooldownRes) {
+                    var cooldown = cooldownRes && cooldownRes.data;
+                    if (cooldown && cooldown.blocked) {
+                        return fail(formatCooldownMessage(cooldown.remainingMs));
+                    }
+
+                    var upsertData = {
+                        id: userData.id,
+                        username: userData.username,
+                        role: role,
+                        nama: userData.name || userData.nama || '',
+                        no_hp: phone,
+                        email: userData.email || '',
+                        foto_url: userData.foto_url || '',
+                        data: userData
+                    };
+
+                    // Try upsert by id first; if username conflict, update by id instead
+                    return sb.from('users').upsert(upsertData, { onConflict: 'id' })
+                        .then(function (res) {
+                            if (res.error && res.error.code === '23505') {
+                                // Username unique violation — update existing row by id
+                                delete upsertData.username;
+                                return sb.from('users').update(upsertData).eq('id', userData.id)
+                                    .then(function (res2) {
+                                        throwIfError(res2);
+                                        return ok(userData);
+                                    });
+                            }
+                            throwIfError(res);
+                            return ok(userData);
+                        });
+                });
+        }
+
+        if (role === 'talent') {
+            var actorId = String(body && body.actorId || '').trim();
+            if (!actorId) {
+                return Promise.resolve(fail('Pendaftaran driver hanya bisa dilakukan admin melalui menu rekrutment'));
+            }
+            return resolveUserRoleById(actorId).then(function (actorRole) {
+                if (actorRole !== 'admin' && actorRole !== 'owner') {
+                    return fail('Akses ditolak: hanya admin/owner yang boleh merekrut driver');
                 }
-
-                var upsertData = {
-                    id: userData.id,
-                    username: userData.username,
-                    role: userData.role || 'user',
-                    nama: userData.name || userData.nama || '',
-                    no_hp: phone,
-                    email: userData.email || '',
-                    foto_url: userData.foto_url || '',
-                    data: userData
-                };
-
-                // Try upsert by id first; if username conflict, update by id instead
-                return sb.from('users').upsert(upsertData, { onConflict: 'id' })
-                    .then(function (res) {
-                        if (res.error && res.error.code === '23505') {
-                            // Username unique violation — update existing row by id
-                            delete upsertData.username;
-                            return sb.from('users').update(upsertData).eq('id', userData.id)
-                                .then(function (res2) {
-                                    throwIfError(res2);
-                                    return ok(userData);
-                                });
-                        }
-                        throwIfError(res);
-                        return ok(userData);
-                    });
+                return proceedUpsert();
             });
+        }
+
+        return proceedUpsert();
     }
 
     function doDeleteUser(body) {

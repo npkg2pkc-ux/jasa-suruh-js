@@ -344,15 +344,17 @@ function renderTalentCards(talents) {
         var desc = t.skill.description || '';
         var addr = t.user.address || '';
         var photo = t.photo;
-        var profilePhoto = getProfilePhoto(t.user.id);
+        var profilePhoto = resolveTalentProfilePhoto(t);
+        var vehicleType = t.user.jenis_motor || t.user.vehicleType || '-';
+        var plateNo = t.user.plat_nomor_kendaraan || t.user.plateNo || '-';
 
-        var imgHtml = photo
+        var imgHtml = profilePhoto
+            ? '<img src="' + profilePhoto + '" alt="' + escapeHtml(t.user.name) + '">'
+            : (photo
             ? '<img src="' + photo + '" alt="' + escapeHtml(serviceType) + '">'
-            : '<div class="stc-img-placeholder">🧹</div>';
+            : '<div class="stc-img-placeholder">🧹</div>');
 
-        var talentAvatarHtml = profilePhoto
-            ? '<div class="stc-talent-badge"><img src="' + profilePhoto + '" alt="' + escapeHtml(t.user.name) + '"><span class="stc-verified-dot">✓</span></div>'
-            : '';
+        var talentAvatarHtml = '';
 
         return '<div class="stc" data-idx="' + idx + '">'
             + '<div class="stc-img">'
@@ -363,6 +365,7 @@ function renderTalentCards(talents) {
             + '<div class="stc-body">'
             + '<div class="stc-name">' + escapeHtml(t.user.name) + '</div>'
             + (serviceType ? '<div class="stc-service">' + escapeHtml(serviceType) + '</div>' : '')
+            + '<div class="stc-vehicle">🏍️ ' + escapeHtml(String(vehicleType || '-')) + ' • ' + escapeHtml(String(plateNo || '-')) + '</div>'
             + (desc ? '<div class="stc-desc">' + escapeHtml(desc) + '</div>' : '')
             + '<div class="stc-bottom">'
             + (priceText ? '<span class="stc-price">' + priceText + '</span>' : '')
@@ -408,6 +411,8 @@ function openTalentDetail(t) {
     var serviceType = t.skill.serviceType || '';
     var desc = t.skill.description || 'Tidak ada deskripsi.';
     var addr = t.user.address || 'Lokasi tidak tersedia';
+    var vehicleType = t.user.jenis_motor || t.user.vehicleType || '-';
+    var plateNo = t.user.plat_nomor_kendaraan || t.user.plateNo || '-';
     var initial = (t.user.name || 'T').charAt(0).toUpperCase();
 
     var talentAvatarHtml = profilePhoto
@@ -439,6 +444,7 @@ function openTalentDetail(t) {
         + '<div class="tdp-talent-info">'
         + '<div class="tdp-talent-name">' + escapeHtml(t.user.name) + '</div>'
         + '<div class="tdp-talent-role">Talent Terverifikasi</div>'
+        + '<div class="tdp-talent-addr">🏍️ ' + escapeHtml(String(vehicleType || '-')) + ' • ' + escapeHtml(String(plateNo || '-')) + '</div>'
         + '<div class="tdp-talent-addr">📍 ' + escapeHtml(addr) + '</div>'
         + '</div>'
         + '</div>'

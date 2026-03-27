@@ -6,6 +6,12 @@
 'use strict';
 
 var RegisterPage = (function () {
+    var PUBLIC_REGISTER_ROLES = ['user', 'penjual'];
+
+    function normalizePublicRegisterRole(role) {
+        var r = String(role || '').toLowerCase();
+        return PUBLIC_REGISTER_ROLES.indexOf(r) >= 0 ? r : 'user';
+    }
 
     // ═══ STATE ═══
     var state = {
@@ -158,7 +164,7 @@ var RegisterPage = (function () {
                 btn.addEventListener('click', function () {
                     buttons.forEach(function (b) { b.classList.remove('active'); });
                     this.classList.add('active');
-                    state.role = this.dataset.role;
+                    state.role = normalizePublicRegisterRole(this.dataset.role);
                     document.getElementById('regStep1Next').disabled = false;
                 });
             });
@@ -540,6 +546,7 @@ var RegisterPage = (function () {
             }
 
             photoPromise.then(function (fotoUrl) {
+                state.role = normalizePublicRegisterRole(state.role);
                 var profileData = {
                     role: state.role,
                     nama: state.nama,
