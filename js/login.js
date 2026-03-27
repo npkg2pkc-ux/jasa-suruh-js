@@ -31,8 +31,11 @@ var LoginPage = (function () {
         // Restore last phone
         var lastPhone = localStorage.getItem(LAST_PHONE_KEY);
         if (lastPhone) {
-            $('loginPhoneInput').value = lastPhone;
-            _phoneRaw = lastPhone;
+            var restored = String(lastPhone || '').replace(/\D/g, '');
+            if (restored.startsWith('62')) restored = restored.slice(2);
+            if (restored.startsWith('0')) restored = restored.slice(1);
+            _phoneRaw = restored;
+            $('loginPhoneInput').value = _phoneRaw ? ('0' + _phoneRaw) : '';
             _validatePhone();
             _checkAndRenderCooldown(lastPhone);
         }
@@ -48,12 +51,13 @@ var LoginPage = (function () {
         var btn = $('loginBtnSendOTP');
 
         input.addEventListener('input', function () {
-            // Strip non-digits and leading 0/62
+            // Normalize any input (8..., 08..., 62...) into display format 08...
             var v = this.value.replace(/\D/g, '');
-            if (v.startsWith('62')) v = v.slice(2);
-            if (v.startsWith('0')) v = v.slice(1);
+            if (v.startsWith('62')) v = '0' + v.slice(2);
+            if (v.startsWith('8')) v = '0' + v;
+            if (v.length > 13) v = v.slice(0, 13);
             this.value = v;
-            _phoneRaw = v;
+            _phoneRaw = v.startsWith('0') ? v.slice(1) : v;
             _validatePhone();
         });
 
