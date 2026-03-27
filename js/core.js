@@ -658,6 +658,9 @@ function updateRoleUI(user) {
         renderTalentSkills();
         loadTalentDashboardOrders();
         startTalentDashboardPolling();
+        if (typeof refreshTalentPushStatus === 'function') {
+            refreshTalentPushStatus(false);
+        }
         initNotifications();
     } else if (role === 'penjual') {
         var el3 = document.getElementById('penjualName');

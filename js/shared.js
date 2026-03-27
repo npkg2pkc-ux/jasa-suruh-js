@@ -1010,6 +1010,13 @@ function _ensurePushSubscription(session) {
     return _pushSetupPromise;
 }
 
+function ensurePushSubscriptionForCurrentUser() {
+    var session = getSession();
+    if (!session || !session.id) return Promise.resolve(false);
+    return _ensurePushSubscription(session);
+}
+window.ensurePushSubscriptionForCurrentUser = ensurePushSubscriptionForCurrentUser;
+
 function _postServiceWorkerNotification(payload) {
     if (!payload || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
     if (!('Notification' in window) || Notification.permission !== 'granted') return;

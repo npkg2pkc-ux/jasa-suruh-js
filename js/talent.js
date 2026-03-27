@@ -476,6 +476,124 @@ function renderTalentSkills() {
 // ══════════════════════════════════════════
 // ═══ TALENT ONLINE TOGGLE ═══
 // ══════════════════════════════════════════
+var _talentPushStatusTimer = null;
+var _talentPushWatchHooked = false;
+
+function _setTalentPushStatus(text, status) {
+    var statusEl = document.getElementById('talentPushStatusText');
+    if (!statusEl) return;
+
+    statusEl.textContent = text;
+    statusEl.classList.remove('is-active', 'is-warning', 'is-error', 'is-checking');
+    if (status) statusEl.classList.add(status);
+}
+
+function _setTalentPushAction(visible, text, disabled) {
+    var btn = document.getElementById('talentPushEnableBtn');
+    if (!btn) return;
+    btn.classList.toggle('hidden', !visible);
+    btn.textContent = text || 'Aktifkan';
+    btn.disabled = !!disabled;
+}
+
+function refreshTalentPushStatus(forceEnsure) {
+    var session = getSession();
+    if (!session || session.role !== 'talent') return Promise.resolve(false);
+
+    var supportsPush = ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
+    if (!supportsPush) {
+        _setTalentPushStatus('Push tidak didukung browser ini', 'is-error');
+        _setTalentPushAction(false, '', false);
+        return Promise.resolve(false);
+    }
+
+    if (Notification.permission === 'denied') {
+        _setTalentPushStatus('Push diblokir di browser', 'is-error');
+        _setTalentPushAction(true, 'Buka Pengaturan', false);
+        return Promise.resolve(false);
+    }
+
+    if (Notification.permission === 'default' && forceEnsure) {
+        return Notification.requestPermission().then(function (perm) {
+            if (perm !== 'granted') {
+                _setTalentPushStatus('Izin notifikasi belum diberikan', 'is-warning');
+                _setTalentPushAction(true, 'Izinkan', false);
+                return false;
+            }
+            return refreshTalentPushStatus(true);
+        }).catch(function () {
+            _setTalentPushStatus('Gagal meminta izin notifikasi', 'is-error');
+            _setTalentPushAction(true, 'Coba Lagi', false);
+            return false;
+        });
+    }
+
+    if (Notification.permission === 'default') {
+        _setTalentPushStatus('Izin notifikasi belum diberikan', 'is-warning');
+        _setTalentPushAction(true, 'Izinkan', false);
+        return Promise.resolve(false);
+    }
+
+    _setTalentPushStatus('Push: sinkronisasi...', 'is-checking');
+    _setTalentPushAction(false, '', true);
+
+    return navigator.serviceWorker.ready
+        .then(function (reg) {
+            return reg.pushManager.getSubscription().then(function (sub) {
+                if (sub) return true;
+
+                if (forceEnsure && typeof window.ensurePushSubscriptionForCurrentUser === 'function') {
+                    return window.ensurePushSubscriptionForCurrentUser();
+                }
+
+                return false;
+            });
+        })
+        .then(function (ok) {
+            if (ok) {
+                _setTalentPushStatus('Push aktif - order masuk realtime', 'is-active');
+                _setTalentPushAction(false, '', false);
+                return true;
+            }
+
+            _setTalentPushStatus('Push belum aktif di perangkat ini', 'is-warning');
+            _setTalentPushAction(true, 'Sinkronkan', false);
+            return false;
+        })
+        .catch(function () {
+            _setTalentPushStatus('Gagal cek status push', 'is-error');
+            _setTalentPushAction(true, 'Coba Lagi', false);
+            return false;
+        });
+}
+window.refreshTalentPushStatus = refreshTalentPushStatus;
+
+function _startTalentPushStatusWatcher() {
+    if (_talentPushStatusTimer) return;
+
+    _talentPushStatusTimer = setInterval(function () {
+        var session = getSession();
+        if (!session || session.role !== 'talent') return;
+        refreshTalentPushStatus(false);
+    }, 25000);
+
+    if (_talentPushWatchHooked) return;
+    _talentPushWatchHooked = true;
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState !== 'visible') return;
+        var session = getSession();
+        if (!session || session.role !== 'talent') return;
+        refreshTalentPushStatus(false);
+    });
+
+    window.addEventListener('focus', function () {
+        var session = getSession();
+        if (!session || session.role !== 'talent') return;
+        refreshTalentPushStatus(false);
+    });
+}
+
 function setupTalentToggle() {
     var toggle = document.getElementById('talentOnlineToggle');
     var label = document.getElementById('talentStatusLabel');
@@ -602,6 +720,28 @@ function setupTalentToggle() {
             openNotifPopup();
         });
     }
+
+    var pushBtn = document.getElementById('talentPushEnableBtn');
+    if (pushBtn) {
+        pushBtn.addEventListener('click', function () {
+            if (!('Notification' in window)) {
+                showToast('Browser ini belum mendukung notifikasi.', 'error');
+                return;
+            }
+
+            if (Notification.permission === 'denied') {
+                showToast('Izin notifikasi diblokir. Aktifkan lagi dari pengaturan browser.', 'error');
+                return;
+            }
+
+            refreshTalentPushStatus(true).then(function (ok) {
+                if (ok) showToast('Push notifikasi driver sudah aktif.', 'success');
+            });
+        });
+    }
+
+    refreshTalentPushStatus(false);
+    _startTalentPushStatusWatcher();
 }
 
 function syncTalentOnlineToggleFromSession() {
