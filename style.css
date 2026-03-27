@@ -3156,6 +3156,85 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 
 /* ─── Users Section ─── */
 .od-users-section { background:var(--white); border-radius:var(--r-lg); padding:18px 16px; box-shadow:0 2px 12px rgba(0,0,0,.05); margin-bottom:20px; animation:odFadeInUp .5s ease-out both; animation-delay:.3s; }
+
+.od-admin-driver-monitor {
+    border:1px solid #FED7AA;
+    background:#FFF7ED;
+    border-radius:12px;
+    padding:10px;
+    margin-bottom:12px;
+}
+
+.od-admin-driver-title {
+    margin:0 0 8px;
+    font-size:12px;
+    font-weight:800;
+    color:#9A3412;
+}
+
+.od-admin-driver-grid {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+    margin-bottom:8px;
+}
+
+.od-admin-driver-chip {
+    border:1px solid #FDBA74;
+    border-radius:10px;
+    background:#FFFFFF;
+    color:#7C2D12;
+    font-size:10px;
+    font-weight:700;
+    padding:7px 8px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+}
+
+.od-admin-driver-chip strong {
+    font-size:18px;
+    line-height:1;
+    color:#EA580C;
+}
+
+.od-admin-driver-chip-alert {
+    border-color:#FCA5A5;
+    background:#FEF2F2;
+}
+
+.od-admin-driver-chip-alert strong {
+    color:#B91C1C;
+}
+
+.od-admin-driver-filters {
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+
+.od-admin-driver-filter {
+    border:1px solid #FDBA74;
+    border-radius:999px;
+    background:#FFFFFF;
+    color:#9A3412;
+    font-size:11px;
+    font-weight:700;
+    padding:6px 10px;
+    cursor:pointer;
+    font-family:var(--font);
+}
+
+.od-admin-driver-filter.active {
+    background:#EA580C;
+    border-color:#EA580C;
+    color:#FFFFFF;
+}
+
+.od-admin-driver-filter:active {
+    transform:scale(.97);
+}
+
 .od-user-stats-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
 .od-user-stat { background:linear-gradient(180deg,#FCFCFD 0%, #F8FAFC 100%); border:1px solid #E5E7EB; border-radius:12px; padding:10px 10px; font-size:11px; font-weight:600; color:#64748B; text-align:center; line-height:1.25; }
 .od-user-stat strong { display:block; font-size:22px; font-weight:900; color:#0F172A; margin-bottom:3px; line-height:1; }
@@ -3175,6 +3254,17 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .od-user-name { font-size:15px; font-weight:800; color:var(--black); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .od-user-meta { font-size:12px; color:#64748B; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .od-user-submeta { font-size:11px; color:#94A3B8; margin-top:2px; }
+.od-driver-alert {
+    display:inline-flex;
+    margin-top:6px;
+    font-size:10px;
+    font-weight:800;
+    color:#991B1B;
+    background:#FEE2E2;
+    border:1px solid #FCA5A5;
+    border-radius:999px;
+    padding:3px 8px;
+}
 .od-user-role-chip { font-size:10px; font-weight:800; border-radius:999px; padding:3px 8px; border:1px solid transparent; white-space:nowrap; }
 .od-user-role-chip.is-user { color:#9A3412; background:#FFF7ED; border-color:#FED7AA; }
 .od-user-role-chip.is-talent { color:#1D4ED8; background:#EFF6FF; border-color:#BFDBFE; }

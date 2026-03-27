@@ -13,6 +13,7 @@ var OwnerDashboard = (function () {
     var _ordersCache = [];
     var _currentRange = 'all'; // today, week, month, all
     var _activityFilter = 'orders'; // orders, users, all
+    var _adminDriverFilter = 'all'; // all, active, suspended, problem
     var _currentRole = 'owner'; // 'owner' or 'admin'
     var _activeOwnerPanel = 'home';
     var _ownerPanelConfig = {
@@ -50,7 +51,7 @@ var OwnerDashboard = (function () {
 
         if (panel === 'home') return { title: 'Home', subtitle: 'Ringkasan operasional admin' };
         if (panel === 'activity') return { title: 'Order', subtitle: 'Monitoring order dari dibuat sampai verifikasi komisi' };
-        if (panel === 'users') return { title: 'Pengguna', subtitle: 'Kontrol driver, user, dan role platform' };
+        if (panel === 'users') return { title: 'Pengguna', subtitle: 'Kontrol driver aktif, performa, dan penanganan masalah' };
         if (panel === 'settings') return { title: 'Akun', subtitle: 'Profil admin, review pesanan, dan logout' };
         return cfg;
     }
@@ -243,6 +244,20 @@ var OwnerDashboard = (function () {
                     b.classList.toggle('active', b === btn);
                 });
                 _renderActivity(_ordersCache);
+            });
+        }
+
+        var driverFilters = $('adminDriverFilters');
+        if (driverFilters && !driverFilters._bound) {
+            driverFilters._bound = true;
+            driverFilters.addEventListener('click', function (e) {
+                var btn = e.target.closest('[data-driver-filter]');
+                if (!btn || !_isAdmin()) return;
+                _adminDriverFilter = btn.dataset.driverFilter || 'all';
+                driverFilters.querySelectorAll('[data-driver-filter]').forEach(function (b) {
+                    b.classList.toggle('active', b === btn);
+                });
+                renderOwnerUsers();
             });
         }
 
@@ -1151,6 +1166,37 @@ var OwnerDashboard = (function () {
         var roleChipClass = { user: 'is-user', talent: 'is-talent', penjual: 'is-penjual', cs: 'is-cs', admin: 'is-admin' };
         var ordersRef = Array.isArray(_ordersCache) ? _ordersCache : [];
 
+        function buildDriverPerformance(driver) {
+            var assigned = ordersRef.filter(function (o) { return String(o.talentId || '') === String(driver.id); });
+            var completed = assigned.filter(function (o) { return o.status === 'completed' || o.status === 'rated'; }).length;
+            var failed = assigned.filter(function (o) {
+                return o.status === 'cancelled' || o.status === 'rejected';
+            }).length;
+            var completionRate = assigned.length > 0 ? Math.round((completed / assigned.length) * 100) : 0;
+            var isProblem = (driver.is_active === false)
+                || failed >= 2
+                || (assigned.length >= 3 && completionRate < 60);
+            return {
+                assigned: assigned.length,
+                completed: completed,
+                failed: failed,
+                completionRate: completionRate,
+                isProblem: isProblem
+            };
+        }
+
+        if (_isAdmin()) {
+            var drivers = allUsers.filter(function (u) { return u.role === 'talent'; });
+            var activeDrivers = drivers.filter(function (d) { return d.is_active !== false; }).length;
+            var suspendedDrivers = drivers.filter(function (d) { return d.is_active === false; }).length;
+            var problemDrivers = drivers.filter(function (d) { return buildDriverPerformance(d).isProblem; }).length;
+
+            _setKPIValue('adminDriverTotal', drivers.length);
+            _setKPIValue('adminDriverActive', activeDrivers);
+            _setKPIValue('adminDriverSuspended', suspendedDrivers);
+            _setKPIValue('adminDriverProblem', problemDrivers);
+        }
+
         function fmtDate(ts) {
             if (!ts) return '-';
             return new Date(Number(ts)).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -1198,6 +1244,17 @@ var OwnerDashboard = (function () {
             return Number(b.createdAt || 0) - Number(a.createdAt || 0);
         });
 
+        if (_isAdmin() && _adminDriverFilter !== 'all') {
+            users = users.filter(function (u) {
+                if (u.role !== 'talent') return false;
+                var perf = buildDriverPerformance(u);
+                if (_adminDriverFilter === 'active') return u.is_active !== false;
+                if (_adminDriverFilter === 'suspended') return u.is_active === false;
+                if (_adminDriverFilter === 'problem') return perf.isProblem;
+                return true;
+            });
+        }
+
         container.innerHTML = users.map(function (u) {
             var displayName = u.name || u.nama || 'Tanpa Nama';
             var displayUsername = u.username || u.no_hp || u.phone || '-';
@@ -1215,6 +1272,7 @@ var OwnerDashboard = (function () {
             var joinedAt = Number(u.createdAt || 0);
             var roleText = roleLabels[u.role] || String(u.role || 'User');
             var isActive = u.is_active !== false;
+            var driverPerf = u.role === 'talent' ? buildDriverPerformance(u) : null;
             var statusChip = '<span class="od-user-status-chip ' + (isActive ? 'is-active' : 'is-suspended') + '">'
                 + (isActive ? 'Aktif' : 'Suspended')
                 + '</span>';
@@ -1236,6 +1294,20 @@ var OwnerDashboard = (function () {
                 ? '<span class="od-user-avatar-fallback" style="display:none">' + initial + '</span>'
                     + '<img src="' + escapeHtml(avatarUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%" alt="" onerror="this.style.display=\'none\';if(this.previousElementSibling){this.previousElementSibling.style.display=\'flex\';}">'
                 : initial;
+
+            var driverFlag = '';
+            if (driverPerf && driverPerf.isProblem) {
+                driverFlag = '<div class="od-driver-alert">Performa perlu ditangani admin</div>';
+            }
+
+            var statsInline = driverPerf
+                ? ('<span><strong>' + driverPerf.assigned + '</strong> Ditangani</span>'
+                    + '<span><strong>' + driverPerf.completionRate + '%</strong> Completion</span>'
+                    + '<span><strong>' + driverPerf.failed + '</strong> Kasus Gagal</span>')
+                : ('<span><strong>' + userOrders.length + '</strong> Total Order</span>'
+                    + '<span><strong>' + completedOrders + '</strong> Selesai</span>'
+                    + '<span><strong>' + escapeHtml(lastOrderTs ? fmtDate(lastOrderTs) : '-') + '</strong> Aktivitas Akhir</span>');
+
             return '<article class="od-user-item od-user-card">'
                 + '<div class="od-user-main">'
                 + '<div class="od-user-avatar" style="background:' + (roleColors[u.role] || '#999') + '">' + avatarContent + '</div>'
@@ -1247,13 +1319,12 @@ var OwnerDashboard = (function () {
                 + '</div>'
                 + '<div class="od-user-meta">@' + escapeHtml(String(displayUsername)) + '</div>'
                 + '<div class="od-user-submeta">Gabung: ' + escapeHtml(fmtDate(joinedAt)) + '</div>'
+                + driverFlag
                 + '</div>'
                 + actionBtn
                 + '</div>'
                 + '<div class="od-user-stats-inline">'
-                + '<span><strong>' + userOrders.length + '</strong> Total Order</span>'
-                + '<span><strong>' + completedOrders + '</strong> Selesai</span>'
-                + '<span><strong>' + escapeHtml(lastOrderTs ? fmtDate(lastOrderTs) : '-') + '</strong> Aktivitas Akhir</span>'
+                + statsInline
                 + '</div>'
                 + '</article>';
         }).join('');
