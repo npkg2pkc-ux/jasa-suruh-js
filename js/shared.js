@@ -1674,6 +1674,28 @@ function getTrackingRouteEndpoints(order) {
     };
 }
 
+function isRideFlowOrder(order) {
+    return !!(order && (order.skillType === 'js_antar' || order.skillType === 'js_delivery'));
+}
+
+function shouldHidePassedSegment(order) {
+    if (!isRideFlowOrder(order)) return false;
+    return ['in_progress', 'completed', 'rated'].indexOf(String(order.status || '')) >= 0;
+}
+
+function syncTrackingPickupMarkerVisibility(order) {
+    if (!_otpUserMarker) return;
+    var hidePickup = shouldHidePassedSegment(order);
+    _otpUserMarker.setOpacity(hidePickup ? 0 : 1);
+    if (hidePickup) {
+        try { _otpUserMarker.closePopup(); } catch (e) {}
+    }
+}
+
+function shouldRenderDriverTrail(order) {
+    return !shouldHidePassedSegment(order);
+}
+
 function buildTrackingProgressSteps(order) {
     var isProductOrder = !!(order && (order.skillType === 'js_food' || order.sellerId));
     var isAntar = !!(order && order.skillType === 'js_antar');
@@ -3377,10 +3399,17 @@ function initTrackingMap(order) {
         className: 'gm-route-pin-wrapper'
     });
     _otpTalentMarker = L.marker([talentLat, talentLng], { icon: talentIcon }).addTo(_otpMap).bindPopup('Driver');
-    pushDriverTrailPoint(talentLat, talentLng);
+    if (shouldRenderDriverTrail(order)) {
+        pushDriverTrailPoint(talentLat, talentLng);
+    }
     bindTrackingMapPremiumEffects();
 
-    var points = [[userLat, userLng], [talentLat, talentLng]];
+    syncTrackingPickupMarkerVisibility(order);
+
+    var points = [[talentLat, talentLng]];
+    if (!shouldHidePassedSegment(order)) {
+        points.push([userLat, userLng]);
+    }
     _otpStoreMarker = null;
     if (isProductOrder && storeCoords && isValidLatLng(storeCoords.lat, storeCoords.lng)) {
         var storeIcon = L.divIcon({
@@ -3423,6 +3452,8 @@ function updateTrackingRoute(order, shouldFitBounds) {
     if (!_otpMap || !order) return;
     var endpoints = getTrackingRouteEndpoints(order);
     if (!endpoints) return;
+
+    syncTrackingPickupMarkerVisibility(order);
 
     fetchAndDrawRoute(endpoints.fromLat, endpoints.fromLng, endpoints.toLat, endpoints.toLng);
 
@@ -3477,7 +3508,12 @@ function updateTalentMarkerPosition(lat, lng) {
         _otpTalentMarker.setLatLng([lat, lng]);
         if (prev) setDriverMarkerHeading(prev.lat, prev.lng, lat, lng);
     }
-    pushDriverTrailPoint(lat, lng);
+    if (shouldRenderDriverTrail(_currentOrder)) {
+        pushDriverTrailPoint(lat, lng);
+    } else {
+        _otpDriverTrailPoints = [];
+        clearDriverTrailLayers();
+    }
     if (_otpMap && shouldAutoFollowDriver(lat, lng)) {
         _otpMap.panTo([lat, lng], { animate: true, duration: 0.55, easeLinearity: 0.35 });
     }
