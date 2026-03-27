@@ -3016,6 +3016,7 @@ function renderOrderActions(order, isTalent, isUser) {
                 var reader = new FileReader();
                 reader.onload = function () {
                     compressThumbnail(reader.result, function (proofThumb) {
+                        _sendDriverProofToUserChat(order, proofThumb);
                         updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb });
                     });
                 };
@@ -3041,15 +3042,15 @@ function renderOrderActions(order, isTalent, isUser) {
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnStart">' + startLabel + '</button>';
             document.getElementById('otpBtnStart').addEventListener('click', function () { updateOrderStatus(order.id, 'in_progress', { startedAt: Date.now() }); });
         } else if (order.status === 'in_progress') {
-            var completeLabel = isRideFlow ? 'Sampai Tujuan' : 'Selesai + Upload Bukti';
-            el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnComplete">' + completeLabel + '</button>' + (isRideFlow ? '' : '<input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">');
+            var completeLabel = isRideFlow ? 'Sampai Tujuan + Ambil Bukti Gambar' : 'Selesai + Upload Bukti';
+            el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnComplete">' + completeLabel + '</button><input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">';
             if (isRideFlow) {
                 document.getElementById('otpBtnComplete').addEventListener('click', function () {
                     _verifyDriverAtLocation(order, 'dest', function(isNear) {
                         if (isNear) {
                             var msg = isAntar ? 'Konfirmasi penumpang sudah sampai tujuan?' : 'Konfirmasi barang sudah sampai di titik antar?';
                             if (!confirm(msg)) return;
-                            updateOrderStatus(order.id, 'completed', { completedAt: Date.now() });
+                            document.getElementById('otpProofInput').click();
                         } else {
                             showToast('⚠️ Anda harus berada di dekat lokasi tujuan untuk menyelesaikan perjalanan.', 'error');
                         }
@@ -3059,19 +3060,20 @@ function renderOrderActions(order, isTalent, isUser) {
                 document.getElementById('otpBtnComplete').addEventListener('click', function () {
                     document.getElementById('otpProofInput').click();
                 });
-                document.getElementById('otpProofInput').addEventListener('change', function () {
-                    var file = this.files[0];
-                    if (!file) return;
-                    var reader = new FileReader();
-                    reader.onload = function () {
-                        compressThumbnail(reader.result, function (proofThumb) {
-                            updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb });
-                        });
-                    };
-                    reader.readAsDataURL(file);
-                    this.value = '';
-                });
             }
+            document.getElementById('otpProofInput').addEventListener('change', function () {
+                var file = this.files[0];
+                if (!file) return;
+                var reader = new FileReader();
+                reader.onload = function () {
+                    compressThumbnail(reader.result, function (proofThumb) {
+                        _sendDriverProofToUserChat(order, proofThumb);
+                        updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb });
+                    });
+                };
+                reader.readAsDataURL(file);
+                this.value = '';
+            });
         }
 
         _refreshDriverGpsLockedButtons(order);
@@ -4162,6 +4164,42 @@ function sendChatMessage(photo) {
     renderChatMessages();
 
     backendPost(msgData).catch(function () { showToast('Gagal mengirim pesan', 'error'); });
+}
+
+function _sendDriverProofToUserChat(order, proofPhoto) {
+    if (!order || !order.id || !proofPhoto) return;
+    var userId = String(order.userId || '');
+    var driverId = String(order.talentId || '');
+    if (!userId || !driverId) return;
+
+    var session = (typeof getSession === 'function') ? getSession() : null;
+    var senderId = session && session.id ? String(session.id) : driverId;
+    var users = (typeof getUsers === 'function') ? getUsers() : [];
+    var senderUser = users.find(function (u) { return String(u.id) === senderId; }) || {};
+    var senderName = String((session && session.name) || senderUser.name || senderUser.nama || 'Driver');
+    var conversationKey = buildChatConversationKey(order.id, userId, driverId);
+
+    backendPost({
+        action: 'sendMessage',
+        orderId: order.id,
+        senderId: senderId,
+        recipientId: userId,
+        conversationKey: conversationKey,
+        senderName: senderName,
+        text: '📷 Bukti penyelesaian pesanan dari driver.',
+        photo: proofPhoto
+    }).catch(function () {});
+
+    if (typeof addNotifItem === 'function') {
+        addNotifItem({
+            userId: userId,
+            icon: '📷',
+            title: 'Bukti Foto dari Driver',
+            desc: 'Driver mengirim bukti foto penyelesaian untuk pesanan #' + String(order.id || '').substr(0, 8) + '.',
+            type: 'chat',
+            orderId: order.id
+        });
+    }
 }
 
 // ══════════════════════════════════════════

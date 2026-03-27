@@ -226,6 +226,11 @@ function _loadPendingReviewOrders(page) {
                         'box-shadow:0 2px 8px rgba(249,115,22,.28);opacity:.6;">',
                         'Checklist dulu',
                         '</button>',
+                        '<button class="aorp-btn-chat" data-idx="' + idx + '" style="',
+                        'flex:0 0 auto;background:#E0E7FF;color:#3730A3;border:none;',
+                        'border-radius:12px;padding:12px 14px;font-size:13px;font-weight:700;cursor:pointer;">',
+                        'Detail Chat',
+                        '</button>',
                         '<button class="aorp-btn-reject" data-idx="' + idx + '" style="',
                         'flex:0 0 auto;background:#FEE2E2;color:#EF4444;border:none;',
                         'border-radius:12px;padding:12px 16px;font-size:14px;font-weight:700;cursor:pointer;">',
@@ -255,8 +260,137 @@ function _loadPendingReviewOrders(page) {
                 if (pending[idx]) _aorpReject(pending[idx], this, page);
             });
         });
+        listEl.querySelectorAll('.aorp-btn-chat').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var idx = parseInt(this.dataset.idx, 10);
+                if (pending[idx]) _openAorpChatDetail(pending[idx]);
+            });
+        });
     }).catch(function () {
         listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">&#10060; Gagal memuat pesanan</div>';
+    });
+}
+
+function _isAorpDriverUserMessage(msg, order) {
+    if (!msg || !order) return false;
+    var userId = String(order.userId || '');
+    var driverId = String(order.talentId || '');
+    if (!userId || !driverId) return false;
+
+    var sender = String(msg.senderId || '');
+    var recipient = String(msg.recipientId || '');
+    var conv = String(msg.conversationKey || '');
+    var expectedConv = String(order.id || '') + '::' + [userId, driverId].sort().join('__');
+
+    if (conv && conv === expectedConv) return true;
+    if ((sender === userId && recipient === driverId) || (sender === driverId && recipient === userId)) return true;
+    if (!recipient && (sender === userId || sender === driverId)) return true;
+    return false;
+}
+
+function _openAorpChatDetail(order) {
+    if (!order || !order.id) return;
+    var modal = document.getElementById('aorpChatDetailModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'aorpChatDetailModal';
+        modal.className = 'hidden';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:1400;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;';
+        modal.innerHTML = [
+            '<div id="aorpChatSheet" style="width:100%;max-height:82vh;background:#fff;border-radius:16px 16px 0 0;display:flex;flex-direction:column;">',
+                '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #E5E7EB;">',
+                    '<div>',
+                        '<div id="aorpChatTitle" style="font-size:15px;font-weight:700;color:#111;">Detail Percakapan</div>',
+                        '<div id="aorpChatSubtitle" style="font-size:12px;color:#6B7280;">Verifikasi chat user-driver</div>',
+                    '</div>',
+                    '<button id="aorpChatClose" style="background:none;border:none;font-size:22px;line-height:1;cursor:pointer;color:#6B7280;">&times;</button>',
+                '</div>',
+                '<div id="aorpChatBody" style="padding:14px;overflow:auto;display:flex;flex-direction:column;gap:10px;">Memuat percakapan...</div>',
+            '</div>'
+        ].join('');
+        document.body.appendChild(modal);
+
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) modal.classList.add('hidden');
+        });
+        modal.querySelector('#aorpChatClose').addEventListener('click', function () {
+            modal.classList.add('hidden');
+        });
+    }
+
+    var titleEl = modal.querySelector('#aorpChatTitle');
+    var subtitleEl = modal.querySelector('#aorpChatSubtitle');
+    var bodyEl = modal.querySelector('#aorpChatBody');
+    if (!bodyEl) return;
+
+    titleEl.textContent = 'Detail Percakapan #' + String(order.id || '').substr(0, 8);
+    subtitleEl.textContent = 'Verifikasi chat user-driver dan bukti foto pengantaran.';
+    bodyEl.innerHTML = '<div style="text-align:center;padding:20px;color:#9CA3AF;">Memuat percakapan...</div>';
+    modal.classList.remove('hidden');
+
+    if (order.proofPhoto) {
+        bodyEl.innerHTML = [
+            '<div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:10px;">',
+                '<div style="font-size:12px;font-weight:700;color:#9A3412;margin-bottom:8px;">Bukti foto di order</div>',
+                '<a href="' + order.proofPhoto + '" target="_blank" rel="noopener">',
+                    '<img src="' + order.proofPhoto + '" alt="Bukti Order" style="width:100%;max-width:220px;border-radius:10px;border:1px solid #FDBA74;">',
+                '</a>',
+            '</div>'
+        ].join('');
+    }
+
+    if (typeof FB === 'undefined' || !FB.isReady()) {
+        bodyEl.innerHTML += '<div style="padding:10px;color:#EF4444;font-size:12px;">Server belum terhubung. Coba lagi.</div>';
+        return;
+    }
+
+    FB.get('getMessages', { orderId: order.id }).then(function (r) { return r.json(); }).then(function (res) {
+        var users = typeof getUsers === 'function' ? getUsers() : [];
+        if (!res || !res.success || !Array.isArray(res.data)) {
+            bodyEl.innerHTML += '<div style="padding:10px;color:#EF4444;font-size:12px;">Gagal memuat percakapan.</div>';
+            return;
+        }
+
+        var list = res.data.filter(function (m) { return _isAorpDriverUserMessage(m, order); })
+            .sort(function (a, b) { return Number(a.createdAt || 0) - Number(b.createdAt || 0); });
+
+        if (!list.length) {
+            bodyEl.innerHTML += '<div style="padding:10px;color:#6B7280;font-size:12px;">Belum ada percakapan user-driver pada order ini.</div>';
+            return;
+        }
+
+        var html = list.map(function (m) {
+            var senderId = String(m.senderId || '');
+            var sender = users.find(function (u) { return String(u.id) === senderId; }) || {};
+            var senderName = (typeof escapeHtml === 'function')
+                ? escapeHtml(String(m.senderName || sender.name || sender.nama || 'User'))
+                : String(m.senderName || sender.name || sender.nama || 'User');
+            var timeStr = Number(m.createdAt || 0)
+                ? new Date(Number(m.createdAt)).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                : '-';
+
+            var textHtml = m.text
+                ? ('<div style="font-size:13px;color:#111;line-height:1.4;margin-top:4px;">' + ((typeof escapeHtml === 'function') ? escapeHtml(String(m.text)) : String(m.text)) + '</div>')
+                : '';
+            var photoHtml = m.photo
+                ? ('<a href="' + m.photo + '" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;"><img src="' + m.photo + '" alt="Foto Chat" style="max-width:220px;width:100%;border-radius:10px;border:1px solid #E5E7EB;"></a>')
+                : '';
+
+            return [
+                '<div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:12px;padding:10px;">',
+                    '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">',
+                        '<div style="font-size:12px;font-weight:700;color:#374151;">' + senderName + '</div>',
+                        '<div style="font-size:11px;color:#9CA3AF;">' + timeStr + '</div>',
+                    '</div>',
+                    textHtml,
+                    photoHtml,
+                '</div>'
+            ].join('');
+        }).join('');
+
+        bodyEl.innerHTML += '<div style="display:flex;flex-direction:column;gap:8px;">' + html + '</div>';
+    }).catch(function () {
+        bodyEl.innerHTML += '<div style="padding:10px;color:#EF4444;font-size:12px;">Gagal memuat percakapan.</div>';
     });
 }
 
