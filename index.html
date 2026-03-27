@@ -488,7 +488,7 @@
                 </button>
                 <button class="nav-item" data-owner-panel="activity">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/></svg>
-                    <span>Aktivitas Terbaru</span>
+                    <span id="ownerNavActivityLabel">Aktivitas Terbaru</span>
                 </button>
                 <button class="nav-item" data-owner-panel="users">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -544,6 +544,27 @@
                                     <strong id="adminPendingReviewCount">0</strong>
                                 </div>
                                 <button class="od-quick-btn od-admin-review-btn" data-action="order-review" type="button">Buka Antrian Review Komisi</button>
+                            </section>
+
+                            <section class="od-admin-flow od-admin-only" id="adminFlowCard">
+                                <div class="od-section-head"><h3>Alur Kerja Admin</h3></div>
+                                <ol class="od-admin-flow-list">
+                                    <li>Customer membuat order</li>
+                                    <li>Sistem assign driver</li>
+                                    <li>Driver menjalankan order</li>
+                                    <li>Order selesai</li>
+                                    <li>Status: menunggu verifikasi komisi</li>
+                                    <li>Admin approve/reject komisi</li>
+                                </ol>
+                                <div class="od-admin-flow-stats">
+                                    <span class="od-admin-flow-pill">Dibuat: <strong id="adminFlowCreated">0</strong></span>
+                                    <span class="od-admin-flow-pill">Diassign: <strong id="adminFlowAssigned">0</strong></span>
+                                    <span class="od-admin-flow-pill">Berjalan: <strong id="adminFlowRunning">0</strong></span>
+                                    <span class="od-admin-flow-pill">Selesai: <strong id="adminFlowCompleted">0</strong></span>
+                                    <span class="od-admin-flow-pill">Menunggu Verifikasi: <strong id="adminFlowPending">0</strong></span>
+                                    <span class="od-admin-flow-pill">Approve: <strong id="adminFlowApproved">0</strong></span>
+                                    <span class="od-admin-flow-pill">Reject: <strong id="adminFlowRejected">0</strong></span>
+                                </div>
                             </section>
 
                             <section class="od-chart-section">
@@ -641,15 +662,20 @@
                             <section class="od-activity-section">
                                 <div class="od-activity-toolbar">
                                     <div class="od-activity-title-wrap">
-                                        <h3>Timeline Aktivitas</h3>
-                                        <p>Dipisah rapi antara aktivitas order dan pengguna</p>
+                                        <h3 id="ownerActivityTitle">Timeline Aktivitas</h3>
+                                        <p id="ownerActivitySubtitle">Dipisah rapi antara aktivitas order dan pengguna</p>
                                     </div>
-                                    <button class="od-see-all" id="ownerBtnTransactions">Laporan</button>
+                                    <button class="od-see-all od-admin-hide" id="ownerBtnTransactions">Laporan</button>
+                                    <button class="od-see-all od-admin-only" id="ownerBtnOpenReviewQueue">Review Komisi</button>
+                                </div>
+                                <div class="od-admin-order-monitor od-admin-only">
+                                    <span>Order menunggu verifikasi komisi</span>
+                                    <strong id="adminActivityPendingCount">0</strong>
                                 </div>
                                 <div class="od-activity-filters" id="ownerActivityFilters">
                                     <button class="od-activity-filter active" data-activity-filter="orders">Order</button>
-                                    <button class="od-activity-filter" data-activity-filter="users">Pengguna</button>
-                                    <button class="od-activity-filter" data-activity-filter="all">Semua</button>
+                                    <button class="od-activity-filter od-admin-hide" data-activity-filter="users">Pengguna</button>
+                                    <button class="od-activity-filter od-admin-hide" data-activity-filter="all">Semua</button>
                                 </div>
                                 <div class="od-activity-list" id="ownerActivityList">
                                     <div class="od-activity-skeleton">

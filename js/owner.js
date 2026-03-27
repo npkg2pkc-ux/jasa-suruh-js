@@ -49,7 +49,8 @@ var OwnerDashboard = (function () {
         if (_isOwner()) return cfg;
 
         if (panel === 'home') return { title: 'Home', subtitle: 'Ringkasan operasional admin' };
-        if (panel === 'users') return { title: 'Pengguna', subtitle: 'Pantau akun dan aktivitas pengguna' };
+        if (panel === 'activity') return { title: 'Order', subtitle: 'Monitoring order dari dibuat sampai verifikasi komisi' };
+        if (panel === 'users') return { title: 'Pengguna', subtitle: 'Kontrol driver, user, dan role platform' };
         if (panel === 'settings') return { title: 'Akun', subtitle: 'Profil admin, review pesanan, dan logout' };
         return cfg;
     }
@@ -118,6 +119,7 @@ var OwnerDashboard = (function () {
                 _renderChart(_ordersCache, chartDays);
             } else {
                 _renderAdminReviewFocus(_ordersCache);
+                _renderAdminFlow(_ordersCache);
             }
         }
         if (panel === 'settings' && _isOwner()) {
@@ -205,6 +207,11 @@ var OwnerDashboard = (function () {
         var txBtn = $('ownerBtnTransactions');
         if (txBtn) txBtn.addEventListener('click', function () {
             if (typeof openAdminTransactions === 'function') openAdminTransactions();
+        });
+
+        var reviewBtn = $('ownerBtnOpenReviewQueue');
+        if (reviewBtn) reviewBtn.addEventListener('click', function () {
+            if (typeof openAdminOrderReview === 'function') openAdminOrderReview();
         });
 
         var activityFilters = $('ownerActivityFilters');
@@ -330,6 +337,23 @@ var OwnerDashboard = (function () {
         if (revenueLabel) {
             revenueLabel.textContent = _isOwner() ? 'Fee Platform' : 'Perlu Review';
         }
+
+        var navActivity = $('ownerNavActivityLabel');
+        if (navActivity) {
+            navActivity.textContent = _isOwner() ? 'Aktivitas Terbaru' : 'Order';
+        }
+
+        var activityTitle = $('ownerActivityTitle');
+        if (activityTitle) {
+            activityTitle.textContent = _isOwner() ? 'Timeline Aktivitas' : 'Monitoring Semua Order';
+        }
+
+        var activitySubtitle = $('ownerActivitySubtitle');
+        if (activitySubtitle) {
+            activitySubtitle.textContent = _isOwner()
+                ? 'Dipisah rapi antara aktivitas order dan pengguna'
+                : 'Pantau alur order dari dibuat sampai verifikasi komisi';
+        }
     }
 
     function _applyRoleTheme() {
@@ -426,6 +450,7 @@ var OwnerDashboard = (function () {
         renderOwnerStats();
         _updateRevenueKPI(_ordersCache);
         _renderAdminReviewFocus(_ordersCache);
+        _renderAdminFlow(_ordersCache);
         _renderActivity(_ordersCache);
     }
 
@@ -465,6 +490,7 @@ var OwnerDashboard = (function () {
                 _setKPIValue('ownerTotalOrders', res.data.length);
                 _updateRevenueKPI(res.data);
                 _renderAdminReviewFocus(res.data);
+                _renderAdminFlow(res.data);
                 _renderChart(res.data, 7);
                 _renderActivity(res.data);
             }).catch(function () {});
@@ -483,6 +509,8 @@ var OwnerDashboard = (function () {
         var count = _countPendingReview(orders);
         var countEl = $('adminPendingReviewCount');
         if (countEl) countEl.textContent = String(count);
+        var activityCountEl = $('adminActivityPendingCount');
+        if (activityCountEl) activityCountEl.textContent = String(count);
 
         var hintEl = $('adminReviewFocusHint');
         if (hintEl) {
@@ -490,6 +518,35 @@ var OwnerDashboard = (function () {
                 ? 'Ada ' + count + ' order selesai yang wajib diverifikasi admin sebelum transfer komisi.'
                 : 'Tidak ada antrian review. Pantau order selesai agar komisi hanya dicairkan setelah verifikasi.';
         }
+    }
+
+    function _renderAdminFlow(orders) {
+        if (!_isAdmin()) return;
+        var list = Array.isArray(orders) ? orders : [];
+
+        var created = list.filter(function (o) {
+            return ['pending', 'searching', 'preparing'].indexOf(String(o.status || '')) >= 0;
+        }).length;
+        var assigned = list.filter(function (o) {
+            return ['accepted', 'on_the_way', 'arrived', 'in_progress'].indexOf(String(o.status || '')) >= 0;
+        }).length;
+        var running = list.filter(function (o) {
+            return ['on_the_way', 'arrived', 'in_progress'].indexOf(String(o.status || '')) >= 0;
+        }).length;
+        var completed = list.filter(function (o) {
+            return o.status === 'completed' || o.status === 'rated';
+        }).length;
+        var pending = _countPendingReview(list);
+        var approved = list.filter(function (o) { return o.adminReviewStatus === 'approved'; }).length;
+        var rejected = list.filter(function (o) { return o.adminReviewStatus === 'rejected'; }).length;
+
+        _setKPIValue('adminFlowCreated', created);
+        _setKPIValue('adminFlowAssigned', assigned);
+        _setKPIValue('adminFlowRunning', running);
+        _setKPIValue('adminFlowCompleted', completed);
+        _setKPIValue('adminFlowPending', pending);
+        _setKPIValue('adminFlowApproved', approved);
+        _setKPIValue('adminFlowRejected', rejected);
     }
 
     function _filterByRange(orders) {
@@ -750,7 +807,13 @@ var OwnerDashboard = (function () {
                 driver: driver.name || driver.nama || '-',
                 seller: o.storeName || seller.name || seller.nama || '-',
                 payment: pm,
-                statusText: formatStatus(o.status),
+                statusText: (o.pendingAdminReview
+                    ? 'Menunggu verifikasi komisi'
+                    : (o.adminReviewStatus === 'approved'
+                        ? 'Komisi disetujui admin'
+                        : (o.adminReviewStatus === 'rejected'
+                            ? 'Komisi ditolak admin'
+                            : formatStatus(o.status)))),
                 fee: Number(o.fee) || 0,
                 total: Number(o.totalCost) || Number(o.price) || 0
             };
