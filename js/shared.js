@@ -2112,6 +2112,161 @@ function maybePromptRatingAfterCompleted(order) {
     }, 250);
 }
 
+var _ratingReminderTimer = null;
+var _ratingReminderOrders = [];
+var _ratingReminderLoading = false;
+var _ratingReminderWatcherBound = false;
+
+function _getVisibleBottomNav() {
+    var navs = document.querySelectorAll('.bottom-nav');
+    for (var i = 0; i < navs.length; i++) {
+        var nav = navs[i];
+        var page = nav.closest('.page');
+        if (!page || !page.classList.contains('hidden')) return nav;
+    }
+    return null;
+}
+
+function _isRatingReminderSnoozed() {
+    try {
+        var until = Number(localStorage.getItem('js_unrated_reminder_snooze_until') || 0);
+        return until > Date.now();
+    } catch (e) {
+        return false;
+    }
+}
+
+function _snoozeRatingReminder(minutes) {
+    var ms = Math.max(1, Number(minutes || 20)) * 60 * 1000;
+    try { localStorage.setItem('js_unrated_reminder_snooze_until', String(Date.now() + ms)); } catch (e) {}
+}
+
+function _ensureRatingReminderEl() {
+    var el = document.getElementById('ratingReminderFloat');
+    if (el) return el;
+
+    el = document.createElement('div');
+    el.id = 'ratingReminderFloat';
+    el.className = 'rating-reminder hidden';
+    el.innerHTML = [
+        '<div class="rating-reminder-card">',
+            '<div class="rating-reminder-head">',
+                '<span class="rating-reminder-dot"></span>',
+                '<strong id="ratingReminderTitle">Masih ada pesanan belum dirating</strong>',
+            '</div>',
+            '<div class="rating-reminder-sub" id="ratingReminderSub">Bantu kami jaga kualitas layanan dengan memberi rating.</div>',
+            '<div class="rating-reminder-actions">',
+                '<button type="button" class="rating-reminder-btn ghost" id="ratingReminderLater">Nanti</button>',
+                '<button type="button" class="rating-reminder-btn solid" id="ratingReminderOpen">Beri Rating</button>',
+            '</div>',
+        '</div>'
+    ].join('');
+    document.body.appendChild(el);
+
+    var laterBtn = document.getElementById('ratingReminderLater');
+    if (laterBtn) {
+        laterBtn.addEventListener('click', function () {
+            _snoozeRatingReminder(20);
+            el.classList.add('hidden');
+        });
+    }
+
+    var openBtn = document.getElementById('ratingReminderOpen');
+    if (openBtn) {
+        openBtn.addEventListener('click', function () {
+            if (!_ratingReminderOrders || !_ratingReminderOrders.length) return;
+            var target = _ratingReminderOrders[0];
+            if (!target) return;
+            if (typeof openRatingPage === 'function') openRatingPage(target);
+        });
+    }
+
+    return el;
+}
+
+function _applyRatingReminderData(unratedOrders) {
+    var el = _ensureRatingReminderEl();
+    var nav = _getVisibleBottomNav();
+    var titleEl = document.getElementById('ratingReminderTitle');
+    var subEl = document.getElementById('ratingReminderSub');
+    var count = Array.isArray(unratedOrders) ? unratedOrders.length : 0;
+
+    if (!count || !nav) {
+        el.classList.add('hidden');
+        return;
+    }
+
+    var first = unratedOrders[0] || {};
+    var service = first.serviceType || first.skillType || 'Pesanan';
+    if (titleEl) titleEl.textContent = count === 1
+        ? '1 pesanan belum dirating'
+        : (count + ' pesanan belum dirating');
+    if (subEl) subEl.textContent = 'Terbaru: ' + service + '. Rating Anda bantu kualitas driver/seller.';
+
+    el.classList.remove('hidden');
+}
+
+function refreshUnratedRatingReminder(options) {
+    options = options || {};
+    var session = getSession();
+    if (!session || session.role !== 'user') {
+        var offEl = document.getElementById('ratingReminderFloat');
+        if (offEl) offEl.classList.add('hidden');
+        return;
+    }
+    if (!isBackendConnected()) return;
+    if (!options.ignoreSnooze && _isRatingReminderSnoozed()) {
+        var snoozeEl = document.getElementById('ratingReminderFloat');
+        if (snoozeEl) snoozeEl.classList.add('hidden');
+        return;
+    }
+    if (_ratingReminderLoading) return;
+
+    _ratingReminderLoading = true;
+    FB.get('getOrdersByUser', { userId: session.id })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (!res || !res.success || !Array.isArray(res.data)) {
+                _ratingReminderOrders = [];
+                _applyRatingReminderData([]);
+                return;
+            }
+
+            var unrated = res.data.filter(function (o) {
+                if (String(o.userId || '') !== String(session.id || '')) return false;
+                if (String(o.status || '') !== 'completed') return false;
+                var hasRating = (Number(o.rating || 0) > 0) || Number(o.ratedAt || 0) > 0;
+                return !hasRating;
+            }).sort(function (a, b) {
+                return Number(b.completedAt || b.updatedAt || b.createdAt || 0) - Number(a.completedAt || a.updatedAt || a.createdAt || 0);
+            });
+
+            _ratingReminderOrders = unrated;
+            _applyRatingReminderData(unrated);
+        })
+        .catch(function () {})
+        .finally(function () {
+            _ratingReminderLoading = false;
+        });
+}
+
+function startUnratedRatingReminderWatcher() {
+    if (_ratingReminderTimer) return;
+
+    refreshUnratedRatingReminder();
+    _ratingReminderTimer = setInterval(function () {
+        refreshUnratedRatingReminder();
+    }, 45000);
+
+    if (!_ratingReminderWatcherBound) {
+        _ratingReminderWatcherBound = true;
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) refreshUnratedRatingReminder();
+        });
+    }
+}
+window.refreshUnratedRatingReminder = refreshUnratedRatingReminder;
+
 function updateOrderStatusBadge(status) {
     var badge = document.getElementById('otpStatus');
     if (!badge) return;
@@ -3927,6 +4082,7 @@ function submitRating() {
             }
             var olp = document.getElementById('ordersListPage');
             if (olp && !olp.classList.contains('hidden')) openOrdersList();
+            refreshUnratedRatingReminder({ ignoreSnooze: true });
         } else {
             showToast('Gagal mengirim rating', 'error');
         }
@@ -4867,6 +5023,8 @@ window.setupGlobalModalDragClose = setupGlobalModalDragClose;
 // ═══ BOTTOM NAV ═══
 // ══════════════════════════════════════════
 function setupBottomNav() {
+    startUnratedRatingReminderWatcher();
+
     document.querySelectorAll('.bottom-nav').forEach(function (nav) {
         nav.querySelectorAll('.nav-item').forEach(function (item) {
             item.addEventListener('click', function () {
