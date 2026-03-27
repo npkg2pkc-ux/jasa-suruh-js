@@ -884,6 +884,109 @@ var _pushVisibilityHooked = false;
 var _pushRetryTimer = null;
 var _pushRetryAttempt = 0;
 var _pushRetryUserId = null;
+var _pushMiniHooked = false;
+
+function _currentRolePushIds(role) {
+    if (role === 'user') return { statusId: 'userPushStatusText', buttonId: 'userPushEnableBtn' };
+    if (role === 'penjual') return { statusId: 'penjualPushStatusText', buttonId: 'penjualPushEnableBtn' };
+    return null;
+}
+
+function _setRolePushMiniStatus(role, text, state, showButton, buttonText, buttonDisabled) {
+    var ids = _currentRolePushIds(role);
+    if (!ids) return;
+
+    var statusEl = document.getElementById(ids.statusId);
+    if (statusEl) {
+        statusEl.textContent = text;
+        statusEl.classList.remove('is-active', 'is-warning', 'is-error', 'is-checking');
+        if (state) statusEl.classList.add(state);
+    }
+
+    var btn = document.getElementById(ids.buttonId);
+    if (btn) {
+        btn.classList.toggle('hidden', !showButton);
+        btn.textContent = buttonText || 'Aktifkan';
+        btn.disabled = !!buttonDisabled;
+    }
+}
+
+function _refreshRolePushMiniStatus(forceEnsure) {
+    var session = getSession();
+    if (!session || !session.id) return Promise.resolve(false);
+    if (session.role !== 'user' && session.role !== 'penjual') return Promise.resolve(false);
+
+    var role = session.role;
+    var supportsPush = ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
+    if (!supportsPush) {
+        _setRolePushMiniStatus(role, 'Push tidak didukung browser', 'is-error', false, '', false);
+        return Promise.resolve(false);
+    }
+
+    if (Notification.permission === 'denied') {
+        _setRolePushMiniStatus(role, 'Push diblokir di browser', 'is-error', true, 'Buka Pengaturan', false);
+        return Promise.resolve(false);
+    }
+
+    if (Notification.permission === 'default' && forceEnsure) {
+        return _ensurePushSubscriptionWithRetry(session, { reason: 'mini-force', askPermission: true })
+            .then(function (ok) {
+                return _refreshRolePushMiniStatus(false).then(function () { return !!ok; });
+            })
+            .catch(function () {
+                _setRolePushMiniStatus(role, 'Gagal meminta izin push', 'is-error', true, 'Coba Lagi', false);
+                return false;
+            });
+    }
+
+    if (Notification.permission === 'default') {
+        _setRolePushMiniStatus(role, 'Push belum diizinkan', 'is-warning', true, 'Izinkan', false);
+        return Promise.resolve(false);
+    }
+
+    _setRolePushMiniStatus(role, 'Push: sinkronisasi...', 'is-checking', false, '', true);
+    return navigator.serviceWorker.ready
+        .then(function (reg) {
+            return reg.pushManager.getSubscription();
+        })
+        .then(function (sub) {
+            if (sub) {
+                _setRolePushMiniStatus(role, 'Push aktif realtime', 'is-active', false, '', false);
+                return true;
+            }
+            if (_pushRetryTimer && String(_pushRetryUserId || '') === String(session.id)) {
+                _setRolePushMiniStatus(role, 'Push disinkronkan otomatis...', 'is-warning', true, 'Sinkronkan', false);
+            } else {
+                _setRolePushMiniStatus(role, 'Push belum aktif di perangkat ini', 'is-warning', true, 'Aktifkan', false);
+            }
+            return false;
+        })
+        .catch(function () {
+            _setRolePushMiniStatus(role, 'Gagal cek status push', 'is-error', true, 'Coba Lagi', false);
+            return false;
+        });
+}
+
+function _bindRolePushMiniActions() {
+    if (_pushMiniHooked) return;
+    _pushMiniHooked = true;
+
+    ['user', 'penjual'].forEach(function (role) {
+        var ids = _currentRolePushIds(role);
+        if (!ids) return;
+        var btn = document.getElementById(ids.buttonId);
+        if (!btn || btn._eventsSetup) return;
+
+        btn._eventsSetup = true;
+        btn.addEventListener('click', function () {
+            var s = getSession();
+            if (!s || s.role !== role) return;
+            _refreshRolePushMiniStatus(true).then(function (ok) {
+                if (ok) showToast('Push notifikasi sudah aktif.', 'success');
+            });
+        });
+    });
+}
 
 function _clearPushRetryState() {
     if (_pushRetryTimer) {
@@ -892,6 +995,7 @@ function _clearPushRetryState() {
     }
     _pushRetryAttempt = 0;
     _pushRetryUserId = null;
+    _refreshRolePushMiniStatus(false);
 }
 
 function _schedulePushRetry(session, reason) {
@@ -918,6 +1022,7 @@ function _schedulePushRetry(session, reason) {
             return;
         }
         _ensurePushSubscriptionWithRetry(latest, { reason: reason || 'retry', askPermission: false });
+        _refreshRolePushMiniStatus(false);
     }, delay);
 }
 
@@ -958,12 +1063,15 @@ function _ensurePushSubscriptionWithRetry(session, options) {
     return _ensurePushSubscription(session).then(function (ok) {
         if (ok) {
             _clearPushRetryState();
+            _refreshRolePushMiniStatus(false);
             return true;
         }
         _schedulePushRetry(session, options.reason || 'subscription-failed');
+        _refreshRolePushMiniStatus(false);
         return false;
     }).catch(function () {
         _schedulePushRetry(session, options.reason || 'subscription-error');
+        _refreshRolePushMiniStatus(false);
         return false;
     });
 }
@@ -976,8 +1084,10 @@ function initNotifications() {
     if (_notifPollTimer) { clearInterval(_notifPollTimer); _notifPollTimer = null; }
     _prevUnreadCount = 0;
 
+    _bindRolePushMiniActions();
     _setupPushPermissionFlow(session);
     _ensurePushSubscriptionWithRetry(session, { reason: 'init-notifications' });
+    _refreshRolePushMiniStatus(false);
 
     // Try realtime first, fall back to polling
     _notifUnsub = FB.onNotifications(session.id, function (items) {
@@ -1028,12 +1138,14 @@ function _setupPushPermissionFlow(session) {
             var s = getSession();
             if (!s || !s.id) return;
             if (Notification.permission === 'granted') _ensurePushSubscriptionWithRetry(s, { reason: 'visibility' });
+            _refreshRolePushMiniStatus(false);
         });
 
         window.addEventListener('focus', function () {
             var s = getSession();
             if (!s || !s.id) return;
             if (Notification.permission === 'granted') _ensurePushSubscriptionWithRetry(s, { reason: 'focus' });
+            _refreshRolePushMiniStatus(false);
         });
     }
 }
@@ -1107,6 +1219,9 @@ function primePushForCurrentUser(askPermission) {
     return _ensurePushSubscriptionWithRetry(session, {
         reason: 'manual-prime',
         askPermission: !!askPermission
+    }).then(function (ok) {
+        _refreshRolePushMiniStatus(false);
+        return ok;
     });
 }
 window.primePushForCurrentUser = primePushForCurrentUser;
@@ -4678,7 +4793,8 @@ function registerSW() {
 
             if (msg.type === 'PUSH_SUBSCRIPTION_CHANGED') {
                 var s0 = getSession();
-                if (s0) _ensurePushSubscription(s0);
+                if (s0) _ensurePushSubscriptionWithRetry(s0, { reason: 'sw-subscription-changed' });
+                _refreshRolePushMiniStatus(false);
             }
 
             // SW asked this tab to poll orders/notifications

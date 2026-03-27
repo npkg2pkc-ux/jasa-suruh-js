@@ -347,6 +347,14 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .btn-icon:active { transform:scale(.92); }
 .badge { position:absolute; top:-4px; right:-4px; background:var(--white); color:var(--orange); font-size:10px; font-weight:700; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid var(--orange); }
 #talentNotifBtn { cursor:pointer; position:relative; }
+.push-mini-row { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.push-mini-chip { display:inline-flex; align-items:center; border-radius:999px; padding:5px 10px; font-size:11px; font-weight:700; line-height:1.2; letter-spacing:.1px; white-space:nowrap; max-width:100%; }
+.push-mini-chip.is-active { background:#DCFCE7; color:#166534; }
+.push-mini-chip.is-warning { background:#FEF3C7; color:#92400E; }
+.push-mini-chip.is-error { background:#FEE2E2; color:#991B1B; }
+.push-mini-chip.is-checking { background:rgba(255,255,255,.28); color:rgba(255,255,255,.95); }
+.push-mini-btn { border:none; border-radius:999px; background:#FFFFFF; color:#C2410C; font-size:11px; font-weight:700; padding:6px 10px; cursor:pointer; transition:var(--tr); box-shadow:0 2px 6px rgba(0,0,0,.12); }
+.push-mini-btn:active { transform:scale(.96); }
 .avatar { width:42px; height:42px; border-radius:var(--r-md); background:rgba(255,255,255,.2); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--white); transition:var(--tr); }
 .avatar:active { transform:scale(.92); }
 .avatar-cs { background:rgba(255,255,255,.25); }
