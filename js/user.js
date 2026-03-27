@@ -1799,6 +1799,82 @@ function updateJapPickupText(addr, lat, lng) {
     }
 }
 
+function normalizeJapSearchText(text) {
+    return String(text || '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function parseJapCoordinateInput(raw) {
+    var text = String(raw || '').trim();
+    if (!text) return null;
+
+    function inRange(lat, lng) {
+        return isFinite(lat) && isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+    }
+
+    function asCoord(latStr, lngStr) {
+        var lat = Number(latStr);
+        var lng = Number(lngStr);
+        if (!inRange(lat, lng)) return null;
+        return { lat: lat, lng: lng };
+    }
+
+    var direct = text.match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/);
+    if (direct) {
+        var parsedDirect = asCoord(direct[1], direct[2]);
+        if (parsedDirect) return parsedDirect;
+    }
+
+    var urlAt = text.match(/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/);
+    if (urlAt) {
+        var parsedAt = asCoord(urlAt[1], urlAt[2]);
+        if (parsedAt) return parsedAt;
+    }
+
+    var url3d4d = text.match(/!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)/);
+    if (url3d4d) {
+        var parsed3d4d = asCoord(url3d4d[1], url3d4d[2]);
+        if (parsed3d4d) return parsed3d4d;
+    }
+
+    try {
+        var decoded = decodeURIComponent(text);
+        var qMatch = decoded.match(/[?&](q|query)=(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/i);
+        if (qMatch) {
+            var parsedQ = asCoord(qMatch[2], qMatch[3]);
+            if (parsedQ) return parsedQ;
+        }
+    } catch (e) {}
+
+    return null;
+}
+
+function scoreJapPlaceResult(query, result) {
+    var q = normalizeJapSearchText(query);
+    var name = normalizeJapSearchText((result.display_name || '').split(',')[0]);
+    var full = normalizeJapSearchText(result.display_name || '');
+    if (!q || !full) return 0;
+
+    var score = 0;
+    if (name === q) score += 180;
+    if (name.indexOf(q) === 0) score += 120;
+    if (name.indexOf(q) >= 0) score += 70;
+    if (full.indexOf(q) >= 0) score += 40;
+
+    var tokens = q.split(' ').filter(Boolean);
+    tokens.forEach(function (tok) {
+        if (name.indexOf(tok) >= 0) score += 20;
+        else if (full.indexOf(tok) >= 0) score += 8;
+    });
+
+    var type = String(result.type || '').toLowerCase();
+    if (/(city|town|village|suburb|residential|road|house)/.test(type)) score += 6;
+
+    return score;
+}
+
 function onJapDestInput() {
     var val = this.value.trim();
     var sourceId = this.id || 'japDestInput';
@@ -1817,31 +1893,87 @@ function onJapDestInput() {
     sugg.innerHTML = '<div class="jap-suggestion-item" style="color:var(--gray-400)">Mencari...</div>';
     _japSuggestTimer = setTimeout(function () {
         searchPlaces(val, sourceId);
-    }, 600);
+    }, 380);
 }
 
 function searchPlaces(query, sourceId) {
     _japSuggestSourceId = sourceId || _japSuggestSourceId || 'japDestInput';
+    var parsedCoord = parseJapCoordinateInput(query);
+    var sourceEl = getJapSuggestionsElBySource(sourceId || _japSuggestSourceId);
+
+    if (parsedCoord && sourceEl) {
+        sourceEl.classList.remove('hidden');
+        sourceEl.innerHTML = '<div class="jap-suggestion-item" style="color:var(--gray-400)">Membaca titik koordinat...</div>';
+        reverseGeocode(parsedCoord.lat, parsedCoord.lng).then(function (addr) {
+            var label = 'Koordinat: ' + parsedCoord.lat.toFixed(6) + ', ' + parsedCoord.lng.toFixed(6);
+            renderJapSuggestions([
+                {
+                    lat: parsedCoord.lat,
+                    lon: parsedCoord.lng,
+                    display_name: (addr || label),
+                    _label: label,
+                    _isCoordinate: true
+                }
+            ], sourceId || _japSuggestSourceId);
+        }).catch(function () {
+            var label = 'Koordinat: ' + parsedCoord.lat.toFixed(6) + ', ' + parsedCoord.lng.toFixed(6);
+            renderJapSuggestions([
+                {
+                    lat: parsedCoord.lat,
+                    lon: parsedCoord.lng,
+                    display_name: label,
+                    _label: label,
+                    _isCoordinate: true
+                }
+            ], sourceId || _japSuggestSourceId);
+        });
+
+        // Jika input berupa URL koordinat Google Maps, prioritaskan satu hasil koordinat saja.
+        if (/google\.|goo\.gl\/maps|maps\.app\.goo\.gl|\/maps\//i.test(String(query || ''))) {
+            return;
+        }
+    }
+
     var lat = _japPickupCoords ? _japPickupCoords.lat : -6.2088;
     var lng = _japPickupCoords ? _japPickupCoords.lng : 106.8456;
     var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query)
-        + '&format=json&limit=12&accept-language=id&countrycodes=id&addressdetails=1'
-        + '&viewbox=' + (lng - 0.35) + ',' + (lat + 0.35) + ',' + (lng + 0.35) + ',' + (lat - 0.35)
+        + '&format=json&limit=20&accept-language=id&countrycodes=id&addressdetails=1'
+        + '&viewbox=' + (lng - 0.6) + ',' + (lat + 0.6) + ',' + (lng + 0.6) + ',' + (lat - 0.6)
         + '&bounded=0';
     fetch(url)
         .then(function (r) { return r.json(); })
         .then(function (results) {
             var list = Array.isArray(results) ? results.slice() : [];
+
+            // Deduplikasi agar lebih banyak hasil unik dan relevan.
+            var seen = {};
+            var deduped = [];
             list.forEach(function (r) {
-                var rLat = Number(r.lat || 0);
-                var rLng = Number(r.lon || 0);
-                r._distKm = haversineDistance(lat, lng, rLat, rLng);
+                var key = String(r.display_name || '') + '|' + String(r.lat || '') + '|' + String(r.lon || '');
+                if (seen[key]) return;
+                seen[key] = true;
+                deduped.push(r);
             });
 
-            // Prioritaskan area sekitar user agar hasil relevan lokal.
-            list.sort(function (a, b) { return (Number(a._distKm) || 9999) - (Number(b._distKm) || 9999); });
-            var near = list.filter(function (r) { return Number(r._distKm) <= 60; });
-            var ranked = (near.length > 0 ? near : list).slice(0, 6);
+            deduped.forEach(function (r) {
+                r._textScore = scoreJapPlaceResult(query, r);
+            });
+
+            deduped.sort(function (a, b) {
+                return Number(b._textScore || 0) - Number(a._textScore || 0);
+            });
+
+            var ranked = deduped.slice(0, 10);
+
+            if (parsedCoord) {
+                ranked.unshift({
+                    lat: parsedCoord.lat,
+                    lon: parsedCoord.lng,
+                    display_name: 'Koordinat: ' + parsedCoord.lat.toFixed(6) + ', ' + parsedCoord.lng.toFixed(6),
+                    _label: 'Koordinat dari input',
+                    _isCoordinate: true
+                });
+            }
 
             renderJapSuggestions(ranked, sourceId || _japSuggestSourceId);
         })
@@ -1861,7 +1993,7 @@ function renderJapSuggestions(results, sourceId) {
     sugg.innerHTML = '';
     results.forEach(function (r) {
         var parts = (r.display_name || '').split(',');
-        var name = parts[0].trim();
+        var name = (r._label || parts[0] || '').trim();
         var addr = parts.slice(1, 4).join(',').trim();
         var item = document.createElement('div');
         item.className = 'jap-suggestion-item';
