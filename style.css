@@ -3480,6 +3480,32 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     box-shadow:none;
 }
 
+/* Ensure admin header keeps orange identity after owner flatten overrides */
+#page-owner.od-admin-mode .od-header {
+    border-radius:0 0 24px 24px !important;
+    box-shadow:0 10px 22px rgba(234,88,12,.24) !important;
+    border-bottom:0 !important;
+}
+
+#page-owner.od-admin-mode .od-header-bg {
+    background:linear-gradient(135deg,#FF6B00 0%,#FF8A1F 48%,#FFA94D 100%) !important;
+}
+
+#page-owner.od-admin-mode .od-greeting-hi {
+    color:#FFFFFF !important;
+}
+
+#page-owner.od-admin-mode .od-greeting-sub {
+    color:rgba(255,255,255,.9) !important;
+}
+
+#page-owner.od-admin-mode .od-notif-btn {
+    background:rgba(255,255,255,.2) !important;
+    color:#FFFFFF !important;
+    border:1px solid rgba(255,255,255,.35) !important;
+    border-radius:12px;
+}
+
 #page-owner .od-settings-body {
     padding:0;
     gap:8px;
