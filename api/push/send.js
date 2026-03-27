@@ -1,4 +1,4 @@
-const { sendPushToUser, withCors } = require('./_core');
+const { sendPushToUser, withCors } = require('../../services/push-core');
 
 module.exports = async (req, res) => {
     withCors(res);

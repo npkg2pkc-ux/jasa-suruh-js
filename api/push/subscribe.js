@@ -1,4 +1,4 @@
-const { SUPABASE_SERVICE_KEY, supaFetch, withCors } = require('./_core');
+const { SUPABASE_SERVICE_KEY, supaFetch, withCors } = require('../../services/push-core');
 
 function nowTs() { return Date.now(); }
 

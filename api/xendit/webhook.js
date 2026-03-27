@@ -5,7 +5,7 @@
 const XENDIT_WEBHOOK_TOKEN = process.env.XENDIT_WEBHOOK_TOKEN;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://aqptkuoazqharfzxvgem.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
-const { sendPushToUser } = require('../push/_core');
+const { sendPushToUser } = require('../../services/push-core');
 
 function supaFetch(path, options) {
     return fetch(SUPABASE_URL + '/rest/v1/' + path, Object.assign({

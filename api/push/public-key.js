@@ -1,4 +1,4 @@
-const { WEB_PUSH_PUBLIC_KEY, withCors } = require('./_core');
+const { WEB_PUSH_PUBLIC_KEY, withCors } = require('../../services/push-core');
 
 module.exports = async (req, res) => {
     withCors(res);
