@@ -3165,9 +3165,7 @@ function renderOrderActions(order, isTalent, isUser) {
                         if (proofInput) proofInput.dataset.gpsVerified = '';
                         if (proofInput) proofInput.dataset.gpsLat = '';
                         if (proofInput) proofInput.dataset.gpsLng = '';
-                        // Proof selection only happens after driver enters complete flow,
-                        // so skip duplicate GPS gate here to avoid regressions/rollback loops.
-                        updateOrderStatus(order.id, 'completed', extraFields);
+                        _finalizeProofCompletion(order, extraFields);
                     });
                 };
                 reader.readAsDataURL(file);
@@ -3275,9 +3273,7 @@ function renderOrderActions(order, isTalent, isUser) {
                         if (proofInput) proofInput.dataset.gpsVerified = '';
                         if (proofInput) proofInput.dataset.gpsLat = '';
                         if (proofInput) proofInput.dataset.gpsLng = '';
-                        // Proof selection only happens after driver enters complete flow,
-                        // so skip duplicate GPS gate here to avoid regressions/rollback loops.
-                        updateOrderStatus(order.id, 'completed', extraFields);
+                        _finalizeProofCompletion(order, extraFields);
                     });
                 };
                 reader.readAsDataURL(file);
@@ -3602,6 +3598,90 @@ function _notifyAdminReviewQueue(orderRef) {
             extra: { pendingAdminReview: true }
         });
     });
+}
+
+function _postOrderActionWithTimeout(body, timeoutMs) {
+    var ms = Math.max(2000, Number(timeoutMs) || 10000);
+    return Promise.race([
+        backendPost(body),
+        new Promise(function (resolve) {
+            setTimeout(function () {
+                resolve({ success: false, message: 'Request timeout' });
+            }, ms);
+        })
+    ]);
+}
+
+function _tryCompleteOrderOnce(orderId, actorId, payloadFields, timeoutMs) {
+    var bodyPrimary = { action: 'completeOrderWithProof', orderId: orderId, actorId: actorId, fields: payloadFields };
+    var bodyLegacy = { action: 'updateOrder', orderId: orderId, actorId: actorId, fields: payloadFields };
+
+    return _postOrderActionWithTimeout(bodyPrimary, timeoutMs).then(function (res) {
+        if (res && res.success) return res;
+        return _postOrderActionWithTimeout(bodyLegacy, timeoutMs).then(function (res2) {
+            return (res2 && res2.success) ? res2 : res;
+        });
+    });
+}
+
+function _finalizeProofCompletion(order, extraFields) {
+    if (!order || !order.id) return;
+
+    var session = getSession();
+    var actorId = String((session && session.id) || order.talentId || '');
+    var nowTs = Date.now();
+    var fields = Object.assign({}, extraFields || {});
+    if (Object.prototype.hasOwnProperty.call(fields, '_skipGpsGate')) delete fields._skipGpsGate;
+
+    fields.status = 'completed';
+    if (typeof fields.completedAt === 'undefined') fields.completedAt = nowTs;
+    if (typeof fields.pendingAdminReview === 'undefined') fields.pendingAdminReview = true;
+    if (typeof fields.pendingAdminReviewAt === 'undefined') fields.pendingAdminReviewAt = nowTs;
+    if (typeof fields.walletSettled === 'undefined') fields.walletSettled = false;
+    if (typeof fields.adminReviewStatus === 'undefined') fields.adminReviewStatus = '';
+    if (typeof fields.adminReviewReason === 'undefined') fields.adminReviewReason = '';
+    if (typeof fields.adminReviewNote === 'undefined') fields.adminReviewNote = 'Menunggu verifikasi admin';
+    if (typeof fields.followUpRequired === 'undefined') fields.followUpRequired = false;
+    if (typeof fields.fraudFlag === 'undefined') fields.fraudFlag = false;
+
+    // Optimistic UI: once photo is captured, treat as completed locally and close tracking.
+    _recordLocalStatusGuard(order.id, 'completed');
+    if (_currentOrder && String(_currentOrder.id) === String(order.id)) {
+        Object.assign(_currentOrder, fields);
+        refreshTrackingUIFromCurrentOrder();
+    }
+    stopTalentLocationBroadcast();
+    _notifyAdminReviewQueue(_currentOrder || order);
+    showToast('Bukti diterima. Pesanan ditutup dan masuk review admin.', 'success');
+    setTimeout(function () { closeTrackingToHome(); }, 800);
+
+    var payloadWithProof = Object.assign({}, fields);
+    var payloadWithoutProof = Object.assign({}, fields, {
+        proofPhoto: '',
+        proofPhotoInChat: true,
+        proofPhotoAt: nowTs
+    });
+
+    var maxAttempts = 6;
+    var attempt = 0;
+    function runAttempt() {
+        attempt += 1;
+        var payload = attempt <= 2 ? payloadWithProof : payloadWithoutProof;
+        _tryCompleteOrderOnce(order.id, actorId, payload, 12000).then(function (res) {
+            if (res && res.success) return;
+            if (attempt >= maxAttempts) {
+                console.warn('Completion retry exhausted for order', order.id, res && res.message ? res.message : 'unknown-error');
+                return;
+            }
+            var waitMs = Math.min(9000, 800 * Math.pow(2, attempt - 1));
+            setTimeout(runAttempt, waitMs);
+        }).catch(function () {
+            if (attempt >= maxAttempts) return;
+            var waitMs = Math.min(9000, 800 * Math.pow(2, attempt - 1));
+            setTimeout(runAttempt, waitMs);
+        });
+    }
+    runAttempt();
 }
 
 function updateOrderStatus(orderId, newStatus, extraFields) {
