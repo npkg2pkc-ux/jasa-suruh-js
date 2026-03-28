@@ -2815,6 +2815,39 @@ function bindDriverNavButtons(order) {
     }
 }
 
+function _triggerProofPicker(inputEl) {
+    if (!inputEl) return false;
+    var opened = false;
+    try {
+        if (typeof inputEl.showPicker === 'function') {
+            inputEl.showPicker();
+            opened = true;
+        }
+    } catch (e) {}
+    if (!opened) {
+        try {
+            inputEl.click();
+            opened = true;
+        } catch (e2) {}
+    }
+    return opened;
+}
+
+function _setCompleteButtonArmedState(btn, armed) {
+    if (!btn) return;
+    if (armed) {
+        btn.dataset.proofReady = '1';
+        btn.dataset.baseLabel = btn.dataset.baseLabel || btn.textContent || 'Ambil Foto Validasi';
+        btn.textContent = 'Ambil Foto Validasi';
+        btn.disabled = false;
+        btn.dataset.busy = '0';
+        btn.classList.remove('hidden');
+        return;
+    }
+    btn.dataset.proofReady = '0';
+    if (btn.dataset.baseLabel) btn.textContent = btn.dataset.baseLabel;
+}
+
 function renderOrderActions(order, isTalent, isUser) {
     var el = document.getElementById('otpActions');
     if (!el) return;
@@ -3040,13 +3073,25 @@ function renderOrderActions(order, isTalent, isUser) {
             document.getElementById('otpBtnComplete').addEventListener('click', function () {
                 var btn = this;
                 if (btn.dataset.busy === '1') return;
+                var proofInput = document.getElementById('otpProofInput');
+                if (btn.dataset.proofReady === '1') {
+                    _setCompleteButtonArmedState(btn, false);
+                    if (!_triggerProofPicker(proofInput)) {
+                        _setCompleteButtonArmedState(btn, true);
+                        showToast('Tidak bisa membuka kamera otomatis. Ketuk lagi tombol Ambil Foto Validasi.', 'error');
+                    }
+                    return;
+                }
                 btn.dataset.busy = '1';
                 btn.disabled = true;
                 _verifyDriverAtLocation(order, 'buyer', function(isNear) {
                     if (isNear) {
                         var proofInput = document.getElementById('otpProofInput');
                         if (proofInput) proofInput.dataset.gpsVerified = '1';
-                        document.getElementById('otpProofInput').click();
+                        _setCompleteButtonArmedState(btn, true);
+                        if (!_triggerProofPicker(proofInput)) {
+                            showToast('Lokasi valid. Ketuk lagi tombol Ambil Foto Validasi untuk membuka kamera.', 'info');
+                        }
                     } else {
                         btn.dataset.busy = '0';
                         if (!btn.classList.contains('hidden')) btn.disabled = false;
@@ -3060,6 +3105,7 @@ function renderOrderActions(order, isTalent, isUser) {
                     var btnReset = document.getElementById('otpBtnComplete');
                     if (btnReset) {
                         btnReset.dataset.busy = '0';
+                        _setCompleteButtonArmedState(btnReset, true);
                         if (!btnReset.classList.contains('hidden')) btnReset.disabled = false;
                     }
                     return;
@@ -3113,6 +3159,15 @@ function renderOrderActions(order, isTalent, isUser) {
                 document.getElementById('otpBtnComplete').addEventListener('click', function () {
                     var btn = this;
                     if (btn.dataset.busy === '1') return;
+                    var proofInput = document.getElementById('otpProofInput');
+                    if (btn.dataset.proofReady === '1') {
+                        _setCompleteButtonArmedState(btn, false);
+                        if (!_triggerProofPicker(proofInput)) {
+                            _setCompleteButtonArmedState(btn, true);
+                            showToast('Tidak bisa membuka kamera otomatis. Ketuk lagi tombol Ambil Foto Validasi.', 'error');
+                        }
+                        return;
+                    }
                     btn.dataset.busy = '1';
                     btn.disabled = true;
                     _verifyDriverAtLocation(order, 'dest', function(isNear) {
@@ -3125,7 +3180,10 @@ function renderOrderActions(order, isTalent, isUser) {
                             }
                             var proofInput = document.getElementById('otpProofInput');
                             if (proofInput) proofInput.dataset.gpsVerified = '1';
-                            document.getElementById('otpProofInput').click();
+                            _setCompleteButtonArmedState(btn, true);
+                            if (!_triggerProofPicker(proofInput)) {
+                                showToast('Lokasi valid. Ketuk lagi tombol Ambil Foto Validasi untuk membuka kamera.', 'info');
+                            }
                         } else {
                             btn.dataset.busy = '0';
                             if (!btn.classList.contains('hidden')) btn.disabled = false;
@@ -3147,6 +3205,7 @@ function renderOrderActions(order, isTalent, isUser) {
                     var btnReset2 = document.getElementById('otpBtnComplete');
                     if (btnReset2) {
                         btnReset2.dataset.busy = '0';
+                        _setCompleteButtonArmedState(btnReset2, true);
                         if (!btnReset2.classList.contains('hidden')) btnReset2.disabled = false;
                     }
                     return;
@@ -3419,7 +3478,11 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
     }
 
     // Requirement: when not yet at target point, hide progress button.
-    btn.classList.add('hidden');
+    // Keep complete button visible when GPS sync is unavailable so driver can re-trigger live verification.
+    var keepVisible = (buttonId === 'otpBtnComplete')
+        && (knownCheck.reason === 'driver_location_unavailable' || knownCheck.reason === 'target_location_unavailable');
+    if (keepVisible) btn.classList.remove('hidden');
+    else btn.classList.add('hidden');
     btn.disabled = true;
     btn.style.opacity = '0.72';
     if (knownCheck.reason === 'driver_location_unavailable') {
