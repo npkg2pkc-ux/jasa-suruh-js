@@ -742,6 +742,52 @@
             });
     }
 
+    function _looksLikeDriverCompletionProof(msgData) {
+        if (!msgData) return false;
+        var photo = String(msgData.photo || '').trim();
+        if (!photo) return false;
+        var text = String(msgData.text || '').toLowerCase();
+        return text.indexOf('bukti penyelesaian') >= 0 || text.indexOf('completion proof') >= 0;
+    }
+
+    function _autoCompleteOrderFromDriverProof(order, msgData) {
+        if (!order || !msgData) return Promise.resolve();
+
+        var status = String(order.status || '').toLowerCase();
+        if (status === 'completed' || status === 'rated' || status === 'cancelled' || status === 'rejected') {
+            return Promise.resolve();
+        }
+
+        var talentId = String(order.talentId || '');
+        var senderId = String(msgData.senderId || '');
+        if (!talentId || !senderId || senderId !== talentId) return Promise.resolve();
+
+        var merged = Object.assign({}, order, {
+            status: 'completed',
+            completedAt: Number(msgData.createdAt || Date.now()),
+            pendingAdminReview: true,
+            pendingAdminReviewAt: Date.now(),
+            walletSettled: false,
+            adminReviewStatus: '',
+            adminReviewReason: '',
+            adminReviewNote: 'Menunggu verifikasi admin',
+            followUpRequired: false,
+            fraudFlag: false,
+            proofPhotoInChat: true,
+            proofPhotoAt: Number(msgData.createdAt || Date.now())
+        });
+
+        return sb.from('orders').update({
+            data: merged,
+            user_id: merged.userId || null,
+            talent_id: merged.talentId || null
+        }).eq('id', String(order.id || '')).then(function (res) {
+            throwIfError(res);
+        }).catch(function () {
+            // Best-effort only; chat send must stay successful even if completion patch fails.
+        });
+    }
+
     function doSendMessage(body) {
         var msgData = {
             orderId: body.orderId,
@@ -762,7 +808,18 @@
             data: msgData
         }).then(function (res) {
             throwIfError(res);
-            return ok(msgData);
+
+            if (!_looksLikeDriverCompletionProof(msgData)) {
+                return ok(msgData);
+            }
+
+            return getOrderDataById(body.orderId)
+                .then(function (order) {
+                    if (!order) return;
+                    return _autoCompleteOrderFromDriverProof(order, msgData);
+                })
+                .catch(function () {})
+                .then(function () { return ok(msgData); });
         });
     }
 
