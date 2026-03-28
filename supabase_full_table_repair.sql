@@ -514,6 +514,47 @@ select
     (select count(*) from wallet_ledger) as wallet_ledger_count,
     (select count(*) from wallet_idempotency) as wallet_idempotency_count;
 
+-- ringkasan kelengkapan data driver (talent)
+select
+    count(*) as total_driver,
+    sum(case when coalesce(no_ktp, '') = '' then 1 else 0 end) as kosong_no_ktp,
+    sum(case when coalesce(jenis_kelamin, '') = '' then 1 else 0 end) as kosong_jenis_kelamin,
+    sum(case when coalesce(alamat_lengkap, '') = '' then 1 else 0 end) as kosong_alamat_lengkap,
+    sum(case when coalesce(jenis_motor, '') = '' then 1 else 0 end) as kosong_jenis_motor,
+    sum(case when coalesce(tahun_kendaraan, '') = '' then 1 else 0 end) as kosong_tahun_kendaraan,
+    sum(case when coalesce(plat_nomor_kendaraan, '') = '' then 1 else 0 end) as kosong_plat_nomor,
+    sum(case when coalesce(ktp_photo_url, '') = '' then 1 else 0 end) as kosong_ktp_photo,
+    sum(case when coalesce(driver_photo_url, '') = '' then 1 else 0 end) as kosong_driver_photo
+from users
+where lower(coalesce(role, '')) = 'talent';
+
+-- daftar driver yang field intinya masih kosong
+select
+    id,
+    coalesce(nama, '') as nama,
+    coalesce(no_hp, '') as no_hp,
+    coalesce(no_ktp, '') as no_ktp,
+    coalesce(jenis_kelamin, '') as jenis_kelamin,
+    coalesce(alamat_lengkap, '') as alamat_lengkap,
+    coalesce(jenis_motor, '') as jenis_motor,
+    coalesce(tahun_kendaraan, '') as tahun_kendaraan,
+    coalesce(plat_nomor_kendaraan, '') as plat_nomor_kendaraan,
+    coalesce(ktp_photo_url, '') as ktp_photo_url,
+    coalesce(driver_photo_url, '') as driver_photo_url
+from users
+where lower(coalesce(role, '')) = 'talent'
+  and (
+      coalesce(no_ktp, '') = ''
+      or coalesce(jenis_kelamin, '') = ''
+      or coalesce(alamat_lengkap, '') = ''
+      or coalesce(jenis_motor, '') = ''
+      or coalesce(tahun_kendaraan, '') = ''
+      or coalesce(plat_nomor_kendaraan, '') = ''
+      or coalesce(ktp_photo_url, '') = ''
+      or coalesce(driver_photo_url, '') = ''
+  )
+order by nama, id;
+
 -- cek orphan sisa (harus 0 kalau bersih)
 select
     (select count(*) from locations l where not exists (select 1 from orders o where o.id = l.order_id)) as orphan_locations,
