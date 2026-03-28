@@ -312,6 +312,29 @@ with upd as (
 insert into _repair_log(step, affected_rows, note)
 select 'users_driver_columns_sync', count(*), 'Sinkron kolom driver dari data JSON' from upd;
 
+-- 2c) Pastikan field teks wajib driver tidak kosong (fallback '-') agar data lama tidak bikin alur nyangkut.
+with upd as (
+        update users u
+        set no_ktp = coalesce(nullif(u.no_ktp, ''), '-'),
+                jenis_kelamin = coalesce(nullif(u.jenis_kelamin, ''), '-'),
+                alamat_lengkap = coalesce(nullif(u.alamat_lengkap, ''), coalesce(nullif(u.address, ''), '-')),
+                jenis_motor = coalesce(nullif(u.jenis_motor, ''), '-'),
+                tahun_kendaraan = coalesce(nullif(u.tahun_kendaraan, ''), '-'),
+                plat_nomor_kendaraan = coalesce(nullif(u.plat_nomor_kendaraan, ''), '-')
+        where lower(coalesce(u.role, '')) = 'talent'
+            and (
+                coalesce(u.no_ktp, '') = ''
+                or coalesce(u.jenis_kelamin, '') = ''
+                or coalesce(u.alamat_lengkap, '') = ''
+                or coalesce(u.jenis_motor, '') = ''
+                or coalesce(u.tahun_kendaraan, '') = ''
+                or coalesce(u.plat_nomor_kendaraan, '') = ''
+            )
+        returning 1
+)
+insert into _repair_log(step, affected_rows, note)
+select 'users_driver_text_fill', count(*), 'Isi field teks driver kosong dengan fallback' from upd;
+
 -- 3) skills seed untuk semua user yang belum punya row
 with ins as (
     insert into skills(user_id, data)
