@@ -2856,6 +2856,28 @@ function _tryOpenProofAfterGpsCheck(btn, proofInput, blockedMsg) {
     }
 }
 
+function _setProofInputGpsCoords(proofInput, order, verifyMeta) {
+    if (!proofInput) return;
+    var lat = NaN;
+    var lng = NaN;
+
+    if (verifyMeta && isValidLatLng(Number(verifyMeta.gpsLat), Number(verifyMeta.gpsLng))) {
+        lat = Number(verifyMeta.gpsLat);
+        lng = Number(verifyMeta.gpsLng);
+    } else if (order && isValidLatLng(Number(order.talentLat), Number(order.talentLng))) {
+        lat = Number(order.talentLat);
+        lng = Number(order.talentLng);
+    }
+
+    if (isValidLatLng(lat, lng)) {
+        proofInput.dataset.gpsLat = String(lat);
+        proofInput.dataset.gpsLng = String(lng);
+    } else {
+        proofInput.dataset.gpsLat = '';
+        proofInput.dataset.gpsLng = '';
+    }
+}
+
 function _canUseKnownGpsForCompletion(order, targetType) {
     var radiusKm = _getDriverGpsGateRadiusKm(order, targetType, 'completed');
     var knownCheck = _checkDriverGpsGateByKnownPosition(order, targetType, radiusKm);
@@ -3099,12 +3121,14 @@ function renderOrderActions(order, isTalent, isUser) {
                 btn.dataset.busy = '1';
                 btn.disabled = true;
                 if (_canUseKnownGpsForCompletion(order, 'buyer')) {
+                    _setProofInputGpsCoords(proofInput, order, null);
                     _tryOpenProofAfterGpsCheck(btn, proofInput, 'Lokasi valid. Jika kamera belum muncul, ketuk lagi tombol Ambil Foto Validasi.');
                     return;
                 }
-                _verifyDriverAtLocation(order, 'buyer', function(isNear) {
+                _verifyDriverAtLocation(order, 'buyer', function(isNear, meta) {
                     if (isNear) {
                         var proofInputVerify = document.getElementById('otpProofInput');
+                        _setProofInputGpsCoords(proofInputVerify, order, meta);
                         _tryOpenProofAfterGpsCheck(btn, proofInputVerify, 'Lokasi valid. Ketuk lagi tombol Ambil Foto Validasi untuk membuka kamera.');
                     } else {
                         btn.dataset.busy = '0';
@@ -3130,10 +3154,20 @@ function renderOrderActions(order, isTalent, isUser) {
                         _sendDriverProofToUserChat(order, proofThumb);
                         stopTalentLocationBroadcast();
                         var proofInput = document.getElementById('otpProofInput');
+                        var lat = proofInput ? Number(proofInput.dataset.gpsLat) : NaN;
+                        var lng = proofInput ? Number(proofInput.dataset.gpsLng) : NaN;
+                        var extraFields = { completedAt: Date.now(), proofPhoto: proofThumb, _skipGpsGate: true };
+                        if (isValidLatLng(lat, lng)) {
+                            extraFields.talentLat = lat;
+                            extraFields.talentLng = lng;
+                            extraFields.talentLastLocationAt = Date.now();
+                        }
                         if (proofInput) proofInput.dataset.gpsVerified = '';
+                        if (proofInput) proofInput.dataset.gpsLat = '';
+                        if (proofInput) proofInput.dataset.gpsLng = '';
                         // Proof selection only happens after driver enters complete flow,
                         // so skip duplicate GPS gate here to avoid regressions/rollback loops.
-                        updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb, _skipGpsGate: true });
+                        updateOrderStatus(order.id, 'completed', extraFields);
                     });
                 };
                 reader.readAsDataURL(file);
@@ -3189,12 +3223,14 @@ function renderOrderActions(order, isTalent, isUser) {
                     btn.dataset.busy = '1';
                     btn.disabled = true;
                     if (_canUseKnownGpsForCompletion(order, 'dest')) {
+                        _setProofInputGpsCoords(proofInput, order, null);
                         _tryOpenProofAfterGpsCheck(btn, proofInput, 'Lokasi valid. Jika kamera belum muncul, ketuk lagi tombol Ambil Foto Validasi.');
                         return;
                     }
-                    _verifyDriverAtLocation(order, 'dest', function(isNear) {
+                    _verifyDriverAtLocation(order, 'dest', function(isNear, meta) {
                         if (isNear) {
                             var proofInputVerify = document.getElementById('otpProofInput');
+                            _setProofInputGpsCoords(proofInputVerify, order, meta);
                             _tryOpenProofAfterGpsCheck(btn, proofInputVerify, 'Lokasi valid. Ketuk lagi tombol Ambil Foto Validasi untuk membuka kamera.');
                         } else {
                             btn.dataset.busy = '0';
@@ -3228,10 +3264,20 @@ function renderOrderActions(order, isTalent, isUser) {
                         _sendDriverProofToUserChat(order, proofThumb);
                         stopTalentLocationBroadcast();
                         var proofInput = document.getElementById('otpProofInput');
+                        var lat = proofInput ? Number(proofInput.dataset.gpsLat) : NaN;
+                        var lng = proofInput ? Number(proofInput.dataset.gpsLng) : NaN;
+                        var extraFields = { completedAt: Date.now(), proofPhoto: proofThumb, _skipGpsGate: true };
+                        if (isValidLatLng(lat, lng)) {
+                            extraFields.talentLat = lat;
+                            extraFields.talentLng = lng;
+                            extraFields.talentLastLocationAt = Date.now();
+                        }
                         if (proofInput) proofInput.dataset.gpsVerified = '';
+                        if (proofInput) proofInput.dataset.gpsLat = '';
+                        if (proofInput) proofInput.dataset.gpsLng = '';
                         // Proof selection only happens after driver enters complete flow,
                         // so skip duplicate GPS gate here to avoid regressions/rollback loops.
-                        updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb, _skipGpsGate: true });
+                        updateOrderStatus(order.id, 'completed', extraFields);
                     });
                 };
                 reader.readAsDataURL(file);
@@ -3608,6 +3654,33 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
     function runStatusUpdate() {
         maybeAttachDriverCoords().then(function () {
             return backendPost({ action: 'updateOrder', orderId: orderId, fields: fields, actorId: actorId });
+        }).then(function (res) {
+            if ((!res || !res.success) && newStatus === 'completed' && fields.proofPhoto) {
+                var msg = String((res && res.message) || '').toLowerCase();
+                var shouldRetryWithoutPhoto = !msg
+                    || msg.indexOf('payload') >= 0
+                    || msg.indexOf('entity too large') >= 0
+                    || msg.indexOf('request too large') >= 0
+                    || msg.indexOf('size') >= 0
+                    || msg.indexOf('json') >= 0;
+
+                if (shouldRetryWithoutPhoto) {
+                    var fallbackFields = Object.assign({}, fields, {
+                        proofPhoto: '',
+                        proofPhotoInChat: true,
+                        proofPhotoAt: Date.now()
+                    });
+                    return backendPost({ action: 'updateOrder', orderId: orderId, fields: fallbackFields, actorId: actorId }).then(function (retryRes) {
+                        if (retryRes && retryRes.success) {
+                            fields = fallbackFields;
+                            showToast('Status selesai tersimpan. Foto bukti tetap tersedia di chat user.', 'success');
+                            return retryRes;
+                        }
+                        return res;
+                    });
+                }
+            }
+            return res;
         }).then(function (res) {
             if (res && res.success) {
                 _recordLocalStatusGuard(orderId, newStatus);
@@ -5750,7 +5823,15 @@ function _verifyDriverAtLocation(order, targetType, callback, maxDistanceKm) {
         var known = _checkDriverGpsGateByKnownPosition(order, targetType, radiusKm);
         var knownDist = isFinite(Number(known.distKm)) ? Number(known.distKm) : NaN;
         var bestDist = isFinite(knownDist) ? Math.min(dist, knownDist) : dist;
-        callback(bestDist <= radiusKm, { distKm: bestDist, gpsDistKm: dist, knownDistKm: knownDist, radiusKm: radiusKm, targetType: targetType });
+        callback(bestDist <= radiusKm, {
+            distKm: bestDist,
+            gpsDistKm: dist,
+            knownDistKm: knownDist,
+            radiusKm: radiusKm,
+            targetType: targetType,
+            gpsLat: dLat,
+            gpsLng: dLng
+        });
     }, function () {
         // Fallback to last known synced driver position from order payload.
         var known = _checkDriverGpsGateByKnownPosition(order, targetType, radiusKm);
