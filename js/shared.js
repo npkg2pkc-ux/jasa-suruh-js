@@ -2848,6 +2848,20 @@ function _setCompleteButtonArmedState(btn, armed) {
     if (btn.dataset.baseLabel) btn.textContent = btn.dataset.baseLabel;
 }
 
+function _tryOpenProofAfterGpsCheck(btn, proofInput, blockedMsg) {
+    if (proofInput) proofInput.dataset.gpsVerified = '1';
+    _setCompleteButtonArmedState(btn, true);
+    if (!_triggerProofPicker(proofInput)) {
+        showToast(blockedMsg || 'Lokasi valid. Ketuk lagi tombol Ambil Foto Validasi untuk membuka kamera.', 'info');
+    }
+}
+
+function _canUseKnownGpsForCompletion(order, targetType) {
+    var radiusKm = _getDriverGpsGateRadiusKm(order, targetType, 'completed');
+    var knownCheck = _checkDriverGpsGateByKnownPosition(order, targetType, radiusKm);
+    return !!(knownCheck && knownCheck.ok);
+}
+
 function renderOrderActions(order, isTalent, isUser) {
     var el = document.getElementById('otpActions');
     if (!el) return;
@@ -3084,14 +3098,14 @@ function renderOrderActions(order, isTalent, isUser) {
                 }
                 btn.dataset.busy = '1';
                 btn.disabled = true;
+                if (_canUseKnownGpsForCompletion(order, 'buyer')) {
+                    _tryOpenProofAfterGpsCheck(btn, proofInput, 'Lokasi valid. Jika kamera belum muncul, ketuk lagi tombol Ambil Foto Validasi.');
+                    return;
+                }
                 _verifyDriverAtLocation(order, 'buyer', function(isNear) {
                     if (isNear) {
-                        var proofInput = document.getElementById('otpProofInput');
-                        if (proofInput) proofInput.dataset.gpsVerified = '1';
-                        _setCompleteButtonArmedState(btn, true);
-                        if (!_triggerProofPicker(proofInput)) {
-                            showToast('Lokasi valid. Ketuk lagi tombol Ambil Foto Validasi untuk membuka kamera.', 'info');
-                        }
+                        var proofInputVerify = document.getElementById('otpProofInput');
+                        _tryOpenProofAfterGpsCheck(btn, proofInputVerify, 'Lokasi valid. Ketuk lagi tombol Ambil Foto Validasi untuk membuka kamera.');
                     } else {
                         btn.dataset.busy = '0';
                         if (!btn.classList.contains('hidden')) btn.disabled = false;
@@ -3168,22 +3182,18 @@ function renderOrderActions(order, isTalent, isUser) {
                         }
                         return;
                     }
+                    var msg = isAntar ? 'Konfirmasi penumpang sudah sampai tujuan?' : 'Konfirmasi barang sudah sampai di titik antar?';
+                    if (!confirm(msg)) return;
                     btn.dataset.busy = '1';
                     btn.disabled = true;
+                    if (_canUseKnownGpsForCompletion(order, 'dest')) {
+                        _tryOpenProofAfterGpsCheck(btn, proofInput, 'Lokasi valid. Jika kamera belum muncul, ketuk lagi tombol Ambil Foto Validasi.');
+                        return;
+                    }
                     _verifyDriverAtLocation(order, 'dest', function(isNear) {
                         if (isNear) {
-                            var msg = isAntar ? 'Konfirmasi penumpang sudah sampai tujuan?' : 'Konfirmasi barang sudah sampai di titik antar?';
-                            if (!confirm(msg)) {
-                                btn.dataset.busy = '0';
-                                if (!btn.classList.contains('hidden')) btn.disabled = false;
-                                return;
-                            }
-                            var proofInput = document.getElementById('otpProofInput');
-                            if (proofInput) proofInput.dataset.gpsVerified = '1';
-                            _setCompleteButtonArmedState(btn, true);
-                            if (!_triggerProofPicker(proofInput)) {
-                                showToast('Lokasi valid. Ketuk lagi tombol Ambil Foto Validasi untuk membuka kamera.', 'info');
-                            }
+                            var proofInputVerify = document.getElementById('otpProofInput');
+                            _tryOpenProofAfterGpsCheck(btn, proofInputVerify, 'Lokasi valid. Ketuk lagi tombol Ambil Foto Validasi untuk membuka kamera.');
                         } else {
                             btn.dataset.busy = '0';
                             if (!btn.classList.contains('hidden')) btn.disabled = false;
