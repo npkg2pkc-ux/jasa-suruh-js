@@ -3652,8 +3652,11 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
     }
 
     function runStatusUpdate() {
+        var isProofCompletion = (newStatus === 'completed') && !!(fields.proofPhoto || fields.proofPhotoInChat);
+        var updateAction = isProofCompletion ? 'completeOrderWithProof' : 'updateOrder';
+
         maybeAttachDriverCoords().then(function () {
-            return backendPost({ action: 'updateOrder', orderId: orderId, fields: fields, actorId: actorId });
+            return backendPost({ action: updateAction, orderId: orderId, fields: fields, actorId: actorId });
         }).then(function (res) {
             if ((!res || !res.success) && newStatus === 'completed' && fields.proofPhoto) {
                 var msg = String((res && res.message) || '').toLowerCase();
@@ -3670,7 +3673,7 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                         proofPhotoInChat: true,
                         proofPhotoAt: Date.now()
                     });
-                    return backendPost({ action: 'updateOrder', orderId: orderId, fields: fallbackFields, actorId: actorId }).then(function (retryRes) {
+                    return backendPost({ action: 'completeOrderWithProof', orderId: orderId, fields: fallbackFields, actorId: actorId }).then(function (retryRes) {
                         if (retryRes && retryRes.success) {
                             fields = fallbackFields;
                             showToast('Status selesai tersimpan. Foto bukti tetap tersedia di chat user.', 'success');

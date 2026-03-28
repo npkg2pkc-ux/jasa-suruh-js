@@ -686,6 +686,62 @@
             });
     }
 
+    function doCompleteOrderWithProof(body) {
+        var orderId = String((body && body.orderId) || '');
+        if (!orderId) return Promise.resolve(fail('Order tidak ditemukan'));
+
+        var actorId = String((body && body.actorId) || '');
+        var fields = Object.assign({}, (body && body.fields) || {});
+
+        return sb.from('orders').select('data').eq('id', orderId).single()
+            .then(function (res) {
+                throwIfError(res);
+                var current = (res.data && res.data.data) || null;
+                if (!current) return fail('Order tidak ditemukan');
+
+                var talentId = String(current.talentId || '');
+                if (!actorId || !talentId || actorId !== talentId) {
+                    return fail('Update progress ditolak: hanya driver aktif yang dapat menyelesaikan order.');
+                }
+
+                var prevStatus = String(current.status || '').toLowerCase();
+                if (prevStatus === 'cancelled' || prevStatus === 'rejected' || prevStatus === 'rated') {
+                    return fail('Update progress ditolak: order sudah berada di status akhir.');
+                }
+
+                // Proof completion is allowed from active driver states to avoid deadlock in mobile GPS races.
+                var allowed = { accepted: true, on_the_way: true, arrived: true, in_progress: true, completed: true };
+                if (!allowed[prevStatus]) {
+                    return fail('Update progress ditolak: status saat ini tidak dapat diselesaikan.');
+                }
+
+                var merged = Object.assign({}, current, fields);
+                merged.status = 'completed';
+                merged.completedAt = Number(fields.completedAt || current.completedAt || Date.now());
+                if (typeof merged.pendingAdminReview === 'undefined') merged.pendingAdminReview = true;
+                if (typeof merged.pendingAdminReviewAt === 'undefined') merged.pendingAdminReviewAt = Date.now();
+                if (typeof merged.walletSettled === 'undefined') merged.walletSettled = false;
+                if (typeof merged.adminReviewStatus === 'undefined') merged.adminReviewStatus = '';
+                if (typeof merged.adminReviewReason === 'undefined') merged.adminReviewReason = '';
+                if (typeof merged.adminReviewNote === 'undefined') merged.adminReviewNote = 'Menunggu verifikasi admin';
+                if (typeof merged.followUpRequired === 'undefined') merged.followUpRequired = false;
+                if (typeof merged.fraudFlag === 'undefined') merged.fraudFlag = false;
+
+                return sb.from('orders').update({
+                    data: merged,
+                    user_id: merged.userId || null,
+                    talent_id: merged.talentId || null
+                }).eq('id', orderId).then(function (uRes) {
+                    throwIfError(uRes);
+                    return ok(null);
+                });
+            })
+            .catch(function (err) {
+                if (err && err.success === false) return err;
+                throw err;
+            });
+    }
+
     function doSendMessage(body) {
         var msgData = {
             orderId: body.orderId,
@@ -1659,6 +1715,7 @@
             case 'updateSkills': return doUpdateSkills(body);
             case 'createOrder': return doCreateOrder(body);
             case 'updateOrder': return doUpdateOrder(body);
+            case 'completeOrderWithProof': return doCompleteOrderWithProof(body);
             case 'sendMessage': return doSendMessage(body);
             case 'rateOrder': return doRateOrder(body);
             case 'updateTalentLocation': return doUpdateTalentLocation(body);
