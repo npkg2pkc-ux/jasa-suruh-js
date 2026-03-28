@@ -2023,7 +2023,7 @@ function setDriverMarkerHeading(fromLat, fromLng, toLat, toLng) {
     if (!_otpTalentMarker || !isValidLatLng(fromLat, fromLng) || !isValidLatLng(toLat, toLng)) return;
     var markerEl = _otpTalentMarker.getElement();
     if (!markerEl) return;
-    var iconEl = markerEl.querySelector('.gm-route-pin.driver > span');
+    var iconEl = markerEl.querySelector('.gm-driver-marker-img');
     if (!iconEl) return;
 
     var dy = Number(toLat) - Number(fromLat);
@@ -3490,6 +3490,26 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
 // ══════════════════════════════════════════
 // ═══ MAP TRACKING (Leaflet + OSRM) ═══
 // ══════════════════════════════════════════
+function buildTrackingUserMarkerHtml(order) {
+    var session = getSession() || {};
+    var users = getUsers() || [];
+    var userId = order && order.userId ? String(order.userId) : '';
+    var buyer = users.find(function (u) { return String(u.id || '') === userId; }) || null;
+    var photo = '';
+
+    if (userId) photo = getProfilePhoto(userId) || '';
+    if (!photo && buyer) photo = String(buyer.photo || buyer.foto_url || '').trim();
+    if (!photo && session && String(session.id || '') === userId) photo = getProfilePhoto(session.id) || '';
+
+    if (photo) {
+        return '<div class="gm-route-avatar-marker"><img class="gm-route-avatar-img" src="' + escapeHtml(photo) + '" alt="User"></div>';
+    }
+
+    var fallbackName = String((buyer && buyer.name) || session.name || 'User').trim();
+    var fallbackInitial = fallbackName ? fallbackName.charAt(0).toUpperCase() : 'U';
+    return '<div class="gm-route-avatar-marker"><span class="gm-route-avatar-fallback">' + escapeHtml(fallbackInitial) + '</span></div>';
+}
+
 function initTrackingMap(order) {
     var container = document.getElementById('otpMapContainer');
     if (!container) return;
@@ -3544,19 +3564,19 @@ function initTrackingMap(order) {
     L.control.zoom({ position: 'bottomright' }).addTo(_otpMap);
 
     var userIcon = L.divIcon({
-        html: '<div class="gm-route-pin pickup"><span>↑</span></div>',
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-        popupAnchor: [0, -14],
+        html: buildTrackingUserMarkerHtml(order),
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
+        popupAnchor: [0, -17],
         className: 'gm-route-pin-wrapper'
     });
     _otpUserMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(_otpMap).bindPopup(isProductOrder ? 'Lokasi Pembeli' : (isAntar ? 'Titik Jemput' : 'Lokasi Anda'));
 
     var talentIcon = L.divIcon({
-        html: '<div class="gm-route-pin driver"><span>🏍</span></div>',
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-        popupAnchor: [0, -14],
+        html: '<div class="gm-driver-marker"><img class="gm-driver-marker-img" src="markdriver.png" alt="Driver"></div>',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+        popupAnchor: [0, -20],
         className: 'gm-route-pin-wrapper'
     });
     _otpTalentMarker = L.marker([talentLat, talentLng], { icon: talentIcon }).addTo(_otpMap).bindPopup('Driver');
