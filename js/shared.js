@@ -3562,6 +3562,18 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
     if (Object.prototype.hasOwnProperty.call(fields, '_skipGpsGate')) delete fields._skipGpsGate;
     fields.status = newStatus;
 
+    // Keep completion + admin-review flags in a single write to avoid race/rollback.
+    if (newStatus === 'completed') {
+        if (typeof fields.pendingAdminReview === 'undefined') fields.pendingAdminReview = true;
+        if (typeof fields.pendingAdminReviewAt === 'undefined') fields.pendingAdminReviewAt = Date.now();
+        if (typeof fields.walletSettled === 'undefined') fields.walletSettled = false;
+        if (typeof fields.adminReviewStatus === 'undefined') fields.adminReviewStatus = '';
+        if (typeof fields.adminReviewReason === 'undefined') fields.adminReviewReason = '';
+        if (typeof fields.adminReviewNote === 'undefined') fields.adminReviewNote = 'Menunggu verifikasi admin';
+        if (typeof fields.followUpRequired === 'undefined') fields.followUpRequired = false;
+        if (typeof fields.fraudFlag === 'undefined') fields.fraudFlag = false;
+    }
+
     var session = getSession();
     var actorId = session && session.id ? session.id : '';
 
@@ -3637,20 +3649,6 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                 // When completed, always push to admin review queue before any payout.
                 if (newStatus === 'completed') {
                     var orderRef = notifOrder || { id: orderId };
-                    backendPost({
-                        action: 'updateOrder',
-                        orderId: orderId,
-                        fields: {
-                            pendingAdminReview: true,
-                            pendingAdminReviewAt: Date.now(),
-                            walletSettled: false,
-                            adminReviewStatus: '',
-                            adminReviewReason: '',
-                            adminReviewNote: 'Menunggu verifikasi admin',
-                            followUpRequired: false,
-                            fraudFlag: false
-                        }
-                    });
                     _notifyAdminReviewQueue(orderRef);
                     showToast('Pesanan selesai! Masuk antrian review admin sebelum pencairan komisi.', 'success');
                 }
