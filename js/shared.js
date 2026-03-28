@@ -2038,7 +2038,20 @@ function setDriverMarkerHeading(fromLat, fromLng, toLat, toLng) {
     var bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
     // markdriver.png default facing is slightly diagonal, so apply fixed offset.
     var iconHeadingOffsetDeg = -45;
-    iconEl.style.setProperty('--heading', String(bearing + iconHeadingOffsetDeg) + 'deg');
+    var targetHeading = bearing + iconHeadingOffsetDeg;
+    var prevHeading = Number(iconEl.dataset.headingDeg);
+    if (isFinite(prevHeading)) {
+        var delta = targetHeading - prevHeading;
+        while (delta > 180) delta -= 360;
+        while (delta < -180) delta += 360;
+        targetHeading = prevHeading + delta;
+    }
+
+    var speedKmh = Number(_otpSpeedKmh) || 0;
+    var headingDur = speedKmh < 3 ? 0.36 : (speedKmh < 20 ? 0.28 : 0.2);
+    iconEl.dataset.headingDeg = String(targetHeading);
+    iconEl.style.setProperty('--heading-dur', String(headingDur) + 's');
+    iconEl.style.setProperty('--heading', String(targetHeading) + 'deg');
 }
 
 function clearDriverTrailLayers() {
@@ -3581,7 +3594,7 @@ function initTrackingMap(order) {
     _otpUserMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(_otpMap).bindPopup(isProductOrder ? 'Lokasi Pembeli' : (isAntar ? 'Titik Jemput' : 'Lokasi Anda'));
 
     var talentIcon = L.divIcon({
-        html: '<div class="gm-driver-marker"><img class="gm-driver-marker-img" src="markdriver.png" alt="Driver"></div>',
+        html: '<div class="gm-driver-marker"><span class="gm-driver-marker-glow"></span><img class="gm-driver-marker-img" src="markdriver.png" alt="Driver" onerror="this.style.display=\'none\';this.parentElement.classList.add(\'is-fallback\');"><span class="gm-driver-marker-fallback">🏍</span></div>',
         iconSize: [40, 40],
         iconAnchor: [20, 20],
         popupAnchor: [0, -20],
