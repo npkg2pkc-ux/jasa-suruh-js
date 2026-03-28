@@ -3129,9 +3129,10 @@ function renderOrderActions(order, isTalent, isUser) {
                     compressThumbnail(reader.result, function (proofThumb) {
                         _sendDriverProofToUserChat(order, proofThumb);
                         var proofInput = document.getElementById('otpProofInput');
-                        var verified = !!(proofInput && proofInput.dataset.gpsVerified === '1');
                         if (proofInput) proofInput.dataset.gpsVerified = '';
-                        updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb, _skipGpsGate: verified });
+                        // Proof selection only happens after driver enters complete flow,
+                        // so skip duplicate GPS gate here to avoid regressions/rollback loops.
+                        updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb, _skipGpsGate: true });
                     });
                 };
                 reader.readAsDataURL(file);
@@ -3225,9 +3226,10 @@ function renderOrderActions(order, isTalent, isUser) {
                     compressThumbnail(reader.result, function (proofThumb) {
                         _sendDriverProofToUserChat(order, proofThumb);
                         var proofInput = document.getElementById('otpProofInput');
-                        var verified = !!(proofInput && proofInput.dataset.gpsVerified === '1');
                         if (proofInput) proofInput.dataset.gpsVerified = '';
-                        updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb, _skipGpsGate: verified });
+                        // Proof selection only happens after driver enters complete flow,
+                        // so skip duplicate GPS gate here to avoid regressions/rollback loops.
+                        updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb, _skipGpsGate: true });
                     });
                 };
                 reader.readAsDataURL(file);
