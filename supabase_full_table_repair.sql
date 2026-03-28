@@ -31,10 +31,31 @@ create table if not exists users (
     no_hp text,
     email text,
     foto_url text,
+    is_active boolean default true,
+    address text,
+    no_ktp text,
+    jenis_kelamin text,
+    alamat_lengkap text,
+    jenis_motor text,
+    tahun_kendaraan text,
+    plat_nomor_kendaraan text,
+    ktp_photo_url text,
+    driver_photo_url text,
     username text,
     created_at timestamptz default now(),
     data jsonb not null default '{}'
 );
+
+alter table users add column if not exists is_active boolean default true;
+alter table users add column if not exists address text;
+alter table users add column if not exists no_ktp text;
+alter table users add column if not exists jenis_kelamin text;
+alter table users add column if not exists alamat_lengkap text;
+alter table users add column if not exists jenis_motor text;
+alter table users add column if not exists tahun_kendaraan text;
+alter table users add column if not exists plat_nomor_kendaraan text;
+alter table users add column if not exists ktp_photo_url text;
+alter table users add column if not exists driver_photo_url text;
 
 create table if not exists otp_codes (
     id uuid primary key default gen_random_uuid(),
@@ -205,7 +226,24 @@ with upd as (
             'name', coalesce(u.nama, ''),
             'phone', coalesce(u.no_hp, ''),
             'email', coalesce(u.email, ''),
-            'foto_url', coalesce(u.foto_url, '')
+            'foto_url', coalesce(u.foto_url, ''),
+            'is_active', case
+                when lower(coalesce(u.data->>'is_active', '')) in ('true', '1', 'yes') then true
+                when lower(coalesce(u.data->>'is_active', '')) in ('false', '0', 'no') then false
+                else coalesce(u.is_active, true)
+            end,
+            'address', coalesce(nullif(u.address, ''), nullif(u.alamat_lengkap, ''), coalesce(u.data->>'address', '')),
+            'no_ktp', coalesce(nullif(u.no_ktp, ''), coalesce(u.data->>'no_ktp', '')),
+            'jenis_kelamin', coalesce(nullif(u.jenis_kelamin, ''), coalesce(u.data->>'jenis_kelamin', '')),
+            'alamat_lengkap', coalesce(nullif(u.alamat_lengkap, ''), nullif(u.address, ''), coalesce(u.data->>'alamat_lengkap', ''), coalesce(u.data->>'address', '')),
+            'jenis_motor', coalesce(nullif(u.jenis_motor, ''), coalesce(u.data->>'jenis_motor', ''), coalesce(u.data->>'vehicleType', '')),
+            'tahun_kendaraan', coalesce(nullif(u.tahun_kendaraan, ''), coalesce(u.data->>'tahun_kendaraan', ''), coalesce(u.data->>'vehicleYear', '')),
+            'plat_nomor_kendaraan', coalesce(nullif(u.plat_nomor_kendaraan, ''), coalesce(u.data->>'plat_nomor_kendaraan', ''), coalesce(u.data->>'plateNo', '')),
+            'ktp_photo_url', coalesce(nullif(u.ktp_photo_url, ''), coalesce(u.data->>'ktp_photo_url', '')),
+            'driver_photo_url', coalesce(nullif(u.driver_photo_url, ''), nullif(u.foto_url, ''), coalesce(u.data->>'driver_photo_url', ''), coalesce(u.data->>'foto_url', '')),
+            'vehicleType', coalesce(nullif(u.jenis_motor, ''), coalesce(u.data->>'vehicleType', ''), coalesce(u.data->>'jenis_motor', '')),
+            'vehicleYear', coalesce(nullif(u.tahun_kendaraan, ''), coalesce(u.data->>'vehicleYear', ''), coalesce(u.data->>'tahun_kendaraan', '')),
+            'plateNo', coalesce(nullif(u.plat_nomor_kendaraan, ''), coalesce(u.data->>'plateNo', ''), coalesce(u.data->>'plat_nomor_kendaraan', ''))
         )
     where coalesce(u.data, '{}'::jsonb) is distinct from (
         coalesce(u.data, '{}'::jsonb)
@@ -215,13 +253,64 @@ with upd as (
             'name', coalesce(u.nama, ''),
             'phone', coalesce(u.no_hp, ''),
             'email', coalesce(u.email, ''),
-            'foto_url', coalesce(u.foto_url, '')
+            'foto_url', coalesce(u.foto_url, ''),
+            'is_active', case
+                when lower(coalesce(u.data->>'is_active', '')) in ('true', '1', 'yes') then true
+                when lower(coalesce(u.data->>'is_active', '')) in ('false', '0', 'no') then false
+                else coalesce(u.is_active, true)
+            end,
+            'address', coalesce(nullif(u.address, ''), nullif(u.alamat_lengkap, ''), coalesce(u.data->>'address', '')),
+            'no_ktp', coalesce(nullif(u.no_ktp, ''), coalesce(u.data->>'no_ktp', '')),
+            'jenis_kelamin', coalesce(nullif(u.jenis_kelamin, ''), coalesce(u.data->>'jenis_kelamin', '')),
+            'alamat_lengkap', coalesce(nullif(u.alamat_lengkap, ''), nullif(u.address, ''), coalesce(u.data->>'alamat_lengkap', ''), coalesce(u.data->>'address', '')),
+            'jenis_motor', coalesce(nullif(u.jenis_motor, ''), coalesce(u.data->>'jenis_motor', ''), coalesce(u.data->>'vehicleType', '')),
+            'tahun_kendaraan', coalesce(nullif(u.tahun_kendaraan, ''), coalesce(u.data->>'tahun_kendaraan', ''), coalesce(u.data->>'vehicleYear', '')),
+            'plat_nomor_kendaraan', coalesce(nullif(u.plat_nomor_kendaraan, ''), coalesce(u.data->>'plat_nomor_kendaraan', ''), coalesce(u.data->>'plateNo', '')),
+            'ktp_photo_url', coalesce(nullif(u.ktp_photo_url, ''), coalesce(u.data->>'ktp_photo_url', '')),
+            'driver_photo_url', coalesce(nullif(u.driver_photo_url, ''), nullif(u.foto_url, ''), coalesce(u.data->>'driver_photo_url', ''), coalesce(u.data->>'foto_url', '')),
+            'vehicleType', coalesce(nullif(u.jenis_motor, ''), coalesce(u.data->>'vehicleType', ''), coalesce(u.data->>'jenis_motor', '')),
+            'vehicleYear', coalesce(nullif(u.tahun_kendaraan, ''), coalesce(u.data->>'vehicleYear', ''), coalesce(u.data->>'tahun_kendaraan', '')),
+            'plateNo', coalesce(nullif(u.plat_nomor_kendaraan, ''), coalesce(u.data->>'plateNo', ''), coalesce(u.data->>'plat_nomor_kendaraan', ''))
         )
     )
     returning 1
 )
 insert into _repair_log(step, affected_rows, note)
 select 'users_data_normalize', count(*), 'Sinkron data JSON user' from upd;
+
+-- 2b) Sinkron kolom user untuk field driver agar query berbasis kolom tetap konsisten.
+with upd as (
+    update users u
+    set is_active = case
+            when lower(coalesce(u.data->>'is_active', '')) in ('true', '1', 'yes') then true
+            when lower(coalesce(u.data->>'is_active', '')) in ('false', '0', 'no') then false
+            else coalesce(u.is_active, true)
+        end,
+        address = coalesce(nullif(u.data->>'address', ''), nullif(u.data->>'alamat_lengkap', ''), u.address),
+        no_ktp = coalesce(nullif(u.data->>'no_ktp', ''), u.no_ktp),
+        jenis_kelamin = coalesce(nullif(u.data->>'jenis_kelamin', ''), u.jenis_kelamin),
+        alamat_lengkap = coalesce(nullif(u.data->>'alamat_lengkap', ''), nullif(u.data->>'address', ''), u.alamat_lengkap),
+        jenis_motor = coalesce(nullif(u.data->>'jenis_motor', ''), nullif(u.data->>'vehicleType', ''), u.jenis_motor),
+        tahun_kendaraan = coalesce(nullif(u.data->>'tahun_kendaraan', ''), nullif(u.data->>'vehicleYear', ''), u.tahun_kendaraan),
+        plat_nomor_kendaraan = coalesce(nullif(u.data->>'plat_nomor_kendaraan', ''), nullif(u.data->>'plateNo', ''), u.plat_nomor_kendaraan),
+        ktp_photo_url = coalesce(nullif(u.data->>'ktp_photo_url', ''), u.ktp_photo_url),
+        driver_photo_url = coalesce(nullif(u.data->>'driver_photo_url', ''), nullif(u.data->>'foto_url', ''), u.driver_photo_url),
+        foto_url = coalesce(nullif(u.foto_url, ''), nullif(u.data->>'driver_photo_url', ''), nullif(u.data->>'foto_url', ''))
+    where lower(coalesce(u.role, '')) = 'talent'
+      and (
+        coalesce(u.no_ktp, '') = ''
+        or coalesce(u.jenis_kelamin, '') = ''
+        or coalesce(u.alamat_lengkap, '') = ''
+        or coalesce(u.jenis_motor, '') = ''
+        or coalesce(u.tahun_kendaraan, '') = ''
+        or coalesce(u.plat_nomor_kendaraan, '') = ''
+        or coalesce(u.ktp_photo_url, '') = ''
+        or coalesce(u.driver_photo_url, '') = ''
+      )
+    returning 1
+)
+insert into _repair_log(step, affected_rows, note)
+select 'users_driver_columns_sync', count(*), 'Sinkron kolom driver dari data JSON' from upd;
 
 -- 3) skills seed untuk semua user yang belum punya row
 with ins as (
