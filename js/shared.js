@@ -3624,6 +3624,9 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
 
     var session = getSession();
     var actorId = session && session.id ? session.id : '';
+    if (!actorId && _currentOrder && String(_currentOrder.talentId || '')) {
+        actorId = String(_currentOrder.talentId || '');
+    }
 
     var isCurrentOrderTarget = !!(_currentOrder && String(_currentOrder.id) === String(orderId));
     var prevOrderSnapshot = isCurrentOrderTarget ? Object.assign({}, _currentOrder) : null;
@@ -3655,8 +3658,39 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
         var isProofCompletion = (newStatus === 'completed') && !!(fields.proofPhoto || fields.proofPhotoInChat);
         var updateAction = isProofCompletion ? 'completeOrderWithProof' : 'updateOrder';
 
+        function postOrderAction(actionName, payloadFields, timeoutMs) {
+            var body = { action: actionName, orderId: orderId, fields: payloadFields, actorId: actorId };
+            var ms = Math.max(2000, Number(timeoutMs) || 9000);
+            return Promise.race([
+                backendPost(body),
+                new Promise(function (resolve) {
+                    setTimeout(function () {
+                        resolve({ success: false, message: 'Request timeout' });
+                    }, ms);
+                })
+            ]);
+        }
+
         maybeAttachDriverCoords().then(function () {
-            return backendPost({ action: updateAction, orderId: orderId, fields: fields, actorId: actorId });
+            return postOrderAction(updateAction, fields, isProofCompletion ? 12000 : 9000);
+        }).then(function (res) {
+            var msg = String((res && res.message) || '').toLowerCase();
+            var shouldRetryLegacyAction = isProofCompletion
+                && (!res || !res.success)
+                && (
+                    msg.indexOf('unknown post action') >= 0
+                    || msg.indexOf('unknown') >= 0
+                    || msg.indexOf('timeout') >= 0
+                    || msg.indexOf('network') >= 0
+                );
+
+            if (shouldRetryLegacyAction) {
+                return postOrderAction('updateOrder', fields, 12000).then(function (legacyRes) {
+                    if (legacyRes && legacyRes.success) return legacyRes;
+                    return res;
+                });
+            }
+            return res;
         }).then(function (res) {
             if ((!res || !res.success) && newStatus === 'completed' && fields.proofPhoto) {
                 var msg = String((res && res.message) || '').toLowerCase();
@@ -3673,7 +3707,15 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                         proofPhotoInChat: true,
                         proofPhotoAt: Date.now()
                     });
-                    return backendPost({ action: 'completeOrderWithProof', orderId: orderId, fields: fallbackFields, actorId: actorId }).then(function (retryRes) {
+                    return postOrderAction('completeOrderWithProof', fallbackFields, 12000).then(function (retryRes) {
+                        if ((!retryRes || !retryRes.success) && isProofCompletion) {
+                            return postOrderAction('updateOrder', fallbackFields, 12000).then(function (legacyRetryRes) {
+                                if (legacyRetryRes && legacyRetryRes.success) return legacyRetryRes;
+                                return retryRes;
+                            });
+                        }
+                        return retryRes;
+                    }).then(function (retryRes) {
                         if (retryRes && retryRes.success) {
                             fields = fallbackFields;
                             showToast('Status selesai tersimpan. Foto bukti tetap tersedia di chat user.', 'success');
