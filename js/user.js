@@ -1649,7 +1649,23 @@ function initJapMap() {
 function buildUserProfileMapMarkerHtml() {
     var session = getSession() || {};
     var userId = session && session.id ? String(session.id) : '';
-    var photo = userId ? (getProfilePhoto(userId) || '') : '';
+    var users = getUsers() || [];
+    var u = userId ? (users.find(function (it) { return String(it.id || '') === userId; }) || {}) : {};
+
+    var photo = ''
+        || resolveAvatarPublicUrl(session.foto_url)
+        || session.photo
+        || session.profilePhoto
+        || session.avatar
+        || session.avatarUrl
+        || resolveAvatarPublicUrl(u.foto_url)
+        || u.photo
+        || u.profilePhoto
+        || u.avatar
+        || u.avatarUrl
+        || (userId ? (getProfilePhoto(userId) || '') : '');
+
+    photo = String(photo || '').trim();
 
     if (photo) {
         return '<div class="gm-route-avatar-marker"><img class="gm-route-avatar-img" src="' + escapeHtml(photo) + '" alt="User"></div>';
