@@ -1977,6 +1977,8 @@ var _otpAutoFollowPausedUntil = 0;
 var _otpEtaMin = 0;
 var _otpDriverTrailPoints = [];
 var _otpDriverTrailLayers = [];
+var DRIVER_MARKER_HEADING_OFFSET_DEG = -42;
+var DRIVER_MARKER_HEADING_MIN_MOVE_KM = 0.003;
 
 function updateTrackingMapDepthClass() {
     var mapEl = document.getElementById('otpMapContainer');
@@ -2026,6 +2028,9 @@ function setDriverMarkerHeading(fromLat, fromLng, toLat, toLng) {
     var iconEl = markerEl.querySelector('.gm-driver-marker-img');
     if (!iconEl) return;
 
+    var movedKm = haversineDistance(fromLat, fromLng, toLat, toLng);
+    if (!isFinite(movedKm) || movedKm < DRIVER_MARKER_HEADING_MIN_MOVE_KM) return;
+
     var lat1 = Number(fromLat) * Math.PI / 180;
     var lat2 = Number(toLat) * Math.PI / 180;
     var dLon = (Number(toLng) - Number(fromLng)) * Math.PI / 180;
@@ -2036,9 +2041,7 @@ function setDriverMarkerHeading(fromLat, fromLng, toLat, toLng) {
     if (!isFinite(x) || !isFinite(y) || (Math.abs(x) < 0.00000001 && Math.abs(y) < 0.00000001)) return;
 
     var bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-    // markdriver.png default facing is slightly diagonal, so apply fixed offset.
-    var iconHeadingOffsetDeg = -45;
-    var targetHeading = bearing + iconHeadingOffsetDeg;
+    var targetHeading = bearing + DRIVER_MARKER_HEADING_OFFSET_DEG;
     var prevHeading = Number(iconEl.dataset.headingDeg);
     if (isFinite(prevHeading)) {
         var delta = targetHeading - prevHeading;
