@@ -2999,7 +2999,13 @@ function renderOrderActions(order, isTalent, isUser) {
         } else if (order.status === 'accepted') {
             var otwLabel = isAntar ? 'Menuju Lokasi Jemput' : (isDelivery ? 'Menuju Titik Jemput Barang' : 'Menuju Lokasi');
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnOtw">' + otwLabel + '</button>';
-            document.getElementById('otpBtnOtw').addEventListener('click', function () { updateOrderStatus(order.id, 'on_the_way', {}); startTalentLocationBroadcast(order.id); });
+            document.getElementById('otpBtnOtw').addEventListener('click', function () {
+                if (this.dataset.busy === '1') return;
+                this.dataset.busy = '1';
+                this.disabled = true;
+                updateOrderStatus(order.id, 'on_the_way', {});
+                startTalentLocationBroadcast(order.id);
+            });
         } else if (order.status === 'on_the_way' && isProductOrder) {
             // GPS-gated: Only show "Sampai di Toko" button, but auto-advance handles it via proximity
             var storeCoords = getOrderStoreCoords(order);
@@ -3007,31 +3013,55 @@ function renderOrderActions(order, isTalent, isUser) {
                 + '<div class="gps-progress-hint" style="text-align:center;font-size:12px;color:#FF6B00;margin-bottom:8px;">📍 Progress akan otomatis saat Anda tiba di lokasi</div>'
                 + '<button class="sf-btn-outline" style="width:100%;font-size:13px;" id="otpBtnArrive">Tandai Tiba Secara Manual</button>';
             document.getElementById('otpBtnArrive').addEventListener('click', function () {
+                var btn = this;
+                if (btn.dataset.busy === '1') return;
+                btn.dataset.busy = '1';
+                btn.disabled = true;
                 _verifyDriverAtLocation(order, 'store', function(isNear) {
                     if (isNear) {
                         updateOrderStatus(order.id, 'arrived', {});
                     } else {
+                        btn.dataset.busy = '0';
+                        if (!btn.classList.contains('hidden')) btn.disabled = false;
                         showToast('⚠️ Anda harus berada di dekat lokasi toko untuk menandai tiba. Progress akan otomatis saat Anda sampai.', 'error');
                     }
                 });
             });
         } else if (order.status === 'arrived' && isProductOrder) {
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnStart">Ambil Pesanan & Antar</button>';
-            document.getElementById('otpBtnStart').addEventListener('click', function () { updateOrderStatus(order.id, 'in_progress', { pickedUpAt: Date.now() }); });
+            document.getElementById('otpBtnStart').addEventListener('click', function () {
+                if (this.dataset.busy === '1') return;
+                this.dataset.busy = '1';
+                this.disabled = true;
+                updateOrderStatus(order.id, 'in_progress', { pickedUpAt: Date.now() });
+            });
         } else if (order.status === 'in_progress' && isProductOrder) {
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnComplete">Selesai + Upload Bukti</button><input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">';
             document.getElementById('otpBtnComplete').addEventListener('click', function () {
+                var btn = this;
+                if (btn.dataset.busy === '1') return;
+                btn.dataset.busy = '1';
+                btn.disabled = true;
                 _verifyDriverAtLocation(order, 'buyer', function(isNear) {
                     if (isNear) {
                         document.getElementById('otpProofInput').click();
                     } else {
+                        btn.dataset.busy = '0';
+                        if (!btn.classList.contains('hidden')) btn.disabled = false;
                         showToast('⚠️ Anda harus berada di dekat lokasi pembeli untuk menyelesaikan pesanan.', 'error');
                     }
                 });
             });
             document.getElementById('otpProofInput').addEventListener('change', function () {
                 var file = this.files[0];
-                if (!file) return;
+                if (!file) {
+                    var btnReset = document.getElementById('otpBtnComplete');
+                    if (btnReset) {
+                        btnReset.dataset.busy = '0';
+                        if (!btnReset.classList.contains('hidden')) btnReset.disabled = false;
+                    }
+                    return;
+                }
                 var reader = new FileReader();
                 reader.onload = function () {
                     compressThumbnail(reader.result, function (proofThumb) {
@@ -3048,10 +3078,16 @@ function renderOrderActions(order, isTalent, isUser) {
                 + '<div class="gps-progress-hint" style="text-align:center;font-size:12px;color:#FF6B00;margin-bottom:8px;">📍 Progress akan otomatis saat Anda tiba di lokasi</div>'
                 + '<button class="sf-btn-outline" style="width:100%;font-size:13px;" id="otpBtnArrive">' + arriveLabel + ' (Manual)</button>';
             document.getElementById('otpBtnArrive').addEventListener('click', function () {
+                var btn = this;
+                if (btn.dataset.busy === '1') return;
+                btn.dataset.busy = '1';
+                btn.disabled = true;
                 _verifyDriverAtLocation(order, 'user', function(isNear) {
                     if (isNear) {
                         updateOrderStatus(order.id, 'arrived', {});
                     } else {
+                        btn.dataset.busy = '0';
+                        if (!btn.classList.contains('hidden')) btn.disabled = false;
                         showToast('⚠️ Anda harus berada di dekat lokasi tujuan untuk menandai tiba. Progress akan otomatis saat Anda sampai.', 'error');
                     }
                 });
@@ -3059,30 +3095,55 @@ function renderOrderActions(order, isTalent, isUser) {
         } else if (order.status === 'arrived') {
             var startLabel = isAntar ? 'Mulai Perjalanan' : (isDelivery ? 'Mulai Antar ke Titik Tujuan' : 'Mulai Mengerjakan');
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnStart">' + startLabel + '</button>';
-            document.getElementById('otpBtnStart').addEventListener('click', function () { updateOrderStatus(order.id, 'in_progress', { startedAt: Date.now() }); });
+            document.getElementById('otpBtnStart').addEventListener('click', function () {
+                if (this.dataset.busy === '1') return;
+                this.dataset.busy = '1';
+                this.disabled = true;
+                updateOrderStatus(order.id, 'in_progress', { startedAt: Date.now() });
+            });
         } else if (order.status === 'in_progress') {
             var completeLabel = isRideFlow ? 'Sampai Tujuan + Ambil Bukti Gambar' : 'Selesai + Upload Bukti';
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnComplete">' + completeLabel + '</button><input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">';
             if (isRideFlow) {
                 document.getElementById('otpBtnComplete').addEventListener('click', function () {
+                    var btn = this;
+                    if (btn.dataset.busy === '1') return;
+                    btn.dataset.busy = '1';
+                    btn.disabled = true;
                     _verifyDriverAtLocation(order, 'dest', function(isNear) {
                         if (isNear) {
                             var msg = isAntar ? 'Konfirmasi penumpang sudah sampai tujuan?' : 'Konfirmasi barang sudah sampai di titik antar?';
-                            if (!confirm(msg)) return;
+                            if (!confirm(msg)) {
+                                btn.dataset.busy = '0';
+                                if (!btn.classList.contains('hidden')) btn.disabled = false;
+                                return;
+                            }
                             document.getElementById('otpProofInput').click();
                         } else {
+                            btn.dataset.busy = '0';
+                            if (!btn.classList.contains('hidden')) btn.disabled = false;
                             showToast('⚠️ Anda harus berada di dekat lokasi tujuan untuk menyelesaikan perjalanan.', 'error');
                         }
                     });
                 });
             } else {
                 document.getElementById('otpBtnComplete').addEventListener('click', function () {
+                    if (this.dataset.busy === '1') return;
+                    this.dataset.busy = '1';
+                    this.disabled = true;
                     document.getElementById('otpProofInput').click();
                 });
             }
             document.getElementById('otpProofInput').addEventListener('change', function () {
                 var file = this.files[0];
-                if (!file) return;
+                if (!file) {
+                    var btnReset2 = document.getElementById('otpBtnComplete');
+                    if (btnReset2) {
+                        btnReset2.dataset.busy = '0';
+                        if (!btnReset2.classList.contains('hidden')) btnReset2.disabled = false;
+                    }
+                    return;
+                }
                 var reader = new FileReader();
                 reader.onload = function () {
                     compressThumbnail(reader.result, function (proofThumb) {
@@ -3314,16 +3375,28 @@ function _checkDriverGpsGateByKnownPosition(order, targetType, maxDistanceKm) {
     return { ok: distKm <= radiusKm, distKm: distKm, radiusKm: radiusKm };
 }
 
+function _getDriverGpsGateRadiusKm(order, targetType, nextStatus) {
+    var isRideFlow = !!(order && (order.skillType === 'js_antar' || order.skillType === 'js_delivery'));
+    // Destination gate for completion uses 30-50m tolerance (set to 50m for operational tolerance).
+    if (nextStatus === 'completed' && (targetType === 'dest' || targetType === 'buyer' || targetType === 'user')) return 0.05;
+    // Arrival gate in ride flow also tightened so progress is only enabled near pickup/drop point.
+    if (nextStatus === 'arrived' && isRideFlow) return 0.05;
+    return GPS_MANUAL_ACTION_RADIUS;
+}
+
 function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
     var btn = document.getElementById(buttonId);
     if (!btn || !order) return;
     var targetType = _getDriverGpsGateTargetType(order, nextStatus);
     if (!targetType) return;
 
-    var knownCheck = _checkDriverGpsGateByKnownPosition(order, targetType, GPS_MANUAL_ACTION_RADIUS);
+    var radiusKm = _getDriverGpsGateRadiusKm(order, targetType, nextStatus);
+
+    var knownCheck = _checkDriverGpsGateByKnownPosition(order, targetType, radiusKm);
     if (!btn.dataset.baseLabel) btn.dataset.baseLabel = btn.textContent;
 
     if (knownCheck.ok) {
+        btn.classList.remove('hidden');
         btn.disabled = false;
         btn.textContent = btn.dataset.baseLabel;
         btn.style.opacity = '';
@@ -3331,6 +3404,8 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
         return;
     }
 
+    // Requirement: when not yet at target point, hide progress button.
+    btn.classList.add('hidden');
     btn.disabled = true;
     btn.style.opacity = '0.72';
     if (knownCheck.reason === 'driver_location_unavailable') {
@@ -3400,12 +3475,7 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
     var actorId = session && session.id ? session.id : '';
 
     var isCurrentOrderTarget = !!(_currentOrder && String(_currentOrder.id) === String(orderId));
-    var prevOrderSnapshot = null;
-    if (isCurrentOrderTarget) {
-        prevOrderSnapshot = Object.assign({}, _currentOrder);
-        Object.assign(_currentOrder, fields);
-        refreshTrackingUIFromCurrentOrder();
-    }
+    var prevOrderSnapshot = isCurrentOrderTarget ? Object.assign({}, _currentOrder) : null;
 
     function runStatusUpdate() {
         backendPost({ action: 'updateOrder', orderId: orderId, fields: fields, actorId: actorId }).then(function (res) {
@@ -3470,17 +3540,9 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                     }, 900);
                 }
             } else {
-                if (isCurrentOrderTarget && prevOrderSnapshot) {
-                    _currentOrder = prevOrderSnapshot;
-                    refreshTrackingUIFromCurrentOrder();
-                }
                 showToast((res && res.message) ? res.message : 'Gagal update status', 'error');
             }
         }).catch(function () {
-            if (isCurrentOrderTarget && prevOrderSnapshot) {
-                _currentOrder = prevOrderSnapshot;
-                refreshTrackingUIFromCurrentOrder();
-            }
             showToast('Gagal update status', 'error');
         });
     }
@@ -3489,14 +3551,11 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
     var guardOrder = isCurrentOrderTarget ? Object.assign({}, prevOrderSnapshot || _currentOrder) : null;
     var gateTargetType = _getDriverGpsGateTargetType(guardOrder, newStatus);
     if (mustGpsValidate && gateTargetType) {
+        var gateRadiusKm = _getDriverGpsGateRadiusKm(guardOrder, gateTargetType, newStatus);
         _verifyDriverAtLocation(guardOrder, gateTargetType, function (isNear, meta) {
             if (!isNear) {
-                if (isCurrentOrderTarget && prevOrderSnapshot) {
-                    _currentOrder = prevOrderSnapshot;
-                    refreshTrackingUIFromCurrentOrder();
-                }
                 var distText = (meta && isFinite(Number(meta.distKm))) ? _formatDistanceMeters(Number(meta.distKm)) : '';
-                var radiusText = (meta && isFinite(Number(meta.radiusKm))) ? _formatDistanceMeters(Number(meta.radiusKm)) : _formatDistanceMeters(GPS_MANUAL_ACTION_RADIUS);
+                var radiusText = (meta && isFinite(Number(meta.radiusKm))) ? _formatDistanceMeters(Number(meta.radiusKm)) : _formatDistanceMeters(gateRadiusKm);
                 var msg = distText
                     ? ('⚠️ Belum sampai titik. Jarak saat ini ' + distText + ' (maks ' + radiusText + ').')
                     : ('⚠️ Belum sampai titik. Dekati lokasi tujuan (maks ' + radiusText + ').');
@@ -3504,7 +3563,7 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                 return;
             }
             runStatusUpdate();
-        }, GPS_MANUAL_ACTION_RADIUS);
+        }, gateRadiusKm);
         return;
     }
 
@@ -3822,8 +3881,8 @@ function pollOrderUpdate(orderId) {
 }
 
 // Radius in km within which driver is considered "arrived"
-var GPS_ARRIVE_RADIUS = 0.15; // 150 meters
-var GPS_MANUAL_ACTION_RADIUS = 0.08; // 80 meters for manual action button lock
+var GPS_ARRIVE_RADIUS = 0.08; // 80 meters for auto-arrive
+var GPS_MANUAL_ACTION_RADIUS = 0.05; // 50 meters for manual action lock/unlock
 var GPS_NEARBY_RADIUS = 0.5;  // 500 meters — send "driver nearby" notif
 var _nearbyAlertSent = {}; // per orderId, prevent repeat alerts
 var _watchPositionId = null;
@@ -5489,10 +5548,19 @@ function _verifyDriverAtLocation(order, targetType, callback, maxDistanceKm) {
         }
 
         var dist = haversineDistance(dLat, dLng, target.lat, target.lng);
-        callback(dist <= radiusKm, { distKm: dist, radiusKm: radiusKm, targetType: targetType });
+        var known = _checkDriverGpsGateByKnownPosition(order, targetType, radiusKm);
+        var knownDist = isFinite(Number(known.distKm)) ? Number(known.distKm) : NaN;
+        var bestDist = isFinite(knownDist) ? Math.min(dist, knownDist) : dist;
+        callback(bestDist <= radiusKm, { distKm: bestDist, gpsDistKm: dist, knownDistKm: knownDist, radiusKm: radiusKm, targetType: targetType });
     }, function () {
+        // Fallback to last known synced driver position from order payload.
+        var known = _checkDriverGpsGateByKnownPosition(order, targetType, radiusKm);
+        if (known.ok) {
+            callback(true, { distKm: Number(known.distKm) || 0, radiusKm: radiusKm, targetType: targetType, usedFallback: true });
+            return;
+        }
         showToast('⚠️ GPS tidak tersedia. Progress tidak dapat dilanjutkan.', 'error');
-        callback(false, { distKm: NaN, radiusKm: radiusKm, targetType: targetType });
+        callback(false, { distKm: isFinite(Number(known.distKm)) ? Number(known.distKm) : NaN, radiusKm: radiusKm, targetType: targetType, usedFallback: true });
     }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
 }
 
