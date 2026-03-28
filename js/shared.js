@@ -3556,8 +3556,33 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
     var isCurrentOrderTarget = !!(_currentOrder && String(_currentOrder.id) === String(orderId));
     var prevOrderSnapshot = isCurrentOrderTarget ? Object.assign({}, _currentOrder) : null;
 
+    function hasDriverCoords(payload) {
+        if (!payload) return false;
+        var lat = Number(payload.talentLat);
+        var lng = Number(payload.talentLng);
+        return isValidLatLng(lat, lng);
+    }
+
+    function maybeAttachDriverCoords() {
+        var isTalentActor = !!(session && session.role === 'talent');
+        var needsProtectedCoords = _isProtectedDriverStatus(newStatus);
+        if (!isTalentActor || !needsProtectedCoords || hasDriverCoords(fields)) {
+            return Promise.resolve();
+        }
+        return getCurrentPosition().then(function (pos) {
+            if (!pos || !isValidLatLng(pos.lat, pos.lng)) return;
+            fields.talentLat = Number(pos.lat);
+            fields.talentLng = Number(pos.lng);
+            fields.talentLastLocationAt = Date.now();
+        }).catch(function () {
+            // Keep flow running; backend will return precise validation reason if coords are still unavailable.
+        });
+    }
+
     function runStatusUpdate() {
-        backendPost({ action: 'updateOrder', orderId: orderId, fields: fields, actorId: actorId }).then(function (res) {
+        maybeAttachDriverCoords().then(function () {
+            return backendPost({ action: 'updateOrder', orderId: orderId, fields: fields, actorId: actorId });
+        }).then(function (res) {
             if (res && res.success) {
                 if (isCurrentOrderTarget && _currentOrder) {
                     Object.assign(_currentOrder, fields);
