@@ -1646,15 +1646,31 @@ function initJapMap() {
     });
 }
 
+function buildUserProfileMapMarkerHtml() {
+    var session = getSession() || {};
+    var userId = session && session.id ? String(session.id) : '';
+    var photo = userId ? (getProfilePhoto(userId) || '') : '';
+
+    if (photo) {
+        return '<div class="gm-route-avatar-marker"><img class="gm-route-avatar-img" src="' + escapeHtml(photo) + '" alt="User"></div>';
+    }
+
+    var initial = String(session && session.name ? session.name : 'U').trim().charAt(0).toUpperCase() || 'U';
+    return '<div class="gm-route-avatar-marker"><span class="gm-route-avatar-fallback">' + escapeHtml(initial) + '</span></div>';
+}
+
 function createJapMarker(lat, lng, type) {
-    var pinClass = type === 'pickup' ? 'pickup' : 'dropoff';
-    var pinText = type === 'pickup' ? '↑' : '';
+    var isPickup = type === 'pickup';
+    var pinClass = isPickup ? 'pickup' : 'dropoff';
+    var html = isPickup
+        ? buildUserProfileMapMarkerHtml()
+        : '<div class="gm-route-pin ' + pinClass + '"><span></span></div>';
     var icon = L.divIcon({
-        html: '<div class="gm-route-pin ' + pinClass + '"><span>' + pinText + '</span></div>',
+        html: html,
         className: 'gm-route-pin-wrapper',
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-        popupAnchor: [0, -14]
+        iconSize: isPickup ? [34, 34] : [28, 28],
+        iconAnchor: isPickup ? [17, 17] : [14, 14],
+        popupAnchor: isPickup ? [0, -17] : [0, -14]
     });
     return L.marker([lat, lng], { icon: icon });
 }
@@ -2547,13 +2563,17 @@ function initJdpMap() {
 }
 
 function createJdpMarker(lat, lng, type) {
-    var pinClass = type === 'pickup' ? 'pickup' : 'dropoff';
-    var pinText = type === 'pickup' ? '↑' : '';
+    var isPickup = type === 'pickup';
+    var pinClass = isPickup ? 'pickup' : 'dropoff';
+    var html = isPickup
+        ? buildUserProfileMapMarkerHtml()
+        : '<div class="gm-route-pin ' + pinClass + '"><span></span></div>';
     var icon = L.divIcon({
-        html: '<div class="gm-route-pin ' + pinClass + '"><span>' + pinText + '</span></div>',
+        html: html,
         className: 'gm-route-pin-wrapper',
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
+        iconSize: isPickup ? [34, 34] : [28, 28],
+        iconAnchor: isPickup ? [17, 17] : [14, 14],
+        popupAnchor: isPickup ? [0, -17] : [0, -14]
     });
     return L.marker([lat, lng], { icon: icon });
 }
