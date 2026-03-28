@@ -3044,6 +3044,8 @@ function renderOrderActions(order, isTalent, isUser) {
                 btn.disabled = true;
                 _verifyDriverAtLocation(order, 'buyer', function(isNear) {
                     if (isNear) {
+                        var proofInput = document.getElementById('otpProofInput');
+                        if (proofInput) proofInput.dataset.gpsVerified = '1';
                         document.getElementById('otpProofInput').click();
                     } else {
                         btn.dataset.busy = '0';
@@ -3066,7 +3068,10 @@ function renderOrderActions(order, isTalent, isUser) {
                 reader.onload = function () {
                     compressThumbnail(reader.result, function (proofThumb) {
                         _sendDriverProofToUserChat(order, proofThumb);
-                        updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb });
+                        var proofInput = document.getElementById('otpProofInput');
+                        var verified = !!(proofInput && proofInput.dataset.gpsVerified === '1');
+                        if (proofInput) proofInput.dataset.gpsVerified = '';
+                        updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb, _skipGpsGate: verified });
                     });
                 };
                 reader.readAsDataURL(file);
@@ -3118,6 +3123,8 @@ function renderOrderActions(order, isTalent, isUser) {
                                 if (!btn.classList.contains('hidden')) btn.disabled = false;
                                 return;
                             }
+                            var proofInput = document.getElementById('otpProofInput');
+                            if (proofInput) proofInput.dataset.gpsVerified = '1';
                             document.getElementById('otpProofInput').click();
                         } else {
                             btn.dataset.busy = '0';
@@ -3148,7 +3155,10 @@ function renderOrderActions(order, isTalent, isUser) {
                 reader.onload = function () {
                     compressThumbnail(reader.result, function (proofThumb) {
                         _sendDriverProofToUserChat(order, proofThumb);
-                        updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb });
+                        var proofInput = document.getElementById('otpProofInput');
+                        var verified = !!(proofInput && proofInput.dataset.gpsVerified === '1');
+                        if (proofInput) proofInput.dataset.gpsVerified = '';
+                        updateOrderStatus(order.id, 'completed', { completedAt: Date.now(), proofPhoto: proofThumb, _skipGpsGate: verified });
                     });
                 };
                 reader.readAsDataURL(file);
@@ -3387,6 +3397,10 @@ function _getDriverGpsGateRadiusKm(order, targetType, nextStatus) {
 function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
     var btn = document.getElementById(buttonId);
     if (!btn || !order) return;
+    if (btn.dataset.busy === '1') {
+        btn.classList.remove('hidden');
+        return;
+    }
     var targetType = _getDriverGpsGateTargetType(order, nextStatus);
     if (!targetType) return;
 
@@ -3469,6 +3483,8 @@ function _notifyAdminReviewQueue(orderRef) {
 
 function updateOrderStatus(orderId, newStatus, extraFields) {
     var fields = Object.assign({}, extraFields || {});
+    var skipGpsGate = !!fields._skipGpsGate;
+    if (Object.prototype.hasOwnProperty.call(fields, '_skipGpsGate')) delete fields._skipGpsGate;
     fields.status = newStatus;
 
     var session = getSession();
@@ -3480,6 +3496,10 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
     function runStatusUpdate() {
         backendPost({ action: 'updateOrder', orderId: orderId, fields: fields, actorId: actorId }).then(function (res) {
             if (res && res.success) {
+                if (isCurrentOrderTarget && _currentOrder) {
+                    Object.assign(_currentOrder, fields);
+                    refreshTrackingUIFromCurrentOrder();
+                }
                 showToast('Status diperbarui!', 'success');
 
                 if (newStatus === 'on_the_way') {
@@ -3547,7 +3567,7 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
         });
     }
 
-    var mustGpsValidate = !!(session && session.role === 'talent' && !fields.autoProgress);
+    var mustGpsValidate = !!(session && session.role === 'talent' && !fields.autoProgress && !skipGpsGate);
     var guardOrder = isCurrentOrderTarget ? Object.assign({}, prevOrderSnapshot || _currentOrder) : null;
     var gateTargetType = _getDriverGpsGateTargetType(guardOrder, newStatus);
     if (mustGpsValidate && gateTargetType) {
