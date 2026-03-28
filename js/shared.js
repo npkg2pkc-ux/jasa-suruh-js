@@ -3128,6 +3128,7 @@ function renderOrderActions(order, isTalent, isUser) {
                 reader.onload = function () {
                     compressThumbnail(reader.result, function (proofThumb) {
                         _sendDriverProofToUserChat(order, proofThumb);
+                        stopTalentLocationBroadcast();
                         var proofInput = document.getElementById('otpProofInput');
                         if (proofInput) proofInput.dataset.gpsVerified = '';
                         // Proof selection only happens after driver enters complete flow,
@@ -3225,6 +3226,7 @@ function renderOrderActions(order, isTalent, isUser) {
                 reader.onload = function () {
                     compressThumbnail(reader.result, function (proofThumb) {
                         _sendDriverProofToUserChat(order, proofThumb);
+                        stopTalentLocationBroadcast();
                         var proofInput = document.getElementById('otpProofInput');
                         if (proofInput) proofInput.dataset.gpsVerified = '';
                         // Proof selection only happens after driver enters complete flow,
@@ -4073,6 +4075,7 @@ var GPS_MANUAL_ACTION_RADIUS = 0.05; // 50 meters for manual action lock/unlock
 var GPS_NEARBY_RADIUS = 0.5;  // 500 meters — send "driver nearby" notif
 var _nearbyAlertSent = {}; // per orderId, prevent repeat alerts
 var _watchPositionId = null;
+var _talentLocationIntervalTimer = null;
 var _gpsAutoProgressLock = {};
 var _statusPushGuardByOrder = {};
 
@@ -4089,6 +4092,10 @@ function startTalentLocationBroadcast(orderId) {
     if (_watchPositionId !== null) {
         try { navigator.geolocation.clearWatch(_watchPositionId); } catch(e) {}
         _watchPositionId = null;
+    }
+    if (_talentLocationIntervalTimer) {
+        clearInterval(_talentLocationIntervalTimer);
+        _talentLocationIntervalTimer = null;
     }
 
     function onPosition(geoPos) {
@@ -4127,8 +4134,8 @@ function startTalentLocationBroadcast(orderId) {
     }
 
     // Fallback interval in case watchPosition is not reliable
-    if (!_locationPollTimer) {
-        _locationPollTimer = setInterval(function () {
+    if (!_talentLocationIntervalTimer) {
+        _talentLocationIntervalTimer = setInterval(function () {
             if (!_currentOrder || String(_currentOrder.id) !== String(orderId)) return;
             getCurrentPosition().then(function (pos) {
                 backendPost({
@@ -4148,6 +4155,10 @@ function stopTalentLocationBroadcast() {
     if (_watchPositionId !== null) {
         try { navigator.geolocation.clearWatch(_watchPositionId); } catch(e) {}
         _watchPositionId = null;
+    }
+    if (_talentLocationIntervalTimer) {
+        clearInterval(_talentLocationIntervalTimer);
+        _talentLocationIntervalTimer = null;
     }
 }
 

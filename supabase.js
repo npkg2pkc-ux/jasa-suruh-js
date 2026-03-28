@@ -640,6 +640,7 @@
     function doUpdateOrder(body) {
         var fields = Object.assign({}, body.fields);
         var orderId = body.orderId;
+        var hasExplicitStatus = Object.prototype.hasOwnProperty.call(fields, 'status');
         // Read, merge, write (equivalent to Firestore merge)
         return sb.from('orders').select('data').eq('id', orderId).single()
             .then(function (res) {
@@ -649,6 +650,25 @@
 
                 return _validateProtectedStatusUpdate(orderId, current, merged, fields, body).then(function (validationError) {
                     if (validationError) return fail(validationError);
+
+                    // Non-status updates (e.g. live driver location) must merge with the latest
+                    // row snapshot so they cannot overwrite a newer status transition.
+                    if (!hasExplicitStatus) {
+                        return sb.from('orders').select('data').eq('id', orderId).single()
+                            .then(function (latestRes) {
+                                throwIfError(latestRes);
+                                var latest = (latestRes.data && latestRes.data.data) || {};
+                                var latestMerged = Object.assign({}, latest, fields);
+                                return sb.from('orders').update({
+                                    data: latestMerged,
+                                    user_id: latestMerged.userId || null,
+                                    talent_id: latestMerged.talentId || null
+                                }).eq('id', orderId).then(function (uRes) {
+                                    throwIfError(uRes);
+                                    return ok(null);
+                                });
+                            });
+                    }
 
                     return sb.from('orders').update({
                         data: merged,
