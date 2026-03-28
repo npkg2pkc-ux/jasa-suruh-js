@@ -3584,6 +3584,7 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
             return backendPost({ action: 'updateOrder', orderId: orderId, fields: fields, actorId: actorId });
         }).then(function (res) {
             if (res && res.success) {
+                _recordLocalStatusGuard(orderId, newStatus);
                 if (isCurrentOrderTarget && _currentOrder) {
                     Object.assign(_currentOrder, fields);
                     refreshTrackingUIFromCurrentOrder();
@@ -3898,6 +3899,70 @@ function updateTalentMarkerPosition(lat, lng) {
     }
 }
 
+function _getTrackingStatusRank(status) {
+    var s = String(status || '').toLowerCase();
+    var rank = {
+        pending_seller: 0,
+        preparing: 1,
+        searching: 2,
+        pending: 3,
+        accepted: 4,
+        on_the_way: 5,
+        arrived: 6,
+        in_progress: 7,
+        completed: 8,
+        rated: 9,
+        cancelled: 10,
+        rejected: 10
+    };
+    return Object.prototype.hasOwnProperty.call(rank, s) ? rank[s] : -1;
+}
+
+function _recordLocalStatusGuard(orderId, status) {
+    var key = String(orderId || '');
+    if (!key) return;
+    _statusPushGuardByOrder[key] = {
+        status: String(status || ''),
+        rank: _getTrackingStatusRank(status),
+        until: Date.now() + 25000
+    };
+}
+
+function _isIncomingStatusAllowed(orderId, currentStatus, incomingStatus) {
+    var incoming = String(incomingStatus || '');
+    var current = String(currentStatus || '');
+    if (!incoming || !current || incoming === current) return true;
+
+    if (incoming === 'cancelled' || incoming === 'rejected') return true;
+    if (isTrackingTerminalStatus(current) && !isTrackingTerminalStatus(incoming)) return false;
+
+    var incomingRank = _getTrackingStatusRank(incoming);
+    var currentRank = _getTrackingStatusRank(current);
+    var key = String(orderId || '');
+    var guard = _statusPushGuardByOrder[key] || null;
+
+    if (guard && Date.now() > Number(guard.until || 0)) {
+        delete _statusPushGuardByOrder[key];
+        guard = null;
+    }
+
+    if (guard && incomingRank >= 0 && guard.rank >= 0 && incomingRank < guard.rank) return false;
+
+    var session = getSession();
+    var isDriverOwnOrder = !!(
+        session
+        && session.role === 'talent'
+        && _currentOrder
+        && String(_currentOrder.talentId || '') === String(session.id || '')
+    );
+
+    if (isDriverOwnOrder && currentRank >= 5 && incomingRank >= 0 && currentRank >= 0 && incomingRank < currentRank) {
+        return false;
+    }
+
+    return true;
+}
+
 // ══════════════════════════════════════════
 // ═══ POLLING (Order status + Location) ═══
 // ══════════════════════════════════════════
@@ -3907,7 +3972,9 @@ function startOrderPolling(orderId) {
     if (typeof FB !== 'undefined' && FB.isReady()) {
         _fbOrderUnsub = FB.onOrder(orderId, function (order) {
             if (!order || !_currentOrder || String(_currentOrder.id) !== String(orderId)) return;
-            var oldStatus = _currentOrder.status;
+            var oldStatus = String(_currentOrder.status || '');
+            var incomingStatus = String(order.status || '');
+            if (!_isIncomingStatusAllowed(orderId, oldStatus, incomingStatus)) return;
             for (var key in order) { _currentOrder[key] = order[key]; }
             if (oldStatus !== order.status) {
                 refreshTrackingUIFromCurrentOrder();
@@ -3963,7 +4030,9 @@ function pollOrderUpdate(orderId) {
             if (res.success && res.data) {
                 var order = res.data.find(function (o) { return String(o.id) === String(orderId); });
                 if (order && _currentOrder && String(_currentOrder.id) === String(orderId)) {
-                    var oldStatus = _currentOrder.status;
+                    var oldStatus = String(_currentOrder.status || '');
+                    var incomingStatus = String(order.status || '');
+                    if (!_isIncomingStatusAllowed(orderId, oldStatus, incomingStatus)) return;
                     for (var key in order) _currentOrder[key] = order[key];
 
                     if (oldStatus !== order.status) {
@@ -3995,6 +4064,7 @@ var GPS_NEARBY_RADIUS = 0.5;  // 500 meters — send "driver nearby" notif
 var _nearbyAlertSent = {}; // per orderId, prevent repeat alerts
 var _watchPositionId = null;
 var _gpsAutoProgressLock = {};
+var _statusPushGuardByOrder = {};
 
 function _lockAutoProgress(orderId, toStatus) {
     var k = String(orderId || '') + '::' + String(toStatus || '');
