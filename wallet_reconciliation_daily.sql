@@ -1,5 +1,11 @@
 -- Daily Wallet Reconciliation Runbook
 -- Jalankan di Supabase SQL Editor (read-only checks)
+-- Update nilai cutover_ms sesuai timestamp cutover produksi.
+
+with params as (
+  select 1774636847000::bigint as cutover_ms
+)
+select cutover_ms from params;
 
 -- 1) Ringkasan global: total saldo wallet vs total ledger net
 with ledger_net as (
@@ -51,7 +57,8 @@ having count(*) > 1
 order by cnt desc, idempotency_key asc
 limit 100;
 
--- 4) Cek transaksi finansial tanpa pasangan ledgerId (indikasi jalur lama)
+-- 4A) Cek transaksi finansial tanpa pasangan ledgerId (semua waktu)
+-- Catatan: hasil query ini bisa mengandung data legacy sebelum cutover.
 select
   t.id,
   t.user_id,
@@ -65,6 +72,42 @@ where t.type in ('payment', 'earning', 'commission', 'refund', 'withdraw', 'topu
 order by t.created_at desc
 limit 200;
 
+-- 4B) Cek transaksi finansial tanpa ledgerId PASCA-CUTOVER (harus 0 row)
+with params as (
+  select 1774636847000::bigint as cutover_ms
+)
+select
+  t.id,
+  t.user_id,
+  t.type,
+  t.amount,
+  t.created_at,
+  t.data
+from transactions t
+cross join params p
+where t.type in ('payment', 'earning', 'commission', 'refund', 'withdraw', 'topup')
+  and (t.data->>'ledgerId') is null
+  and t.created_at >= p.cutover_ms
+order by t.created_at desc
+limit 200;
+
+-- 4C) Ringkasan no-ledgerId pasca-cutover per tipe (harus semua 0)
+with params as (
+  select 1774636847000::bigint as cutover_ms
+)
+select
+  t.type,
+  count(*) as cnt,
+  min(t.created_at) as min_created_at,
+  max(t.created_at) as max_created_at
+from transactions t
+cross join params p
+where t.type in ('payment', 'earning', 'commission', 'refund', 'withdraw', 'topup')
+  and (t.data->>'ledgerId') is null
+  and t.created_at >= p.cutover_ms
+group by t.type
+order by cnt desc, t.type asc;
+
 -- 5) Cek ledger orphan (ledger tanpa idempotency map, harus 0 row)
 select
   l.id,
@@ -76,3 +119,10 @@ left join wallet_idempotency i on i.idempotency_key = l.idempotency_key
 where i.idempotency_key is null
 order by l.created_at desc
 limit 200;
+
+-- Interpretasi cepat:
+-- 1) global_delta = 0
+-- 2) mismatch per user = 0 row
+-- 3) duplicate idempotency = 0 row
+-- 4) no-ledgerId pasca-cutover = 0 row
+-- 5) orphan ledger = 0 row

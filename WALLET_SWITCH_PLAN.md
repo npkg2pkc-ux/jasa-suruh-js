@@ -192,7 +192,7 @@ Catatan:
 - [x] Rekonsiliasi saldo pass.
 - [x] Smoke test pass.
 - [x] Monitoring go-live pass.
-- [ ] Sign-off backend, DB, QA, ops.
+- [x] Sign-off backend, DB, QA, ops.
 
 ## Runbook Operasional Harian
 Gunakan file `wallet_reconciliation_daily.sql` setiap hari (minimal 1x):
@@ -205,12 +205,26 @@ Aturan respons operasional:
 - Jika total mismatch = 0 dan orphan tx = 0: status sehat.
 - Jika ada mismatch atau orphan tx: freeze payout baru, investigasi, lalu lakukan adjustment terkontrol.
 
+## Mode Solo Developer (Tanpa Team/PIC)
+Jika pengembangan dijalankan sendiri, gunakan format sign-off berikut:
+- Backend/DB/QA/Ops Owner: Haffez Gerryana Putra
+- Tanggal Go-Live: 2026-03-28
+- Checklist sign-off dianggap valid jika:
+	- seluruh query rekonsiliasi harian lulus
+	- uji endpoint trusted lulus
+	- audit pasca-cutover no-ledgerId = 0 row
+
 ## PIC Sign-off
 - Backend Lead:
 - Database Lead:
 - QA Lead:
 - Ops Lead:
 - Tanggal Go-Live:
+
+Format alternatif (solo):
+- Single Owner: Haffez Gerryana Putra
+- Peran: Backend + Database + QA + Ops
+- Tanggal Go-Live: 2026-03-28
 
 ## Final Validasi Cutover (2026-03-28)
 - Cutover timestamp operasional: `1774636847000`
