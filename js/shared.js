@@ -2026,11 +2026,19 @@ function setDriverMarkerHeading(fromLat, fromLng, toLat, toLng) {
     var iconEl = markerEl.querySelector('.gm-driver-marker-img');
     if (!iconEl) return;
 
-    var dy = Number(toLat) - Number(fromLat);
-    var dx = Number(toLng) - Number(fromLng);
-    if (!isFinite(dy) || !isFinite(dx) || (Math.abs(dy) < 0.000001 && Math.abs(dx) < 0.000001)) return;
-    var deg = Math.atan2(dy, dx) * (180 / Math.PI);
-    iconEl.style.setProperty('--heading', String(deg) + 'deg');
+    var lat1 = Number(fromLat) * Math.PI / 180;
+    var lat2 = Number(toLat) * Math.PI / 180;
+    var dLon = (Number(toLng) - Number(fromLng)) * Math.PI / 180;
+    if (!isFinite(lat1) || !isFinite(lat2) || !isFinite(dLon)) return;
+
+    var y = Math.sin(dLon) * Math.cos(lat2);
+    var x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    if (!isFinite(x) || !isFinite(y) || (Math.abs(x) < 0.00000001 && Math.abs(y) < 0.00000001)) return;
+
+    var bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    // markdriver.png default facing is slightly diagonal, so apply fixed offset.
+    var iconHeadingOffsetDeg = -45;
+    iconEl.style.setProperty('--heading', String(bearing + iconHeadingOffsetDeg) + 'deg');
 }
 
 function clearDriverTrailLayers() {
