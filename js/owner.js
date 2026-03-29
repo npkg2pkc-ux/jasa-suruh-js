@@ -22,6 +22,7 @@ var OwnerDashboard = (function () {
         activity: { title: 'Aktivitas Terbaru', subtitle: 'Update order dan user terbaru' },
         users: { title: 'Pengguna', subtitle: 'Kelola akun dan role platform' },
         marketing: { title: 'Info & Promo', subtitle: 'Kelola konten informasi user' },
+        'driver-recruit': { title: 'Rekrutment Driver', subtitle: 'Form lengkap pendaftaran driver baru' },
         settings: { title: 'Setting', subtitle: 'Profil akun dan logout' }
     };
     var _marketingState = { promos: [], news: [] };
@@ -56,6 +57,7 @@ var OwnerDashboard = (function () {
         if (panel === 'activity') return { title: 'Order', subtitle: 'Monitoring order dari dibuat sampai verifikasi komisi' };
         if (panel === 'users') return { title: 'Pengguna', subtitle: 'Kontrol akun global: user, driver, dan seller' };
         if (panel === 'marketing') return { title: 'Info & Promo', subtitle: 'Kelola konten informasi dashboard user' };
+        if (panel === 'driver-recruit') return { title: 'Rekrutment Driver', subtitle: 'Lengkapi data driver dalam satu halaman' };
         if (panel === 'settings') return { title: 'Setting', subtitle: 'Profil admin dan logout' };
         return cfg;
     }
@@ -74,7 +76,7 @@ var OwnerDashboard = (function () {
             return;
         }
         if (action === 'driver-recruit') {
-            openOwnerDriverRecruitModal();
+            _openOwnerPanel('driver-recruit');
         }
     }
 
@@ -361,18 +363,6 @@ var OwnerDashboard = (function () {
         if (deliveryBackdrop && !deliveryBackdrop._bound) {
             deliveryBackdrop._bound = true;
             deliveryBackdrop.addEventListener('click', closeOwnerDeliveryModal);
-        }
-
-        var recruitClose = $('ownerDriverRecruitClose');
-        if (recruitClose && !recruitClose._bound) {
-            recruitClose._bound = true;
-            recruitClose.addEventListener('click', closeOwnerDriverRecruitModal);
-        }
-
-        var recruitBackdrop = $('ownerDriverRecruitBackdrop');
-        if (recruitBackdrop && !recruitBackdrop._bound) {
-            recruitBackdrop._bound = true;
-            recruitBackdrop.addEventListener('click', closeOwnerDriverRecruitModal);
         }
 
         var recruitForm = $('driverRecruitForm');
@@ -2155,28 +2145,6 @@ var OwnerDashboard = (function () {
         }, 180);
     }
 
-    function openOwnerDriverRecruitModal() {
-        if (!_isAdmin() && !_isOwner()) {
-            if (typeof showToast === 'function') showToast('Akses ditolak', 'error');
-            return;
-        }
-        var modal = $('ownerDriverRecruitModal');
-        if (!modal) return;
-        modal.classList.remove('hidden');
-        requestAnimationFrame(function () {
-            modal.classList.add('is-open');
-        });
-    }
-
-    function closeOwnerDriverRecruitModal() {
-        var modal = $('ownerDriverRecruitModal');
-        if (!modal) return;
-        modal.classList.remove('is-open');
-        setTimeout(function () {
-            modal.classList.add('hidden');
-        }, 180);
-    }
-
     function _readFileAsDataUrl(file) {
         return new Promise(function (resolve, reject) {
             if (!file) return resolve('');
@@ -2370,7 +2338,7 @@ var OwnerDashboard = (function () {
                 }
 
                 if (form) form.reset();
-                closeOwnerDriverRecruitModal();
+                _openOwnerPanel('users');
                 renderOwnerStats();
                 renderOwnerUsers();
                 if (typeof showToast === 'function') showToast('Driver berhasil direkrut', 'success');
