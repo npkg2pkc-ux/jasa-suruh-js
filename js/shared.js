@@ -3346,10 +3346,8 @@ function _bindProofInputSelectionHandler(order, buttonId) {
 function _tryOpenProofAfterGpsCheck(order, btn, proofInput, blockedMsg) {
     if (proofInput) proofInput.dataset.gpsVerified = '1';
     _setCompleteButtonArmedState(btn, true);
-    var opened = _openDriverProofPicker(order || _currentOrder || null, (btn && btn.id) ? btn.id : 'otpBtnComplete', proofInput || null);
-    if (!opened) {
-        showToast(blockedMsg || 'Lokasi valid. Ketuk lagi tombol Ambil Foto Validasi untuk membuka kamera.', 'info');
-    }
+    // iOS/webview-safe flow: do not auto-open camera from async GPS callback.
+    // User explicitly taps "Ambil Foto Validasi" on next gesture.
 }
 
 function _setProofInputGpsCoords(proofInput, order, verifyMeta) {
