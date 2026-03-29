@@ -224,7 +224,13 @@ function openServiceTalentPage(skillType) {
 
     var titleEl = document.getElementById('stpTitle');
     var subtitleEl = document.getElementById('stpSubtitle');
-    if (titleEl) titleEl.textContent = def ? def.icon + ' ' + def.name : 'Talent Tersedia';
+    if (titleEl) {
+        if (def && def.iconPath) {
+            titleEl.innerHTML = '<span class="feature-title-with-icon"><img src="' + def.iconPath + '" alt="" class="feature-title-icon">' + escapeHtml(def.name) + '</span>';
+        } else {
+            titleEl.textContent = def ? (def.icon + ' ' + def.name) : 'Talent Tersedia';
+        }
+    }
     if (subtitleEl) subtitleEl.textContent = def ? def.desc : 'Temukan jasa terdekat';
 
     var searchInput = document.getElementById('stpSearchInput');
@@ -267,6 +273,12 @@ function openServiceTalentPage(skillType) {
             });
         });
     }
+}
+
+function setServiceCtaLabel(btn, serviceType, text) {
+    if (!btn) return;
+    var iconPath = serviceType === 'js_delivery' ? 'jsdeliveryicon.png' : 'jsantaricon.png';
+    btn.innerHTML = '<span class="cta-service-icon"><img src="' + iconPath + '" alt=""></span><span>' + text + '</span>';
 }
 
 function buildTalentList(skillType) {
@@ -1377,7 +1389,7 @@ function resetJSAntarState() {
     var btnOrder = document.getElementById('japBtnOrder');
     if (btnOrder) {
         btnOrder.disabled = true;
-        btnOrder.textContent = '🏍️ Temukan Driver';
+        setServiceCtaLabel(btnOrder, 'js_antar', 'Temukan Driver');
         delete btnOrder.dataset.price;
         delete btnOrder.dataset.fee;
         delete btnOrder.dataset.total;
@@ -1763,7 +1775,7 @@ function enterJapAddDestinationMode() {
     var btnOrder = document.getElementById('japBtnOrder');
     if (btnOrder) {
         btnOrder.disabled = true;
-        btnOrder.textContent = '🏍️ Temukan Driver';
+        setServiceCtaLabel(btnOrder, 'js_antar', 'Temukan Driver');
         delete btnOrder.dataset.price;
         delete btnOrder.dataset.fee;
         delete btnOrder.dataset.total;
@@ -2173,7 +2185,7 @@ function updateJapPriceInfo(distKm, durationMin) {
 
     var btn = document.getElementById('japBtnOrder');
     btn.disabled = false;
-    btn.textContent = '🏍️ Pesan Driver — ' + formatRupiah(totalCost);
+    setServiceCtaLabel(btn, 'js_antar', 'Pesan Driver - ' + formatRupiah(totalCost));
     btn.dataset.price = price;
     btn.dataset.fee = fee;
     btn.dataset.total = totalCost;
@@ -2261,12 +2273,12 @@ function onJapOrderClick() {
             searchNearbyDriver(order);
         } else {
             btn.disabled = false;
-            btn.textContent = '🏍️ Pesan Driver — ' + formatRupiah(totalCost);
+            setServiceCtaLabel(btn, 'js_antar', 'Pesan Driver - ' + formatRupiah(totalCost));
             showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'coba lagi'), 'error');
         }
     }).catch(function () {
         btn.disabled = false;
-        btn.textContent = '🏍️ Pesan Driver — ' + formatRupiah(totalCost);
+        setServiceCtaLabel(btn, 'js_antar', 'Pesan Driver - ' + formatRupiah(totalCost));
         showToast('Koneksi error, coba lagi', 'error');
     });
 }
@@ -2336,7 +2348,7 @@ function resetJSDeliveryState() {
     var btn = document.getElementById('jdpBtnOrder');
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '📦 Cari Driver';
+        setServiceCtaLabel(btn, 'js_delivery', 'Cari Driver');
         delete btn.dataset.price;
         delete btn.dataset.fee;
         delete btn.dataset.total;
@@ -2842,7 +2854,7 @@ function evaluateJdpReadyToOrder() {
     var weight = getJdpWeightKg();
     var ready = hasDesc && weight > 0 && _jdpPickupCoords && _jdpDestCoords && _jdpRouteDistKm > 0;
     btn.disabled = !ready;
-    if (!ready && !btn.dataset.total) btn.textContent = '📦 Cari Driver';
+    if (!ready && !btn.dataset.total) setServiceCtaLabel(btn, 'js_delivery', 'Cari Driver');
 }
 
 function updateJdpPriceInfo(distKm, durationMin) {
@@ -2897,7 +2909,7 @@ function updateJdpPriceInfo(distKm, durationMin) {
         btn.dataset.weightFee = String(weightFee);
         btn.dataset.fee = String(fee);
         btn.dataset.total = String(total);
-        btn.textContent = '📦 Cari Driver — ' + formatRupiah(total);
+        setServiceCtaLabel(btn, 'js_delivery', 'Cari Driver - ' + formatRupiah(total));
     }
 
     evaluateJdpReadyToOrder();
@@ -3004,12 +3016,12 @@ function onJdpOrderClick() {
             searchNearbyDriver(order);
         } else {
             btn.disabled = false;
-            btn.textContent = '📦 Cari Driver — ' + formatRupiah(totalCost);
+            setServiceCtaLabel(btn, 'js_delivery', 'Cari Driver - ' + formatRupiah(totalCost));
             showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'coba lagi'), 'error');
         }
     }).catch(function () {
         btn.disabled = false;
-        btn.textContent = '📦 Cari Driver — ' + formatRupiah(totalCost);
+        setServiceCtaLabel(btn, 'js_delivery', 'Cari Driver - ' + formatRupiah(totalCost));
         showToast('Koneksi error, coba lagi', 'error');
     });
 }
