@@ -438,11 +438,12 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     flex-direction:column;
     align-items:center;
     justify-content:center;
-    background:rgba(255,255,255,.72);
-    border:1px solid rgba(255,107,0,.12);
-    border-radius:16px;
+    background:transparent;
+    border:none;
+    border-radius:0;
     cursor:pointer;
-    padding:10px 4px;
+    padding:4px;
+    min-height:88px;
     transition:transform .18s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease;
     font-family:var(--font);
 }
@@ -450,13 +451,13 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     transform:translateY(1px) scale(.97);
 }
 .service-icon {
-    width:58px;
-    height:58px;
-    border-radius:16px;
+    width:76px;
+    height:76px;
+    border-radius:20px;
     display:flex;
     align-items:center;
     justify-content:center;
-    box-shadow:0 8px 18px rgba(255,107,0,.12);
+    box-shadow:0 8px 20px rgba(255,107,0,.12);
     overflow:hidden;
 }
 .service-icon img {
@@ -2217,7 +2218,8 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 /* ========== RESPONSIVE ========== */
 @media (max-width:360px) {
     .services-grid { gap:8px; padding:16px 8px; }
-    .service-icon { width:50px; height:50px; }
+    .service-item { min-height:72px; }
+    .service-icon { width:62px; height:62px; }
     .service-name { font-size:10px; }
     .greeting-question { font-size:16px; }
     .stat-card { padding:12px 8px; }
@@ -5877,8 +5879,13 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     }
 
     .service-item {
-        border-radius:14px;
-        padding:8px 3px;
+        padding:4px 3px;
+        min-height:76px;
+    }
+
+    .service-icon {
+        width:64px;
+        height:64px;
     }
 
     .notif-popup-panel {
