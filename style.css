@@ -5196,6 +5196,29 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
         text-transform:uppercase;
     }
 
+    #page-owner.od-web-desktop #ownerBottomNav .od-nav-section::before {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        width:16px;
+        height:16px;
+        margin-right:6px;
+        border-radius:999px;
+        border:1px solid currentColor;
+        font-size:9px;
+        font-weight:900;
+        line-height:1;
+        content:'S';
+    }
+
+    #page-owner.od-web-desktop #ownerBottomNav .od-nav-section[data-nav-icon="ops"]::before {
+        content:'O';
+    }
+
+    #page-owner.od-web-desktop #ownerBottomNav .od-nav-section[data-nav-icon="setting"]::before {
+        content:'S';
+    }
+
     #page-owner.od-web-desktop.od-admin-mode #ownerBottomNav .od-nav-section {
         border-top-color:#FDBA74;
         color:#B45309;
