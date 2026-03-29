@@ -22,7 +22,7 @@ var OwnerDashboard = (function () {
         activity: { title: 'Aktivitas Terbaru', subtitle: 'Update order dan user terbaru' },
         users: { title: 'Pengguna', subtitle: 'Kelola akun dan role platform' },
         marketing: { title: 'Info & Promo', subtitle: 'Kelola konten informasi user' },
-        settings: { title: 'Pengaturan', subtitle: 'Atur komisi dan parameter platform' }
+        settings: { title: 'Setting', subtitle: 'Profil akun dan logout' }
     };
     var _marketingState = { promos: [], news: [] };
 
@@ -56,8 +56,26 @@ var OwnerDashboard = (function () {
         if (panel === 'activity') return { title: 'Order', subtitle: 'Monitoring order dari dibuat sampai verifikasi komisi' };
         if (panel === 'users') return { title: 'Pengguna', subtitle: 'Kontrol akun global: user, driver, dan seller' };
         if (panel === 'marketing') return { title: 'Info & Promo', subtitle: 'Kelola konten informasi dashboard user' };
-        if (panel === 'settings') return { title: 'Akun', subtitle: 'Profil admin, review pesanan, dan logout' };
+        if (panel === 'settings') return { title: 'Setting', subtitle: 'Profil admin dan logout' };
         return cfg;
+    }
+
+    function _runOwnerMenuAction(action) {
+        if (action === 'staff-list') {
+            if (typeof openStaffManagement === 'function') openStaffManagement('list');
+            return;
+        }
+        if (action === 'transactions') {
+            if (typeof openAdminTransactions === 'function') openAdminTransactions();
+            return;
+        }
+        if (action === 'order-review') {
+            if (typeof openAdminOrderReview === 'function') openAdminOrderReview();
+            return;
+        }
+        if (action === 'driver-recruit') {
+            openOwnerDriverRecruitModal();
+        }
     }
 
     function _setActiveOwnerNav(panel) {
@@ -190,6 +208,12 @@ var OwnerDashboard = (function () {
             });
         });
 
+        $$('#ownerBottomNav [data-owner-action]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                _runOwnerMenuAction(this.dataset.ownerAction || '');
+            });
+        });
+
         var panelCloseBtn = $('ownerPanelClose');
         if (panelCloseBtn) panelCloseBtn.addEventListener('click', _closeOwnerPanel);
 
@@ -298,19 +322,19 @@ var OwnerDashboard = (function () {
                     return;
                 }
                 if (action === 'staff-list') {
-                    if (typeof openStaffManagement === 'function') openStaffManagement('list');
+                    _runOwnerMenuAction(action);
                     return;
                 }
                 if (action === 'transactions') {
-                    if (typeof openAdminTransactions === 'function') openAdminTransactions();
+                    _runOwnerMenuAction(action);
                     return;
                 }
                 if (action === 'order-review') {
-                    if (typeof openAdminOrderReview === 'function') openAdminOrderReview();
+                    _runOwnerMenuAction(action);
                     return;
                 }
                 if (action === 'driver-recruit') {
-                    openOwnerDriverRecruitModal();
+                    _runOwnerMenuAction(action);
                 }
             });
         }
