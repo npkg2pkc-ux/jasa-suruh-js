@@ -2929,20 +2929,51 @@ function bindActionTap(el, handler) {
     var lastInvokeAt = 0;
 
     function invoke(ev) {
+        if (el.disabled) return;
         var now = Date.now();
-        if ((now - lastInvokeAt) < 220) return;
+        if ((now - lastInvokeAt) < 450) return;
         lastInvokeAt = now;
         handler.call(el, ev);
     }
 
+    // Touchend handles devices/webviews where click is flaky or delayed.
+    el.addEventListener('touchend', function (ev) {
+        if (ev && ev.cancelable) ev.preventDefault();
+        invoke(ev);
+    }, { passive: false });
+
     // Pointer events are the most reliable across Android/iOS webview + browser.
     el.addEventListener('pointerup', function (ev) {
-        if (ev && ev.pointerType && ev.pointerType !== 'touch' && ev.pointerType !== 'pen') return;
         invoke(ev);
     });
 
     // Keep click fallback for desktop and older browsers.
     el.addEventListener('click', invoke);
+}
+
+function _tryArriveStatusWithFallback(order, actorId) {
+    if (!order || !order.id) return Promise.resolve(false);
+    var sid = String(actorId || order.talentId || '');
+    if (!sid) return Promise.resolve(false);
+
+    var arriveFields = { talentId: sid, _skipGpsGate: true };
+    var onTheWayFields = {
+        talentId: sid,
+        startedTripAt: Number(order.startedTripAt) || Date.now(),
+        autoProgress: true,
+        _skipGpsGate: true
+    };
+
+    return updateOrderStatus(order.id, 'arrived', arriveFields).then(function (ok) {
+        if (ok) return true;
+        // Fallback: normalize backend order state to on_the_way then retry arrived once.
+        return updateOrderStatus(order.id, 'on_the_way', onTheWayFields).then(function (ok2) {
+            if (!ok2) return false;
+            return updateOrderStatus(order.id, 'arrived', arriveFields);
+        });
+    }).catch(function () {
+        return false;
+    });
 }
 
 function renderOrderActions(order, isTalent, isUser) {
@@ -3302,7 +3333,7 @@ function renderOrderActions(order, isTalent, isUser) {
                 _verifyDriverAtLocation(order, 'store', function(isNear) {
                     if (isNear) {
                         var sid = (session && session.id) ? String(session.id) : String(order.talentId || '');
-                        updateOrderStatus(order.id, 'arrived', { talentId: sid, _skipGpsGate: true }).then(function (ok) {
+                        _tryArriveStatusWithFallback(order, sid).then(function (ok) {
                             if (!ok) {
                                 btn.dataset.busy = '0';
                                 btn.dataset.busySince = '';
@@ -3413,7 +3444,7 @@ function renderOrderActions(order, isTalent, isUser) {
                 _verifyDriverAtLocation(order, 'user', function(isNear) {
                     if (isNear) {
                         var sid = (session && session.id) ? String(session.id) : String(order.talentId || '');
-                        updateOrderStatus(order.id, 'arrived', { talentId: sid, _skipGpsGate: true }).then(function (ok) {
+                        _tryArriveStatusWithFallback(order, sid).then(function (ok) {
                             if (!ok) {
                                 btn.dataset.busy = '0';
                                 btn.dataset.busySince = '';
