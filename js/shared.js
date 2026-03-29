@@ -5026,26 +5026,33 @@ function _maybeSendNearbyAlert(order, driverLat, driverLng) {
 // ═══ CHAT SYSTEM ═══
 // ══════════════════════════════════════════
 function buildChatConversationKey(orderId, userA, userB) {
-    var a = String(userA || '');
-    var b = String(userB || '');
+    var a = String(userA || '').trim();
+    var b = String(userB || '').trim();
     if (!a || !b) return '';
-    return String(orderId || '') + '::' + [a, b].sort().join('__');
+    return String(orderId || '').trim() + '::' + [a, b].sort().join('__');
 }
 
 function isMessageInActiveChatThread(m, sessionId, targetUserId) {
     if (!m) return false;
-    var me = String(sessionId || '');
-    var peer = String(targetUserId || '');
+    var me = String(sessionId || '').trim();
+    var peer = String(targetUserId || '').trim();
     if (!me || !peer) return true;
 
     var activeKey = buildChatConversationKey(_chatOrderId, me, peer);
+    var sender = String(m.senderId || '').trim();
+    var recipient = String(m.recipientId || '').trim();
+
     if (m.conversationKey) {
-        return String(m.conversationKey) === String(activeKey);
+        var msgKey = String(m.conversationKey || '').trim();
+        if (msgKey && msgKey === String(activeKey)) return true;
+        // Fallback for legacy/dirty IDs where conversationKey may be malformed.
+        if (recipient) {
+            return (sender === me && recipient === peer) || (sender === peer && recipient === me);
+        }
+        return false;
     }
 
     // Legacy message fallback: infer by sender/recipient pair.
-    var sender = String(m.senderId || '');
-    var recipient = String(m.recipientId || '');
     if (recipient) {
         return (sender === me && recipient === peer) || (sender === peer && recipient === me);
     }
@@ -5230,11 +5237,11 @@ function sendChatMessage(photo) {
 function _sendDriverProofToUserChat(order, proofPhoto) {
     if (!order || !order.id || !proofPhoto) return Promise.resolve(false);
     var session = (typeof getSession === 'function') ? getSession() : null;
-    var userId = String(order.userId || order.user_id || '');
-    var driverId = String(order.talentId || order.talent_id || (session && session.id) || '');
+    var userId = String(order.userId || order.user_id || '').trim();
+    var driverId = String(order.talentId || order.talent_id || (session && session.id) || '').trim();
     if (!userId || !driverId) return Promise.resolve(false);
 
-    var senderId = session && session.id ? String(session.id) : driverId;
+    var senderId = session && session.id ? String(session.id).trim() : driverId;
     if (!senderId) senderId = driverId;
     var users = (typeof getUsers === 'function') ? getUsers() : [];
     var senderUser = users.find(function (u) { return String(u.id) === senderId; }) || {};
@@ -5270,7 +5277,7 @@ function _sendDriverProofToUserChat(order, proofPhoto) {
             var fallbackPayload = Object.assign({}, primaryPayload, {
                 senderId: driverId,
                 senderName: senderName || 'Driver',
-                conversationKey: buildChatConversationKey(order.id, userId, driverId) || '',
+                conversationKey: '',
                 recipientId: userId
             });
             return postProofMessage(fallbackPayload);
