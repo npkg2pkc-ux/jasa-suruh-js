@@ -2943,6 +2943,7 @@ function _compressProofPhotoSafe(dataUrl, callback) {
     }
 
     var source = String(dataUrl || '');
+    var sourceIsDataUrl = /^data:image\//i.test(source);
     if (!source) {
         finish('');
         return;
@@ -2951,7 +2952,7 @@ function _compressProofPhotoSafe(dataUrl, callback) {
     // Primary path (shared compressor) with a watchdog fallback for webview/camera edge-cases.
     var watchdog = setTimeout(function () {
         compressWithSettings(source, 160, 0.3, function (tiny) {
-            finish(tiny || source);
+            finish(tiny || (sourceIsDataUrl ? source : ''));
         });
     }, 2800);
 
@@ -2961,7 +2962,7 @@ function _compressProofPhotoSafe(dataUrl, callback) {
             var out = String(thumb || '');
             if (!out) {
                 compressWithSettings(source, 160, 0.3, function (tiny) {
-                    finish(tiny || source);
+                    finish(tiny || (sourceIsDataUrl ? source : ''));
                 });
                 return;
             }
@@ -2976,9 +2977,171 @@ function _compressProofPhotoSafe(dataUrl, callback) {
     } catch (err) {
         clearTimeout(watchdog);
         compressWithSettings(source, 160, 0.3, function (tiny3) {
-            finish(tiny3 || source);
+            finish(tiny3 || (sourceIsDataUrl ? source : ''));
         });
     }
+}
+
+function _prepareProofPhotoFromFile(file, callback) {
+    var done = false;
+    function finish(resultUrl) {
+        if (done) return;
+        done = true;
+        callback(String(resultUrl || ''));
+    }
+
+    if (!file) {
+        finish('');
+        return;
+    }
+
+    function compressFromReader() {
+        try {
+            var reader = new FileReader();
+            var watchdog = setTimeout(function () {
+                finish('');
+            }, 12000);
+
+            reader.onload = function () {
+                clearTimeout(watchdog);
+                _compressProofPhotoSafe(String(reader.result || ''), function (proofThumb) {
+                    var out = String(proofThumb || '');
+                    finish(/^data:image\//i.test(out) ? out : '');
+                });
+            };
+            reader.onerror = function () {
+                clearTimeout(watchdog);
+                finish('');
+            };
+            reader.onabort = function () {
+                clearTimeout(watchdog);
+                finish('');
+            };
+            reader.readAsDataURL(file);
+        } catch (e) {
+            finish('');
+        }
+    }
+
+    if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+        try {
+            var objectUrl = URL.createObjectURL(file);
+            var released = false;
+            function releaseObjectUrl() {
+                if (released) return;
+                released = true;
+                try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+            }
+
+            _compressProofPhotoSafe(objectUrl, function (proofThumb) {
+                releaseObjectUrl();
+                var out = String(proofThumb || '');
+                if (/^data:image\//i.test(out)) {
+                    finish(out);
+                    return;
+                }
+                compressFromReader();
+            });
+            return;
+        } catch (e2) {
+            // Continue with FileReader fallback.
+        }
+    }
+
+    compressFromReader();
+}
+
+function _processDriverProofSelection(order, file, buttonId) {
+    return new Promise(function (resolve) {
+        if (!file) {
+            _unlockProofButtonForRetry(buttonId);
+            resolve(false);
+            return;
+        }
+
+        showToast('Memproses foto bukti...', 'info');
+        _prepareProofPhotoFromFile(file, function (proofThumb) {
+            var normalizedThumb = String(proofThumb || '');
+            if (!/^data:image\//i.test(normalizedThumb)) {
+                _unlockProofButtonForRetry(buttonId);
+                showToast('Gagal memproses foto bukti. Coba ambil ulang foto.', 'error');
+                resolve(false);
+                return;
+            }
+
+            var proofInput = document.getElementById('otpProofInput');
+            var lat = proofInput ? Number(proofInput.dataset.gpsLat) : NaN;
+            var lng = proofInput ? Number(proofInput.dataset.gpsLng) : NaN;
+            var doneAt = Date.now();
+            if (proofInput) proofInput.dataset.gpsVerified = '';
+            if (proofInput) proofInput.dataset.gpsLat = '';
+            if (proofInput) proofInput.dataset.gpsLng = '';
+
+            _sendDriverProofToUserChat(order, normalizedThumb).then(function (sentToChat) {
+                if (!sentToChat) {
+                    _unlockProofButtonForRetry(buttonId);
+                    showToast('Bukti foto gagal dikirim ke chat user. Cek koneksi lalu coba lagi.', 'error');
+                    resolve(false);
+                    return;
+                }
+
+                var extraFields = {
+                    completedAt: doneAt,
+                    proofPhoto: normalizedThumb,
+                    proofPhotoInChat: true,
+                    proofPhotoAt: doneAt,
+                    _skipGpsGate: true
+                };
+                if (isValidLatLng(lat, lng)) {
+                    extraFields.talentLat = lat;
+                    extraFields.talentLng = lng;
+                    extraFields.talentLastLocationAt = doneAt;
+                }
+                _finalizeProofCompletion(order, extraFields);
+                resolve(true);
+            }).catch(function () {
+                _unlockProofButtonForRetry(buttonId);
+                showToast('Bukti foto gagal dikirim ke chat user. Coba lagi.', 'error');
+                resolve(false);
+            });
+        });
+    });
+}
+
+function _bindProofInputSelectionHandler(order, buttonId) {
+    var proofInput = document.getElementById('otpProofInput');
+    if (!proofInput) return;
+
+    function onFileSelected() {
+        var liveInput = document.getElementById('otpProofInput');
+        if (!liveInput) return;
+        var file = (liveInput.files && liveInput.files[0]) ? liveInput.files[0] : null;
+
+        if (!file) {
+            _unlockProofButtonForRetry(buttonId);
+            return;
+        }
+        if (liveInput.dataset.proofProcessing === '1') return;
+        liveInput.dataset.proofProcessing = '1';
+
+        _processDriverProofSelection(order, file, buttonId).then(function () {
+            var currentInput = document.getElementById('otpProofInput');
+            if (!currentInput) return;
+            currentInput.dataset.proofProcessing = '0';
+            currentInput.value = '';
+        }).catch(function () {
+            var currentInput = document.getElementById('otpProofInput');
+            if (currentInput) {
+                currentInput.dataset.proofProcessing = '0';
+                currentInput.value = '';
+            }
+            _unlockProofButtonForRetry(buttonId);
+            showToast('Gagal membaca foto bukti. Silakan coba lagi.', 'error');
+        });
+    }
+
+    proofInput.addEventListener('change', onFileSelected);
+    proofInput.addEventListener('input', onFileSelected);
 }
 
 function _tryOpenProofAfterGpsCheck(btn, proofInput, blockedMsg) {
@@ -3536,54 +3699,7 @@ function renderOrderActions(order, isTalent, isUser) {
                     }
                 });
             });
-            document.getElementById('otpProofInput').addEventListener('change', function () {
-                var file = this.files[0];
-                if (!file) {
-                    _unlockProofButtonForRetry('otpBtnComplete');
-                    return;
-                }
-                var reader = new FileReader();
-                reader.onload = function () {
-                    _compressProofPhotoSafe(reader.result, function (proofThumb) {
-                        if (!proofThumb) {
-                            _unlockProofButtonForRetry('otpBtnComplete');
-                            showToast('Gagal memproses foto bukti. Coba ambil ulang foto.', 'error');
-                            return;
-                        }
-                        var proofInput = document.getElementById('otpProofInput');
-                        var lat = proofInput ? Number(proofInput.dataset.gpsLat) : NaN;
-                        var lng = proofInput ? Number(proofInput.dataset.gpsLng) : NaN;
-                        var doneAt = Date.now();
-                        if (proofInput) proofInput.dataset.gpsVerified = '';
-                        if (proofInput) proofInput.dataset.gpsLat = '';
-                        if (proofInput) proofInput.dataset.gpsLng = '';
-
-                        _sendDriverProofToUserChat(order, proofThumb).then(function (sentToChat) {
-                            if (!sentToChat) {
-                                _unlockProofButtonForRetry('otpBtnComplete');
-                                showToast('Bukti foto gagal dikirim ke chat user. Cek koneksi lalu coba lagi.', 'error');
-                                return;
-                            }
-
-                            var extraFields = {
-                                completedAt: doneAt,
-                                proofPhoto: proofThumb,
-                                proofPhotoInChat: true,
-                                proofPhotoAt: doneAt,
-                                _skipGpsGate: true
-                            };
-                            if (isValidLatLng(lat, lng)) {
-                                extraFields.talentLat = lat;
-                                extraFields.talentLng = lng;
-                                extraFields.talentLastLocationAt = doneAt;
-                            }
-                            _finalizeProofCompletion(order, extraFields);
-                        });
-                    });
-                };
-                reader.readAsDataURL(file);
-                this.value = '';
-            });
+            _bindProofInputSelectionHandler(order, 'otpBtnComplete');
         } else if (order.status === 'on_the_way') {
             var arriveLabel = isAntar ? 'Sudah di Lokasi Jemput' : (isDelivery ? 'Sudah di Titik Jemput Barang' : 'Sudah Tiba');
             el.innerHTML = driverNavHtml
@@ -3674,54 +3790,7 @@ function renderOrderActions(order, isTalent, isUser) {
                     document.getElementById('otpProofInput').click();
                 });
             }
-            document.getElementById('otpProofInput').addEventListener('change', function () {
-                var file = this.files[0];
-                if (!file) {
-                    _unlockProofButtonForRetry('otpBtnComplete');
-                    return;
-                }
-                var reader = new FileReader();
-                reader.onload = function () {
-                    _compressProofPhotoSafe(reader.result, function (proofThumb) {
-                        if (!proofThumb) {
-                            _unlockProofButtonForRetry('otpBtnComplete');
-                            showToast('Gagal memproses foto bukti. Coba ambil ulang foto.', 'error');
-                            return;
-                        }
-                        var proofInput = document.getElementById('otpProofInput');
-                        var lat = proofInput ? Number(proofInput.dataset.gpsLat) : NaN;
-                        var lng = proofInput ? Number(proofInput.dataset.gpsLng) : NaN;
-                        var doneAt = Date.now();
-                        if (proofInput) proofInput.dataset.gpsVerified = '';
-                        if (proofInput) proofInput.dataset.gpsLat = '';
-                        if (proofInput) proofInput.dataset.gpsLng = '';
-
-                        _sendDriverProofToUserChat(order, proofThumb).then(function (sentToChat) {
-                            if (!sentToChat) {
-                                _unlockProofButtonForRetry('otpBtnComplete');
-                                showToast('Bukti foto gagal dikirim ke chat user. Cek koneksi lalu coba lagi.', 'error');
-                                return;
-                            }
-
-                            var extraFields = {
-                                completedAt: doneAt,
-                                proofPhoto: proofThumb,
-                                proofPhotoInChat: true,
-                                proofPhotoAt: doneAt,
-                                _skipGpsGate: true
-                            };
-                            if (isValidLatLng(lat, lng)) {
-                                extraFields.talentLat = lat;
-                                extraFields.talentLng = lng;
-                                extraFields.talentLastLocationAt = doneAt;
-                            }
-                            _finalizeProofCompletion(order, extraFields);
-                        });
-                    });
-                };
-                reader.readAsDataURL(file);
-                this.value = '';
-            });
+            _bindProofInputSelectionHandler(order, 'otpBtnComplete');
         }
 
         _refreshDriverGpsLockedButtons(order);
@@ -5249,9 +5318,16 @@ function _sendDriverProofToUserChat(order, proofPhoto) {
     var conversationKey = buildChatConversationKey(order.id, userId, driverId);
 
     function postProofMessage(payload) {
-        return Promise.resolve().then(function () {
-            return backendPost(payload);
-        }).then(function (res) {
+        return Promise.race([
+            Promise.resolve().then(function () {
+                return backendPost(payload);
+            }),
+            new Promise(function (resolve) {
+                setTimeout(function () {
+                    resolve({ success: false, message: 'Request timeout' });
+                }, 9000);
+            })
+        ]).then(function (res) {
             return !!(res && res.success);
         }).catch(function () {
             return false;
