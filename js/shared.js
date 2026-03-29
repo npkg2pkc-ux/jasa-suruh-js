@@ -1594,11 +1594,31 @@ function getOrderStoreCoords(order) {
     return null;
 }
 
+function getTrackingLockedUserCoords(order) {
+    if (!order) return null;
+    var orderId = String(order.id || '');
+    if (_otpLockedUserOrderId && _otpLockedUserOrderId !== orderId) {
+        _otpLockedUserPos = null;
+    }
+    _otpLockedUserOrderId = orderId;
+
+    if (_otpLockedUserPos && isValidLatLng(_otpLockedUserPos.lat, _otpLockedUserPos.lng)) {
+        return { lat: Number(_otpLockedUserPos.lat), lng: Number(_otpLockedUserPos.lng) };
+    }
+
+    var lat = Number(order.userLat);
+    var lng = Number(order.userLng);
+    if (!isValidLatLng(lat, lng)) return null;
+    _otpLockedUserPos = { lat: lat, lng: lng };
+    return { lat: lat, lng: lng };
+}
+
 function getTrackingRouteEndpoints(order) {
     if (!order) return null;
 
-    var userLat = Number(order.userLat);
-    var userLng = Number(order.userLng);
+    var lockedUser = getTrackingLockedUserCoords(order);
+    var userLat = lockedUser ? Number(lockedUser.lat) : Number(order.userLat);
+    var userLng = lockedUser ? Number(lockedUser.lng) : Number(order.userLng);
     var driverLat = Number(order.talentLat);
     var driverLng = Number(order.talentLng);
     var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
@@ -1873,6 +1893,10 @@ function destroyTrackingMap() {
     _otpLastTalentPos = null;
     _otpLastTalentTs = 0;
     _otpSpeedKmh = 0;
+    _otpLastRouteRedrawPos = null;
+    _otpLastRouteRedrawTs = 0;
+    _otpLockedUserPos = null;
+    _otpLockedUserOrderId = '';
     _otpEtaMin = 0;
     _otpAutoFollowPausedUntil = 0;
 }
@@ -1981,6 +2005,8 @@ var _otpLastTalentTs = 0;
 var _otpSpeedKmh = 0;
 var _otpLastRouteRedrawPos = null;
 var _otpLastRouteRedrawTs = 0;
+var _otpLockedUserPos = null;
+var _otpLockedUserOrderId = '';
 var _otpAutoFollowPausedUntil = 0;
 var _otpEtaMin = 0;
 var _otpDriverTrailPoints = [];
@@ -3669,8 +3695,9 @@ function _getDriverTargetCoords(order, targetType) {
             targetLng = Number(storeCoords.lng);
         }
     } else if (targetType === 'user' || targetType === 'buyer') {
-        targetLat = Number(order.userLat);
-        targetLng = Number(order.userLng);
+        var lockedUser = getTrackingLockedUserCoords(order);
+        targetLat = Number(lockedUser ? lockedUser.lat : order.userLat);
+        targetLng = Number(lockedUser ? lockedUser.lng : order.userLng);
     } else if (targetType === 'dest') {
         targetLat = Number(order.destLat);
         targetLng = Number(order.destLng);
@@ -3750,13 +3777,17 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
         return;
     }
 
-    // Keep manual buttons visible when GPS belum sinkron agar driver bisa trigger verifikasi GPS live.
-    var keepVisible = (knownCheck.reason === 'driver_location_unavailable' || knownCheck.reason === 'target_location_unavailable');
+    // Keep manual arrive visible so driver can always trigger live GPS verification from the tap handler.
+    var forceManualArrive = (buttonId === 'otpBtnArrive' && nextStatus === 'arrived');
+    var keepVisible = forceManualArrive || (knownCheck.reason === 'driver_location_unavailable' || knownCheck.reason === 'target_location_unavailable');
     if (keepVisible) btn.classList.remove('hidden');
     else btn.classList.add('hidden');
     btn.disabled = !keepVisible;
     btn.style.opacity = '0.72';
-    if (knownCheck.reason === 'driver_location_unavailable') {
+    if (forceManualArrive) {
+        btn.textContent = btn.dataset.baseLabel || btn.textContent;
+        btn.title = 'Ketuk untuk verifikasi GPS langsung sebelum lanjut progres.';
+    } else if (knownCheck.reason === 'driver_location_unavailable') {
         btn.textContent = btn.dataset.baseLabel || btn.textContent;
         btn.title = 'GPS belum sinkron. Ketuk tombol untuk verifikasi GPS langsung.';
     } else if (knownCheck.reason === 'target_location_unavailable') {
