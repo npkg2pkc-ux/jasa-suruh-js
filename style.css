@@ -6399,6 +6399,12 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 
 /* Cancel Button Ghost */
 .sf-actions { margin-top: 12px; }
+.sf-actions,
+#otpActions {
+    position: relative;
+    z-index: 40;
+    pointer-events: auto;
+}
 .sf-cancel-btn { width: 100%; background: #FFFFFF; border: 1px solid #E0E0E0; color: #CCCCCC; padding: 14px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .sf-cancel-btn:active { background: #FAFAFA; }
 .sf-cancel-btn.red { border-color: #EE4D2D; color: #EE4D2D; }
@@ -6407,6 +6413,12 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .sf-btn-row { display: flex; gap: 12px; width: 100%; }
 .sf-btn-solid { flex: 1; background: #EE4D2D; color: #FFF; border: none; padding: 14px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .sf-btn-outline { flex: 1; background: #FFF; border: 1px solid #EE4D2D; color: #EE4D2D; padding: 14px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.sf-btn-solid,
+.sf-btn-outline,
+.sf-cancel-btn {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
 
 @media (max-width:420px) {
     .sf-progress-wrap {

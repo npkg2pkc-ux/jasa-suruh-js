@@ -2890,6 +2890,26 @@ function _canUseKnownGpsForCompletion(order, targetType) {
     return !!(knownCheck && knownCheck.ok);
 }
 
+function bindActionTap(el, handler) {
+    if (!el || typeof handler !== 'function') return;
+    var lastTouchAt = 0;
+
+    function run(ev) {
+        if (ev && ev.type === 'click' && (Date.now() - lastTouchAt) < 450) {
+            return;
+        }
+        if (ev && ev.cancelable) ev.preventDefault();
+        if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+        handler.call(el, ev);
+    }
+
+    el.addEventListener('touchend', function (ev) {
+        lastTouchAt = Date.now();
+        run(ev);
+    }, { passive: false });
+    el.addEventListener('click', run);
+}
+
 function renderOrderActions(order, isTalent, isUser) {
     var el = document.getElementById('otpActions');
     if (!el) return;
@@ -2952,7 +2972,7 @@ function renderOrderActions(order, isTalent, isUser) {
     if (isSeller && isProductOrder) {
         if (order.status === 'pending_seller') {
             el.innerHTML = '<div class="sf-btn-row"><button class="sf-btn-solid" id="otpBtnSellerAccept">Terima & Siapkan</button><button class="sf-btn-outline" id="otpBtnSellerReject">Tolak</button></div>';
-            document.getElementById('otpBtnSellerAccept').addEventListener('click', function () {
+            bindActionTap(document.getElementById('otpBtnSellerAccept'), function () {
                 var btn = this;
                 if (btn.dataset.busy === '1') return;
                 btn.dataset.busy = '1';
@@ -2993,7 +3013,7 @@ function renderOrderActions(order, isTalent, isUser) {
             });
         } else if (order.status === 'preparing') {
             el.innerHTML = '<button class="sf-btn-solid" style="width:100%" id="otpBtnSellerReady">Pesanan Siap Diambil</button>';
-            document.getElementById('otpBtnSellerReady').addEventListener('click', function () {
+            bindActionTap(document.getElementById('otpBtnSellerReady'), function () {
                 var btn = this;
                 if (btn.dataset.busy === '1') return;
                 btn.dataset.busy = '1';
@@ -3026,7 +3046,7 @@ function renderOrderActions(order, isTalent, isUser) {
         var driverNavHtml = buildDriverNavButtonsHtml(order);
         if (order.status === 'pending') {
             el.innerHTML = driverNavHtml + '<div class="sf-btn-row"><button class="sf-btn-solid" id="otpBtnAccept">Terima Pesanan</button><button class="sf-btn-outline" id="otpBtnReject">Tolak</button></div>';
-            document.getElementById('otpBtnAccept').addEventListener('click', function () {
+            bindActionTap(document.getElementById('otpBtnAccept'), function () {
                 var btn = this;
                 btn.disabled = true;
                 btn.textContent = 'Memproses...';
@@ -3146,7 +3166,7 @@ function renderOrderActions(order, isTalent, isUser) {
         } else if (order.status === 'accepted') {
             var otwLabel = isAntar ? 'Menuju Lokasi Jemput' : (isDelivery ? 'Menuju Titik Jemput Barang' : 'Menuju Lokasi');
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnOtw">' + otwLabel + '</button>';
-            document.getElementById('otpBtnOtw').addEventListener('click', function () {
+            bindActionTap(document.getElementById('otpBtnOtw'), function () {
                 if (this.dataset.busy === '1') return;
                 this.dataset.busy = '1';
                 this.disabled = true;
@@ -3168,7 +3188,7 @@ function renderOrderActions(order, isTalent, isUser) {
             el.innerHTML = driverNavHtml
                 + '<div class="gps-progress-hint" style="text-align:center;font-size:12px;color:#FF6B00;margin-bottom:8px;">📍 Progress akan otomatis saat Anda tiba di lokasi</div>'
                 + '<button class="sf-btn-outline" style="width:100%;font-size:13px;" id="otpBtnArrive">Tandai Tiba Secara Manual</button>';
-            document.getElementById('otpBtnArrive').addEventListener('click', function () {
+            bindActionTap(document.getElementById('otpBtnArrive'), function () {
                 var btn = this;
                 if (btn.dataset.busy === '1') return;
                 btn.dataset.busy = '1';
@@ -3191,7 +3211,7 @@ function renderOrderActions(order, isTalent, isUser) {
             });
         } else if (order.status === 'arrived' && isProductOrder) {
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnStart">Ambil Pesanan & Antar</button>';
-            document.getElementById('otpBtnStart').addEventListener('click', function () {
+            bindActionTap(document.getElementById('otpBtnStart'), function () {
                 if (this.dataset.busy === '1') return;
                 this.dataset.busy = '1';
                 this.disabled = true;
@@ -3208,7 +3228,7 @@ function renderOrderActions(order, isTalent, isUser) {
             });
         } else if (order.status === 'in_progress' && isProductOrder) {
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnComplete">Selesai + Upload Bukti</button><input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">';
-            document.getElementById('otpBtnComplete').addEventListener('click', function () {
+            bindActionTap(document.getElementById('otpBtnComplete'), function () {
                 var btn = this;
                 if (btn.dataset.busy === '1') return;
                 var proofInput = document.getElementById('otpProofInput');
@@ -3278,7 +3298,7 @@ function renderOrderActions(order, isTalent, isUser) {
             el.innerHTML = driverNavHtml
                 + '<div class="gps-progress-hint" style="text-align:center;font-size:12px;color:#FF6B00;margin-bottom:8px;">📍 Progress akan otomatis saat Anda tiba di lokasi</div>'
                 + '<button class="sf-btn-outline" style="width:100%;font-size:13px;" id="otpBtnArrive">' + arriveLabel + ' (Manual)</button>';
-            document.getElementById('otpBtnArrive').addEventListener('click', function () {
+            bindActionTap(document.getElementById('otpBtnArrive'), function () {
                 var btn = this;
                 if (btn.dataset.busy === '1') return;
                 btn.dataset.busy = '1';
@@ -3302,7 +3322,7 @@ function renderOrderActions(order, isTalent, isUser) {
         } else if (order.status === 'arrived') {
             var startLabel = isAntar ? 'Mulai Perjalanan' : (isDelivery ? 'Mulai Antar ke Titik Tujuan' : 'Mulai Mengerjakan');
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnStart">' + startLabel + '</button>';
-            document.getElementById('otpBtnStart').addEventListener('click', function () {
+            bindActionTap(document.getElementById('otpBtnStart'), function () {
                 if (this.dataset.busy === '1') return;
                 this.dataset.busy = '1';
                 this.disabled = true;
@@ -3321,7 +3341,7 @@ function renderOrderActions(order, isTalent, isUser) {
             var completeLabel = isRideFlow ? 'Sampai Tujuan + Ambil Bukti Gambar' : 'Selesai + Upload Bukti';
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnComplete">' + completeLabel + '</button><input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">';
             if (isRideFlow) {
-                document.getElementById('otpBtnComplete').addEventListener('click', function () {
+                bindActionTap(document.getElementById('otpBtnComplete'), function () {
                     var btn = this;
                     if (btn.dataset.busy === '1') return;
                     var proofInput = document.getElementById('otpProofInput');
@@ -3355,7 +3375,7 @@ function renderOrderActions(order, isTalent, isUser) {
                     });
                 });
             } else {
-                document.getElementById('otpBtnComplete').addEventListener('click', function () {
+                bindActionTap(document.getElementById('otpBtnComplete'), function () {
                     if (this.dataset.busy === '1') return;
                     this.dataset.busy = '1';
                     this.disabled = true;
