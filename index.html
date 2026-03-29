@@ -335,8 +335,8 @@
                     </div>
                 </section>
                 <section class="news-section">
-                    <div class="section-header"><h2>Info & Promo</h2><a href="#" class="see-all">Lihat Semua</a></div>
-                    <div class="news-list">
+                    <div class="section-header"><h2>Info & Promo</h2><a href="#" class="see-all" id="userNewsSeeAll">Lihat Semua</a></div>
+                    <div class="news-list" id="userNewsList">
                         <div class="news-card"><div class="news-img placeholder-img"><span>🎉</span></div><div class="news-info"><h4>Selamat Datang di Jasa Suruh!</h4><p>Platform layanan terlengkap untuk semua kebutuhan Anda.</p><span class="news-date">17 Mar 2026</span></div></div>
                         <div class="news-card"><div class="news-img placeholder-img"><span>🚀</span></div><div class="news-info"><h4>Fitur Baru Segera Hadir</h4><p>Nantikan berbagai layanan baru yang kami siapkan.</p><span class="news-date">17 Mar 2026</span></div></div>
                     </div>
@@ -875,6 +875,14 @@
                                                     </span>
                                                     <span class="acc-item-chevron">›</span>
                                                 </button>
+                                                <button class="acc-item" data-owner-setting="marketing-modal" type="button">
+                                                    <span class="acc-item-icon">📰</span>
+                                                    <span class="acc-item-body">
+                                                        <span class="acc-item-label">Info & Promo</span>
+                                                        <span class="acc-item-value" id="ownerSetSummaryMarketing">Promo 0 • Info 0</span>
+                                                    </span>
+                                                    <span class="acc-item-chevron">›</span>
+                                                </button>
                                                 <button class="acc-item od-admin-only" data-owner-setting="order-review" type="button">
                                                     <span class="acc-item-icon">🔎</span>
                                                     <span class="acc-item-body">
@@ -1010,6 +1018,66 @@
                                                 <div class="od-input-group"><input type="text" id="driverRecruitPlate" placeholder="Contoh: B 1234 XYZ" required></div>
                                             </div>
                                             <button type="submit" class="od-btn-save">✅ Rekrut Driver</button>
+                                        </form>
+                                    </div>
+                                </div>
+
+                                <div class="od-settings-modal hidden" id="ownerMarketingModal">
+                                    <div class="od-settings-modal-backdrop" id="ownerMarketingBackdrop"></div>
+                                    <div class="od-settings-modal-card" role="dialog" aria-modal="true" aria-labelledby="ownerMarketingTitle">
+                                        <div class="od-settings-modal-head">
+                                            <h4 id="ownerMarketingTitle">Kelola Info & Promo</h4>
+                                            <button class="od-settings-modal-close" id="ownerMarketingClose" type="button">&times;</button>
+                                        </div>
+                                        <div class="od-marketing-toolbar">
+                                            <p id="ownerMarketingHint">Tambah atau ubah konten promo dan info yang tampil di dashboard user.</p>
+                                            <button type="button" class="od-marketing-add" id="ownerMarketingAddBtn">+ Tambah Baru</button>
+                                        </div>
+                                        <div class="od-marketing-list" id="ownerMarketingList"></div>
+                                        <form id="ownerMarketingForm" class="od-settings-form" style="margin-top:12px;">
+                                            <input type="hidden" id="ownerMarketingEditId">
+                                            <div class="od-form-row">
+                                                <label>Jenis Konten</label>
+                                                <div class="od-input-group">
+                                                    <select id="ownerMarketingType" required>
+                                                        <option value="promo">Promo (slider atas)</option>
+                                                        <option value="info">Info (section Info & Promo)</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="od-form-row">
+                                                <label>Badge</label>
+                                                <div class="od-input-group"><input type="text" id="ownerMarketingBadge" placeholder="PROMO / BARU / INFO" maxlength="20"></div>
+                                            </div>
+                                            <div class="od-form-row">
+                                                <label>Judul</label>
+                                                <div class="od-input-group"><input type="text" id="ownerMarketingTitleInput" placeholder="Masukkan judul" required></div>
+                                            </div>
+                                            <div class="od-form-row">
+                                                <label>Deskripsi</label>
+                                                <div class="od-input-group"><textarea id="ownerMarketingDesc" rows="2" placeholder="Deskripsi singkat" required></textarea></div>
+                                            </div>
+                                            <div class="od-form-row">
+                                                <label>Tanggal Tampil</label>
+                                                <div class="od-input-group"><input type="date" id="ownerMarketingDate"></div>
+                                            </div>
+                                            <div class="od-form-row">
+                                                <label>Link Tujuan (opsional)</label>
+                                                <div class="od-input-group"><input type="url" id="ownerMarketingLink" placeholder="https://..."></div>
+                                            </div>
+                                            <div class="od-form-row">
+                                                <label>URL Gambar (opsional)</label>
+                                                <div class="od-input-group"><input type="url" id="ownerMarketingImageUrl" placeholder="https://.../gambar.jpg"></div>
+                                            </div>
+                                            <div class="od-form-row">
+                                                <label>Sisipkan Gambar</label>
+                                                <div class="od-input-group"><input type="file" id="ownerMarketingImageFile" accept="image/*"></div>
+                                                <p class="od-form-hint">Boleh isi URL gambar atau upload file langsung.</p>
+                                                <div class="od-marketing-preview hidden" id="ownerMarketingImagePreviewWrap">
+                                                    <img id="ownerMarketingImagePreview" src="" alt="Preview gambar promo">
+                                                </div>
+                                            </div>
+                                            <button type="submit" class="od-btn-save" id="ownerMarketingSaveBtn">💾 Simpan Info & Promo</button>
                                         </form>
                                     </div>
                                 </div>

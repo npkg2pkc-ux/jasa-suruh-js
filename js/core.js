@@ -646,6 +646,7 @@ function updateRoleUI(user) {
         displayUserAddress(user);
         captureLocation(user.id);
         setupUserNotifBtn(user.id);
+        if (typeof setupHomeMarketingContent === 'function') setupHomeMarketingContent();
         initNotifications();
     } else if (role === 'talent') {
         var el2 = document.getElementById('talentName');

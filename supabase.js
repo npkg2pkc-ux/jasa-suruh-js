@@ -886,13 +886,27 @@
         if (!actorId) return Promise.resolve(fail('Akses ditolak: actorId wajib diisi'));
 
         return resolveUserRoleById(actorId).then(function (role) {
-            if (role !== 'owner') return fail('Akses ditolak: hanya owner yang boleh mengubah pengaturan finansial');
+            if (role !== 'owner' && role !== 'admin') return fail('Akses ditolak: hanya owner/admin yang boleh mengubah pengaturan');
 
-            var settings = Object.assign({}, body.settings);
-            return sb.from('settings').upsert({
-                key: 'config',
-                data: settings
-            }).then(function (res) {
+            var incomingSettings = Object.assign({}, body.settings);
+            if (role === 'admin') {
+                var allowed = { home_promos: true, home_news: true };
+                var invalidKey = Object.keys(incomingSettings).find(function (k) { return !allowed[k]; });
+                if (invalidKey) return fail('Akses ditolak: admin hanya boleh mengubah Info & Promo');
+            }
+
+            return sb.from('settings').select('data').eq('key', 'config').single()
+                .then(function (res) {
+                    var current = {};
+                    if (res && res.error && res.error.code !== 'PGRST116') throw new Error(res.error.message || 'Gagal mengambil pengaturan saat ini');
+                    if (res && res.data && res.data.data && typeof res.data.data === 'object') {
+                        current = Object.assign({}, res.data.data);
+                    }
+                    return sb.from('settings').upsert({
+                        key: 'config',
+                        data: Object.assign({}, current, incomingSettings)
+                    });
+                }).then(function (res) {
                 throwIfError(res);
                 return ok(null);
             });

@@ -23,6 +23,7 @@ var OwnerDashboard = (function () {
         users: { title: 'Pengguna', subtitle: 'Kelola akun dan role platform' },
         settings: { title: 'Pengaturan', subtitle: 'Atur komisi dan parameter platform' }
     };
+    var _marketingState = { promos: [], news: [] };
 
     function $(id) { return document.getElementById(id); }
     function $$(sel) { return document.querySelectorAll(sel); }
@@ -129,12 +130,16 @@ var OwnerDashboard = (function () {
         if (panel === 'settings' && _isOwner()) {
             _renderOwnerSettingsProfile();
             loadOwnerCommissionSettings();
+            loadOwnerMarketingSettings();
             closeOwnerCommissionModal();
             closeOwnerDeliveryModal();
+            closeOwnerMarketingModal();
         } else if (panel === 'settings') {
             _renderOwnerSettingsProfile();
+            loadOwnerMarketingSettings();
             closeOwnerCommissionModal();
             closeOwnerDeliveryModal();
+            closeOwnerMarketingModal();
         }
     }
 
@@ -299,6 +304,10 @@ var OwnerDashboard = (function () {
                     if (typeof openAdminTransactions === 'function') openAdminTransactions();
                     return;
                 }
+                if (action === 'marketing-modal') {
+                    openOwnerMarketingModal();
+                    return;
+                }
                 if (action === 'order-review') {
                     if (typeof openAdminOrderReview === 'function') openAdminOrderReview();
                     return;
@@ -375,6 +384,64 @@ var OwnerDashboard = (function () {
                     this.value = v;
                 });
             }
+        }
+
+        var marketingClose = $('ownerMarketingClose');
+        if (marketingClose && !marketingClose._bound) {
+            marketingClose._bound = true;
+            marketingClose.addEventListener('click', closeOwnerMarketingModal);
+        }
+
+        var marketingBackdrop = $('ownerMarketingBackdrop');
+        if (marketingBackdrop && !marketingBackdrop._bound) {
+            marketingBackdrop._bound = true;
+            marketingBackdrop.addEventListener('click', closeOwnerMarketingModal);
+        }
+
+        var marketingAddBtn = $('ownerMarketingAddBtn');
+        if (marketingAddBtn && !marketingAddBtn._bound) {
+            marketingAddBtn._bound = true;
+            marketingAddBtn.addEventListener('click', function () {
+                _resetOwnerMarketingForm('promo');
+            });
+        }
+
+        var marketingType = $('ownerMarketingType');
+        if (marketingType && !marketingType._bound) {
+            marketingType._bound = true;
+            marketingType.addEventListener('change', function () {
+                _hydrateOwnerMarketingDefaultBadge();
+            });
+        }
+
+        var marketingImageFile = $('ownerMarketingImageFile');
+        if (marketingImageFile && !marketingImageFile._bound) {
+            marketingImageFile._bound = true;
+            marketingImageFile.addEventListener('change', function () {
+                _previewOwnerMarketingFile(this.files && this.files[0]);
+            });
+        }
+
+        var marketingForm = $('ownerMarketingForm');
+        if (marketingForm && !marketingForm._bound) {
+            marketingForm._bound = true;
+            marketingForm.addEventListener('submit', handleOwnerMarketingSubmit);
+        }
+
+        var marketingList = $('ownerMarketingList');
+        if (marketingList && !marketingList._bound) {
+            marketingList._bound = true;
+            marketingList.addEventListener('click', function (e) {
+                var editBtn = e.target.closest('[data-marketing-edit]');
+                if (editBtn) {
+                    _editOwnerMarketingItem(editBtn.dataset.marketingType || 'promo', editBtn.dataset.marketingEdit || '');
+                    return;
+                }
+                var delBtn = e.target.closest('[data-marketing-delete]');
+                if (delBtn) {
+                    _deleteOwnerMarketingItem(delBtn.dataset.marketingType || 'promo', delBtn.dataset.marketingDelete || '');
+                }
+            });
         }
 
         // Owner logout button in settings page
@@ -1616,6 +1683,395 @@ var OwnerDashboard = (function () {
         });
     }
     window.renderOwnerUsers = renderOwnerUsers;
+
+    // ─── Info & Promo Management (owner + admin) ───
+    function _defaultMarketingPromos() {
+        return [
+            {
+                id: 'promo-default-1',
+                badge: 'PROMO',
+                title: 'Diskon 50% Jasa Antar',
+                description: 'Untuk pengguna baru',
+                dateText: '17 Mar 2026',
+                imageUrl: '',
+                emoji: '🏍️',
+                linkUrl: ''
+            },
+            {
+                id: 'promo-default-2',
+                badge: 'BARU',
+                title: 'Jasa Belanja Online',
+                description: 'Kami belanjakan untuk Anda',
+                dateText: '17 Mar 2026',
+                imageUrl: '',
+                emoji: '🛒',
+                linkUrl: ''
+            }
+        ];
+    }
+
+    function _defaultMarketingNews() {
+        return [
+            {
+                id: 'news-default-1',
+                badge: 'INFO',
+                title: 'Selamat Datang di Jasa Suruh!',
+                description: 'Platform layanan terlengkap untuk semua kebutuhan Anda.',
+                dateText: '17 Mar 2026',
+                imageUrl: '',
+                emoji: '🎉',
+                linkUrl: ''
+            },
+            {
+                id: 'news-default-2',
+                badge: 'UPDATE',
+                title: 'Fitur Baru Segera Hadir',
+                description: 'Nantikan berbagai layanan baru yang kami siapkan.',
+                dateText: '17 Mar 2026',
+                imageUrl: '',
+                emoji: '🚀',
+                linkUrl: ''
+            }
+        ];
+    }
+
+    function _parseOwnerMarketingArray(value, fallback) {
+        var src = value;
+        if (typeof src === 'string') {
+            try { src = JSON.parse(src); } catch (e) { src = []; }
+        }
+        if (!Array.isArray(src) || !src.length) src = fallback.slice();
+        return src.map(function (item, idx) {
+            var raw = item || {};
+            return {
+                id: String(raw.id || generateId() + '-' + idx),
+                badge: String(raw.badge || '').trim() || 'INFO',
+                title: String(raw.title || '').trim() || 'Info Jasa Suruh',
+                description: String(raw.description || '').trim() || '-',
+                dateText: String(raw.dateText || raw.date || '').trim() || new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+                imageUrl: String(raw.imageUrl || raw.image || '').trim(),
+                emoji: String(raw.emoji || '✨').trim() || '✨',
+                linkUrl: String(raw.linkUrl || raw.link || '').trim()
+            };
+        });
+    }
+
+    function _syncOwnerMarketingSummary() {
+        var summary = $('ownerSetSummaryMarketing');
+        if (!summary) return;
+        summary.textContent = 'Promo ' + (_marketingState.promos.length || 0) + ' • Info ' + (_marketingState.news.length || 0);
+    }
+
+    function _renderOwnerMarketingList() {
+        var list = $('ownerMarketingList');
+        if (!list) return;
+        var promos = _marketingState.promos || [];
+        var news = _marketingState.news || [];
+        var rows = [];
+
+        promos.forEach(function (item) {
+            rows.push(''
+                + '<article class="od-marketing-item">'
+                + '  <div class="od-marketing-item-media">'
+                + (item.imageUrl
+                    ? '<img src="' + escapeHtml(item.imageUrl) + '" alt="">'
+                    : '<span>' + escapeHtml(item.emoji || '✨') + '</span>')
+                + '  </div>'
+                + '  <div class="od-marketing-item-body">'
+                + '    <div class="od-marketing-item-head"><span class="od-marketing-type is-promo">PROMO</span><strong>' + escapeHtml(item.title) + '</strong></div>'
+                + '    <p>' + escapeHtml(item.description) + '</p>'
+                + '    <small>' + escapeHtml(item.dateText || '') + '</small>'
+                + '  </div>'
+                + '  <div class="od-marketing-item-actions">'
+                + '    <button type="button" data-marketing-edit="' + escapeHtml(item.id) + '" data-marketing-type="promo">Ubah</button>'
+                + '    <button type="button" class="is-danger" data-marketing-delete="' + escapeHtml(item.id) + '" data-marketing-type="promo">Hapus</button>'
+                + '  </div>'
+                + '</article>');
+        });
+
+        news.forEach(function (item) {
+            rows.push(''
+                + '<article class="od-marketing-item">'
+                + '  <div class="od-marketing-item-media">'
+                + (item.imageUrl
+                    ? '<img src="' + escapeHtml(item.imageUrl) + '" alt="">'
+                    : '<span>' + escapeHtml(item.emoji || '✨') + '</span>')
+                + '  </div>'
+                + '  <div class="od-marketing-item-body">'
+                + '    <div class="od-marketing-item-head"><span class="od-marketing-type is-info">INFO</span><strong>' + escapeHtml(item.title) + '</strong></div>'
+                + '    <p>' + escapeHtml(item.description) + '</p>'
+                + '    <small>' + escapeHtml(item.dateText || '') + '</small>'
+                + '  </div>'
+                + '  <div class="od-marketing-item-actions">'
+                + '    <button type="button" data-marketing-edit="' + escapeHtml(item.id) + '" data-marketing-type="info">Ubah</button>'
+                + '    <button type="button" class="is-danger" data-marketing-delete="' + escapeHtml(item.id) + '" data-marketing-type="info">Hapus</button>'
+                + '  </div>'
+                + '</article>');
+        });
+
+        if (!rows.length) {
+            list.innerHTML = '<div class="od-marketing-empty">Belum ada konten. Tekan Tambah Baru untuk membuat konten pertama.</div>';
+            return;
+        }
+
+        list.innerHTML = rows.join('');
+    }
+
+    function _resetOwnerMarketingForm(type) {
+        var form = $('ownerMarketingForm');
+        if (!form) return;
+        form.reset();
+        if ($('ownerMarketingEditId')) $('ownerMarketingEditId').value = '';
+        if ($('ownerMarketingType')) $('ownerMarketingType').value = type === 'info' ? 'info' : 'promo';
+        _hydrateOwnerMarketingDefaultBadge();
+        _previewOwnerMarketingImage('');
+    }
+
+    function _hydrateOwnerMarketingDefaultBadge() {
+        var type = ($('ownerMarketingType') && $('ownerMarketingType').value) || 'promo';
+        var badgeInput = $('ownerMarketingBadge');
+        if (!badgeInput) return;
+        if (String(badgeInput.value || '').trim()) return;
+        badgeInput.value = type === 'promo' ? 'PROMO' : 'INFO';
+    }
+
+    function _previewOwnerMarketingImage(src) {
+        var wrap = $('ownerMarketingImagePreviewWrap');
+        var img = $('ownerMarketingImagePreview');
+        if (!wrap || !img) return;
+        var value = String(src || '').trim();
+        if (!value) {
+            img.src = '';
+            wrap.classList.add('hidden');
+            return;
+        }
+        img.src = value;
+        wrap.classList.remove('hidden');
+    }
+
+    function _previewOwnerMarketingFile(file) {
+        if (!file) {
+            _previewOwnerMarketingImage(($('ownerMarketingImageUrl') && $('ownerMarketingImageUrl').value) || '');
+            return;
+        }
+        _readFileAsDataUrl(file).then(function (dataUrl) {
+            _previewOwnerMarketingImage(dataUrl);
+        }).catch(function () {
+            _previewOwnerMarketingImage('');
+        });
+    }
+
+    function _editOwnerMarketingItem(type, id) {
+        var list = type === 'promo' ? _marketingState.promos : _marketingState.news;
+        var item = (list || []).find(function (it) { return String(it.id) === String(id); });
+        if (!item) return;
+        if ($('ownerMarketingEditId')) $('ownerMarketingEditId').value = item.id;
+        if ($('ownerMarketingType')) $('ownerMarketingType').value = type;
+        if ($('ownerMarketingBadge')) $('ownerMarketingBadge').value = item.badge || '';
+        if ($('ownerMarketingTitleInput')) $('ownerMarketingTitleInput').value = item.title || '';
+        if ($('ownerMarketingDesc')) $('ownerMarketingDesc').value = item.description || '';
+        if ($('ownerMarketingDate')) {
+            var parsed = new Date(item.dateText || '');
+            $('ownerMarketingDate').value = isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+        }
+        if ($('ownerMarketingLink')) $('ownerMarketingLink').value = item.linkUrl || '';
+        if ($('ownerMarketingImageUrl')) $('ownerMarketingImageUrl').value = item.imageUrl || '';
+        if ($('ownerMarketingImageFile')) $('ownerMarketingImageFile').value = '';
+        _previewOwnerMarketingImage(item.imageUrl || '');
+    }
+
+    function _deleteOwnerMarketingItem(type, id) {
+        if (!confirm('Hapus konten ini?')) return;
+        if (type === 'promo') {
+            _marketingState.promos = (_marketingState.promos || []).filter(function (it) { return String(it.id) !== String(id); });
+        } else {
+            _marketingState.news = (_marketingState.news || []).filter(function (it) { return String(it.id) !== String(id); });
+        }
+        _persistOwnerMarketingSettings().then(function () {
+            _renderOwnerMarketingList();
+            _syncOwnerMarketingSummary();
+            if (typeof showToast === 'function') showToast('Konten berhasil dihapus', 'success');
+            if (typeof setupHomeMarketingContent === 'function') setupHomeMarketingContent();
+        }).catch(function (err) {
+            if (typeof showToast === 'function') showToast((err && err.message) ? err.message : 'Gagal menghapus konten', 'error');
+        });
+    }
+
+    function _collectOwnerMarketingPayload() {
+        var type = ($('ownerMarketingType') && $('ownerMarketingType').value) || 'promo';
+        var editId = String(($('ownerMarketingEditId') && $('ownerMarketingEditId').value) || '').trim();
+        var title = String(($('ownerMarketingTitleInput') && $('ownerMarketingTitleInput').value) || '').trim();
+        var description = String(($('ownerMarketingDesc') && $('ownerMarketingDesc').value) || '').trim();
+        if (!title || !description) {
+            throw new Error('Judul dan deskripsi wajib diisi');
+        }
+
+        var dateRaw = String(($('ownerMarketingDate') && $('ownerMarketingDate').value) || '').trim();
+        var dateText = dateRaw
+            ? new Date(dateRaw).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+            : new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+
+        return {
+            type: type,
+            id: editId || generateId(),
+            badge: String(($('ownerMarketingBadge') && $('ownerMarketingBadge').value) || '').trim() || (type === 'promo' ? 'PROMO' : 'INFO'),
+            title: title,
+            description: description,
+            dateText: dateText,
+            linkUrl: String(($('ownerMarketingLink') && $('ownerMarketingLink').value) || '').trim(),
+            imageUrl: String(($('ownerMarketingImageUrl') && $('ownerMarketingImageUrl').value) || '').trim(),
+            emoji: type === 'promo' ? '✨' : '📰'
+        };
+    }
+
+    function _uploadOwnerMarketingAsset(file, fallbackDataUrl) {
+        if (!file) return Promise.resolve(fallbackDataUrl || '');
+        var sb = (window.FB && window.FB._sb) ? window.FB._sb : null;
+        if (!sb || !sb.storage) return Promise.resolve(fallbackDataUrl || '');
+
+        var ext = 'jpg';
+        var nameParts = String(file.name || '').split('.');
+        if (nameParts.length > 1) ext = String(nameParts[nameParts.length - 1] || 'jpg').toLowerCase();
+        var path = 'marketing/marketing-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) + '.' + ext;
+
+        return sb.storage.from('avatars').upload(path, file, {
+            cacheControl: '3600',
+            upsert: true
+        }).then(function (res) {
+            if (res.error) throw res.error;
+            var pub = sb.storage.from('avatars').getPublicUrl(path);
+            if (pub && pub.data && pub.data.publicUrl) return pub.data.publicUrl;
+            return fallbackDataUrl || '';
+        }).catch(function () {
+            return fallbackDataUrl || '';
+        });
+    }
+
+    function _persistOwnerMarketingSettings() {
+        var session = typeof getSession === 'function' ? getSession() : null;
+        var actorId = session ? session.id : '';
+        if (!actorId) return Promise.reject(new Error('Sesi admin tidak ditemukan'));
+        if (typeof backendPost !== 'function') return Promise.reject(new Error('Backend tidak tersedia'));
+
+        return backendPost({
+            action: 'updateSettings',
+            settings: {
+                home_promos: _marketingState.promos || [],
+                home_news: _marketingState.news || []
+            },
+            actorId: actorId
+        }).then(function (saveRes) {
+            if (!saveRes || saveRes.success === false) {
+                throw new Error((saveRes && saveRes.message) || 'Gagal menyimpan Info & Promo');
+            }
+            return saveRes;
+        });
+    }
+
+    function handleOwnerMarketingSubmit(e) {
+        e.preventDefault();
+        var btn = $('ownerMarketingSaveBtn');
+        var original = btn ? btn.textContent : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Menyimpan...';
+        }
+
+        var payload;
+        try {
+            payload = _collectOwnerMarketingPayload();
+        } catch (err) {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = original || '💾 Simpan Info & Promo';
+            }
+            if (typeof showToast === 'function') showToast(err.message || 'Form belum lengkap', 'error');
+            return;
+        }
+
+        var fileInput = $('ownerMarketingImageFile');
+        var file = fileInput && fileInput.files ? fileInput.files[0] : null;
+
+        Promise.resolve(file ? _readFileAsDataUrl(file) : '')
+            .then(function (dataUrl) {
+                return _uploadOwnerMarketingAsset(file, dataUrl || payload.imageUrl || '');
+            })
+            .then(function (uploadedUrl) {
+                if (uploadedUrl) payload.imageUrl = uploadedUrl;
+
+                var listKey = payload.type === 'promo' ? 'promos' : 'news';
+                var list = (_marketingState[listKey] || []).slice();
+                var idx = list.findIndex(function (it) { return String(it.id) === String(payload.id); });
+                if (idx >= 0) list[idx] = payload;
+                else list.unshift(payload);
+
+                _marketingState[listKey] = list;
+                return _persistOwnerMarketingSettings();
+            })
+            .then(function () {
+                _renderOwnerMarketingList();
+                _syncOwnerMarketingSummary();
+                _resetOwnerMarketingForm(payload.type);
+                if (typeof setupHomeMarketingContent === 'function') setupHomeMarketingContent();
+                if (typeof showToast === 'function') showToast('Info & Promo berhasil disimpan', 'success');
+            })
+            .catch(function (err) {
+                if (typeof showToast === 'function') showToast((err && err.message) ? err.message : 'Gagal menyimpan Info & Promo', 'error');
+            })
+            .finally(function () {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = original || '💾 Simpan Info & Promo';
+                }
+            });
+    }
+
+    function openOwnerMarketingModal() {
+        var modal = $('ownerMarketingModal');
+        if (!modal) return;
+        loadOwnerMarketingSettings();
+        modal.classList.remove('hidden');
+        requestAnimationFrame(function () {
+            modal.classList.add('is-open');
+        });
+    }
+
+    function closeOwnerMarketingModal() {
+        var modal = $('ownerMarketingModal');
+        if (!modal) return;
+        modal.classList.remove('is-open');
+        setTimeout(function () {
+            modal.classList.add('hidden');
+        }, 180);
+    }
+
+    function loadOwnerMarketingSettings() {
+        if (typeof isBackendConnected !== 'function' || !isBackendConnected()) {
+            _marketingState.promos = _parseOwnerMarketingArray([], _defaultMarketingPromos());
+            _marketingState.news = _parseOwnerMarketingArray([], _defaultMarketingNews());
+            _syncOwnerMarketingSummary();
+            _renderOwnerMarketingList();
+            _resetOwnerMarketingForm('promo');
+            return;
+        }
+
+        FB.get('getSettings')
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                var data = (res && res.success && res.data) ? res.data : {};
+                _marketingState.promos = _parseOwnerMarketingArray(data.home_promos, _defaultMarketingPromos());
+                _marketingState.news = _parseOwnerMarketingArray(data.home_news, _defaultMarketingNews());
+                _syncOwnerMarketingSummary();
+                _renderOwnerMarketingList();
+                _resetOwnerMarketingForm('promo');
+            }).catch(function () {
+                _marketingState.promos = _parseOwnerMarketingArray([], _defaultMarketingPromos());
+                _marketingState.news = _parseOwnerMarketingArray([], _defaultMarketingNews());
+                _syncOwnerMarketingSummary();
+                _renderOwnerMarketingList();
+                _resetOwnerMarketingForm('promo');
+            });
+    }
 
     // ─── Commission Settings (owner only) ───
     function loadOwnerCommissionSettings() {

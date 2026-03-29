@@ -126,10 +126,303 @@ function searchTalents(query) {
 // ══════════════════════════════════════════
 // ═══ PROMO SLIDER ═══
 // ══════════════════════════════════════════
+var HOME_MARKETING_CACHE_KEY = 'js_home_marketing_cache';
+var DEFAULT_HOME_PROMOS = [
+    {
+        id: 'promo-default-1',
+        badge: 'PROMO',
+        title: 'Diskon 50% Jasa Antar',
+        description: 'Untuk pengguna baru',
+        dateText: '17 Mar 2026',
+        imageUrl: '',
+        emoji: '🏍️',
+        linkUrl: ''
+    },
+    {
+        id: 'promo-default-2',
+        badge: 'BARU',
+        title: 'Jasa Belanja Online',
+        description: 'Kami belanjakan untuk Anda',
+        dateText: '17 Mar 2026',
+        imageUrl: '',
+        emoji: '🛒',
+        linkUrl: ''
+    },
+    {
+        id: 'promo-default-3',
+        badge: 'SPESIAL',
+        title: 'Gratis Ongkir Dokumen',
+        description: 'Min. transaksi Rp20.000',
+        dateText: '17 Mar 2026',
+        imageUrl: '',
+        emoji: '📄',
+        linkUrl: ''
+    }
+];
+var DEFAULT_HOME_NEWS = [
+    {
+        id: 'news-default-1',
+        badge: 'INFO',
+        title: 'Selamat Datang di Jasa Suruh!',
+        description: 'Platform layanan terlengkap untuk semua kebutuhan Anda.',
+        dateText: '17 Mar 2026',
+        imageUrl: '',
+        emoji: '🎉',
+        linkUrl: ''
+    },
+    {
+        id: 'news-default-2',
+        badge: 'UPDATE',
+        title: 'Fitur Baru Segera Hadir',
+        description: 'Nantikan berbagai layanan baru yang kami siapkan.',
+        dateText: '17 Mar 2026',
+        imageUrl: '',
+        emoji: '🚀',
+        linkUrl: ''
+    }
+];
+
+function _formatMarketingDate(raw) {
+    if (!raw) return '';
+    if (typeof raw === 'number') {
+        var d = new Date(raw);
+        return isNaN(d.getTime()) ? '' : d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+    var text = String(raw || '').trim();
+    if (!text) return '';
+    var parsed = new Date(text);
+    if (isNaN(parsed.getTime())) return text;
+    return parsed.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function _parseMarketingArray(source, fallback) {
+    var arr = source;
+    if (typeof arr === 'string') {
+        try { arr = JSON.parse(arr); } catch (e) { arr = []; }
+    }
+    if (!Array.isArray(arr) || !arr.length) arr = fallback.slice();
+    return arr.map(function (item, idx) {
+        var raw = item || {};
+        var title = String(raw.title || raw.judul || '').trim();
+        var description = String(raw.description || raw.desc || '').trim();
+        return {
+            id: String(raw.id || generateId() + '-' + idx),
+            badge: String(raw.badge || '').trim() || 'INFO',
+            title: title || 'Info Jasa Suruh',
+            description: description || 'Update terbaru dari layanan Jasa Suruh.',
+            dateText: _formatMarketingDate(raw.dateText || raw.date || raw.createdAt) || _formatMarketingDate(Date.now()),
+            imageUrl: String(raw.imageUrl || raw.image || '').trim(),
+            emoji: String(raw.emoji || '✨').trim() || '✨',
+            linkUrl: String(raw.linkUrl || raw.link || '').trim()
+        };
+    });
+}
+
+function _loadHomeMarketingCache() {
+    try {
+        var raw = localStorage.getItem(HOME_MARKETING_CACHE_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch (e) {
+        return null;
+    }
+}
+
+function _saveHomeMarketingCache(data) {
+    try {
+        localStorage.setItem(HOME_MARKETING_CACHE_KEY, JSON.stringify(data || {}));
+    } catch (e) {}
+}
+
+function _loadHomeMarketingSettings() {
+    var cached = _loadHomeMarketingCache();
+    var fallback = {
+        promos: _parseMarketingArray(cached && cached.promos, DEFAULT_HOME_PROMOS),
+        news: _parseMarketingArray(cached && cached.news, DEFAULT_HOME_NEWS)
+    };
+
+    if (typeof isBackendConnected !== 'function' || !isBackendConnected()) {
+        return Promise.resolve(fallback);
+    }
+
+    return FB.get('getSettings')
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            var settings = (res && res.success && res.data) ? res.data : {};
+            var data = {
+                promos: _parseMarketingArray(settings.home_promos, DEFAULT_HOME_PROMOS),
+                news: _parseMarketingArray(settings.home_news, DEFAULT_HOME_NEWS)
+            };
+            _saveHomeMarketingCache(data);
+            return data;
+        })
+        .catch(function () {
+            return fallback;
+        });
+}
+
+function _openMarketingLink(url) {
+    var href = String(url || '').trim();
+    if (!href) return;
+    if (!/^https?:\/\//i.test(href)) {
+        if (typeof showToast === 'function') showToast('Link harus diawali http:// atau https://', 'error');
+        return;
+    }
+    window.open(href, '_blank', 'noopener,noreferrer');
+}
+
+function _renderInfoPromoSeeAllModal(data) {
+    var modal = document.getElementById('infoPromoModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'infoPromoModal';
+        modal.className = 'info-promo-modal hidden';
+        modal.innerHTML = ''
+            + '<div class="info-promo-modal-backdrop" id="infoPromoModalBackdrop"></div>'
+            + '<div class="info-promo-modal-sheet">'
+            + '  <div class="info-promo-modal-head">'
+            + '    <h3>Info & Promo</h3>'
+            + '    <button type="button" id="infoPromoModalClose" aria-label="Tutup">&times;</button>'
+            + '  </div>'
+            + '  <div class="info-promo-modal-body" id="infoPromoModalBody"></div>'
+            + '</div>';
+        document.body.appendChild(modal);
+
+        var closeBtn = document.getElementById('infoPromoModalClose');
+        if (closeBtn) closeBtn.addEventListener('click', function () { modal.classList.add('hidden'); });
+        var backdrop = document.getElementById('infoPromoModalBackdrop');
+        if (backdrop) backdrop.addEventListener('click', function () { modal.classList.add('hidden'); });
+    }
+
+    var body = document.getElementById('infoPromoModalBody');
+    if (!body) return;
+    var promos = (data && data.promos) ? data.promos : [];
+    var news = (data && data.news) ? data.news : [];
+    var list = promos.concat(news);
+
+    if (!list.length) {
+        body.innerHTML = '<div class="info-promo-empty">Belum ada konten info & promo.</div>';
+    } else {
+        body.innerHTML = list.map(function (item) {
+            var media = item.imageUrl
+                ? '<div class="news-media"><img src="' + escapeHtml(item.imageUrl) + '" alt=""></div>'
+                : '<div class="news-media placeholder-img"><span>' + escapeHtml(item.emoji || '✨') + '</span></div>';
+            return ''
+                + '<button type="button" class="news-card news-card-modern info-promo-modal-item" data-link="' + escapeHtml(item.linkUrl || '') + '">'
+                + media
+                + '<div class="news-info">'
+                + '  <div class="news-tag">' + escapeHtml(item.badge || 'INFO') + '</div>'
+                + '  <h4>' + escapeHtml(item.title) + '</h4>'
+                + '  <p>' + escapeHtml(item.description) + '</p>'
+                + '  <span class="news-date">' + escapeHtml(item.dateText || '') + '</span>'
+                + '</div>'
+                + '<span class="news-card-arrow">›</span>'
+                + '</button>';
+        }).join('');
+    }
+
+    body.querySelectorAll('.info-promo-modal-item').forEach(function (el) {
+        el.addEventListener('click', function () {
+            var link = this.getAttribute('data-link') || '';
+            if (link) _openMarketingLink(link);
+        });
+    });
+
+    modal.classList.remove('hidden');
+}
+
+function renderHomeMarketingContent(data) {
+    var promos = (data && data.promos) ? data.promos : DEFAULT_HOME_PROMOS;
+    var news = (data && data.news) ? data.news : DEFAULT_HOME_NEWS;
+
+    var promoTrack = document.getElementById('promoTrack');
+    var promoDots = document.getElementById('promoDots');
+    if (promoTrack && promoDots) {
+        promoTrack.innerHTML = promos.map(function (item, idx) {
+            var media = item.imageUrl
+                ? '<div class="promo-media"><img src="' + escapeHtml(item.imageUrl) + '" alt=""></div>'
+                : '<div class="promo-media promo-media-emoji"><span>' + escapeHtml(item.emoji || '✨') + '</span></div>';
+            return ''
+                + '<article class="promo-card marketing-promo-card marketing-theme-' + ((idx % 3) + 1) + '" data-link="' + escapeHtml(item.linkUrl || '') + '">'
+                + '  <div class="promo-info">'
+                + '    <span class="promo-badge">' + escapeHtml(item.badge || 'PROMO') + '</span>'
+                + '    <h3>' + escapeHtml(item.title) + '</h3>'
+                + '    <p>' + escapeHtml(item.description) + '</p>'
+                + '    <span class="promo-date">' + escapeHtml(item.dateText || '') + '</span>'
+                + '  </div>'
+                + media
+                + '</article>';
+        }).join('');
+
+        promoDots.innerHTML = promos.map(function (_, idx) {
+            return '<span class="dot' + (idx === 0 ? ' active' : '') + '" data-dot-index="' + idx + '"></span>';
+        }).join('');
+
+        promoTrack.querySelectorAll('.marketing-promo-card').forEach(function (card) {
+            card.addEventListener('click', function () {
+                var link = this.getAttribute('data-link') || '';
+                if (link) _openMarketingLink(link);
+            });
+        });
+    }
+
+    var newsList = document.getElementById('userNewsList');
+    if (newsList) {
+        newsList.innerHTML = news.map(function (item) {
+            var media = item.imageUrl
+                ? '<div class="news-media"><img src="' + escapeHtml(item.imageUrl) + '" alt=""></div>'
+                : '<div class="news-media placeholder-img"><span>' + escapeHtml(item.emoji || '✨') + '</span></div>';
+            return ''
+                + '<button type="button" class="news-card news-card-modern" data-link="' + escapeHtml(item.linkUrl || '') + '">'
+                + media
+                + '<div class="news-info">'
+                + '  <div class="news-tag">' + escapeHtml(item.badge || 'INFO') + '</div>'
+                + '  <h4>' + escapeHtml(item.title) + '</h4>'
+                + '  <p>' + escapeHtml(item.description) + '</p>'
+                + '  <span class="news-date">' + escapeHtml(item.dateText || '') + '</span>'
+                + '</div>'
+                + '<span class="news-card-arrow">›</span>'
+                + '</button>';
+        }).join('');
+
+        newsList.querySelectorAll('.news-card-modern').forEach(function (card) {
+            card.addEventListener('click', function () {
+                var link = this.getAttribute('data-link') || '';
+                if (link) _openMarketingLink(link);
+            });
+        });
+    }
+
+    var seeAllBtn = document.getElementById('userNewsSeeAll');
+    if (seeAllBtn && !seeAllBtn._boundMarketing) {
+        seeAllBtn._boundMarketing = true;
+        seeAllBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            _renderInfoPromoSeeAllModal({ promos: promos, news: news });
+        });
+    }
+
+    setupPromoSlider();
+}
+
 function setupPromoSlider() {
     var track = document.getElementById('promoTrack');
     var dots = document.querySelectorAll('#promoDots .dot');
     if (!track || dots.length === 0) return;
+
+    if (track._promoInterval) {
+        clearInterval(track._promoInterval);
+        track._promoInterval = null;
+    }
+
+    if (track._promoTouchStartHandler) {
+        track.removeEventListener('touchstart', track._promoTouchStartHandler);
+        track._promoTouchStartHandler = null;
+    }
+    if (track._promoTouchEndHandler) {
+        track.removeEventListener('touchend', track._promoTouchEndHandler);
+        track._promoTouchEndHandler = null;
+    }
 
     var current = 0;
     var total = dots.length;
@@ -142,14 +435,15 @@ function setupPromoSlider() {
     }
 
     var autoSlide = setInterval(function () { goTo(current + 1); }, 4000);
+    track._promoInterval = autoSlide;
 
-    track.addEventListener('touchstart', function (e) {
+    var onTouchStart = function (e) {
         startX = e.touches[0].clientX;
         isDragging = true;
         clearInterval(autoSlide);
-    }, { passive: true });
+    };
 
-    track.addEventListener('touchend', function (e) {
+    var onTouchEnd = function (e) {
         if (!isDragging) return;
         isDragging = false;
         var diff = startX - e.changedTouches[0].clientX;
@@ -157,16 +451,34 @@ function setupPromoSlider() {
             goTo(current + (diff > 0 ? 1 : -1));
         }
         autoSlide = setInterval(function () { goTo(current + 1); }, 4000);
-    }, { passive: true });
+        track._promoInterval = autoSlide;
+    };
+
+    track.addEventListener('touchstart', onTouchStart, { passive: true });
+    track.addEventListener('touchend', onTouchEnd, { passive: true });
+    track._promoTouchStartHandler = onTouchStart;
+    track._promoTouchEndHandler = onTouchEnd;
 
     dots.forEach(function (d, i) {
         d.addEventListener('click', function () {
             clearInterval(autoSlide);
             goTo(i);
             autoSlide = setInterval(function () { goTo(current + 1); }, 4000);
+            track._promoInterval = autoSlide;
         });
     });
 }
+
+function setupHomeMarketingContent() {
+    _loadHomeMarketingSettings()
+        .then(function (data) {
+            renderHomeMarketingContent(data);
+        })
+        .catch(function () {
+            renderHomeMarketingContent({ promos: DEFAULT_HOME_PROMOS, news: DEFAULT_HOME_NEWS });
+        });
+}
+window.setupHomeMarketingContent = setupHomeMarketingContent;
 
 // ══════════════════════════════════════════
 // ═══ SERVICE CLICKS ═══

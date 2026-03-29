@@ -25,7 +25,7 @@ function init() {
     setupTalentSkills();
     setupUserSearch();
     setupUserNotifBtn();
-    setupPromoSlider();
+    setupHomeMarketingContent();
     setupServiceClicks();
     setupBottomNav();
     if (typeof setupGlobalModalDragClose === 'function') setupGlobalModalDragClose();
