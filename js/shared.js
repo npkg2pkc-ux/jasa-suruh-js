@@ -3053,9 +3053,11 @@ function renderOrderActions(order, isTalent, isUser) {
                 }
 
                 function _acceptOrderDirect(extraFields) {
+                    var activeDriverId = sessionNow && sessionNow.id ? String(sessionNow.id) : '';
                     var payloadFields = Object.assign({
                         status: 'accepted',
-                        acceptedAt: Date.now()
+                        acceptedAt: Date.now(),
+                        talentId: activeDriverId
                     }, extraFields || {});
 
                     return backendPost({
@@ -3148,7 +3150,8 @@ function renderOrderActions(order, isTalent, isUser) {
                 if (this.dataset.busy === '1') return;
                 this.dataset.busy = '1';
                 this.disabled = true;
-                updateOrderStatus(order.id, 'on_the_way', {}).then(function (ok) {
+                var sid = (session && session.id) ? String(session.id) : '';
+                updateOrderStatus(order.id, 'on_the_way', { talentId: sid }).then(function (ok) {
                     if (!ok) {
                         var btn = document.getElementById('otpBtnOtw');
                         if (btn) {
@@ -3172,7 +3175,8 @@ function renderOrderActions(order, isTalent, isUser) {
                 btn.disabled = true;
                 _verifyDriverAtLocation(order, 'store', function(isNear) {
                     if (isNear) {
-                        updateOrderStatus(order.id, 'arrived', {}).then(function (ok) {
+                        var sid = (session && session.id) ? String(session.id) : '';
+                        updateOrderStatus(order.id, 'arrived', { talentId: sid }).then(function (ok) {
                             if (!ok) {
                                 btn.dataset.busy = '0';
                                 if (!btn.classList.contains('hidden')) btn.disabled = false;
@@ -3191,7 +3195,8 @@ function renderOrderActions(order, isTalent, isUser) {
                 if (this.dataset.busy === '1') return;
                 this.dataset.busy = '1';
                 this.disabled = true;
-                updateOrderStatus(order.id, 'in_progress', { pickedUpAt: Date.now() }).then(function (ok) {
+                var sid = (session && session.id) ? String(session.id) : '';
+                updateOrderStatus(order.id, 'in_progress', { pickedUpAt: Date.now(), talentId: sid }).then(function (ok) {
                     if (!ok) {
                         var btn = document.getElementById('otpBtnStart');
                         if (btn) {
@@ -3280,7 +3285,8 @@ function renderOrderActions(order, isTalent, isUser) {
                 btn.disabled = true;
                 _verifyDriverAtLocation(order, 'user', function(isNear) {
                     if (isNear) {
-                        updateOrderStatus(order.id, 'arrived', {}).then(function (ok) {
+                        var sid = (session && session.id) ? String(session.id) : '';
+                        updateOrderStatus(order.id, 'arrived', { talentId: sid }).then(function (ok) {
                             if (!ok) {
                                 btn.dataset.busy = '0';
                                 if (!btn.classList.contains('hidden')) btn.disabled = false;
@@ -3300,7 +3306,8 @@ function renderOrderActions(order, isTalent, isUser) {
                 if (this.dataset.busy === '1') return;
                 this.dataset.busy = '1';
                 this.disabled = true;
-                updateOrderStatus(order.id, 'in_progress', { startedAt: Date.now() }).then(function (ok) {
+                var sid = (session && session.id) ? String(session.id) : '';
+                updateOrderStatus(order.id, 'in_progress', { startedAt: Date.now(), talentId: sid }).then(function (ok) {
                     if (!ok) {
                         var btn = document.getElementById('otpBtnStart');
                         if (btn) {
