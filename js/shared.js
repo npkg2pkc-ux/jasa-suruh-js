@@ -2899,6 +2899,7 @@ function _unlockProofButtonForRetry(buttonId) {
 
 var _driverProofCaptureContext = null;
 var _driverProofInputBound = false;
+var _driverProofRecoveryBound = false;
 
 function _snapshotProofOrder(order) {
     if (!order || !order.id) return null;
@@ -2921,8 +2922,106 @@ function _setDriverProofCaptureContext(order, buttonId, localInput) {
         orderSnapshot: _snapshotProofOrder(order || _currentOrder || null),
         buttonId: String(buttonId || 'otpBtnComplete'),
         gpsLat: input ? String(input.dataset.gpsLat || '') : '',
-        gpsLng: input ? String(input.dataset.gpsLng || '') : ''
+        gpsLng: input ? String(input.dataset.gpsLng || '') : '',
+        openedAt: Date.now(),
+        recoveryToken: String(Date.now()) + '_' + Math.random().toString(36).slice(2, 8)
     };
+}
+
+function _resolveProofOrderFromContext(ctx) {
+    if (!ctx || !ctx.orderSnapshot) return null;
+    if (_currentOrder && String(_currentOrder.id || '') === String(ctx.orderSnapshot.id || '')) {
+        return _currentOrder;
+    }
+    return ctx.orderSnapshot;
+}
+
+function _resetDriverProofInputsState() {
+    ['otpGlobalProofInput', 'otpProofInput'].forEach(function (id) {
+        var input = document.getElementById(id);
+        if (!input) return;
+        input.dataset.proofProcessing = '0';
+        try { input.value = ''; } catch (e) {}
+    });
+}
+
+function _consumeDriverProofFromInput(inputEl, ctx) {
+    if (!inputEl || !ctx) return false;
+    if (inputEl.dataset.proofProcessing === '1') return true;
+    var file = (inputEl.files && inputEl.files[0]) ? inputEl.files[0] : null;
+    if (!file) return false;
+
+    var orderRef = _resolveProofOrderFromContext(ctx);
+    if (!orderRef || !orderRef.id) {
+        _unlockProofButtonForRetry(ctx.buttonId || 'otpBtnComplete');
+        _resetDriverProofInputsState();
+        _driverProofCaptureContext = null;
+        showToast('Sesi pengambilan bukti sudah berubah. Ketuk lagi tombol Ambil Foto Validasi.', 'error');
+        return true;
+    }
+
+    inputEl.dataset.proofProcessing = '1';
+    _processDriverProofSelection(orderRef, file, ctx.buttonId || 'otpBtnComplete', ctx).then(function () {
+        _resetDriverProofInputsState();
+        _driverProofCaptureContext = null;
+    }).catch(function () {
+        _resetDriverProofInputsState();
+        _unlockProofButtonForRetry(ctx.buttonId || 'otpBtnComplete');
+        _driverProofCaptureContext = null;
+        showToast('Gagal membaca foto bukti. Silakan coba lagi.', 'error');
+    });
+    return true;
+}
+
+function _attemptRecoverDriverProofSelection(notifyOnTimeout) {
+    var ctx = _driverProofCaptureContext;
+    if (!ctx) return false;
+
+    var globalInput = document.getElementById('otpGlobalProofInput');
+    if (_consumeDriverProofFromInput(globalInput, ctx)) return true;
+
+    var localInput = document.getElementById('otpProofInput');
+    if (_consumeDriverProofFromInput(localInput, ctx)) return true;
+
+    if (notifyOnTimeout) {
+        var openedAt = Number(ctx.openedAt || 0);
+        if (!openedAt || (Date.now() - openedAt) >= 7000) {
+            _unlockProofButtonForRetry(ctx.buttonId || 'otpBtnComplete');
+            _resetDriverProofInputsState();
+            _driverProofCaptureContext = null;
+            showToast('Foto belum terdeteksi setelah kamera ditutup. Ketuk lagi Ambil Foto Validasi.', 'error');
+        }
+    }
+    return false;
+}
+
+function _scheduleDriverProofRecoveryChecks(ctxToken) {
+    [700, 1400, 2600, 4200, 8000].forEach(function (delay, idx) {
+        setTimeout(function () {
+            var ctx = _driverProofCaptureContext;
+            if (!ctx) return;
+            if (ctxToken && String(ctx.recoveryToken || '') !== String(ctxToken)) return;
+            _attemptRecoverDriverProofSelection(idx === 4);
+        }, delay);
+    });
+}
+
+function _ensureDriverProofRecoveryWatchers() {
+    if (_driverProofRecoveryBound) return;
+    _driverProofRecoveryBound = true;
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState !== 'visible') return;
+        _attemptRecoverDriverProofSelection(false);
+    });
+
+    window.addEventListener('focus', function () {
+        _attemptRecoverDriverProofSelection(false);
+    });
+
+    window.addEventListener('pageshow', function () {
+        _attemptRecoverDriverProofSelection(false);
+    });
 }
 
 function _ensureGlobalDriverProofInput() {
@@ -2943,52 +3042,15 @@ function _ensureGlobalDriverProofInput() {
         function onGlobalProofSelected() {
             var liveInput = document.getElementById('otpGlobalProofInput');
             if (!liveInput) return;
-            if (liveInput.dataset.proofProcessing === '1') return;
 
             var ctx = _driverProofCaptureContext;
-            var file = (liveInput.files && liveInput.files[0]) ? liveInput.files[0] : null;
             if (!ctx) {
                 liveInput.value = '';
                 return;
             }
-            if (!file) {
-                _unlockProofButtonForRetry(ctx.buttonId || 'otpBtnComplete');
-                liveInput.value = '';
-                return;
+            if (!_consumeDriverProofFromInput(liveInput, ctx)) {
+                _attemptRecoverDriverProofSelection(false);
             }
-
-            var orderRef = null;
-            if (_currentOrder && ctx.orderSnapshot && String(_currentOrder.id || '') === String(ctx.orderSnapshot.id || '')) {
-                orderRef = _currentOrder;
-            } else if (ctx.orderSnapshot && ctx.orderSnapshot.id) {
-                orderRef = ctx.orderSnapshot;
-            }
-
-            if (!orderRef || !orderRef.id) {
-                _unlockProofButtonForRetry(ctx.buttonId || 'otpBtnComplete');
-                liveInput.value = '';
-                showToast('Sesi pengambilan bukti sudah berubah. Ketuk lagi tombol Ambil Foto Validasi.', 'error');
-                return;
-            }
-
-            liveInput.dataset.proofProcessing = '1';
-            _processDriverProofSelection(orderRef, file, ctx.buttonId || 'otpBtnComplete', ctx).then(function () {
-                var inputNow = document.getElementById('otpGlobalProofInput');
-                if (inputNow) {
-                    inputNow.dataset.proofProcessing = '0';
-                    inputNow.value = '';
-                }
-                _driverProofCaptureContext = null;
-            }).catch(function () {
-                var inputNow = document.getElementById('otpGlobalProofInput');
-                if (inputNow) {
-                    inputNow.dataset.proofProcessing = '0';
-                    inputNow.value = '';
-                }
-                _unlockProofButtonForRetry(ctx.buttonId || 'otpBtnComplete');
-                _driverProofCaptureContext = null;
-                showToast('Gagal membaca foto bukti. Silakan coba lagi.', 'error');
-            });
         }
 
         input.addEventListener('change', onGlobalProofSelected);
@@ -3000,16 +3062,25 @@ function _ensureGlobalDriverProofInput() {
 
 function _openDriverProofPicker(order, buttonId, localInput) {
     _setDriverProofCaptureContext(order, buttonId, localInput || null);
+    _ensureDriverProofRecoveryWatchers();
+
+    var ctxToken = _driverProofCaptureContext ? _driverProofCaptureContext.recoveryToken : '';
 
     var globalInput = _ensureGlobalDriverProofInput();
     if (globalInput) {
         try { globalInput.value = ''; } catch (e) {}
-        if (_triggerProofPicker(globalInput)) return true;
+        if (_triggerProofPicker(globalInput)) {
+            _scheduleDriverProofRecoveryChecks(ctxToken);
+            return true;
+        }
     }
 
     if (localInput) {
         try { localInput.value = ''; } catch (e2) {}
-        if (_triggerProofPicker(localInput)) return true;
+        if (_triggerProofPicker(localInput)) {
+            _scheduleDriverProofRecoveryChecks(ctxToken);
+            return true;
+        }
     }
 
     return false;
@@ -3237,34 +3308,14 @@ function _bindProofInputSelectionHandler(order, buttonId) {
     function onFileSelected() {
         var liveInput = document.getElementById('otpProofInput');
         if (!liveInput) return;
-        var file = (liveInput.files && liveInput.files[0]) ? liveInput.files[0] : null;
-
-        if (!file) {
-            _unlockProofButtonForRetry(buttonId);
-            return;
+        if (!_driverProofCaptureContext) {
+            _setDriverProofCaptureContext(order || _currentOrder || null, buttonId, liveInput);
         }
-        if (liveInput.dataset.proofProcessing === '1') return;
-        liveInput.dataset.proofProcessing = '1';
-
-        var contextMeta = {
-            gpsLat: liveInput.dataset.gpsLat || '',
-            gpsLng: liveInput.dataset.gpsLng || ''
-        };
-
-        _processDriverProofSelection(order, file, buttonId, contextMeta).then(function () {
-            var currentInput = document.getElementById('otpProofInput');
-            if (!currentInput) return;
-            currentInput.dataset.proofProcessing = '0';
-            currentInput.value = '';
-        }).catch(function () {
-            var currentInput = document.getElementById('otpProofInput');
-            if (currentInput) {
-                currentInput.dataset.proofProcessing = '0';
-                currentInput.value = '';
-            }
-            _unlockProofButtonForRetry(buttonId);
-            showToast('Gagal membaca foto bukti. Silakan coba lagi.', 'error');
-        });
+        var ctx = _driverProofCaptureContext;
+        if (!ctx) return;
+        if (!_consumeDriverProofFromInput(liveInput, ctx)) {
+            _attemptRecoverDriverProofSelection(false);
+        }
     }
 
     proofInput.addEventListener('change', onFileSelected);
