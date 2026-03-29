@@ -3761,34 +3761,20 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
     if (!btn || !order) return;
     if (!btn.dataset.baseLabel) btn.dataset.baseLabel = btn.textContent;
 
+    var isProgressButton = (buttonId === 'otpBtnArrive' && nextStatus === 'arrived')
+        || (buttonId === 'otpBtnComplete' && nextStatus === 'completed');
+    if (isProgressButton) {
+        btn.classList.remove('sf-btn-outline');
+        btn.classList.add('sf-btn-solid');
+    }
+
     // Once proof flow is armed by successful GPS verification, keep the button actionable.
     if (buttonId === 'otpBtnComplete' && btn.dataset.proofReady === '1') {
         btn.classList.remove('hidden');
-        btn.classList.remove('sf-btn-outline');
-        btn.classList.add('sf-btn-solid');
         btn.disabled = false;
         btn.style.opacity = '';
         btn.title = 'Lokasi sudah terverifikasi. Lanjut ambil foto bukti.';
         return;
-    }
-
-    function _applyGateVisual(canProceed, titleText, hintDistKm, hintRadiusKm) {
-        if (document.getElementById(buttonId) !== btn) return;
-        btn.classList.remove('hidden');
-        btn.disabled = !canProceed;
-        btn.classList.toggle('sf-btn-solid', !!canProceed);
-        btn.classList.toggle('sf-btn-outline', !canProceed);
-        btn.style.opacity = canProceed ? '' : '0.72';
-        btn.textContent = btn.dataset.baseLabel || btn.textContent;
-        if (titleText) {
-            btn.title = titleText;
-            return;
-        }
-        if (isFinite(Number(hintDistKm)) && isFinite(Number(hintRadiusKm))) {
-            btn.title = 'Jarak saat ini ±' + _formatDistanceMeters(hintDistKm) + '. Maks ' + _formatDistanceMeters(hintRadiusKm) + ' agar tombol aktif.';
-        } else {
-            btn.title = canProceed ? '' : 'Dekati lokasi tujuan agar tombol aktif.';
-        }
     }
 
     if (btn.dataset.busy === '1') {
@@ -3798,7 +3784,11 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
             btn.dataset.busySince = '';
             btn.disabled = false;
         } else {
-            _applyGateVisual(false, 'Sedang memproses...');
+            btn.classList.remove('hidden');
+            btn.disabled = true;
+            btn.style.opacity = '0.72';
+            btn.textContent = btn.dataset.baseLabel || btn.textContent;
+            btn.title = 'Sedang memproses...';
             return;
         }
     }
@@ -3809,52 +3799,34 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
     var radiusKm = _getDriverGpsGateRadiusKm(order, targetType, nextStatus);
     var knownCheck = _checkDriverGpsGateByKnownPosition(order, targetType, radiusKm);
 
+    btn.classList.remove('hidden');
+    btn.textContent = btn.dataset.baseLabel || btn.textContent;
+
     if (knownCheck.ok) {
-        _applyGateVisual(true, '', Number(knownCheck.distKm), Number(knownCheck.radiusKm));
+        btn.disabled = false;
+        btn.style.opacity = '';
+        btn.title = '';
         return;
     }
 
     if (knownCheck.reason === 'target_location_unavailable') {
-        _applyGateVisual(false, 'Koordinat tujuan belum valid. Hubungi admin.');
+        btn.disabled = true;
+        btn.style.opacity = '0.72';
+        btn.title = 'Koordinat tujuan belum valid. Hubungi admin.';
         return;
     }
 
-    _applyGateVisual(false, '', Number(knownCheck.distKm), Number(knownCheck.radiusKm));
-
-    if (!('geolocation' in navigator)) {
-        _applyGateVisual(false, 'GPS wajib aktif agar tombol progress bisa digunakan.');
+    // If driver coords belum sinkron, keep button clickable so tap can run live GPS verification.
+    if (knownCheck.reason === 'driver_location_unavailable') {
+        btn.disabled = false;
+        btn.style.opacity = '';
+        btn.title = 'Menunggu sinkronisasi GPS. Ketuk tombol untuk verifikasi lokasi langsung.';
         return;
     }
 
-    var nowTs = Date.now();
-    var lastLiveTs = Number(btn.dataset.liveGateTs || 0);
-    if (btn.dataset.liveGatePending === '1') return;
-    if (isFinite(lastLiveTs) && lastLiveTs > 0 && (nowTs - lastLiveTs) < 2500) return;
-
-    btn.dataset.liveGatePending = '1';
-    btn.dataset.liveGateTs = String(nowTs);
-
-    navigator.geolocation.getCurrentPosition(function (pos) {
-        btn.dataset.liveGatePending = '0';
-        if (document.getElementById(buttonId) !== btn) return;
-        var target = _getDriverTargetCoords(order, targetType);
-        if (!target) {
-            _applyGateVisual(false, 'Koordinat tujuan belum valid. Hubungi admin.');
-            return;
-        }
-        var dLat = Number(pos && pos.coords ? pos.coords.latitude : NaN);
-        var dLng = Number(pos && pos.coords ? pos.coords.longitude : NaN);
-        if (!isValidLatLng(dLat, dLng)) {
-            _applyGateVisual(false, 'GPS belum sinkron. Pastikan izin lokasi aktif.');
-            return;
-        }
-        var distKm = haversineDistance(dLat, dLng, target.lat, target.lng);
-        _applyGateVisual(distKm <= radiusKm, '', distKm, radiusKm);
-    }, function () {
-        btn.dataset.liveGatePending = '0';
-        if (document.getElementById(buttonId) !== btn) return;
-        _applyGateVisual(false, 'GPS belum sinkron. Pastikan izin lokasi aktif.');
-    }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 6000 });
+    btn.disabled = true;
+    btn.style.opacity = '0.72';
+    btn.title = 'Jarak saat ini ±' + _formatDistanceMeters(knownCheck.distKm) + '. Maks ' + _formatDistanceMeters(knownCheck.radiusKm) + ' agar tombol aktif.';
 }
 
 function _armProgressButtonFailsafe(buttonId) {
