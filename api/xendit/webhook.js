@@ -17,6 +17,21 @@ function supaFetch(path, options) {
     }, options));
 }
 
+async function applyWalletMutation(params) {
+    const rpcRes = await supaFetch('rpc/wallet_apply_mutation', {
+        method: 'POST',
+        body: JSON.stringify(params)
+    });
+    if (!rpcRes.ok) {
+        const errText = await rpcRes.text();
+        return { success: false, message: errText || 'wallet mutation failed' };
+    }
+    const rows = await rpcRes.json();
+    const row = Array.isArray(rows) && rows.length ? rows[0] : null;
+    if (!row) return { success: false, message: 'wallet mutation empty result' };
+    return { success: true, data: row };
+}
+
 function insertNotification(userId, icon, title, desc, type) {
     const nId = 'notif_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
     const now = Date.now();
@@ -68,34 +83,31 @@ async function handleTopUpPaid(body) {
 
     const userId = txData.userId || tx.user_id;
     const topUpAmount = Number(paidAmount) || Number(tx.amount) || 0;
+    const idempotencyKey = txData.idempotencyKey || ('topup:' + txId + ':paid');
 
-    // Get current wallet balance
-    const walletRes = await supaFetch('wallets?user_id=eq.' + encodeURIComponent(userId) + '&select=*');
-    const walletRows = await walletRes.json();
+    const mutation = await applyWalletMutation({
+        p_user_id: userId,
+        p_direction: 'credit',
+        p_amount: topUpAmount,
+        p_ref_type: 'topup',
+        p_ref_id: txId,
+        p_reason: 'Top Up via Xendit',
+        p_actor_type: 'system',
+        p_actor_id: 'xendit_webhook',
+        p_idempotency_key: idempotencyKey,
+        p_metadata: {
+            txId: txId,
+            provider: 'xendit',
+            event: 'PAID',
+            invoiceId: body.id || txData.xenditInvoiceId || ''
+        }
+    });
 
-    let currentBalance = 0;
-    if (walletRows && walletRows.length > 0) {
-        currentBalance = Number(walletRows[0].balance) || 0;
+    if (!mutation.success) {
+        throw new Error(mutation.message || 'wallet credit mutation failed');
     }
 
-    const newBalance = currentBalance + topUpAmount;
-
-    // Upsert wallet
-    await supaFetch('wallets', {
-        method: 'POST',
-        headers: {
-            'apikey': SUPABASE_SERVICE_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
-            'Content-Type': 'application/json',
-            'Prefer': 'resolution=merge-duplicates'
-        },
-        body: JSON.stringify({
-            user_id: userId,
-            balance: newBalance,
-            updated_at: Date.now(),
-            data: { userId: userId, balance: newBalance, updatedAt: Date.now() }
-        })
-    });
+    const m = mutation.data;
 
     // Update transaction status to 'paid'
     await supaFetch('transactions?id=eq.' + encodeURIComponent(txId), {
@@ -110,8 +122,10 @@ async function handleTopUpPaid(body) {
             data: Object.assign({}, txData, {
                 status: 'paid',
                 xenditPaymentId: body.id,
-                balanceBefore: currentBalance,
-                balanceAfter: newBalance,
+                ledgerId: m.ledger_id,
+                idempotencyKey: idempotencyKey,
+                balanceBefore: Number(m.balance_before) || 0,
+                balanceAfter: Number(m.balance_after) || 0,
                 description: 'Top Up via Xendit ✅',
                 paidAt: Date.now()
             })
@@ -119,7 +133,7 @@ async function handleTopUpPaid(body) {
     });
 
     // Notify user
-    await insertNotification(userId, '✅', 'Top Up Berhasil', 'Saldo bertambah ' + formatAmount(topUpAmount) + '. Saldo sekarang ' + formatAmount(newBalance), 'topup');
+    await insertNotification(userId, '✅', 'Top Up Berhasil', 'Saldo bertambah ' + formatAmount(topUpAmount) + '. Saldo sekarang ' + formatAmount(Number(m.balance_after) || 0), 'topup');
 
     return { success: true };
 }
@@ -213,31 +227,27 @@ async function handleDisbursement(body) {
         // Refund wallet
         const userId = txData.userId || tx.user_id;
         const refundAmount = Math.abs(Number(tx.amount) || 0);
-
-        const walletRes = await supaFetch('wallets?user_id=eq.' + encodeURIComponent(userId) + '&select=*');
-        const walletRows = await walletRes.json();
-
-        let currentBalance = 0;
-        if (walletRows && walletRows.length > 0) {
-            currentBalance = Number(walletRows[0].balance) || 0;
-        }
-
-        const newBalance = currentBalance + refundAmount;
-
-        await supaFetch('wallets?user_id=eq.' + encodeURIComponent(userId), {
-            method: 'PATCH',
-            headers: {
-                'apikey': SUPABASE_SERVICE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
-            },
-            body: JSON.stringify({
-                balance: newBalance,
-                updated_at: Date.now(),
-                data: { userId: userId, balance: newBalance, updatedAt: Date.now() }
-            })
+        const refundIdempotencyKey = txData.refundIdempotencyKey || ('withdraw:' + txId + ':refund');
+        const refundMutation = await applyWalletMutation({
+            p_user_id: userId,
+            p_direction: 'credit',
+            p_amount: refundAmount,
+            p_ref_type: 'withdraw_refund',
+            p_ref_id: txId,
+            p_reason: 'Refund withdraw gagal via Xendit',
+            p_actor_type: 'system',
+            p_actor_id: 'xendit_webhook',
+            p_idempotency_key: refundIdempotencyKey,
+            p_metadata: {
+                txId: txId,
+                provider: 'xendit',
+                event: 'FAILED'
+            }
         });
+        if (!refundMutation.success) {
+            throw new Error(refundMutation.message || 'wallet refund mutation failed');
+        }
+        const rm = refundMutation.data;
 
         // Update transaction
         await supaFetch('transactions?id=eq.' + encodeURIComponent(txId), {
@@ -254,7 +264,9 @@ async function handleDisbursement(body) {
                     description: 'Penarikan gagal - saldo dikembalikan ❌',
                     failedAt: Date.now(),
                     refundAmount: refundAmount,
-                    balanceAfterRefund: newBalance
+                    refundLedgerId: rm.ledger_id,
+                    refundIdempotencyKey: refundIdempotencyKey,
+                    balanceAfterRefund: Number(rm.balance_after) || 0
                 })
             })
         });

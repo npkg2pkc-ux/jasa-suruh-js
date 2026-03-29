@@ -5,6 +5,35 @@ const XENDIT_SECRET_KEY = process.env.XENDIT_SECRET_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://aqptkuoazqharfzxvgem.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 
+function isInsufficientError(txt) {
+    return String(txt || '').toLowerCase().indexOf('insufficient balance') >= 0;
+}
+
+function supaFetch(path, options) {
+    return fetch(SUPABASE_URL + '/rest/v1/' + path, Object.assign({
+        headers: {
+            'apikey': SUPABASE_SERVICE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
+            'Content-Type': 'application/json'
+        }
+    }, options || {}));
+}
+
+async function applyWalletMutation(params) {
+    const rpcRes = await supaFetch('rpc/wallet_apply_mutation', {
+        method: 'POST',
+        body: JSON.stringify(params)
+    });
+    if (!rpcRes.ok) {
+        const errText = await rpcRes.text();
+        return { success: false, message: errText || 'wallet mutation failed' };
+    }
+    const rows = await rpcRes.json();
+    const row = Array.isArray(rows) && rows.length ? rows[0] : null;
+    if (!row) return { success: false, message: 'wallet mutation empty result' };
+    return { success: true, data: row };
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -26,48 +55,36 @@ module.exports = async (req, res) => {
 
     const numAmount = Number(amount);
     const txId = 'wd_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-
-    function supaFetch(path, options) {
-        return fetch(SUPABASE_URL + '/rest/v1/' + path, Object.assign({
-            headers: {
-                'apikey': SUPABASE_SERVICE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
-                'Content-Type': 'application/json'
-            }
-        }, options));
-    }
+    const now = Date.now();
+    const debitIdempotencyKey = 'withdraw:' + txId + ':debit';
 
     try {
-        // Check wallet balance
-        const walletRes = await supaFetch('wallets?user_id=eq.' + encodeURIComponent(userId) + '&select=*');
-        const walletRows = await walletRes.json();
-
-        if (!walletRows || walletRows.length === 0) {
-            return res.status(400).json({ error: 'Wallet tidak ditemukan' });
-        }
-
-        const currentBalance = Number(walletRows[0].balance) || 0;
-        if (currentBalance < numAmount) {
-            return res.status(400).json({ error: 'Saldo tidak cukup! Saldo: Rp ' + currentBalance.toLocaleString('id-ID') });
-        }
-
-        // Deduct wallet balance first
-        const newBalance = currentBalance - numAmount;
-
-        await supaFetch('wallets?user_id=eq.' + encodeURIComponent(userId), {
-            method: 'PATCH',
-            headers: {
-                'apikey': SUPABASE_SERVICE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
-            },
-            body: JSON.stringify({
-                balance: newBalance,
-                updated_at: Date.now(),
-                data: { userId: userId, balance: newBalance, updatedAt: Date.now() }
-            })
+        // Lock saldo via trusted mutation agar selalu punya jejak ledger + idempotency.
+        const debitMutation = await applyWalletMutation({
+            p_user_id: userId,
+            p_direction: 'debit',
+            p_amount: numAmount,
+            p_ref_type: 'withdraw',
+            p_ref_id: txId,
+            p_reason: 'Penarikan saldo via Xendit',
+            p_actor_type: 'user',
+            p_actor_id: userId,
+            p_idempotency_key: debitIdempotencyKey,
+            p_metadata: {
+                txId: txId,
+                provider: 'xendit',
+                bankCode: bankCode,
+                accountNumber: accountNumber
+            }
         });
+
+        if (!debitMutation.success) {
+            if (isInsufficientError(debitMutation.message)) {
+                return res.status(400).json({ error: 'Saldo tidak cukup untuk penarikan ini' });
+            }
+            return res.status(400).json({ error: 'Gagal memproses potongan saldo penarikan' });
+        }
+        const dm = debitMutation.data;
 
         // Create Xendit Disbursement
         const auth = Buffer.from(XENDIT_SECRET_KEY + ':').toString('base64');
@@ -90,21 +107,26 @@ module.exports = async (req, res) => {
         const xenditData = await xenditRes.json();
 
         if (!xenditRes.ok) {
-            // Refund wallet on failure
-            await supaFetch('wallets?user_id=eq.' + encodeURIComponent(userId), {
-                method: 'PATCH',
-                headers: {
-                    'apikey': SUPABASE_SERVICE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'return=minimal'
-                },
-                body: JSON.stringify({
-                    balance: currentBalance,
-                    updated_at: Date.now(),
-                    data: { userId: userId, balance: currentBalance, updatedAt: Date.now() }
-                })
+            // Refund otomatis jika gagal membuat disbursement.
+            const refundMutation = await applyWalletMutation({
+                p_user_id: userId,
+                p_direction: 'credit',
+                p_amount: numAmount,
+                p_ref_type: 'withdraw_refund',
+                p_ref_id: txId,
+                p_reason: 'Refund penarikan gagal inisiasi Xendit',
+                p_actor_type: 'system',
+                p_actor_id: 'xendit_withdraw_api',
+                p_idempotency_key: 'withdraw:' + txId + ':refund:init_fail',
+                p_metadata: {
+                    txId: txId,
+                    provider: 'xendit',
+                    stage: 'create_disbursement'
+                }
             });
+            if (!refundMutation.success) {
+                console.error('Withdraw init refund mutation error:', refundMutation.message);
+            }
 
             console.error('Xendit disbursement error:', xenditData);
             return res.status(400).json({ error: xenditData.message || 'Gagal membuat disbursement' });
@@ -121,10 +143,12 @@ module.exports = async (req, res) => {
             accountNumber: accountNumber,
             accountName: accountName,
             xenditDisbursementId: xenditData.id,
-            balanceBefore: currentBalance,
-            balanceAfter: newBalance,
+            ledgerId: dm.ledger_id,
+            idempotencyKey: debitIdempotencyKey,
+            balanceBefore: Number(dm.balance_before) || 0,
+            balanceAfter: Number(dm.balance_after) || 0,
             description: 'Penarikan ke ' + bankCode + ' ' + accountNumber + ' (Proses)',
-            createdAt: Date.now()
+            createdAt: now
         };
 
         await supaFetch('transactions', {
@@ -140,7 +164,7 @@ module.exports = async (req, res) => {
                 user_id: userId,
                 type: 'withdraw',
                 amount: -numAmount,
-                created_at: Date.now(),
+                created_at: now,
                 data: txData
             })
         });

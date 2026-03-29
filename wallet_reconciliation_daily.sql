@@ -4,7 +4,7 @@
 -- no_ledger_all_time_rows_info hanya info legacy (boleh > 0).
 
 with params as (
-  select 1774701991000::bigint as cutover_ms
+  select 1774636847000::bigint as cutover_ms
 ),
 ledger_net as (
   select
