@@ -5,6 +5,28 @@ const XENDIT_SECRET_KEY = process.env.XENDIT_SECRET_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://aqptkuoazqharfzxvgem.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 
+function _firstHeaderValue(v) {
+    return String(v || '').split(',')[0].trim();
+}
+
+function resolveBaseUrl(req) {
+    var configured = String(process.env.APP_BASE_URL || process.env.PUBLIC_BASE_URL || '').trim();
+    if (configured) return configured.replace(/\/$/, '');
+
+    var host = _firstHeaderValue(req.headers['x-forwarded-host'] || req.headers.host);
+    if (!host) return '';
+    var proto = _firstHeaderValue(req.headers['x-forwarded-proto'] || 'https') || 'https';
+    return (proto + '://' + host).replace(/\/$/, '');
+}
+
+function resolveInvoiceUrl(xenditData) {
+    var url = String(
+        (xenditData && (xenditData.invoice_url || xenditData.invoice_url_v2 || xenditData.checkout_url)) || ''
+    ).trim();
+    if (!/^https?:\/\//i.test(url)) return '';
+    return url;
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -21,27 +43,30 @@ module.exports = async (req, res) => {
     }
 
     const txId = 'topup_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-    const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const baseUrl = protocol + '://' + req.headers.host;
+    const baseUrl = resolveBaseUrl(req);
 
     try {
         // Create Xendit Invoice
         const auth = Buffer.from(XENDIT_SECRET_KEY + ':').toString('base64');
+        const invoicePayload = {
+            external_id: txId,
+            amount: Number(amount),
+            description: 'Top Up Saldo Jasa Suruh' + (userName ? ' - ' + userName : ''),
+            currency: 'IDR',
+            invoice_duration: 86400
+        };
+        if (baseUrl) {
+            invoicePayload.success_redirect_url = baseUrl + '/?xendit=success';
+            invoicePayload.failure_redirect_url = baseUrl + '/?xendit=failed';
+        }
+
         const xenditRes = await fetch('https://api.xendit.co/v2/invoices', {
             method: 'POST',
             headers: {
                 'Authorization': 'Basic ' + auth,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                external_id: txId,
-                amount: Number(amount),
-                description: 'Top Up Saldo Jasa Suruh' + (userName ? ' - ' + userName : ''),
-                currency: 'IDR',
-                invoice_duration: 86400,
-                success_redirect_url: baseUrl + '/?xendit=success',
-                failure_redirect_url: baseUrl + '/?xendit=failed'
-            })
+            body: JSON.stringify(invoicePayload)
         });
 
         const xenditData = await xenditRes.json();
@@ -51,6 +76,12 @@ module.exports = async (req, res) => {
             return res.status(400).json({ error: xenditData.message || 'Gagal membuat invoice' });
         }
 
+        const invoiceUrl = resolveInvoiceUrl(xenditData);
+        if (!invoiceUrl) {
+            console.error('Xendit invoice URL invalid:', xenditData);
+            return res.status(500).json({ error: 'Invoice berhasil dibuat, tapi link checkout tidak valid' });
+        }
+
         // Save pending transaction to Supabase
         const txData = {
             id: txId,
@@ -58,8 +89,9 @@ module.exports = async (req, res) => {
             type: 'topup',
             amount: Number(amount),
             status: 'pending',
+            idempotencyKey: 'topup:' + txId + ':paid',
             xenditInvoiceId: xenditData.id,
-            xenditInvoiceUrl: xenditData.invoice_url,
+            xenditInvoiceUrl: invoiceUrl,
             description: 'Top Up via Xendit (Menunggu Pembayaran)',
             createdAt: Date.now()
         };
@@ -84,7 +116,7 @@ module.exports = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            invoiceUrl: xenditData.invoice_url,
+            invoiceUrl: invoiceUrl,
             invoiceId: xenditData.id,
             txId: txId
         });

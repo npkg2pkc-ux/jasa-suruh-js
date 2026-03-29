@@ -388,10 +388,29 @@ function openTopUpModal() {
             btn.disabled = false;
             btn.textContent = '💳 Bayar via Xendit';
             if (res && res.success && res.invoiceUrl) {
+                var payUrl = String(res.invoiceUrl || '').trim();
+                if (!/^https?:\/\//i.test(payUrl)) {
+                    showToast('Link pembayaran tidak valid. Coba ulangi top up.', 'error');
+                    return;
+                }
                 showToast('Mengarahkan ke halaman pembayaran...', 'success');
                 addNotifItem({ icon: '💳', title: 'Top Up Diproses', desc: 'Top Up ' + formatRupiah(amount) + ' sedang menunggu pembayaran', type: 'topup' });
                 overlay.remove();
-                window.location.href = res.invoiceUrl;
+
+                var opened = null;
+                try {
+                    opened = window.open(payUrl, '_blank', 'noopener,noreferrer');
+                } catch (e) {}
+
+                // Fallback: bila popup diblokir, tetap arahkan tab aktif.
+                if (!opened) {
+                    window.location.assign(payUrl);
+                    return;
+                }
+
+                if (typeof showToast === 'function') {
+                    showToast('Halaman pembayaran dibuka di tab baru. Jika kosong, buka lagi dari notifikasi top up.', 'success');
+                }
             } else {
                 showToast(res.error || 'Gagal membuat invoice', 'error');
             }
