@@ -3010,6 +3010,19 @@ function renderOrderActions(order, isTalent, isUser) {
                 var pm = order.paymentMethod || 'jspay';
                 var sessionNow = getSession();
 
+                function _safeMoneyText(val) {
+                    if (typeof formatRupiah === 'function') return formatRupiah(val);
+                    return 'Rp ' + Number(val || 0).toLocaleString('id-ID');
+                }
+
+                function _safeNotify(payload) {
+                    try {
+                        if (typeof addNotifItem === 'function') addNotifItem(payload);
+                    } catch (e) {
+                        console.warn('Driver accept notify failed:', e);
+                    }
+                }
+
                 function resetBtn() {
                     btn.disabled = false;
                     btn.textContent = 'Terima Pesanan';
@@ -3029,7 +3042,7 @@ function renderOrderActions(order, isTalent, isUser) {
                     if (pm === 'cod') {
                         // COD: No wallet deduction from user. Accept directly.
                         updateOrderStatus(order.id, 'accepted', { acceptedAt: Date.now(), paidAmount: 0 });
-                        addNotifItem({ userId: order.userId, icon: '✅', title: 'Driver Ditemukan!', desc: 'Pembayaran COD - siapkan uang tunai ' + formatRupiah(totalCost), type: 'order', orderId: order.id });
+                        _safeNotify({ userId: order.userId, icon: '✅', title: 'Driver Ditemukan!', desc: 'Pembayaran COD - siapkan uang tunai ' + _safeMoneyText(totalCost), type: 'order', orderId: order.id });
                     } else {
                         // JSpay: Deduct user wallet NOW (on accept)
                         backendPost({
@@ -3042,16 +3055,17 @@ function renderOrderActions(order, isTalent, isUser) {
                             if (!payRes || !payRes.success) {
                                 resetBtn();
                                 showToast('Saldo user tidak cukup!', 'error');
-                                addNotifItem({ userId: order.userId, icon: '⚠️', title: 'Saldo Tidak Cukup', desc: 'Saldo Anda tidak cukup untuk pesanan ' + (order.serviceType || '') + '. Top up ' + formatRupiah(totalCost), type: 'order', orderId: order.id });
+                                _safeNotify({ userId: order.userId, icon: '⚠️', title: 'Saldo Tidak Cukup', desc: 'Saldo Anda tidak cukup untuk pesanan ' + (order.serviceType || '') + '. Top up ' + _safeMoneyText(totalCost), type: 'order', orderId: order.id });
                                 return;
                             }
                             updateOrderStatus(order.id, 'accepted', { acceptedAt: Date.now(), paidAmount: totalCost });
-                            addNotifItem({ userId: order.userId, icon: '💳', title: 'Saldo Dipotong', desc: formatRupiah(totalCost) + ' untuk pesanan ' + (order.serviceType || ''), type: 'payment', orderId: order.id });
+                            _safeNotify({ userId: order.userId, icon: '💳', title: 'Saldo Dipotong', desc: _safeMoneyText(totalCost) + ' untuk pesanan ' + (order.serviceType || ''), type: 'payment', orderId: order.id });
                         });
                     }
-                }).catch(function () {
+                }).catch(function (err) {
+                    console.error('Driver accept validation/process error:', err);
                     resetBtn();
-                    showToast('Gagal memvalidasi status driver. Coba lagi.', 'error');
+                    showToast('Gagal memproses penerimaan pesanan. Coba lagi.', 'error');
                 });
             });
             document.getElementById('otpBtnReject').addEventListener('click', function () {
