@@ -3195,7 +3195,28 @@ function renderOrderActions(order, isTalent, isUser) {
                     });
                 }
 
-                postStatus('on_the_way', { startedTripAt: Date.now() })
+                function postOnTheWayWithBestGps() {
+                    return Promise.resolve()
+                        .then(function () {
+                            if (typeof getCurrentPosition !== 'function') return null;
+                            return getCurrentPosition().catch(function () { return null; });
+                        })
+                        .then(function (pos) {
+                            var f = { startedTripAt: Date.now() };
+                            if (pos && isValidLatLng(Number(pos.lat), Number(pos.lng))) {
+                                f.talentLat = Number(pos.lat);
+                                f.talentLng = Number(pos.lng);
+                                f.talentLastLocationAt = Date.now();
+                            } else if (isValidLatLng(Number(order.talentLat), Number(order.talentLng))) {
+                                f.talentLat = Number(order.talentLat);
+                                f.talentLng = Number(order.talentLng);
+                                f.talentLastLocationAt = Date.now();
+                            }
+                            return postStatus('on_the_way', f);
+                        });
+                }
+
+                postOnTheWayWithBestGps()
                     .then(function (res) {
                         if (res && res.success) return res;
 
@@ -3208,7 +3229,7 @@ function renderOrderActions(order, isTalent, isUser) {
                         // Fallback for stale DB state: force accepted then retry on_the_way.
                         return postStatus('accepted', { acceptedAt: Date.now(), paidAmount: Number(order.paidAmount) || 0 })
                             .then(function () {
-                                return postStatus('on_the_way', { startedTripAt: Date.now() });
+                                return postOnTheWayWithBestGps();
                             });
                     })
                     .then(function (res) {
@@ -3223,6 +3244,16 @@ function renderOrderActions(order, isTalent, isUser) {
                             _currentOrder.startedTripAt = Date.now();
                             refreshTrackingUIFromCurrentOrder();
                         }
+                        try {
+                            addNotifItem({
+                                userId: order.userId,
+                                icon: '🏍️',
+                                title: isAntar ? 'Driver Menuju Titik Jemput' : 'Driver Menuju Lokasi',
+                                desc: (order.serviceType || 'Pesanan') + ' sedang dalam perjalanan.',
+                                type: 'order',
+                                orderId: order.id
+                            });
+                        } catch (e) {}
                         showToast('Status diperbarui: menuju lokasi', 'success');
                         startTalentLocationBroadcast(order.id);
                     })
@@ -3719,19 +3750,17 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
         return;
     }
 
-    // Requirement: when not yet at target point, hide progress button.
-    // Keep complete button visible when GPS sync is unavailable so driver can re-trigger live verification.
-    var keepVisible = (buttonId === 'otpBtnComplete')
-        && (knownCheck.reason === 'driver_location_unavailable' || knownCheck.reason === 'target_location_unavailable');
+    // Keep manual buttons visible when GPS belum sinkron agar driver bisa trigger verifikasi GPS live.
+    var keepVisible = (knownCheck.reason === 'driver_location_unavailable' || knownCheck.reason === 'target_location_unavailable');
     if (keepVisible) btn.classList.remove('hidden');
     else btn.classList.add('hidden');
-    btn.disabled = true;
+    btn.disabled = !keepVisible;
     btn.style.opacity = '0.72';
     if (knownCheck.reason === 'driver_location_unavailable') {
-        btn.textContent = 'Menunggu GPS Driver...';
-        btn.title = 'GPS driver belum terkunci. Nyalakan lokasi presisi.';
+        btn.textContent = btn.dataset.baseLabel || btn.textContent;
+        btn.title = 'GPS belum sinkron. Ketuk tombol untuk verifikasi GPS langsung.';
     } else if (knownCheck.reason === 'target_location_unavailable') {
-        btn.textContent = 'Lokasi Tujuan Belum Valid';
+        btn.textContent = btn.dataset.baseLabel || btn.textContent;
         btn.title = 'Koordinat tujuan belum valid. Hubungi admin.';
     } else {
         btn.textContent = 'Belum Sampai Titik';
