@@ -2924,6 +2924,8 @@ function _setDriverProofCaptureContext(order, buttonId, localInput) {
         gpsLat: input ? String(input.dataset.gpsLat || '') : '',
         gpsLng: input ? String(input.dataset.gpsLng || '') : '',
         openedAt: Date.now(),
+        returnedVisibleAt: Date.now(),
+        lastHiddenAt: 0,
         recoveryToken: String(Date.now()) + '_' + Math.random().toString(36).slice(2, 8)
     };
 }
@@ -2977,6 +2979,10 @@ function _attemptRecoverDriverProofSelection(notifyOnTimeout) {
     var ctx = _driverProofCaptureContext;
     if (!ctx) return false;
 
+    if (document.visibilityState && document.visibilityState !== 'visible') {
+        return false;
+    }
+
     var globalInput = document.getElementById('otpGlobalProofInput');
     if (_consumeDriverProofFromInput(globalInput, ctx)) return true;
 
@@ -2984,8 +2990,8 @@ function _attemptRecoverDriverProofSelection(notifyOnTimeout) {
     if (_consumeDriverProofFromInput(localInput, ctx)) return true;
 
     if (notifyOnTimeout) {
-        var openedAt = Number(ctx.openedAt || 0);
-        if (!openedAt || (Date.now() - openedAt) >= 7000) {
+        var baseTs = Number(ctx.returnedVisibleAt || ctx.openedAt || 0);
+        if (!baseTs || (Date.now() - baseTs) >= 12000) {
             _unlockProofButtonForRetry(ctx.buttonId || 'otpBtnComplete');
             _resetDriverProofInputsState();
             _driverProofCaptureContext = null;
@@ -2996,12 +3002,12 @@ function _attemptRecoverDriverProofSelection(notifyOnTimeout) {
 }
 
 function _scheduleDriverProofRecoveryChecks(ctxToken) {
-    [700, 1400, 2600, 4200, 8000].forEach(function (delay, idx) {
+    [700, 1400, 2600, 4200, 8000, 12000, 16000].forEach(function (delay, idx) {
         setTimeout(function () {
             var ctx = _driverProofCaptureContext;
             if (!ctx) return;
             if (ctxToken && String(ctx.recoveryToken || '') !== String(ctxToken)) return;
-            _attemptRecoverDriverProofSelection(idx === 4);
+            _attemptRecoverDriverProofSelection(idx >= 5);
         }, delay);
     });
 }
@@ -3011,16 +3017,31 @@ function _ensureDriverProofRecoveryWatchers() {
     _driverProofRecoveryBound = true;
 
     document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState !== 'visible') return;
+        var ctx = _driverProofCaptureContext;
+        if (!ctx) return;
+        if (document.visibilityState !== 'visible') {
+            ctx.lastHiddenAt = Date.now();
+            return;
+        }
+        ctx.returnedVisibleAt = Date.now();
         _attemptRecoverDriverProofSelection(false);
+        _scheduleDriverProofRecoveryChecks(ctx.recoveryToken);
     });
 
     window.addEventListener('focus', function () {
+        var ctx = _driverProofCaptureContext;
+        if (!ctx) return;
+        ctx.returnedVisibleAt = Date.now();
         _attemptRecoverDriverProofSelection(false);
+        _scheduleDriverProofRecoveryChecks(ctx.recoveryToken);
     });
 
     window.addEventListener('pageshow', function () {
+        var ctx = _driverProofCaptureContext;
+        if (!ctx) return;
+        ctx.returnedVisibleAt = Date.now();
         _attemptRecoverDriverProofSelection(false);
+        _scheduleDriverProofRecoveryChecks(ctx.recoveryToken);
     });
 }
 
