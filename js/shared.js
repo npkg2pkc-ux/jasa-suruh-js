@@ -3293,11 +3293,12 @@ function renderOrderActions(order, isTalent, isUser) {
             var storeCoords = getOrderStoreCoords(order);
             el.innerHTML = driverNavHtml
                 + '<div class="gps-progress-hint" style="text-align:center;font-size:12px;color:#FF6B00;margin-bottom:8px;">📍 Progress akan otomatis saat Anda tiba di lokasi</div>'
-                + '<button class="sf-btn-outline" style="width:100%;font-size:13px;" id="otpBtnArrive">Tandai Tiba Secara Manual</button>';
+                + '<button class="sf-btn-solid" style="width:100%;font-size:13px;" id="otpBtnArrive">Tandai Tiba Secara Manual</button>';
             bindActionTap(document.getElementById('otpBtnArrive'), function () {
                 var btn = this;
                 if (btn.dataset.busy === '1') return;
                 btn.dataset.busy = '1';
+                btn.dataset.busySince = String(Date.now());
                 btn.disabled = true;
                 _verifyDriverAtLocation(order, 'store', function(isNear) {
                     if (isNear) {
@@ -3305,11 +3306,13 @@ function renderOrderActions(order, isTalent, isUser) {
                         updateOrderStatus(order.id, 'arrived', { talentId: sid }).then(function (ok) {
                             if (!ok) {
                                 btn.dataset.busy = '0';
+                                btn.dataset.busySince = '';
                                 if (!btn.classList.contains('hidden')) btn.disabled = false;
                             }
                         });
                     } else {
                         btn.dataset.busy = '0';
+                        btn.dataset.busySince = '';
                         if (!btn.classList.contains('hidden')) btn.disabled = false;
                         showToast('⚠️ Anda harus berada di dekat lokasi toko untuk menandai tiba. Progress akan otomatis saat Anda sampai.', 'error');
                     }
@@ -3403,11 +3406,12 @@ function renderOrderActions(order, isTalent, isUser) {
             var arriveLabel = isAntar ? 'Sudah di Lokasi Jemput' : (isDelivery ? 'Sudah di Titik Jemput Barang' : 'Sudah Tiba');
             el.innerHTML = driverNavHtml
                 + '<div class="gps-progress-hint" style="text-align:center;font-size:12px;color:#FF6B00;margin-bottom:8px;">📍 Progress akan otomatis saat Anda tiba di lokasi</div>'
-                + '<button class="sf-btn-outline" style="width:100%;font-size:13px;" id="otpBtnArrive">' + arriveLabel + ' (Manual)</button>';
+                + '<button class="sf-btn-solid" style="width:100%;font-size:13px;" id="otpBtnArrive">' + arriveLabel + ' (Manual)</button>';
             bindActionTap(document.getElementById('otpBtnArrive'), function () {
                 var btn = this;
                 if (btn.dataset.busy === '1') return;
                 btn.dataset.busy = '1';
+                btn.dataset.busySince = String(Date.now());
                 btn.disabled = true;
                 _verifyDriverAtLocation(order, 'user', function(isNear) {
                     if (isNear) {
@@ -3415,11 +3419,13 @@ function renderOrderActions(order, isTalent, isUser) {
                         updateOrderStatus(order.id, 'arrived', { talentId: sid }).then(function (ok) {
                             if (!ok) {
                                 btn.dataset.busy = '0';
+                                btn.dataset.busySince = '';
                                 if (!btn.classList.contains('hidden')) btn.disabled = false;
                             }
                         });
                     } else {
                         btn.dataset.busy = '0';
+                        btn.dataset.busySince = '';
                         if (!btn.classList.contains('hidden')) btn.disabled = false;
                         showToast('⚠️ Anda harus berada di dekat lokasi tujuan untuk menandai tiba. Progress akan otomatis saat Anda sampai.', 'error');
                     }
@@ -3757,6 +3763,12 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
     var btn = document.getElementById(buttonId);
     if (!btn || !order) return;
     if (btn.dataset.busy === '1') {
+        var busySince = Number(btn.dataset.busySince || 0);
+        if (!isFinite(busySince) || busySince <= 0 || (Date.now() - busySince) > 15000) {
+            btn.dataset.busy = '0';
+            btn.dataset.busySince = '';
+            btn.disabled = false;
+        }
         btn.classList.remove('hidden');
         return;
     }
@@ -3780,6 +3792,10 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
     // Keep progress actions visible/clickable and let click handler run live GPS verification.
     var forceManualProgress = (buttonId === 'otpBtnArrive' && nextStatus === 'arrived')
         || (buttonId === 'otpBtnComplete' && nextStatus === 'completed');
+    if (forceManualProgress) {
+        btn.classList.remove('sf-btn-outline');
+        btn.classList.add('sf-btn-solid');
+    }
     btn.classList.remove('hidden');
     btn.disabled = false;
     btn.style.opacity = '0.72';
