@@ -2897,6 +2897,124 @@ function _unlockProofButtonForRetry(buttonId) {
     if (!btn.classList.contains('hidden')) btn.disabled = false;
 }
 
+var _driverProofCaptureContext = null;
+var _driverProofInputBound = false;
+
+function _snapshotProofOrder(order) {
+    if (!order || !order.id) return null;
+    return {
+        id: String(order.id || ''),
+        userId: String(order.userId || order.user_id || ''),
+        user_id: String(order.user_id || order.userId || ''),
+        talentId: String(order.talentId || order.talent_id || ''),
+        talent_id: String(order.talent_id || order.talentId || ''),
+        sellerId: String(order.sellerId || ''),
+        skillType: String(order.skillType || ''),
+        serviceType: String(order.serviceType || ''),
+        status: String(order.status || '')
+    };
+}
+
+function _setDriverProofCaptureContext(order, buttonId, localInput) {
+    var input = localInput || document.getElementById('otpProofInput');
+    _driverProofCaptureContext = {
+        orderSnapshot: _snapshotProofOrder(order || _currentOrder || null),
+        buttonId: String(buttonId || 'otpBtnComplete'),
+        gpsLat: input ? String(input.dataset.gpsLat || '') : '',
+        gpsLng: input ? String(input.dataset.gpsLng || '') : ''
+    };
+}
+
+function _ensureGlobalDriverProofInput() {
+    var input = document.getElementById('otpGlobalProofInput');
+    if (!input) {
+        input = document.createElement('input');
+        input.type = 'file';
+        input.id = 'otpGlobalProofInput';
+        input.accept = 'image/*';
+        input.setAttribute('capture', 'environment');
+        input.style.display = 'none';
+        document.body.appendChild(input);
+    }
+
+    if (!_driverProofInputBound) {
+        _driverProofInputBound = true;
+
+        function onGlobalProofSelected() {
+            var liveInput = document.getElementById('otpGlobalProofInput');
+            if (!liveInput) return;
+            if (liveInput.dataset.proofProcessing === '1') return;
+
+            var ctx = _driverProofCaptureContext;
+            var file = (liveInput.files && liveInput.files[0]) ? liveInput.files[0] : null;
+            if (!ctx) {
+                liveInput.value = '';
+                return;
+            }
+            if (!file) {
+                _unlockProofButtonForRetry(ctx.buttonId || 'otpBtnComplete');
+                liveInput.value = '';
+                return;
+            }
+
+            var orderRef = null;
+            if (_currentOrder && ctx.orderSnapshot && String(_currentOrder.id || '') === String(ctx.orderSnapshot.id || '')) {
+                orderRef = _currentOrder;
+            } else if (ctx.orderSnapshot && ctx.orderSnapshot.id) {
+                orderRef = ctx.orderSnapshot;
+            }
+
+            if (!orderRef || !orderRef.id) {
+                _unlockProofButtonForRetry(ctx.buttonId || 'otpBtnComplete');
+                liveInput.value = '';
+                showToast('Sesi pengambilan bukti sudah berubah. Ketuk lagi tombol Ambil Foto Validasi.', 'error');
+                return;
+            }
+
+            liveInput.dataset.proofProcessing = '1';
+            _processDriverProofSelection(orderRef, file, ctx.buttonId || 'otpBtnComplete', ctx).then(function () {
+                var inputNow = document.getElementById('otpGlobalProofInput');
+                if (inputNow) {
+                    inputNow.dataset.proofProcessing = '0';
+                    inputNow.value = '';
+                }
+                _driverProofCaptureContext = null;
+            }).catch(function () {
+                var inputNow = document.getElementById('otpGlobalProofInput');
+                if (inputNow) {
+                    inputNow.dataset.proofProcessing = '0';
+                    inputNow.value = '';
+                }
+                _unlockProofButtonForRetry(ctx.buttonId || 'otpBtnComplete');
+                _driverProofCaptureContext = null;
+                showToast('Gagal membaca foto bukti. Silakan coba lagi.', 'error');
+            });
+        }
+
+        input.addEventListener('change', onGlobalProofSelected);
+        input.addEventListener('input', onGlobalProofSelected);
+    }
+
+    return input;
+}
+
+function _openDriverProofPicker(order, buttonId, localInput) {
+    _setDriverProofCaptureContext(order, buttonId, localInput || null);
+
+    var globalInput = _ensureGlobalDriverProofInput();
+    if (globalInput) {
+        try { globalInput.value = ''; } catch (e) {}
+        if (_triggerProofPicker(globalInput)) return true;
+    }
+
+    if (localInput) {
+        try { localInput.value = ''; } catch (e2) {}
+        if (_triggerProofPicker(localInput)) return true;
+    }
+
+    return false;
+}
+
 function _compressProofPhotoSafe(dataUrl, callback) {
     var done = false;
     function finish(resultUrl) {
@@ -3051,7 +3169,7 @@ function _prepareProofPhotoFromFile(file, callback) {
     compressFromReader();
 }
 
-function _processDriverProofSelection(order, file, buttonId) {
+function _processDriverProofSelection(order, file, buttonId, contextMeta) {
     return new Promise(function (resolve) {
         if (!file) {
             _unlockProofButtonForRetry(buttonId);
@@ -3072,6 +3190,10 @@ function _processDriverProofSelection(order, file, buttonId) {
             var proofInput = document.getElementById('otpProofInput');
             var lat = proofInput ? Number(proofInput.dataset.gpsLat) : NaN;
             var lng = proofInput ? Number(proofInput.dataset.gpsLng) : NaN;
+            if (!isValidLatLng(lat, lng) && contextMeta) {
+                lat = Number(contextMeta.gpsLat);
+                lng = Number(contextMeta.gpsLng);
+            }
             var doneAt = Date.now();
             if (proofInput) proofInput.dataset.gpsVerified = '';
             if (proofInput) proofInput.dataset.gpsLat = '';
@@ -3124,7 +3246,12 @@ function _bindProofInputSelectionHandler(order, buttonId) {
         if (liveInput.dataset.proofProcessing === '1') return;
         liveInput.dataset.proofProcessing = '1';
 
-        _processDriverProofSelection(order, file, buttonId).then(function () {
+        var contextMeta = {
+            gpsLat: liveInput.dataset.gpsLat || '',
+            gpsLng: liveInput.dataset.gpsLng || ''
+        };
+
+        _processDriverProofSelection(order, file, buttonId, contextMeta).then(function () {
             var currentInput = document.getElementById('otpProofInput');
             if (!currentInput) return;
             currentInput.dataset.proofProcessing = '0';
@@ -3144,10 +3271,11 @@ function _bindProofInputSelectionHandler(order, buttonId) {
     proofInput.addEventListener('input', onFileSelected);
 }
 
-function _tryOpenProofAfterGpsCheck(btn, proofInput, blockedMsg) {
+function _tryOpenProofAfterGpsCheck(order, btn, proofInput, blockedMsg) {
     if (proofInput) proofInput.dataset.gpsVerified = '1';
     _setCompleteButtonArmedState(btn, true);
-    if (!_triggerProofPicker(proofInput)) {
+    var opened = _openDriverProofPicker(order || _currentOrder || null, (btn && btn.id) ? btn.id : 'otpBtnComplete', proofInput || null);
+    if (!opened) {
         showToast(blockedMsg || 'Lokasi valid. Ketuk lagi tombol Ambil Foto Validasi untuk membuka kamera.', 'info');
     }
 }
@@ -3674,7 +3802,7 @@ function renderOrderActions(order, isTalent, isUser) {
                 var proofInput = document.getElementById('otpProofInput');
                 if (btn.dataset.proofReady === '1') {
                     _setCompleteButtonArmedState(btn, false);
-                    if (!_triggerProofPicker(proofInput)) {
+                    if (!_openDriverProofPicker(order, 'otpBtnComplete', proofInput)) {
                         _setCompleteButtonArmedState(btn, true);
                         showToast('Tidak bisa membuka kamera otomatis. Ketuk lagi tombol Ambil Foto Validasi.', 'error');
                     }
@@ -3684,14 +3812,14 @@ function renderOrderActions(order, isTalent, isUser) {
                 btn.disabled = true;
                 if (_canUseKnownGpsForCompletion(order, 'buyer')) {
                     _setProofInputGpsCoords(proofInput, order, null);
-                    _tryOpenProofAfterGpsCheck(btn, proofInput, 'Lokasi valid. Jika kamera belum muncul, ketuk lagi tombol Ambil Foto Validasi.');
+                    _tryOpenProofAfterGpsCheck(order, btn, proofInput, 'Lokasi valid. Jika kamera belum muncul, ketuk lagi tombol Ambil Foto Validasi.');
                     return;
                 }
                 _verifyDriverAtLocation(order, 'buyer', function(isNear, meta) {
                     if (isNear) {
                         var proofInputVerify = document.getElementById('otpProofInput');
                         _setProofInputGpsCoords(proofInputVerify, order, meta);
-                        _tryOpenProofAfterGpsCheck(btn, proofInputVerify, 'Lokasi valid. Ketuk lagi tombol Ambil Foto Validasi untuk membuka kamera.');
+                        _tryOpenProofAfterGpsCheck(order, btn, proofInputVerify, 'Lokasi valid. Ketuk lagi tombol Ambil Foto Validasi untuk membuka kamera.');
                     } else {
                         btn.dataset.busy = '0';
                         if (!btn.classList.contains('hidden')) btn.disabled = false;
@@ -3755,7 +3883,7 @@ function renderOrderActions(order, isTalent, isUser) {
                     var proofInput = document.getElementById('otpProofInput');
                     if (btn.dataset.proofReady === '1') {
                         _setCompleteButtonArmedState(btn, false);
-                        if (!_triggerProofPicker(proofInput)) {
+                        if (!_openDriverProofPicker(order, 'otpBtnComplete', proofInput)) {
                             _setCompleteButtonArmedState(btn, true);
                             showToast('Tidak bisa membuka kamera otomatis. Ketuk lagi tombol Ambil Foto Validasi.', 'error');
                         }
@@ -3766,14 +3894,14 @@ function renderOrderActions(order, isTalent, isUser) {
                     _armProgressButtonFailsafe('otpBtnComplete');
                     if (_canUseKnownGpsForCompletion(order, 'dest')) {
                         _setProofInputGpsCoords(proofInput, order, null);
-                        _tryOpenProofAfterGpsCheck(btn, proofInput, 'Lokasi valid. Jika kamera belum muncul, ketuk lagi tombol Ambil Foto Validasi.');
+                        _tryOpenProofAfterGpsCheck(order, btn, proofInput, 'Lokasi valid. Jika kamera belum muncul, ketuk lagi tombol Ambil Foto Validasi.');
                         return;
                     }
                     _verifyDriverAtLocation(order, 'dest', function(isNear, meta) {
                         if (isNear) {
                             var proofInputVerify = document.getElementById('otpProofInput');
                             _setProofInputGpsCoords(proofInputVerify, order, meta);
-                            _tryOpenProofAfterGpsCheck(btn, proofInputVerify, 'Lokasi valid. Ketuk lagi tombol Ambil Foto Validasi untuk membuka kamera.');
+                            _tryOpenProofAfterGpsCheck(order, btn, proofInputVerify, 'Lokasi valid. Ketuk lagi tombol Ambil Foto Validasi untuk membuka kamera.');
                         } else {
                             btn.dataset.busy = '0';
                             btn.dataset.busySince = '';
@@ -3787,7 +3915,11 @@ function renderOrderActions(order, isTalent, isUser) {
                     if (this.dataset.busy === '1') return;
                     this.dataset.busy = '1';
                     this.disabled = true;
-                    document.getElementById('otpProofInput').click();
+                    var localInput = document.getElementById('otpProofInput');
+                    if (!_openDriverProofPicker(order, 'otpBtnComplete', localInput)) {
+                        _unlockProofButtonForRetry('otpBtnComplete');
+                        showToast('Tidak bisa membuka kamera. Coba lagi.', 'error');
+                    }
                 });
             }
             _bindProofInputSelectionHandler(order, 'otpBtnComplete');
