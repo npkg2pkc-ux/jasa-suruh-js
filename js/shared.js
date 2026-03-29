@@ -3777,16 +3777,19 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
         return;
     }
 
-    // Keep manual arrive visible so driver can always trigger live GPS verification from the tap handler.
-    var forceManualArrive = (buttonId === 'otpBtnArrive' && nextStatus === 'arrived');
-    var keepVisible = forceManualArrive || (knownCheck.reason === 'driver_location_unavailable' || knownCheck.reason === 'target_location_unavailable');
-    if (keepVisible) btn.classList.remove('hidden');
-    else btn.classList.add('hidden');
-    btn.disabled = !keepVisible;
+    // Keep progress actions visible/clickable and let click handler run live GPS verification.
+    var forceManualProgress = (buttonId === 'otpBtnArrive' && nextStatus === 'arrived')
+        || (buttonId === 'otpBtnComplete' && nextStatus === 'completed');
+    btn.classList.remove('hidden');
+    btn.disabled = false;
     btn.style.opacity = '0.72';
-    if (forceManualArrive) {
+    if (forceManualProgress) {
         btn.textContent = btn.dataset.baseLabel || btn.textContent;
-        btn.title = 'Ketuk untuk verifikasi GPS langsung sebelum lanjut progres.';
+        if (knownCheck && isFinite(Number(knownCheck.distKm)) && isFinite(Number(knownCheck.radiusKm))) {
+            btn.title = 'Jarak saat ini ±' + _formatDistanceMeters(knownCheck.distKm) + '. Maks ' + _formatDistanceMeters(knownCheck.radiusKm) + ' untuk lanjut progres.';
+        } else {
+            btn.title = 'Ketuk untuk verifikasi GPS langsung sebelum lanjut progres.';
+        }
     } else if (knownCheck.reason === 'driver_location_unavailable') {
         btn.textContent = btn.dataset.baseLabel || btn.textContent;
         btn.title = 'GPS belum sinkron. Ketuk tombol untuk verifikasi GPS langsung.';
