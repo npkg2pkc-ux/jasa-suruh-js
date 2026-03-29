@@ -84,8 +84,8 @@ async function handleTopUpPaid(body) {
     await supaFetch('wallets', {
         method: 'POST',
         headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+            'apikey': SUPABASE_SERVICE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
             'Content-Type': 'application/json',
             'Prefer': 'resolution=merge-duplicates'
         },
@@ -101,8 +101,8 @@ async function handleTopUpPaid(body) {
     await supaFetch('transactions?id=eq.' + encodeURIComponent(txId), {
         method: 'PATCH',
         headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+            'apikey': SUPABASE_SERVICE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
             'Content-Type': 'application/json',
             'Prefer': 'return=minimal'
         },
@@ -143,8 +143,8 @@ async function handleTopUpExpired(body) {
     await supaFetch('transactions?id=eq.' + encodeURIComponent(txId), {
         method: 'PATCH',
         headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+            'apikey': SUPABASE_SERVICE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
             'Content-Type': 'application/json',
             'Prefer': 'return=minimal'
         },
@@ -189,8 +189,8 @@ async function handleDisbursement(body) {
         await supaFetch('transactions?id=eq.' + encodeURIComponent(txId), {
             method: 'PATCH',
             headers: {
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                'apikey': SUPABASE_SERVICE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -227,8 +227,8 @@ async function handleDisbursement(body) {
         await supaFetch('wallets?user_id=eq.' + encodeURIComponent(userId), {
             method: 'PATCH',
             headers: {
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                'apikey': SUPABASE_SERVICE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -243,8 +243,8 @@ async function handleDisbursement(body) {
         await supaFetch('transactions?id=eq.' + encodeURIComponent(txId), {
             method: 'PATCH',
             headers: {
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                'apikey': SUPABASE_SERVICE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },

@@ -475,6 +475,44 @@
         delete userData.action;
         var role = String(userData.role || 'user').toLowerCase();
 
+        function _hasMissingColumnError(err) {
+            var msg = String((err && err.message) || '').toLowerCase();
+            return msg.indexOf('could not find') >= 0 || msg.indexOf('does not exist') >= 0;
+        }
+
+        function _upsertUserRow(preferredPayload, fallbackPayload) {
+            function _runUpsert(payload) {
+                return sb.from('users').upsert(payload, { onConflict: 'id' })
+                    .then(function (res) {
+                        if (res.error && _hasMissingColumnError(res.error) && fallbackPayload && payload !== fallbackPayload) {
+                            return _runUpsert(fallbackPayload);
+                        }
+                        if (res.error && res.error.code === '23505') {
+                            var updatePayload = Object.assign({}, payload);
+                            delete updatePayload.username;
+                            return sb.from('users').update(updatePayload).eq('id', userData.id)
+                                .then(function (res2) {
+                                    if (res2.error && _hasMissingColumnError(res2.error) && fallbackPayload && payload !== fallbackPayload) {
+                                        var fallbackUpdate = Object.assign({}, fallbackPayload);
+                                        delete fallbackUpdate.username;
+                                        return sb.from('users').update(fallbackUpdate).eq('id', userData.id)
+                                            .then(function (res3) {
+                                                throwIfError(res3);
+                                                return ok(userData);
+                                            });
+                                    }
+                                    throwIfError(res2);
+                                    return ok(userData);
+                                });
+                        }
+                        throwIfError(res);
+                        return ok(userData);
+                    });
+            }
+
+            return _runUpsert(preferredPayload);
+        }
+
         function proceedUpsert() {
             // Normalize phone: always store as 62xxx
             var phone = (userData.phone || userData.no_hp || '').replace(/\D/g, '');
@@ -505,21 +543,24 @@
                         data: userData
                     };
 
-                    // Try upsert by id first; if username conflict, update by id instead
-                    return sb.from('users').upsert(upsertData, { onConflict: 'id' })
-                        .then(function (res) {
-                            if (res.error && res.error.code === '23505') {
-                                // Username unique violation — update existing row by id
-                                delete upsertData.username;
-                                return sb.from('users').update(upsertData).eq('id', userData.id)
-                                    .then(function (res2) {
-                                        throwIfError(res2);
-                                        return ok(userData);
-                                    });
-                            }
-                            throwIfError(res);
-                            return ok(userData);
-                        });
+                    // Simpan field talent ke kolom relasional juga (jika kolom tersedia).
+                    var fullUpsertData = Object.assign({}, upsertData, {
+                        address: userData.address || userData.alamat_lengkap || '',
+                        lat: Number(userData.lat) || 0,
+                        lng: Number(userData.lng) || 0,
+                        is_active: (typeof userData.is_active === 'boolean') ? userData.is_active : true,
+                        no_ktp: userData.no_ktp || '',
+                        jenis_kelamin: userData.jenis_kelamin || '',
+                        alamat_lengkap: userData.alamat_lengkap || userData.address || '',
+                        jenis_motor: userData.jenis_motor || userData.vehicleType || '',
+                        tahun_kendaraan: userData.tahun_kendaraan || userData.vehicleYear || '',
+                        plat_nomor_kendaraan: userData.plat_nomor_kendaraan || userData.plateNo || '',
+                        ktp_photo_url: userData.ktp_photo_url || '',
+                        driver_photo_url: userData.driver_photo_url || userData.foto_url || ''
+                    });
+
+                    // Try upsert with full talent columns; fallback to base payload if schema belum punya kolom tambahan.
+                    return _upsertUserRow(fullUpsertData, upsertData);
                 });
         }
 
