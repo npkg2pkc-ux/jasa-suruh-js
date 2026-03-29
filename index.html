@@ -905,64 +905,98 @@
 
                         <div class="od-panel-view hidden" data-owner-panel-view="driver-recruit">
                             <section class="od-driver-recruit-page">
-                                <div class="od-section-head od-driver-recruit-head">
-                                    <div>
-                                        <h3>Rekrutment Driver</h3>
-                                        <p class="od-driver-recruit-sub">Isi data driver secara lengkap dalam satu halaman profesional.</p>
+                                <div class="od-driver-recruit-hero">
+                                    <div class="od-driver-recruit-hero-copy">
+                                        <span class="od-driver-recruit-badge">Driver Onboarding</span>
+                                        <h3>Rekrutment Driver Profesional</h3>
+                                        <p class="od-driver-recruit-sub">Lengkapi data identitas dan kendaraan dalam satu alur agar proses aktivasi driver lebih cepat.</p>
+                                    </div>
+                                    <div class="od-driver-recruit-hero-kpis">
+                                        <span><strong>3</strong>Tahap Validasi</span>
+                                        <span><strong>10</strong>Data Wajib</span>
                                     </div>
                                 </div>
 
                                 <form id="driverRecruitForm" class="od-settings-form od-driver-recruit-form">
                                     <div class="od-driver-recruit-grid">
-                                        <div class="od-form-row">
-                                            <label>Foto Driver</label>
-                                            <div class="od-input-group"><input type="file" id="driverRecruitPhoto" accept="image/*" required></div>
-                                        </div>
-                                        <div class="od-form-row">
-                                            <label>Foto KTP</label>
-                                            <div class="od-input-group"><input type="file" id="driverRecruitKtpPhoto" accept="image/*" required></div>
-                                        </div>
-                                        <div class="od-form-row">
-                                            <label>No KTP</label>
-                                            <div class="od-input-group"><input type="text" id="driverRecruitNoKtp" placeholder="NIK 16 digit" maxlength="20" required></div>
-                                        </div>
-                                        <div class="od-form-row">
-                                            <label>No HP (untuk login OTP)</label>
-                                            <div class="od-input-group"><input type="tel" id="driverRecruitPhone" placeholder="08xxxxxxxxxx" inputmode="numeric" required></div>
-                                            <p class="od-form-hint">Nomor ini akan dipakai driver saat login dengan OTP.</p>
-                                        </div>
-                                        <div class="od-form-row">
-                                            <label>Nama</label>
-                                            <div class="od-input-group"><input type="text" id="driverRecruitName" placeholder="Nama driver" required></div>
-                                        </div>
-                                        <div class="od-form-row">
-                                            <label>Jenis Kelamin</label>
-                                            <div class="od-input-group">
-                                                <select id="driverRecruitGender" required>
-                                                    <option value="">Pilih jenis kelamin</option>
-                                                    <option value="Laki-laki">Laki-laki</option>
-                                                    <option value="Perempuan">Perempuan</option>
-                                                </select>
+                                        <section class="od-driver-card">
+                                            <div class="od-driver-card-head">
+                                                <h4>Dokumen Identitas</h4>
+                                                <p>Pastikan foto dan nomor identitas valid.</p>
                                             </div>
-                                        </div>
-                                        <div class="od-form-row od-driver-recruit-span-2">
-                                            <label>Alamat lengkap</label>
-                                            <div class="od-input-group"><textarea id="driverRecruitAddress" rows="3" placeholder="Alamat domisili lengkap" required></textarea></div>
-                                        </div>
-                                        <div class="od-form-row">
-                                            <label>Jenis Motor</label>
-                                            <div class="od-input-group"><input type="text" id="driverRecruitMotorType" placeholder="Contoh: Honda Beat" required></div>
-                                        </div>
-                                        <div class="od-form-row">
-                                            <label>Tahun Kendaraan</label>
-                                            <div class="od-input-group"><input type="number" id="driverRecruitVehicleYear" placeholder="Contoh: 2021" min="1990" max="2099" required></div>
-                                        </div>
-                                        <div class="od-form-row od-driver-recruit-span-2">
-                                            <label>Plat Nomor Kendaraan</label>
-                                            <div class="od-input-group"><input type="text" id="driverRecruitPlate" placeholder="Contoh: B 1234 XYZ" required></div>
-                                        </div>
+                                            <div class="od-driver-card-body">
+                                                <div class="od-form-row">
+                                                    <label>Foto Driver</label>
+                                                    <div class="od-input-group"><input type="file" id="driverRecruitPhoto" accept="image/*" required></div>
+                                                </div>
+                                                <div class="od-form-row">
+                                                    <label>Foto KTP</label>
+                                                    <div class="od-input-group"><input type="file" id="driverRecruitKtpPhoto" accept="image/*" required></div>
+                                                </div>
+                                                <div class="od-form-row">
+                                                    <label>No KTP</label>
+                                                    <div class="od-input-group"><input type="text" id="driverRecruitNoKtp" placeholder="NIK 16 digit" maxlength="20" required></div>
+                                                </div>
+                                                <div class="od-form-row">
+                                                    <label>No HP (untuk login OTP)</label>
+                                                    <div class="od-input-group"><input type="tel" id="driverRecruitPhone" placeholder="08xxxxxxxxxx" inputmode="numeric" required></div>
+                                                    <p class="od-form-hint">Nomor ini akan dipakai driver saat login dengan OTP.</p>
+                                                </div>
+                                            </div>
+                                        </section>
+
+                                        <section class="od-driver-card">
+                                            <div class="od-driver-card-head">
+                                                <h4>Profil Driver</h4>
+                                                <p>Informasi dasar profil operasional.</p>
+                                            </div>
+                                            <div class="od-driver-card-body">
+                                                <div class="od-form-row">
+                                                    <label>Nama</label>
+                                                    <div class="od-input-group"><input type="text" id="driverRecruitName" placeholder="Nama driver" required></div>
+                                                </div>
+                                                <div class="od-form-row">
+                                                    <label>Jenis Kelamin</label>
+                                                    <div class="od-input-group">
+                                                        <select id="driverRecruitGender" required>
+                                                            <option value="">Pilih jenis kelamin</option>
+                                                            <option value="Laki-laki">Laki-laki</option>
+                                                            <option value="Perempuan">Perempuan</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="od-form-row">
+                                                    <label>Alamat lengkap</label>
+                                                    <div class="od-input-group"><textarea id="driverRecruitAddress" rows="3" placeholder="Alamat domisili lengkap" required></textarea></div>
+                                                </div>
+                                            </div>
+                                        </section>
+
+                                        <section class="od-driver-card od-driver-recruit-span-2">
+                                            <div class="od-driver-card-head">
+                                                <h4>Data Kendaraan</h4>
+                                                <p>Detail kendaraan untuk verifikasi armada.</p>
+                                            </div>
+                                            <div class="od-driver-card-body od-driver-vehicle-grid">
+                                                <div class="od-form-row">
+                                                    <label>Jenis Motor</label>
+                                                    <div class="od-input-group"><input type="text" id="driverRecruitMotorType" placeholder="Contoh: Honda Beat" required></div>
+                                                </div>
+                                                <div class="od-form-row">
+                                                    <label>Tahun Kendaraan</label>
+                                                    <div class="od-input-group"><input type="number" id="driverRecruitVehicleYear" placeholder="Contoh: 2021" min="1990" max="2099" required></div>
+                                                </div>
+                                                <div class="od-form-row od-driver-recruit-span-2">
+                                                    <label>Plat Nomor Kendaraan</label>
+                                                    <div class="od-input-group"><input type="text" id="driverRecruitPlate" placeholder="Contoh: B 1234 XYZ" required></div>
+                                                </div>
+                                            </div>
+                                        </section>
                                     </div>
-                                    <button type="submit" class="od-btn-save">✅ Rekrut Driver</button>
+
+                                    <div class="od-driver-submit-wrap">
+                                        <button type="submit" class="od-btn-save">✅ Rekrut Driver</button>
+                                    </div>
                                 </form>
                             </section>
                         </div>
