@@ -567,7 +567,27 @@
         if (role === 'talent') {
             var actorId = String(body && body.actorId || '').trim();
             if (!actorId) {
-                return Promise.resolve(fail('Pendaftaran driver hanya bisa dilakukan admin melalui menu rekrutment'));
+                // Allow existing talent to update own profile data without admin actor.
+                var selfId = String(userData && userData.id || '').trim();
+                if (!selfId) {
+                    return Promise.resolve(fail('Pendaftaran driver hanya bisa dilakukan admin melalui menu rekrutment'));
+                }
+                return sb.from('users').select('id, role, data').eq('id', selfId).single()
+                    .then(function (uRes) {
+                        if (uRes.error || !uRes.data) {
+                            return fail('Pendaftaran driver hanya bisa dilakukan admin melalui menu rekrutment');
+                        }
+                        var row = uRes.data || {};
+                        var d = row.data || {};
+                        var existingRole = String(row.role || d.role || '').toLowerCase();
+                        if (existingRole !== 'talent') {
+                            return fail('Pendaftaran driver hanya bisa dilakukan admin melalui menu rekrutment');
+                        }
+                        return proceedUpsert();
+                    })
+                    .catch(function () {
+                        return fail('Pendaftaran driver hanya bisa dilakukan admin melalui menu rekrutment');
+                    });
             }
             return resolveUserRoleById(actorId).then(function (actorRole) {
                 if (actorRole !== 'admin' && actorRole !== 'owner') {

@@ -3028,6 +3028,30 @@ function renderOrderActions(order, isTalent, isUser) {
                     btn.textContent = 'Terima Pesanan';
                 }
 
+                function _acceptOrderDirect(extraFields) {
+                    var payloadFields = Object.assign({
+                        status: 'accepted',
+                        acceptedAt: Date.now()
+                    }, extraFields || {});
+
+                    return backendPost({
+                        action: 'updateOrder',
+                        orderId: order.id,
+                        actorId: sessionNow && sessionNow.id ? sessionNow.id : '',
+                        fields: payloadFields
+                    }).then(function (res) {
+                        if (!res || !res.success) {
+                            throw new Error((res && res.message) || 'Gagal menerima pesanan');
+                        }
+                        if (_currentOrder && String(_currentOrder.id) === String(order.id)) {
+                            Object.assign(_currentOrder, payloadFields);
+                            refreshTrackingUIFromCurrentOrder();
+                        }
+                        showToast('Status diperbarui!', 'success');
+                        return res;
+                    });
+                }
+
                 ensureDriverSingleOrder(sessionNow ? sessionNow.id : '', order.id).then(function (hasActive) {
                     if (hasActive) {
                         resetBtn();
@@ -3041,8 +3065,12 @@ function renderOrderActions(order, isTalent, isUser) {
 
                     if (pm === 'cod') {
                         // COD: No wallet deduction from user. Accept directly.
-                        updateOrderStatus(order.id, 'accepted', { acceptedAt: Date.now(), paidAmount: 0 });
-                        _safeNotify({ userId: order.userId, icon: '✅', title: 'Driver Ditemukan!', desc: 'Pembayaran COD - siapkan uang tunai ' + _safeMoneyText(totalCost), type: 'order', orderId: order.id });
+                        _acceptOrderDirect({ paidAmount: 0 }).then(function () {
+                            _safeNotify({ userId: order.userId, icon: '✅', title: 'Driver Ditemukan!', desc: 'Pembayaran COD - siapkan uang tunai ' + _safeMoneyText(totalCost), type: 'order', orderId: order.id });
+                        }).catch(function (err) {
+                            resetBtn();
+                            showToast((err && err.message) ? err.message : 'Gagal menerima pesanan COD', 'error');
+                        });
                     } else {
                         // JSpay: Deduct user wallet NOW (on accept)
                         backendPost({
@@ -3058,8 +3086,12 @@ function renderOrderActions(order, isTalent, isUser) {
                                 _safeNotify({ userId: order.userId, icon: '⚠️', title: 'Saldo Tidak Cukup', desc: 'Saldo Anda tidak cukup untuk pesanan ' + (order.serviceType || '') + '. Top up ' + _safeMoneyText(totalCost), type: 'order', orderId: order.id });
                                 return;
                             }
-                            updateOrderStatus(order.id, 'accepted', { acceptedAt: Date.now(), paidAmount: totalCost });
-                            _safeNotify({ userId: order.userId, icon: '💳', title: 'Saldo Dipotong', desc: _safeMoneyText(totalCost) + ' untuk pesanan ' + (order.serviceType || ''), type: 'payment', orderId: order.id });
+                            _acceptOrderDirect({ paidAmount: totalCost }).then(function () {
+                                _safeNotify({ userId: order.userId, icon: '💳', title: 'Saldo Dipotong', desc: _safeMoneyText(totalCost) + ' untuk pesanan ' + (order.serviceType || ''), type: 'payment', orderId: order.id });
+                            }).catch(function (err) {
+                                resetBtn();
+                                showToast((err && err.message) ? err.message : 'Gagal finalisasi penerimaan pesanan', 'error');
+                            });
                         });
                     }
                 }).catch(function (err) {
