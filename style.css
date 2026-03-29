@@ -6418,6 +6418,9 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .sf-cancel-btn {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
+    pointer-events: auto;
+    position: relative;
+    z-index: 2;
 }
 
 @media (max-width:420px) {

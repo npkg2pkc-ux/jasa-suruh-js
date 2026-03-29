@@ -2892,22 +2892,23 @@ function _canUseKnownGpsForCompletion(order, targetType) {
 
 function bindActionTap(el, handler) {
     if (!el || typeof handler !== 'function') return;
-    var lastTouchAt = 0;
+    var lastInvokeAt = 0;
 
-    function run(ev) {
-        if (ev && ev.type === 'click' && (Date.now() - lastTouchAt) < 450) {
-            return;
-        }
-        if (ev && ev.cancelable) ev.preventDefault();
-        if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+    function invoke(ev) {
+        var now = Date.now();
+        if ((now - lastInvokeAt) < 220) return;
+        lastInvokeAt = now;
         handler.call(el, ev);
     }
 
-    el.addEventListener('touchend', function (ev) {
-        lastTouchAt = Date.now();
-        run(ev);
-    }, { passive: false });
-    el.addEventListener('click', run);
+    // Pointer events are the most reliable across Android/iOS webview + browser.
+    el.addEventListener('pointerup', function (ev) {
+        if (ev && ev.pointerType && ev.pointerType !== 'touch' && ev.pointerType !== 'pen') return;
+        invoke(ev);
+    });
+
+    // Keep click fallback for desktop and older browsers.
+    el.addEventListener('click', invoke);
 }
 
 function renderOrderActions(order, isTalent, isUser) {
