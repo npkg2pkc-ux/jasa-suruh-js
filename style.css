@@ -437,12 +437,12 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     display:flex;
     flex-direction:column;
     align-items:center;
-    gap:8px;
+    justify-content:center;
     background:rgba(255,255,255,.72);
     border:1px solid rgba(255,107,0,.12);
     border-radius:16px;
     cursor:pointer;
-    padding:8px 4px;
+    padding:10px 4px;
     transition:transform .18s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease;
     font-family:var(--font);
 }
@@ -450,17 +450,21 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     transform:translateY(1px) scale(.97);
 }
 .service-icon {
-    width:52px;
-    height:52px;
-    border-radius:14px;
+    width:58px;
+    height:58px;
+    border-radius:16px;
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:26px;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.5);
+    box-shadow:0 8px 18px rgba(255,107,0,.12);
+    overflow:hidden;
 }
-.si-orange { background:var(--orange-subtle); }
-.si-dark { background:#FFEBDD; }
+.service-icon img {
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+}
 .service-name { font-size:11px; font-weight:700; color:#4B5563; text-align:center; line-height:1.3; letter-spacing:.1px; }
 
 /* ========== PAY (User) ========== */
@@ -2213,7 +2217,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 /* ========== RESPONSIVE ========== */
 @media (max-width:360px) {
     .services-grid { gap:8px; padding:16px 8px; }
-    .service-icon { width:44px; height:44px; font-size:22px; }
+    .service-icon { width:50px; height:50px; }
     .service-name { font-size:10px; }
     .greeting-question { font-size:16px; }
     .stat-card { padding:12px 8px; }
@@ -5874,12 +5878,7 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 
     .service-item {
         border-radius:14px;
-        padding:7px 3px;
-    }
-
-    .service-name {
-        font-size:10px;
-        line-height:1.25;
+        padding:8px 3px;
     }
 
     .notif-popup-panel {

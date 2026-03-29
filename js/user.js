@@ -183,7 +183,11 @@ function setupServiceClicks() {
 
     document.querySelectorAll('.service-item').forEach(function (item) {
         item.addEventListener('click', function () {
-            var name = this.querySelector('.service-name').textContent;
+            var name = this.dataset.service;
+            if (!name) {
+                var labelEl = this.querySelector('.service-name');
+                name = labelEl ? labelEl.textContent : '';
+            }
             if (name === 'JS Antar') {
                 openJSAntarPage();
                 return;
