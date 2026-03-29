@@ -6123,7 +6123,7 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .sf-wizard { display:flex; flex-direction:column; min-height:100vh; background:var(--gray-50); }
 
 /* ─── Buttons ─── */
-.sf-btn { padding:12px 20px; border-radius:11px; font-family:var(--font); font-size:14px; font-weight:700; border:none; cursor:pointer; transition:all .2s; flex:1; text-align:center; }
+.sf-btn { padding:12px 20px; border-radius:11px; font-family:var(--font); font-size:14px; font-weight:700; border:none; cursor:pointer; transition:all .2s; flex:1; text-align:center; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
 .sf-btn:active { transform:scale(.97); }
 .sf-btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
 .sf-btn-primary { background:linear-gradient(135deg,#FF6B00,#FF8C3A); color:#fff; }

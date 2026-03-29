@@ -2953,13 +2953,25 @@ function renderOrderActions(order, isTalent, isUser) {
         if (order.status === 'pending_seller') {
             el.innerHTML = '<div class="sf-btn-row"><button class="sf-btn-solid" id="otpBtnSellerAccept">Terima & Siapkan</button><button class="sf-btn-outline" id="otpBtnSellerReject">Tolak</button></div>';
             document.getElementById('otpBtnSellerAccept').addEventListener('click', function () {
+                var btn = this;
+                if (btn.dataset.busy === '1') return;
+                btn.dataset.busy = '1';
+                btn.disabled = true;
                 backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'preparing', sellerAcceptedAt: Date.now() } }).then(function (res) {
                     if (res && res.success) {
                         if (_currentOrder) _currentOrder.status = 'preparing';
                         refreshTrackingUIFromCurrentOrder();
                         showToast('Pesanan diterima! Segera siapkan.', 'success');
                         addNotifItem({ userId: order.userId, icon: '👨‍🍳', title: 'Penjual Menyiapkan', desc: (order.serviceType || 'Pesanan') + ' sedang disiapkan', type: 'order', orderId: order.id });
+                        return;
                     }
+                    btn.dataset.busy = '0';
+                    btn.disabled = false;
+                    showToast((res && res.message) ? res.message : 'Gagal memproses aksi', 'error');
+                }).catch(function () {
+                    btn.dataset.busy = '0';
+                    btn.disabled = false;
+                    showToast('Gagal memproses aksi', 'error');
                 });
             });
             document.getElementById('otpBtnSellerReject').addEventListener('click', function () {
@@ -2982,6 +2994,10 @@ function renderOrderActions(order, isTalent, isUser) {
         } else if (order.status === 'preparing') {
             el.innerHTML = '<button class="sf-btn-solid" style="width:100%" id="otpBtnSellerReady">Pesanan Siap Diambil</button>';
             document.getElementById('otpBtnSellerReady').addEventListener('click', function () {
+                var btn = this;
+                if (btn.dataset.busy === '1') return;
+                btn.dataset.busy = '1';
+                btn.disabled = true;
                 backendPost({ action: 'updateOrder', orderId: order.id, fields: { status: 'searching', sellerReadyAt: Date.now() } }).then(function (res) {
                     if (res && res.success) {
                         if (_currentOrder) _currentOrder.status = 'searching';
@@ -2990,7 +3006,15 @@ function renderOrderActions(order, isTalent, isUser) {
                         addNotifItem({ userId: order.userId, icon: '📦', title: 'Pesanan Siap!', desc: 'Sedang mencari driver untuk mengambil pesanan', type: 'order', orderId: order.id });
                         // Trigger driver search from user side
                         if (typeof searchNearbyDriver === 'function') searchNearbyDriver(order);
+                        return;
                     }
+                    btn.dataset.busy = '0';
+                    btn.disabled = false;
+                    showToast((res && res.message) ? res.message : 'Gagal memproses aksi', 'error');
+                }).catch(function () {
+                    btn.dataset.busy = '0';
+                    btn.disabled = false;
+                    showToast('Gagal memproses aksi', 'error');
                 });
             });
         }
@@ -3124,7 +3148,15 @@ function renderOrderActions(order, isTalent, isUser) {
                 if (this.dataset.busy === '1') return;
                 this.dataset.busy = '1';
                 this.disabled = true;
-                updateOrderStatus(order.id, 'on_the_way', {});
+                updateOrderStatus(order.id, 'on_the_way', {}).then(function (ok) {
+                    if (!ok) {
+                        var btn = document.getElementById('otpBtnOtw');
+                        if (btn) {
+                            btn.dataset.busy = '0';
+                            btn.disabled = false;
+                        }
+                    }
+                });
                 startTalentLocationBroadcast(order.id);
             });
         } else if (order.status === 'on_the_way' && isProductOrder) {
@@ -3140,7 +3172,12 @@ function renderOrderActions(order, isTalent, isUser) {
                 btn.disabled = true;
                 _verifyDriverAtLocation(order, 'store', function(isNear) {
                     if (isNear) {
-                        updateOrderStatus(order.id, 'arrived', {});
+                        updateOrderStatus(order.id, 'arrived', {}).then(function (ok) {
+                            if (!ok) {
+                                btn.dataset.busy = '0';
+                                if (!btn.classList.contains('hidden')) btn.disabled = false;
+                            }
+                        });
                     } else {
                         btn.dataset.busy = '0';
                         if (!btn.classList.contains('hidden')) btn.disabled = false;
@@ -3154,7 +3191,15 @@ function renderOrderActions(order, isTalent, isUser) {
                 if (this.dataset.busy === '1') return;
                 this.dataset.busy = '1';
                 this.disabled = true;
-                updateOrderStatus(order.id, 'in_progress', { pickedUpAt: Date.now() });
+                updateOrderStatus(order.id, 'in_progress', { pickedUpAt: Date.now() }).then(function (ok) {
+                    if (!ok) {
+                        var btn = document.getElementById('otpBtnStart');
+                        if (btn) {
+                            btn.dataset.busy = '0';
+                            btn.disabled = false;
+                        }
+                    }
+                });
             });
         } else if (order.status === 'in_progress' && isProductOrder) {
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnComplete">Selesai + Upload Bukti</button><input type="file" id="otpProofInput" accept="image/*" capture="environment" style="display:none">';
@@ -3235,7 +3280,12 @@ function renderOrderActions(order, isTalent, isUser) {
                 btn.disabled = true;
                 _verifyDriverAtLocation(order, 'user', function(isNear) {
                     if (isNear) {
-                        updateOrderStatus(order.id, 'arrived', {});
+                        updateOrderStatus(order.id, 'arrived', {}).then(function (ok) {
+                            if (!ok) {
+                                btn.dataset.busy = '0';
+                                if (!btn.classList.contains('hidden')) btn.disabled = false;
+                            }
+                        });
                     } else {
                         btn.dataset.busy = '0';
                         if (!btn.classList.contains('hidden')) btn.disabled = false;
@@ -3250,7 +3300,15 @@ function renderOrderActions(order, isTalent, isUser) {
                 if (this.dataset.busy === '1') return;
                 this.dataset.busy = '1';
                 this.disabled = true;
-                updateOrderStatus(order.id, 'in_progress', { startedAt: Date.now() });
+                updateOrderStatus(order.id, 'in_progress', { startedAt: Date.now() }).then(function (ok) {
+                    if (!ok) {
+                        var btn = document.getElementById('otpBtnStart');
+                        if (btn) {
+                            btn.dataset.busy = '0';
+                            btn.disabled = false;
+                        }
+                    }
+                });
             });
         } else if (order.status === 'in_progress') {
             var completeLabel = isRideFlow ? 'Sampai Tujuan + Ambil Bukti Gambar' : 'Selesai + Upload Bukti';
@@ -3737,6 +3795,15 @@ function _finalizeProofCompletion(order, extraFields) {
 }
 
 function updateOrderStatus(orderId, newStatus, extraFields) {
+    var doneResolve = null;
+    var donePromise = new Promise(function (resolve) { doneResolve = resolve; });
+    function finish(ok) {
+        if (doneResolve) {
+            doneResolve(!!ok);
+            doneResolve = null;
+        }
+    }
+
     var fields = Object.assign({}, extraFields || {});
     var skipGpsGate = !!fields._skipGpsGate;
     if (Object.prototype.hasOwnProperty.call(fields, '_skipGpsGate')) delete fields._skipGpsGate;
@@ -3910,11 +3977,14 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                         closeTrackingToHome();
                     }, 900);
                 }
+                finish(true);
             } else {
                 showToast((res && res.message) ? res.message : 'Gagal update status', 'error');
+                finish(false);
             }
         }).catch(function () {
             showToast('Gagal update status', 'error');
+            finish(false);
         });
     }
 
@@ -3931,14 +4001,16 @@ function updateOrderStatus(orderId, newStatus, extraFields) {
                     ? ('⚠️ Belum sampai titik. Jarak saat ini ' + distText + ' (maks ' + radiusText + ').')
                     : ('⚠️ Belum sampai titik. Dekati lokasi tujuan (maks ' + radiusText + ').');
                 showToast(msg, 'error');
+                finish(false);
                 return;
             }
             runStatusUpdate();
         }, gateRadiusKm);
-        return;
+        return donePromise;
     }
 
     runStatusUpdate();
+    return donePromise;
 }
 
 // ══════════════════════════════════════════
