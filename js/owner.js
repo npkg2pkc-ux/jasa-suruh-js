@@ -162,6 +162,9 @@ var OwnerDashboard = (function () {
         if (panel === 'marketing') {
             loadOwnerMarketingSettings();
         }
+        if (panel === 'driver-recruit') {
+            _resetDriverRecruitFormVisual();
+        }
     }
 
     function _closeOwnerPanel() {
@@ -369,6 +372,22 @@ var OwnerDashboard = (function () {
         if (recruitForm && !recruitForm._bound) {
             recruitForm._bound = true;
             recruitForm.addEventListener('submit', handleDriverRecruitSubmit);
+
+            var driverPhotoInput = $('driverRecruitPhoto');
+            if (driverPhotoInput && !driverPhotoInput._bound) {
+                driverPhotoInput._bound = true;
+                driverPhotoInput.addEventListener('change', function () {
+                    _previewDriverRecruitFile('driver', this.files && this.files[0]);
+                });
+            }
+
+            var driverKtpPhotoInput = $('driverRecruitKtpPhoto');
+            if (driverKtpPhotoInput && !driverKtpPhotoInput._bound) {
+                driverKtpPhotoInput._bound = true;
+                driverKtpPhotoInput.addEventListener('change', function () {
+                    _previewDriverRecruitFile('ktp', this.files && this.files[0]);
+                });
+            }
 
             var ktpInput = $('driverRecruitNoKtp');
             if (ktpInput && !ktpInput._bound) {
@@ -2155,6 +2174,40 @@ var OwnerDashboard = (function () {
         });
     }
 
+    function _setDriverRecruitPreview(kind, src) {
+        var wrapId = kind === 'ktp' ? 'driverRecruitKtpPreviewWrap' : 'driverRecruitPhotoPreviewWrap';
+        var imgId = kind === 'ktp' ? 'driverRecruitKtpPreview' : 'driverRecruitPhotoPreview';
+        var wrap = $(wrapId);
+        var img = $(imgId);
+        if (!wrap || !img) return;
+
+        var val = String(src || '').trim();
+        if (!val) {
+            img.src = '';
+            wrap.classList.add('hidden');
+            return;
+        }
+        img.src = val;
+        wrap.classList.remove('hidden');
+    }
+
+    function _previewDriverRecruitFile(kind, file) {
+        if (!file) {
+            _setDriverRecruitPreview(kind, '');
+            return;
+        }
+        _readFileAsDataUrl(file)
+            .then(function (dataUrl) { _setDriverRecruitPreview(kind, dataUrl); })
+            .catch(function () { _setDriverRecruitPreview(kind, ''); });
+    }
+
+    function _resetDriverRecruitFormVisual() {
+        var form = $('driverRecruitForm');
+        if (form) form.reset();
+        _setDriverRecruitPreview('driver', '');
+        _setDriverRecruitPreview('ktp', '');
+    }
+
     function _uploadDriverAsset(path, file, fallbackDataUrl) {
         if (!file) return Promise.resolve('');
         var sb = (window.FB && window.FB._sb) ? window.FB._sb : null;
@@ -2337,7 +2390,7 @@ var OwnerDashboard = (function () {
                     backendPost({ action: 'updateSkills', userId: driverId, skills: driverSkills });
                 }
 
-                if (form) form.reset();
+                _resetDriverRecruitFormVisual();
                 _openOwnerPanel('users');
                 renderOwnerStats();
                 renderOwnerUsers();

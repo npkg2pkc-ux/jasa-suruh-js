@@ -4056,6 +4056,23 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     gap:10px;
 }
 
+.od-driver-photo-preview {
+    margin-top:8px;
+    border:1px solid #E5E7EB;
+    border-radius:12px;
+    overflow:hidden;
+    background:
+        linear-gradient(135deg, rgba(255,247,237,.9) 0%, rgba(255,255,255,1) 100%);
+    min-height:140px;
+}
+
+.od-driver-photo-preview img {
+    width:100%;
+    height:160px;
+    object-fit:cover;
+    display:block;
+}
+
 .od-driver-vehicle-grid {
     grid-template-columns:repeat(2,minmax(0,1fr));
 }
