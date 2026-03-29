@@ -214,6 +214,17 @@ function setupServiceClicks() {
 // ══════════════════════════════════════════
 // ═══ SERVICE TALENT PAGE ═══
 // ══════════════════════════════════════════
+function getServiceLabel(name) {
+    var raw = String(name || '').trim();
+    var cleaned = raw.replace(/^JS\s+/i, '').trim();
+    return cleaned || raw || 'Layanan';
+}
+
+function setFeatureTitleWithFavicon(titleEl, label) {
+    if (!titleEl) return;
+    titleEl.innerHTML = '<span class="feature-title-with-icon"><img src="favicon.png" alt="" class="feature-title-icon">' + escapeHtml(label || 'Layanan') + '</span>';
+}
+
 function openServiceTalentPage(skillType) {
     var page = document.getElementById('serviceTalentPage');
     if (!page) return;
@@ -224,13 +235,7 @@ function openServiceTalentPage(skillType) {
 
     var titleEl = document.getElementById('stpTitle');
     var subtitleEl = document.getElementById('stpSubtitle');
-    if (titleEl) {
-        if (def && def.iconPath) {
-            titleEl.innerHTML = '<span class="feature-title-with-icon"><img src="' + def.iconPath + '" alt="" class="feature-title-icon">' + escapeHtml(def.name) + '</span>';
-        } else {
-            titleEl.textContent = def ? (def.icon + ' ' + def.name) : 'Talent Tersedia';
-        }
-    }
+    setFeatureTitleWithFavicon(titleEl, def ? getServiceLabel(def.name) : 'Layanan');
     if (subtitleEl) subtitleEl.textContent = def ? def.desc : 'Temukan jasa terdekat';
 
     var searchInput = document.getElementById('stpSearchInput');
@@ -277,8 +282,7 @@ function openServiceTalentPage(skillType) {
 
 function setServiceCtaLabel(btn, serviceType, text) {
     if (!btn) return;
-    var iconPath = serviceType === 'js_delivery' ? 'jsdeliveryicon.png' : 'jsantaricon.png';
-    btn.innerHTML = '<span class="cta-service-icon"><img src="' + iconPath + '" alt=""></span><span>' + text + '</span>';
+    btn.innerHTML = '<span class="cta-service-icon"><img src="favicon.png" alt=""></span><span>' + text + '</span>';
 }
 
 function buildTalentList(skillType) {
@@ -694,9 +698,9 @@ function openStoreListPage(category) {
 
     var titleEl = document.getElementById('slpTitle');
     var subtitleEl = document.getElementById('slpSubtitle');
-    var catTitles = { food: '🍔 JS Food', shop: '🛒 JS Shop', medicine: '💊 JS Medicine', all: 'Semua Toko' };
+    var catTitles = { food: 'Food', shop: 'Shop', medicine: 'Medicine', all: 'Semua Toko' };
     var catDescs = { food: 'Pesan makanan & minuman', shop: 'Belanja kebutuhan sehari-hari', medicine: 'Beli obat & vitamin', all: 'Toko & produk terdekat' };
-    if (titleEl) titleEl.textContent = catTitles[_slpCurrentCat] || 'Toko & Produk';
+    setFeatureTitleWithFavicon(titleEl, catTitles[_slpCurrentCat] || 'Toko & Produk');
     if (subtitleEl) subtitleEl.textContent = catDescs[_slpCurrentCat] || '';
 
     var searchInput = document.getElementById('slpSearchInput');
