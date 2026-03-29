@@ -203,7 +203,49 @@ CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_active ON push_subscriptions(user_id, is_active);
 
 -- ============================================================
--- 14) STAFF
+-- 14) MARKETING CONTENTS (Info & Promo)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS marketing_contents (
+    id TEXT PRIMARY KEY,
+    content_type TEXT NOT NULL CHECK (content_type IN ('promo', 'info')),
+    badge TEXT NOT NULL DEFAULT 'INFO',
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    image_url TEXT NOT NULL DEFAULT '',
+    emoji TEXT NOT NULL DEFAULT '✨',
+    date_text TEXT,
+    link_url TEXT NOT NULL DEFAULT '',
+    sort_order INT NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    legacy_id TEXT,
+    meta JSONB NOT NULL DEFAULT '{}',
+    created_by TEXT,
+    updated_by TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_marketing_contents_type_active_sort ON marketing_contents(content_type, is_active, sort_order, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_marketing_contents_created_at ON marketing_contents(created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_marketing_contents_legacy ON marketing_contents(content_type, legacy_id) WHERE legacy_id IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION set_marketing_contents_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_marketing_contents_updated_at ON marketing_contents;
+CREATE TRIGGER trg_marketing_contents_updated_at
+BEFORE UPDATE ON marketing_contents
+FOR EACH ROW
+EXECUTE FUNCTION set_marketing_contents_updated_at();
+
+-- ============================================================
+-- 15) STAFF
 -- ============================================================
 CREATE TABLE IF NOT EXISTS staff (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -285,6 +327,10 @@ CREATE POLICY "anon_all_notifications" ON notifications FOR ALL TO anon USING (t
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon_all_push_subscriptions" ON push_subscriptions;
 CREATE POLICY "anon_all_push_subscriptions" ON push_subscriptions FOR ALL TO anon USING (true) WITH CHECK (true);
+
+ALTER TABLE marketing_contents ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_all_marketing_contents" ON marketing_contents;
+CREATE POLICY "anon_all_marketing_contents" ON marketing_contents FOR ALL TO anon USING (true) WITH CHECK (true);
 
 ALTER TABLE staff ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon_all_staff" ON staff;

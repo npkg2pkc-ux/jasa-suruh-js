@@ -145,6 +145,49 @@ create table if not exists push_subscriptions (
     data jsonb not null default '{}'
 );
 
+create table if not exists marketing_contents (
+    id text primary key,
+    content_type text not null check (content_type in ('promo', 'info')),
+    badge text not null default 'INFO',
+    title text not null,
+    description text not null default '',
+    image_url text not null default '',
+    emoji text not null default '✨',
+    date_text text,
+    link_url text not null default '',
+    sort_order int not null default 0,
+    is_active boolean not null default true,
+    legacy_id text,
+    meta jsonb not null default '{}',
+    created_by text,
+    updated_by text,
+    created_at timestamptz default now(),
+    updated_at timestamptz default now()
+);
+
+create index if not exists idx_marketing_contents_type_active_sort
+    on marketing_contents(content_type, is_active, sort_order, created_at desc);
+create index if not exists idx_marketing_contents_created_at
+    on marketing_contents(created_at desc);
+create unique index if not exists uq_marketing_contents_legacy
+    on marketing_contents(content_type, legacy_id) where legacy_id is not null;
+
+create or replace function set_marketing_contents_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+    new.updated_at = now();
+    return new;
+end;
+$$;
+
+drop trigger if exists trg_marketing_contents_updated_at on marketing_contents;
+create trigger trg_marketing_contents_updated_at
+before update on marketing_contents
+for each row
+execute function set_marketing_contents_updated_at();
+
 create table if not exists staff (
     id uuid primary key default gen_random_uuid(),
     nama text not null,
@@ -215,6 +258,74 @@ with ins as (
 )
 insert into _repair_log(step, affected_rows, note)
 select 'settings_cooldown_seed', count(*), 'Tambah account_delete_cooldowns jika belum ada' from ins;
+
+-- 1b) backfill marketing table from legacy settings JSON (home_promos/home_news)
+with cfg as (
+    select data from settings where key = 'config' limit 1
+), promo_rows as (
+    select
+        coalesce(nullif(trim(item.value->>'id'), ''), 'mkt_' || replace(gen_random_uuid()::text, '-', '')) as id,
+        'promo'::text as content_type,
+        coalesce(nullif(trim(item.value->>'badge'), ''), 'PROMO') as badge,
+        coalesce(nullif(trim(item.value->>'title'), ''), 'Promo Jasa Suruh') as title,
+        coalesce(nullif(trim(item.value->>'description'), ''), '-') as description,
+        coalesce(nullif(trim(item.value->>'imageUrl'), ''), coalesce(item.value->>'image', '')) as image_url,
+        coalesce(nullif(trim(item.value->>'emoji'), ''), '✨') as emoji,
+        coalesce(nullif(trim(item.value->>'dateText'), ''), nullif(trim(item.value->>'date'), '')) as date_text,
+        coalesce(nullif(trim(item.value->>'linkUrl'), ''), coalesce(item.value->>'link', '')) as link_url,
+        coalesce(item.ordinality, 1)::int as sort_order,
+        true as is_active,
+        nullif(trim(item.value->>'id'), '') as legacy_id,
+        item.value as meta,
+        now() as created_at,
+        now() as updated_at
+    from cfg
+    cross join lateral jsonb_array_elements(coalesce(cfg.data->'home_promos', '[]'::jsonb)) with ordinality as item(value, ordinality)
+), info_rows as (
+    select
+        coalesce(nullif(trim(item.value->>'id'), ''), 'mkt_' || replace(gen_random_uuid()::text, '-', '')) as id,
+        'info'::text as content_type,
+        coalesce(nullif(trim(item.value->>'badge'), ''), 'INFO') as badge,
+        coalesce(nullif(trim(item.value->>'title'), ''), 'Info Jasa Suruh') as title,
+        coalesce(nullif(trim(item.value->>'description'), ''), '-') as description,
+        coalesce(nullif(trim(item.value->>'imageUrl'), ''), coalesce(item.value->>'image', '')) as image_url,
+        coalesce(nullif(trim(item.value->>'emoji'), ''), '📰') as emoji,
+        coalesce(nullif(trim(item.value->>'dateText'), ''), nullif(trim(item.value->>'date'), '')) as date_text,
+        coalesce(nullif(trim(item.value->>'linkUrl'), ''), coalesce(item.value->>'link', '')) as link_url,
+        coalesce(item.ordinality, 1)::int as sort_order,
+        true as is_active,
+        nullif(trim(item.value->>'id'), '') as legacy_id,
+        item.value as meta,
+        now() as created_at,
+        now() as updated_at
+    from cfg
+    cross join lateral jsonb_array_elements(coalesce(cfg.data->'home_news', '[]'::jsonb)) with ordinality as item(value, ordinality)
+), merged as (
+    select * from promo_rows
+    union all
+    select * from info_rows
+), ins as (
+    insert into marketing_contents (
+        id, content_type, badge, title, description, image_url, emoji,
+        date_text, link_url, sort_order, is_active, legacy_id, meta,
+        created_at, updated_at
+    )
+    select
+        m.id, m.content_type, m.badge, m.title, m.description, m.image_url, m.emoji,
+        m.date_text, m.link_url, m.sort_order, m.is_active, m.legacy_id, m.meta,
+        m.created_at, m.updated_at
+    from merged m
+    where not exists (
+        select 1
+        from marketing_contents x
+        where x.content_type = m.content_type
+          and x.legacy_id is not null
+          and x.legacy_id = m.legacy_id
+    )
+    returning 1
+)
+insert into _repair_log(step, affected_rows, note)
+select 'marketing_backfill', count(*), 'Backfill marketing_contents dari settings.config' from ins;
 
 -- 2) users.data normalize minimal
 with upd as (

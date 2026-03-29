@@ -213,17 +213,135 @@
             });
     }
 
+    function _safeMarketingDateText(value) {
+        var raw = String(value || '').trim();
+        if (!raw) {
+            return new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+        return raw;
+    }
+
+    function _mapMarketingRowToLegacy(row) {
+        var raw = row || {};
+        return {
+            id: String(raw.id || generateId()),
+            badge: String(raw.badge || '').trim() || (raw.content_type === 'promo' ? 'PROMO' : 'INFO'),
+            title: String(raw.title || '').trim() || 'Info Jasa Suruh',
+            description: String(raw.description || '').trim() || '-',
+            dateText: _safeMarketingDateText(raw.date_text),
+            imageUrl: String(raw.image_url || '').trim(),
+            emoji: String(raw.emoji || '').trim() || (raw.content_type === 'promo' ? '✨' : '📰'),
+            linkUrl: String(raw.link_url || '').trim()
+        };
+    }
+
+    function _loadMarketingFromTable() {
+        return sb.from('marketing_contents')
+            .select('id, content_type, badge, title, description, image_url, emoji, date_text, link_url, sort_order, created_at')
+            .eq('is_active', true)
+            .order('content_type', { ascending: true })
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false })
+            .then(function (res) {
+                if (res && res.error) {
+                    // If migration is not applied yet, keep legacy settings behaviour.
+                    if (res.error.code === 'PGRST205' || /marketing_contents/i.test(String(res.error.message || ''))) {
+                        return { promos: null, news: null };
+                    }
+                    throw new Error(res.error.message || 'Gagal membaca marketing_contents');
+                }
+
+                var promos = [];
+                var news = [];
+                (res.data || []).forEach(function (row) {
+                    var mapped = _mapMarketingRowToLegacy(row);
+                    if (row.content_type === 'promo') promos.push(mapped);
+                    else news.push(mapped);
+                });
+
+                return { promos: promos, news: news };
+            });
+    }
+
+    function _normalizeMarketingPayloadItem(type, item, idx) {
+        var raw = item || {};
+        var itemType = type === 'promo' ? 'promo' : 'info';
+        var fallbackBadge = itemType === 'promo' ? 'PROMO' : 'INFO';
+        var fallbackEmoji = itemType === 'promo' ? '✨' : '📰';
+
+        return {
+            id: String(raw.id || generateId() + '-' + idx),
+            content_type: itemType,
+            badge: String(raw.badge || '').trim() || fallbackBadge,
+            title: String(raw.title || '').trim() || 'Info Jasa Suruh',
+            description: String(raw.description || '').trim() || '-',
+            image_url: String(raw.imageUrl || raw.image_url || raw.image || '').trim(),
+            emoji: String(raw.emoji || '').trim() || fallbackEmoji,
+            date_text: _safeMarketingDateText(raw.dateText || raw.date_text || raw.date),
+            link_url: String(raw.linkUrl || raw.link_url || raw.link || '').trim(),
+            sort_order: idx + 1,
+            is_active: true,
+            legacy_id: String(raw.id || '').trim() || null,
+            meta: raw && typeof raw === 'object' ? raw : {}
+        };
+    }
+
+    function _syncMarketingType(type, incoming, actorId) {
+        var normalizedType = type === 'promo' ? 'promo' : 'info';
+        var list = Array.isArray(incoming) ? incoming : [];
+        var rows = list.map(function (item, idx) {
+            var row = _normalizeMarketingPayloadItem(normalizedType, item, idx);
+            row.updated_by = actorId || null;
+            row.created_by = actorId || null;
+            return row;
+        });
+
+        return sb.from('marketing_contents').select('id').eq('content_type', normalizedType)
+            .then(function (res) {
+                throwIfError(res);
+                var existingIds = (res.data || []).map(function (r) { return String(r.id); });
+                var incomingIds = rows.map(function (r) { return String(r.id); });
+                var toDelete = existingIds.filter(function (id) { return incomingIds.indexOf(id) < 0; });
+
+                var deletePromise = Promise.resolve();
+                if (!incomingIds.length) {
+                    deletePromise = sb.from('marketing_contents').delete().eq('content_type', normalizedType)
+                        .then(function (delRes) { throwIfError(delRes); });
+                } else if (toDelete.length) {
+                    deletePromise = Promise.all(toDelete.map(function (id) {
+                        return sb.from('marketing_contents').delete().eq('id', id)
+                            .then(function (delRes) { throwIfError(delRes); });
+                    })).then(function () { return null; });
+                }
+
+                return deletePromise.then(function () {
+                    if (!rows.length) return null;
+                    return sb.from('marketing_contents').upsert(rows, { onConflict: 'id' })
+                        .then(function (upRes) { throwIfError(upRes); });
+                });
+            });
+    }
+
     function getSettings() {
         return sb.from('settings').select('data')
             .eq('key', 'config')
             .single()
             .then(function (res) {
                 if (res.error && res.error.code === 'PGRST116') {
-                    // Not found
-                    return ok({});
+                    return {};
                 }
                 throwIfError(res);
-                return ok(res.data ? res.data.data : {});
+                return (res.data && res.data.data) ? res.data.data : {};
+            })
+            .then(function (settingsData) {
+                var base = Object.assign({}, settingsData || {});
+                return _loadMarketingFromTable().then(function (marketingData) {
+                    if (marketingData.promos !== null && marketingData.news !== null) {
+                        base.home_promos = marketingData.promos;
+                        base.home_news = marketingData.news;
+                    }
+                    return ok(base);
+                });
             });
     }
 
@@ -895,19 +1013,51 @@
                 if (invalidKey) return fail('Akses ditolak: admin hanya boleh mengubah Info & Promo');
             }
 
-            return sb.from('settings').select('data').eq('key', 'config').single()
-                .then(function (res) {
-                    var current = {};
-                    if (res && res.error && res.error.code !== 'PGRST116') throw new Error(res.error.message || 'Gagal mengambil pengaturan saat ini');
-                    if (res && res.data && res.data.data && typeof res.data.data === 'object') {
-                        current = Object.assign({}, res.data.data);
-                    }
-                    return sb.from('settings').upsert({
-                        key: 'config',
-                        data: Object.assign({}, current, incomingSettings)
+            var hasPromos = Object.prototype.hasOwnProperty.call(incomingSettings, 'home_promos');
+            var hasNews = Object.prototype.hasOwnProperty.call(incomingSettings, 'home_news');
+            var baseSettings = Object.assign({}, incomingSettings);
+            delete baseSettings.home_promos;
+            delete baseSettings.home_news;
+
+            var saveBaseSettingsPromise = Promise.resolve(null);
+            if (Object.keys(baseSettings).length) {
+                saveBaseSettingsPromise = sb.from('settings').select('data').eq('key', 'config').single()
+                    .then(function (res) {
+                        var current = {};
+                        if (res && res.error && res.error.code !== 'PGRST116') throw new Error(res.error.message || 'Gagal mengambil pengaturan saat ini');
+                        if (res && res.data && res.data.data && typeof res.data.data === 'object') {
+                            current = Object.assign({}, res.data.data);
+                        }
+                        return sb.from('settings').upsert({
+                            key: 'config',
+                            data: Object.assign({}, current, baseSettings)
+                        });
+                    }).then(function (res) {
+                        throwIfError(res);
+                        return null;
                     });
-                }).then(function (res) {
-                throwIfError(res);
+            }
+
+            var saveMarketingPromise = Promise.resolve(null);
+            if (hasPromos || hasNews) {
+                saveMarketingPromise = Promise.resolve()
+                    .then(function () {
+                        if (!hasPromos) return null;
+                        return _syncMarketingType('promo', incomingSettings.home_promos, actorId);
+                    })
+                    .then(function () {
+                        if (!hasNews) return null;
+                        return _syncMarketingType('info', incomingSettings.home_news, actorId);
+                    })
+                    .catch(function (err) {
+                        var msg = String((err && err.message) || '');
+                        // Fallback for environment where migration SQL has not been executed yet.
+                        if (/marketing_contents|PGRST205/i.test(msg)) return null;
+                        throw err;
+                    });
+            }
+
+            return Promise.all([saveBaseSettingsPromise, saveMarketingPromise]).then(function () {
                 return ok(null);
             });
         });
