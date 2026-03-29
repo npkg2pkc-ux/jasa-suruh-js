@@ -1979,12 +1979,19 @@ function renderTrackingMapRouteCard(order, animate) {
 var _otpLastTalentPos = null;
 var _otpLastTalentTs = 0;
 var _otpSpeedKmh = 0;
+var _otpLastRouteRedrawPos = null;
+var _otpLastRouteRedrawTs = 0;
 var _otpAutoFollowPausedUntil = 0;
 var _otpEtaMin = 0;
 var _otpDriverTrailPoints = [];
 var _otpDriverTrailLayers = [];
 var DRIVER_MARKER_HEADING_OFFSET_DEG = -42;
 var DRIVER_MARKER_HEADING_MIN_MOVE_KM = 0.003;
+var DRIVER_JUMP_REJECT_KM = 0.35;
+var DRIVER_JUMP_REJECT_SPEED_KMH = 120;
+var DRIVER_SMOOTH_DIST_KM = 0.015;
+var DRIVER_ROUTE_REDRAW_MIN_MOVE_KM = 0.03;
+var DRIVER_ROUTE_REDRAW_MAX_WAIT_MS = 12000;
 
 function updateTrackingMapDepthClass() {
     var mapEl = document.getElementById('otpMapContainer');
@@ -4146,6 +4153,8 @@ function initTrackingMap(order) {
     _otpLastTalentPos = { lat: talentLat, lng: talentLng };
     _otpLastTalentTs = Date.now();
     _otpSpeedKmh = 0;
+    _otpLastRouteRedrawPos = { lat: talentLat, lng: talentLng };
+    _otpLastRouteRedrawTs = Date.now();
     _otpEtaMin = 0;
     _otpDriverTrailPoints = [];
     _otpDriverTrailLayers = [];
@@ -4272,33 +4281,57 @@ function updateTalentMarkerPosition(lat, lng) {
     var now = Date.now();
     var prev = _otpLastTalentPos;
     var nextPos = { lat: Number(lat), lng: Number(lng) };
+    if (!isValidLatLng(nextPos.lat, nextPos.lng)) return;
+
+    var shouldRefreshRoute = true;
     if (prev && _otpLastTalentTs > 0) {
         var deltaSec = Math.max(0.1, (now - _otpLastTalentTs) / 1000);
         var distKm = haversineDistance(prev.lat, prev.lng, nextPos.lat, nextPos.lng);
         var rawKmh = (distKm / deltaSec) * 3600;
-        if (isFinite(rawKmh)) _otpSpeedKmh = Math.max(0, Math.min(90, rawKmh));
+        if (isFinite(rawKmh)) {
+            if (rawKmh > DRIVER_JUMP_REJECT_SPEED_KMH && distKm > DRIVER_JUMP_REJECT_KM) {
+                return;
+            }
+            _otpSpeedKmh = Math.max(0, Math.min(90, rawKmh));
+        }
+
+        // Smooth tiny GPS jitter so marker movement looks stable.
+        if (distKm <= DRIVER_SMOOTH_DIST_KM) {
+            nextPos.lat = (prev.lat * 0.72) + (nextPos.lat * 0.28);
+            nextPos.lng = (prev.lng * 0.72) + (nextPos.lng * 0.28);
+        }
+
+        var routeDistKm = _otpLastRouteRedrawPos
+            ? haversineDistance(_otpLastRouteRedrawPos.lat, _otpLastRouteRedrawPos.lng, nextPos.lat, nextPos.lng)
+            : distKm;
+        shouldRefreshRoute = (routeDistKm >= DRIVER_ROUTE_REDRAW_MIN_MOVE_KM)
+            || ((now - _otpLastRouteRedrawTs) >= DRIVER_ROUTE_REDRAW_MAX_WAIT_MS);
     }
     _otpLastTalentPos = nextPos;
     _otpLastTalentTs = now;
     if (_otpTalentMarker) {
-        _otpTalentMarker.setLatLng([lat, lng]);
-        if (prev) setDriverMarkerHeading(prev.lat, prev.lng, lat, lng);
+        _otpTalentMarker.setLatLng([nextPos.lat, nextPos.lng]);
+        if (prev) setDriverMarkerHeading(prev.lat, prev.lng, nextPos.lat, nextPos.lng);
     }
     if (shouldRenderDriverTrail(_currentOrder)) {
-        pushDriverTrailPoint(lat, lng);
+        pushDriverTrailPoint(nextPos.lat, nextPos.lng);
     } else {
         _otpDriverTrailPoints = [];
         clearDriverTrailLayers();
     }
-    if (_otpMap && shouldAutoFollowDriver(lat, lng)) {
-        _otpMap.panTo([lat, lng], { animate: true, duration: 0.55, easeLinearity: 0.35 });
+    if (_otpMap && shouldAutoFollowDriver(nextPos.lat, nextPos.lng)) {
+        _otpMap.panTo([nextPos.lat, nextPos.lng], { animate: true, duration: 0.55, easeLinearity: 0.35 });
     }
     if (_currentOrder) {
-        _currentOrder.talentLat = lat;
-        _currentOrder.talentLng = lng;
+        _currentOrder.talentLat = nextPos.lat;
+        _currentOrder.talentLng = nextPos.lng;
         _refreshDriverGpsLockedButtons(_currentOrder);
         renderTrackingMapRouteCard(_currentOrder, false);
-        updateTrackingRoute(_currentOrder, false);
+        if (shouldRefreshRoute) {
+            updateTrackingRoute(_currentOrder, false);
+            _otpLastRouteRedrawPos = { lat: nextPos.lat, lng: nextPos.lng };
+            _otpLastRouteRedrawTs = now;
+        }
     }
 }
 

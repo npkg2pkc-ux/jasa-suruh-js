@@ -100,9 +100,15 @@ function getCurrentPosition() {
             return;
         }
         navigator.geolocation.getCurrentPosition(
-            function (pos) { resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
+            function (pos) {
+                resolve({
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    accuracy: Number(pos.coords.accuracy || 0)
+                });
+            },
             function (err) { reject(err); },
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+            { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
         );
     });
 }

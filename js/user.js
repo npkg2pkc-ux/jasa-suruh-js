@@ -914,6 +914,49 @@ function fetchSellerRating(sellerId, callback) {
 // ══════════════════════════════════════════
 // ═══ CREATE NEW ORDER ═══
 // ══════════════════════════════════════════
+function _resolveFreshOrderUserLocation(session, timeoutMs) {
+    var fallback = {
+        lat: Number((session && session.lat) || 0),
+        lng: Number((session && session.lng) || 0),
+        address: String((session && session.address) || '')
+    };
+    var ms = Math.max(1500, Number(timeoutMs) || 4000);
+
+    function useFallback() {
+        return Promise.resolve(fallback);
+    }
+
+    if (typeof getCurrentPosition !== 'function') return useFallback();
+
+    return Promise.race([
+        getCurrentPosition().then(function (pos) {
+            var lat = Number(pos && pos.lat);
+            var lng = Number(pos && pos.lng);
+            if (!isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) {
+                return fallback;
+            }
+            return {
+                lat: lat,
+                lng: lng,
+                address: fallback.address
+            };
+        }).catch(function () { return fallback; }),
+        new Promise(function (resolve) {
+            setTimeout(function () { resolve(fallback); }, ms);
+        })
+    ]).then(function (loc) {
+        try {
+            var s = getSession();
+            if (s) {
+                s.lat = Number(loc.lat) || s.lat || 0;
+                s.lng = Number(loc.lng) || s.lng || 0;
+                setSession(s);
+            }
+        } catch (e) {}
+        return loc;
+    });
+}
+
 function createNewOrder(t) {
     var session = getSession();
     if (!session) { showToast('Silakan login terlebih dahulu', 'error'); return; }
@@ -947,41 +990,43 @@ function createNewOrder(t) {
 
                 var orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
 
-                var orderData = {
-                    action: 'createOrder',
-                    id: orderId,
-                    userId: session.id,
-                    talentId: t.user.id,
-                    skillType: t.skill.type || '',
-                    serviceType: t.skill.serviceType || t.skill.name || '',
-                    description: t.skill.description || '',
-                    price: price,
-                    fee: fee,
-                    totalCost: totalCost,
-                    paymentMethod: paymentMethod || 'jspay',
-                    userLat: session.lat || 0,
-                    userLng: session.lng || 0,
-                    userAddr: session.address || '',
-                    talentLat: t.user.lat || 0,
-                    talentLng: t.user.lng || 0
-                };
+                return _resolveFreshOrderUserLocation(session, 4500).then(function (loc) {
+                    var orderData = {
+                        action: 'createOrder',
+                        id: orderId,
+                        userId: session.id,
+                        talentId: t.user.id,
+                        skillType: t.skill.type || '',
+                        serviceType: t.skill.serviceType || t.skill.name || '',
+                        description: t.skill.description || '',
+                        price: price,
+                        fee: fee,
+                        totalCost: totalCost,
+                        paymentMethod: paymentMethod || 'jspay',
+                        userLat: Number(loc.lat) || 0,
+                        userLng: Number(loc.lng) || 0,
+                        userAddr: loc.address || session.address || '',
+                        talentLat: t.user.lat || 0,
+                        talentLng: t.user.lng || 0
+                    };
 
-                // Create order WITHOUT deducting balance.
-                // Payment will be processed when talent accepts the order.
-                return backendPost(orderData).then(function (res) {
-                    if (res && res.success) {
-                        var order = res.data || orderData;
-                        order.status = 'pending';
-                        order.createdAt = Date.now();
-                        order.talentName = t.user.name;
-                        order.userName = session.name;
-                        showToast('Pesanan berhasil dibuat! Menunggu konfirmasi talent...', 'success');
-                        document.getElementById('talentDetailPage').classList.add('hidden');
-                        document.getElementById('serviceTalentPage').classList.add('hidden');
-                        openOrderTracking(order);
-                    } else {
-                        showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
-                    }
+                    // Create order WITHOUT deducting balance.
+                    // Payment will be processed when talent accepts the order.
+                    return backendPost(orderData).then(function (res) {
+                        if (res && res.success) {
+                            var order = res.data || orderData;
+                            order.status = 'pending';
+                            order.createdAt = Date.now();
+                            order.talentName = t.user.name;
+                            order.userName = session.name;
+                            showToast('Pesanan berhasil dibuat! Menunggu konfirmasi talent...', 'success');
+                            document.getElementById('talentDetailPage').classList.add('hidden');
+                            document.getElementById('serviceTalentPage').classList.add('hidden');
+                            openOrderTracking(order);
+                        } else {
+                            showToast('Gagal membuat pesanan: ' + ((res && res.message) || 'Error'), 'error');
+                        }
+                    });
                 });
             });
         }).catch(function () {
@@ -1634,60 +1679,62 @@ function createProductOrder(cartItems, store, paymentMethod, pricing, checkoutMo
     var totalQty = cartItems.reduce(function (s, it) { return s + (Number(it.qty) || 0); }, 0);
     var itemNames = cartItems.map(function (it) { return (it.name || 'Produk') + ' x' + (Number(it.qty) || 0); }).join(', ');
 
-    var orderData = {
-        action: 'createOrder',
-        id: orderId,
-        userId: session.id,
-        talentId: '',
-        sellerId: store.userId || '',
-        storeId: store.id || '',
-        storeName: store.name || '',
-        storePhoto: store.photo || '',
-        storeAddr: store.address || '',
-        skillType: store.category || 'js_food',
-        serviceType: 'Belanja ' + totalQty + ' item',
-        description: 'Produk: ' + itemNames,
-        items: cartItems,
-        totalQty: totalQty,
-        price: price,
-        deliveryFee: deliveryFee,
-        fee: fee,
-        totalCost: totalCost,
-        paymentMethod: paymentMethod,
-        status: 'pending_seller',
-        userLat: session.lat || 0,
-        userLng: session.lng || 0,
-        userAddr: session.address || '',
-        storeLat: store.lat || 0,
-        storeLng: store.lng || 0,
-        talentLat: store.lat || 0,
-        talentLng: store.lng || 0
-    };
+    _resolveFreshOrderUserLocation(session, 4500).then(function (loc) {
+        var orderData = {
+            action: 'createOrder',
+            id: orderId,
+            userId: session.id,
+            talentId: '',
+            sellerId: store.userId || '',
+            storeId: store.id || '',
+            storeName: store.name || '',
+            storePhoto: store.photo || '',
+            storeAddr: store.address || '',
+            skillType: store.category || 'js_food',
+            serviceType: 'Belanja ' + totalQty + ' item',
+            description: 'Produk: ' + itemNames,
+            items: cartItems,
+            totalQty: totalQty,
+            price: price,
+            deliveryFee: deliveryFee,
+            fee: fee,
+            totalCost: totalCost,
+            paymentMethod: paymentMethod,
+            status: 'pending_seller',
+            userLat: Number(loc.lat) || 0,
+            userLng: Number(loc.lng) || 0,
+            userAddr: loc.address || session.address || '',
+            storeLat: store.lat || 0,
+            storeLng: store.lng || 0,
+            talentLat: store.lat || 0,
+            talentLng: store.lng || 0
+        };
 
-    backendPost(orderData).then(function (res) {
-        if (res && res.success) {
-            var order = res.data || orderData;
-            order.status = 'pending_seller';
-            order.createdAt = Date.now();
-            order.storeName = store.name;
-            order.storePhoto = store.photo || '';
-            order.userName = session.name;
+        return backendPost(orderData).then(function (res) {
+            if (res && res.success) {
+                var order = res.data || orderData;
+                order.status = 'pending_seller';
+                order.createdAt = Date.now();
+                order.storeName = store.name;
+                order.storePhoto = store.photo || '';
+                order.userName = session.name;
 
-            try {
-                addNotifItem({ userId: store.userId, icon: '🛒', title: 'Pesanan Baru!', desc: (store.name || 'Toko') + ' - ' + formatRupiah(totalCost), type: 'order', orderId: orderId });
-            } catch (ne) {}
+                try {
+                    addNotifItem({ userId: store.userId, icon: '🛒', title: 'Pesanan Baru!', desc: (store.name || 'Toko') + ' - ' + formatRupiah(totalCost), type: 'order', orderId: orderId });
+                } catch (ne) {}
 
-            _shopCart = [];
-            updateShopCartUI();
-            if (checkoutModal) checkoutModal.style.display = 'none';
-            showToast('Pesanan berhasil! Menunggu penjual menerima pesanan...', 'success');
-            document.getElementById('storeDetailPage').classList.add('hidden');
-            document.getElementById('storeListPage').classList.add('hidden');
-            openOrderTracking(order);
-        } else {
-            var errMsg = (res && res.message) || 'Server error';
-            showToast('Gagal membuat pesanan: ' + errMsg, 'error');
-        }
+                _shopCart = [];
+                updateShopCartUI();
+                if (checkoutModal) checkoutModal.style.display = 'none';
+                showToast('Pesanan berhasil! Menunggu penjual menerima pesanan...', 'success');
+                document.getElementById('storeDetailPage').classList.add('hidden');
+                document.getElementById('storeListPage').classList.add('hidden');
+                openOrderTracking(order);
+            } else {
+                var errMsg = (res && res.message) || 'Server error';
+                showToast('Gagal membuat pesanan: ' + errMsg, 'error');
+            }
+        });
     }).catch(function (err) {
         showToast('Gagal memproses pesanan: ' + (err && err.message ? err.message : 'Error'), 'error');
     });
