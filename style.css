@@ -2269,6 +2269,7 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 #jsAntarPage.hidden { display:none; }
 
 .jap-header { display:flex; align-items:center; gap:12px; padding:48px 16px 14px; background:linear-gradient(135deg,#1E293B,#334155); flex-shrink:0; }
+.jap-header-info { display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-width:0; }
 .jap-header-info h2 { font-size:18px; font-weight:800; color:var(--white); line-height:1.2; }
 .jap-header .stp-subtitle { color:rgba(255,255,255,.7); }
 .jap-header .stp-back { color:var(--white); }
