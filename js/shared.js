@@ -2897,6 +2897,90 @@ function _unlockProofButtonForRetry(buttonId) {
     if (!btn.classList.contains('hidden')) btn.disabled = false;
 }
 
+function _compressProofPhotoSafe(dataUrl, callback) {
+    var done = false;
+    function finish(resultUrl) {
+        if (done) return;
+        done = true;
+        callback(String(resultUrl || ''));
+    }
+
+    function compressWithSettings(sourceUrl, maxDim, quality, cb) {
+        var img = new Image();
+        img.onload = function () {
+            try {
+                var canvas = document.createElement('canvas');
+                var w = Number(img.width) || 0;
+                var h = Number(img.height) || 0;
+                if (!w || !h) {
+                    cb('');
+                    return;
+                }
+                if (w > maxDim || h > maxDim) {
+                    var ratio = Math.min(maxDim / w, maxDim / h);
+                    w = Math.max(1, Math.round(w * ratio));
+                    h = Math.max(1, Math.round(h * ratio));
+                }
+                canvas.width = w;
+                canvas.height = h;
+                var ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    cb('');
+                    return;
+                }
+                ctx.drawImage(img, 0, 0, w, h);
+                cb(canvas.toDataURL('image/jpeg', quality));
+            } catch (e) {
+                cb('');
+            }
+        };
+        img.onerror = function () { cb(''); };
+        try {
+            img.src = sourceUrl;
+        } catch (e2) {
+            cb('');
+        }
+    }
+
+    var source = String(dataUrl || '');
+    if (!source) {
+        finish('');
+        return;
+    }
+
+    // Primary path (shared compressor) with a watchdog fallback for webview/camera edge-cases.
+    var watchdog = setTimeout(function () {
+        compressWithSettings(source, 160, 0.3, function (tiny) {
+            finish(tiny || source);
+        });
+    }, 2800);
+
+    try {
+        compressThumbnail(source, function (thumb) {
+            clearTimeout(watchdog);
+            var out = String(thumb || '');
+            if (!out) {
+                compressWithSettings(source, 160, 0.3, function (tiny) {
+                    finish(tiny || source);
+                });
+                return;
+            }
+            if (out.length > 420000) {
+                compressWithSettings(out, 140, 0.25, function (tiny2) {
+                    finish(tiny2 || out);
+                });
+                return;
+            }
+            finish(out);
+        });
+    } catch (err) {
+        clearTimeout(watchdog);
+        compressWithSettings(source, 160, 0.3, function (tiny3) {
+            finish(tiny3 || source);
+        });
+    }
+}
+
 function _tryOpenProofAfterGpsCheck(btn, proofInput, blockedMsg) {
     if (proofInput) proofInput.dataset.gpsVerified = '1';
     _setCompleteButtonArmedState(btn, true);
@@ -3460,7 +3544,12 @@ function renderOrderActions(order, isTalent, isUser) {
                 }
                 var reader = new FileReader();
                 reader.onload = function () {
-                    compressThumbnail(reader.result, function (proofThumb) {
+                    _compressProofPhotoSafe(reader.result, function (proofThumb) {
+                        if (!proofThumb) {
+                            _unlockProofButtonForRetry('otpBtnComplete');
+                            showToast('Gagal memproses foto bukti. Coba ambil ulang foto.', 'error');
+                            return;
+                        }
                         var proofInput = document.getElementById('otpProofInput');
                         var lat = proofInput ? Number(proofInput.dataset.gpsLat) : NaN;
                         var lng = proofInput ? Number(proofInput.dataset.gpsLng) : NaN;
@@ -3593,7 +3682,12 @@ function renderOrderActions(order, isTalent, isUser) {
                 }
                 var reader = new FileReader();
                 reader.onload = function () {
-                    compressThumbnail(reader.result, function (proofThumb) {
+                    _compressProofPhotoSafe(reader.result, function (proofThumb) {
+                        if (!proofThumb) {
+                            _unlockProofButtonForRetry('otpBtnComplete');
+                            showToast('Gagal memproses foto bukti. Coba ambil ulang foto.', 'error');
+                            return;
+                        }
                         var proofInput = document.getElementById('otpProofInput');
                         var lat = proofInput ? Number(proofInput.dataset.gpsLat) : NaN;
                         var lng = proofInput ? Number(proofInput.dataset.gpsLng) : NaN;
@@ -5135,29 +5229,21 @@ function sendChatMessage(photo) {
 
 function _sendDriverProofToUserChat(order, proofPhoto) {
     if (!order || !order.id || !proofPhoto) return Promise.resolve(false);
-    var userId = String(order.userId || '');
-    var driverId = String(order.talentId || '');
+    var session = (typeof getSession === 'function') ? getSession() : null;
+    var userId = String(order.userId || order.user_id || '');
+    var driverId = String(order.talentId || order.talent_id || (session && session.id) || '');
     if (!userId || !driverId) return Promise.resolve(false);
 
-    var session = (typeof getSession === 'function') ? getSession() : null;
     var senderId = session && session.id ? String(session.id) : driverId;
+    if (!senderId) senderId = driverId;
     var users = (typeof getUsers === 'function') ? getUsers() : [];
     var senderUser = users.find(function (u) { return String(u.id) === senderId; }) || {};
     var senderName = String((session && session.name) || senderUser.name || senderUser.nama || 'Driver');
     var conversationKey = buildChatConversationKey(order.id, userId, driverId);
 
-    function postProofMessage() {
+    function postProofMessage(payload) {
         return Promise.resolve().then(function () {
-            return backendPost({
-                action: 'sendMessage',
-                orderId: order.id,
-                senderId: senderId,
-                recipientId: userId,
-                conversationKey: conversationKey,
-                senderName: senderName,
-                text: '📷 Bukti penyelesaian pesanan dari driver.',
-                photo: proofPhoto
-            });
+            return backendPost(payload);
         }).then(function (res) {
             return !!(res && res.success);
         }).catch(function () {
@@ -5165,12 +5251,29 @@ function _sendDriverProofToUserChat(order, proofPhoto) {
         });
     }
 
-    return postProofMessage().then(function (ok) {
+    var primaryPayload = {
+        action: 'sendMessage',
+        orderId: order.id,
+        senderId: senderId,
+        recipientId: userId,
+        conversationKey: conversationKey,
+        senderName: senderName,
+        text: '📷 Bukti penyelesaian pesanan dari driver.',
+        photo: proofPhoto
+    };
+
+    return postProofMessage(primaryPayload).then(function (ok) {
         if (ok) return true;
         return new Promise(function (resolve) {
             setTimeout(resolve, 450);
         }).then(function () {
-            return postProofMessage();
+            var fallbackPayload = Object.assign({}, primaryPayload, {
+                senderId: driverId,
+                senderName: senderName || 'Driver',
+                conversationKey: buildChatConversationKey(order.id, userId, driverId) || '',
+                recipientId: userId
+            });
+            return postProofMessage(fallbackPayload);
         });
     }).then(function (ok) {
         if (ok && typeof addNotifItem === 'function') {
