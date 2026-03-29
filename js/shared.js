@@ -3168,20 +3168,61 @@ function renderOrderActions(order, isTalent, isUser) {
             var otwLabel = isAntar ? 'Menuju Lokasi Jemput' : (isDelivery ? 'Menuju Titik Jemput Barang' : 'Menuju Lokasi');
             el.innerHTML = driverNavHtml + '<button class="sf-btn-solid" style="width:100%" id="otpBtnOtw">' + otwLabel + '</button>';
             bindActionTap(document.getElementById('otpBtnOtw'), function () {
-                if (this.dataset.busy === '1') return;
-                this.dataset.busy = '1';
-                this.disabled = true;
+                var btn = this;
+                if (btn.dataset.busy === '1') return;
+                btn.dataset.busy = '1';
+                btn.disabled = true;
                 var sid = (session && session.id) ? String(session.id) : '';
-                updateOrderStatus(order.id, 'on_the_way', { talentId: sid }).then(function (ok) {
-                    if (!ok) {
-                        var btn = document.getElementById('otpBtnOtw');
-                        if (btn) {
-                            btn.dataset.busy = '0';
-                            btn.disabled = false;
+
+                function unlock() {
+                    btn.dataset.busy = '0';
+                    btn.disabled = false;
+                }
+
+                function postStatus(status, fields) {
+                    return backendPost({
+                        action: 'updateOrder',
+                        orderId: order.id,
+                        actorId: sid,
+                        fields: Object.assign({ status: status, talentId: sid }, fields || {})
+                    });
+                }
+
+                postStatus('on_the_way', { startedTripAt: Date.now() })
+                    .then(function (res) {
+                        if (res && res.success) return res;
+
+                        var msg = String((res && res.message) || '').toLowerCase();
+                        var shouldFallback = msg.indexOf('urutan status tidak valid') >= 0
+                            || msg.indexOf('status') >= 0
+                            || msg.indexOf('hanya driver aktif') >= 0;
+                        if (!shouldFallback) return res;
+
+                        // Fallback for stale DB state: force accepted then retry on_the_way.
+                        return postStatus('accepted', { acceptedAt: Date.now(), paidAmount: Number(order.paidAmount) || 0 })
+                            .then(function () {
+                                return postStatus('on_the_way', { startedTripAt: Date.now() });
+                            });
+                    })
+                    .then(function (res) {
+                        if (!res || !res.success) {
+                            unlock();
+                            showToast((res && res.message) ? res.message : 'Gagal update ke status menuju lokasi', 'error');
+                            return;
                         }
-                    }
-                });
-                startTalentLocationBroadcast(order.id);
+                        if (_currentOrder && String(_currentOrder.id) === String(order.id)) {
+                            _currentOrder.status = 'on_the_way';
+                            _currentOrder.talentId = sid;
+                            _currentOrder.startedTripAt = Date.now();
+                            refreshTrackingUIFromCurrentOrder();
+                        }
+                        showToast('Status diperbarui: menuju lokasi', 'success');
+                        startTalentLocationBroadcast(order.id);
+                    })
+                    .catch(function () {
+                        unlock();
+                        showToast('Gagal update ke status menuju lokasi', 'error');
+                    });
             });
         } else if (order.status === 'on_the_way' && isProductOrder) {
             // GPS-gated: Only show "Sampai di Toko" button, but auto-advance handles it via proximity
@@ -6006,7 +6047,7 @@ window.addEventListener('beforeinstallprompt', function (e) {
 
 function registerSW() {
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js?v=25').then(function (reg) {
+        navigator.serviceWorker.register('sw.js?v=26').then(function (reg) {
             // Check for updates on load
             reg.addEventListener('updatefound', function () {
                 var newWorker = reg.installing;
