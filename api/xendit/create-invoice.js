@@ -20,11 +20,26 @@ function resolveBaseUrl(req) {
 }
 
 function resolveInvoiceUrl(xenditData) {
-    var url = String(
-        (xenditData && (xenditData.invoice_url || xenditData.invoice_url_v2 || xenditData.checkout_url)) || ''
-    ).trim();
-    if (!/^https?:\/\//i.test(url)) return '';
-    return url;
+    var candidates = [];
+    if (xenditData) {
+        candidates.push(xenditData.invoice_url_v2);
+        candidates.push(xenditData.checkout_url);
+        candidates.push(xenditData.invoice_url);
+    }
+
+    // Prioritaskan URL non-staging untuk kompatibilitas browser mobile, jika tersedia.
+    for (var i = 0; i < candidates.length; i++) {
+        var c = String(candidates[i] || '').trim();
+        if (!/^https?:\/\//i.test(c)) continue;
+        if (c.indexOf('checkout-staging.xendit.co') === -1) return c;
+    }
+
+    for (var j = 0; j < candidates.length; j++) {
+        var fallback = String(candidates[j] || '').trim();
+        if (/^https?:\/\//i.test(fallback)) return fallback;
+    }
+
+    return '';
 }
 
 module.exports = async (req, res) => {
