@@ -2933,7 +2933,17 @@ function bindActionTap(el, handler) {
         var now = Date.now();
         if ((now - lastInvokeAt) < 450) return;
         lastInvokeAt = now;
-        handler.call(el, ev);
+        try {
+            handler.call(el, ev);
+        } catch (err) {
+            console.error('Action tap handler error:', err);
+            el.dataset.busy = '0';
+            el.dataset.busySince = '';
+            if (!el.classList.contains('hidden')) el.disabled = false;
+            if (typeof showToast === 'function') {
+                showToast('Terjadi gangguan saat memproses tombol. Silakan coba lagi.', 'error');
+            }
+        }
     }
 
     // Touchend handles devices/webviews where click is flaky or delayed.
@@ -2951,25 +2961,60 @@ function bindActionTap(el, handler) {
     el.addEventListener('click', invoke);
 }
 
-function _tryArriveStatusWithFallback(order, actorId) {
+function _tryArriveStatusWithFallback(order, actorId, verifyMeta) {
     if (!order || !order.id) return Promise.resolve(false);
     var sid = String(actorId || order.talentId || '');
     if (!sid) return Promise.resolve(false);
 
-    var arriveFields = { talentId: sid, _skipGpsGate: true };
+    function safeStatusUpdate(status, payloadFields) {
+        return Promise.resolve().then(function () {
+            return updateOrderStatus(order.id, status, payloadFields);
+        }).catch(function () {
+            return false;
+        });
+    }
+
+    function resolveCoords(meta, orderRef) {
+        var lat = NaN;
+        var lng = NaN;
+        if (meta && isValidLatLng(Number(meta.gpsLat), Number(meta.gpsLng))) {
+            lat = Number(meta.gpsLat);
+            lng = Number(meta.gpsLng);
+        } else if (orderRef && isValidLatLng(Number(orderRef.talentLat), Number(orderRef.talentLng))) {
+            lat = Number(orderRef.talentLat);
+            lng = Number(orderRef.talentLng);
+        }
+        if (!isValidLatLng(lat, lng)) return null;
+        return { lat: lat, lng: lng };
+    }
+
+    var nowTs = Date.now();
+    var coords = resolveCoords(verifyMeta, order);
+
+    var arriveFields = { talentId: sid, arrivedAt: nowTs, _skipGpsGate: true };
+    if (coords) {
+        arriveFields.talentLat = coords.lat;
+        arriveFields.talentLng = coords.lng;
+        arriveFields.talentLastLocationAt = nowTs;
+    }
     var onTheWayFields = {
         talentId: sid,
-        startedTripAt: Number(order.startedTripAt) || Date.now(),
+        startedTripAt: Number(order.startedTripAt) || nowTs,
         autoProgress: true,
         _skipGpsGate: true
     };
+    if (coords) {
+        onTheWayFields.talentLat = coords.lat;
+        onTheWayFields.talentLng = coords.lng;
+        onTheWayFields.talentLastLocationAt = nowTs;
+    }
 
-    return updateOrderStatus(order.id, 'arrived', arriveFields).then(function (ok) {
+    return safeStatusUpdate('arrived', arriveFields).then(function (ok) {
         if (ok) return true;
         // Fallback: normalize backend order state to on_the_way then retry arrived once.
-        return updateOrderStatus(order.id, 'on_the_way', onTheWayFields).then(function (ok2) {
+        return safeStatusUpdate('on_the_way', onTheWayFields).then(function (ok2) {
             if (!ok2) return false;
-            return updateOrderStatus(order.id, 'arrived', arriveFields);
+            return safeStatusUpdate('arrived', arriveFields);
         });
     }).catch(function () {
         return false;
@@ -3330,10 +3375,10 @@ function renderOrderActions(order, isTalent, isUser) {
                 var btn = this;
                 if (btn.dataset.busy === '1') return;
                 _armProgressButtonFailsafe('otpBtnArrive');
-                _verifyDriverAtLocation(order, 'store', function(isNear) {
+                _verifyDriverAtLocation(order, 'store', function(isNear, meta) {
                     if (isNear) {
                         var sid = (session && session.id) ? String(session.id) : String(order.talentId || '');
-                        _tryArriveStatusWithFallback(order, sid).then(function (ok) {
+                        _tryArriveStatusWithFallback(order, sid, meta).then(function (ok) {
                             if (!ok) {
                                 btn.dataset.busy = '0';
                                 btn.dataset.busySince = '';
@@ -3441,10 +3486,10 @@ function renderOrderActions(order, isTalent, isUser) {
                 var btn = this;
                 if (btn.dataset.busy === '1') return;
                 _armProgressButtonFailsafe('otpBtnArrive');
-                _verifyDriverAtLocation(order, 'user', function(isNear) {
+                _verifyDriverAtLocation(order, 'user', function(isNear, meta) {
                     if (isNear) {
                         var sid = (session && session.id) ? String(session.id) : String(order.talentId || '');
-                        _tryArriveStatusWithFallback(order, sid).then(function (ok) {
+                        _tryArriveStatusWithFallback(order, sid, meta).then(function (ok) {
                             if (!ok) {
                                 btn.dataset.busy = '0';
                                 btn.dataset.busySince = '';
@@ -4021,6 +4066,14 @@ function _finalizeProofCompletion(order, extraFields) {
         });
     }
     runAttempt();
+}
+
+function _isProtectedDriverStatus(status) {
+    var normalized = String(status || '').toLowerCase();
+    return normalized === 'on_the_way'
+        || normalized === 'arrived'
+        || normalized === 'in_progress'
+        || normalized === 'completed';
 }
 
 function updateOrderStatus(orderId, newStatus, extraFields) {
