@@ -14,28 +14,28 @@ WITH ledger_net AS (
 ),
 mismatch AS (
   SELECT
-    w.user_id,
+    COALESCE(w.user_id, l.user_id) AS user_id,
     COALESCE(w.balance, 0)::bigint AS wallet_balance,
     COALESCE(l.net_ledger, 0)::bigint AS ledger_balance,
     (COALESCE(w.balance, 0)::bigint - COALESCE(l.net_ledger, 0)::bigint) AS delta
   FROM wallets w
-  LEFT JOIN ledger_net l ON l.user_id = w.user_id
+  FULL OUTER JOIN ledger_net l ON l.user_id = w.user_id
   WHERE COALESCE(w.balance, 0)::bigint <> COALESCE(l.net_ledger, 0)::bigint
 ),
 prepared AS (
   SELECT
-    ('wl_recon_' || substr(md5('recon_opening:' || user_id), 1, 16))::text AS ledger_id,
+    ('wl_recon_' || substr(md5('recon_balance:' || user_id), 1, 16))::text AS ledger_id,
     user_id,
     CASE WHEN delta > 0 THEN 'credit' ELSE 'debit' END::text AS direction,
     ABS(delta)::bigint AS amount,
     ledger_balance::bigint AS balance_before,
     wallet_balance::bigint AS balance_after,
-    'opening_balance_recon'::text AS ref_type,
+    'balance_recon'::text AS ref_type,
     'cutover_2026_03_29'::text AS ref_id,
     'system'::text AS actor_type,
     'sql_reconcile'::text AS actor_id,
-    'Backfill opening balance to align ledger with existing wallet balance'::text AS reason,
-    ('recon:opening:' || user_id)::text AS idempotency_key,
+    'Backfill reconciliation to align ledger net with current wallet balance'::text AS reason,
+    ('recon:balance:' || user_id)::text AS idempotency_key,
     (extract(epoch FROM now()) * 1000)::bigint AS created_at,
     jsonb_build_object(
       'source', 'wallet_reconciliation_repair.sql',
@@ -83,7 +83,7 @@ ON CONFLICT (idempotency_key) DO NOTHING;
 WITH inserted AS (
   SELECT id, idempotency_key, created_at
   FROM wallet_ledger
-  WHERE ref_type = 'opening_balance_recon'
+  WHERE ref_type = 'balance_recon'
     AND ref_id = 'cutover_2026_03_29'
 )
 INSERT INTO wallet_idempotency (idempotency_key, result_ledger_id, created_at)
@@ -99,5 +99,5 @@ COMMIT;
 -- 2) Cek daftar backfill yang dibuat
 -- SELECT id, user_id, direction, amount, balance_before, balance_after, idempotency_key
 -- FROM wallet_ledger
--- WHERE ref_type = 'opening_balance_recon'
+-- WHERE ref_type = 'balance_recon'
 -- ORDER BY created_at DESC;
