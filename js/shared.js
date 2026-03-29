@@ -2888,6 +2888,15 @@ function _setCompleteButtonArmedState(btn, armed) {
     if (btn.dataset.baseLabel) btn.textContent = btn.dataset.baseLabel;
 }
 
+function _unlockProofButtonForRetry(buttonId) {
+    var btn = document.getElementById(buttonId);
+    if (!btn) return;
+    btn.dataset.busy = '0';
+    btn.dataset.busySince = '';
+    _setCompleteButtonArmedState(btn, true);
+    if (!btn.classList.contains('hidden')) btn.disabled = false;
+}
+
 function _tryOpenProofAfterGpsCheck(btn, proofInput, blockedMsg) {
     if (proofInput) proofInput.dataset.gpsVerified = '1';
     _setCompleteButtonArmedState(btn, true);
@@ -3446,32 +3455,41 @@ function renderOrderActions(order, isTalent, isUser) {
             document.getElementById('otpProofInput').addEventListener('change', function () {
                 var file = this.files[0];
                 if (!file) {
-                    var btnReset = document.getElementById('otpBtnComplete');
-                    if (btnReset) {
-                        btnReset.dataset.busy = '0';
-                        _setCompleteButtonArmedState(btnReset, true);
-                        if (!btnReset.classList.contains('hidden')) btnReset.disabled = false;
-                    }
+                    _unlockProofButtonForRetry('otpBtnComplete');
                     return;
                 }
                 var reader = new FileReader();
                 reader.onload = function () {
                     compressThumbnail(reader.result, function (proofThumb) {
-                        _sendDriverProofToUserChat(order, proofThumb);
-                        stopTalentLocationBroadcast();
                         var proofInput = document.getElementById('otpProofInput');
                         var lat = proofInput ? Number(proofInput.dataset.gpsLat) : NaN;
                         var lng = proofInput ? Number(proofInput.dataset.gpsLng) : NaN;
-                        var extraFields = { completedAt: Date.now(), proofPhoto: proofThumb, _skipGpsGate: true };
-                        if (isValidLatLng(lat, lng)) {
-                            extraFields.talentLat = lat;
-                            extraFields.talentLng = lng;
-                            extraFields.talentLastLocationAt = Date.now();
-                        }
+                        var doneAt = Date.now();
                         if (proofInput) proofInput.dataset.gpsVerified = '';
                         if (proofInput) proofInput.dataset.gpsLat = '';
                         if (proofInput) proofInput.dataset.gpsLng = '';
-                        _finalizeProofCompletion(order, extraFields);
+
+                        _sendDriverProofToUserChat(order, proofThumb).then(function (sentToChat) {
+                            if (!sentToChat) {
+                                _unlockProofButtonForRetry('otpBtnComplete');
+                                showToast('Bukti foto gagal dikirim ke chat user. Cek koneksi lalu coba lagi.', 'error');
+                                return;
+                            }
+
+                            var extraFields = {
+                                completedAt: doneAt,
+                                proofPhoto: proofThumb,
+                                proofPhotoInChat: true,
+                                proofPhotoAt: doneAt,
+                                _skipGpsGate: true
+                            };
+                            if (isValidLatLng(lat, lng)) {
+                                extraFields.talentLat = lat;
+                                extraFields.talentLng = lng;
+                                extraFields.talentLastLocationAt = doneAt;
+                            }
+                            _finalizeProofCompletion(order, extraFields);
+                        });
                     });
                 };
                 reader.readAsDataURL(file);
@@ -3570,32 +3588,41 @@ function renderOrderActions(order, isTalent, isUser) {
             document.getElementById('otpProofInput').addEventListener('change', function () {
                 var file = this.files[0];
                 if (!file) {
-                    var btnReset2 = document.getElementById('otpBtnComplete');
-                    if (btnReset2) {
-                        btnReset2.dataset.busy = '0';
-                        _setCompleteButtonArmedState(btnReset2, true);
-                        if (!btnReset2.classList.contains('hidden')) btnReset2.disabled = false;
-                    }
+                    _unlockProofButtonForRetry('otpBtnComplete');
                     return;
                 }
                 var reader = new FileReader();
                 reader.onload = function () {
                     compressThumbnail(reader.result, function (proofThumb) {
-                        _sendDriverProofToUserChat(order, proofThumb);
-                        stopTalentLocationBroadcast();
                         var proofInput = document.getElementById('otpProofInput');
                         var lat = proofInput ? Number(proofInput.dataset.gpsLat) : NaN;
                         var lng = proofInput ? Number(proofInput.dataset.gpsLng) : NaN;
-                        var extraFields = { completedAt: Date.now(), proofPhoto: proofThumb, _skipGpsGate: true };
-                        if (isValidLatLng(lat, lng)) {
-                            extraFields.talentLat = lat;
-                            extraFields.talentLng = lng;
-                            extraFields.talentLastLocationAt = Date.now();
-                        }
+                        var doneAt = Date.now();
                         if (proofInput) proofInput.dataset.gpsVerified = '';
                         if (proofInput) proofInput.dataset.gpsLat = '';
                         if (proofInput) proofInput.dataset.gpsLng = '';
-                        _finalizeProofCompletion(order, extraFields);
+
+                        _sendDriverProofToUserChat(order, proofThumb).then(function (sentToChat) {
+                            if (!sentToChat) {
+                                _unlockProofButtonForRetry('otpBtnComplete');
+                                showToast('Bukti foto gagal dikirim ke chat user. Cek koneksi lalu coba lagi.', 'error');
+                                return;
+                            }
+
+                            var extraFields = {
+                                completedAt: doneAt,
+                                proofPhoto: proofThumb,
+                                proofPhotoInChat: true,
+                                proofPhotoAt: doneAt,
+                                _skipGpsGate: true
+                            };
+                            if (isValidLatLng(lat, lng)) {
+                                extraFields.talentLat = lat;
+                                extraFields.talentLng = lng;
+                                extraFields.talentLastLocationAt = doneAt;
+                            }
+                            _finalizeProofCompletion(order, extraFields);
+                        });
                     });
                 };
                 reader.readAsDataURL(file);
@@ -4717,6 +4744,16 @@ function _lockAutoProgress(orderId, toStatus) {
     return true;
 }
 
+function _syncCurrentDriverPositionForActiveOrder(orderId, lat, lng) {
+    if (!_currentOrder || String(_currentOrder.id) !== String(orderId)) return;
+    if (!isValidLatLng(Number(lat), Number(lng))) return;
+    _currentOrder.talentLat = Number(lat);
+    _currentOrder.talentLng = Number(lng);
+    _currentOrder.talentLastLocationAt = Date.now();
+    updateTalentMarkerPosition(Number(lat), Number(lng));
+    _refreshDriverGpsLockedButtons(_currentOrder);
+}
+
 function startTalentLocationBroadcast(orderId) {
     // Use watchPosition for real-time continuous GPS tracking instead of intervals
     if (_watchPositionId !== null) {
@@ -4731,6 +4768,8 @@ function startTalentLocationBroadcast(orderId) {
     function onPosition(geoPos) {
         var lat = geoPos.coords.latitude;
         var lng = geoPos.coords.longitude;
+
+        _syncCurrentDriverPositionForActiveOrder(orderId, lat, lng);
 
         // Update backend with new real-time position
         backendPost({
@@ -4768,6 +4807,7 @@ function startTalentLocationBroadcast(orderId) {
         _talentLocationIntervalTimer = setInterval(function () {
             if (!_currentOrder || String(_currentOrder.id) !== String(orderId)) return;
             getCurrentPosition().then(function (pos) {
+                _syncCurrentDriverPositionForActiveOrder(orderId, pos.lat, pos.lng);
                 backendPost({
                     action: 'updateTalentLocation',
                     orderId: orderId,
@@ -5094,10 +5134,10 @@ function sendChatMessage(photo) {
 }
 
 function _sendDriverProofToUserChat(order, proofPhoto) {
-    if (!order || !order.id || !proofPhoto) return;
+    if (!order || !order.id || !proofPhoto) return Promise.resolve(false);
     var userId = String(order.userId || '');
     var driverId = String(order.talentId || '');
-    if (!userId || !driverId) return;
+    if (!userId || !driverId) return Promise.resolve(false);
 
     var session = (typeof getSession === 'function') ? getSession() : null;
     var senderId = session && session.id ? String(session.id) : driverId;
@@ -5106,27 +5146,45 @@ function _sendDriverProofToUserChat(order, proofPhoto) {
     var senderName = String((session && session.name) || senderUser.name || senderUser.nama || 'Driver');
     var conversationKey = buildChatConversationKey(order.id, userId, driverId);
 
-    backendPost({
-        action: 'sendMessage',
-        orderId: order.id,
-        senderId: senderId,
-        recipientId: userId,
-        conversationKey: conversationKey,
-        senderName: senderName,
-        text: '📷 Bukti penyelesaian pesanan dari driver.',
-        photo: proofPhoto
-    }).catch(function () {});
-
-    if (typeof addNotifItem === 'function') {
-        addNotifItem({
-            userId: userId,
-            icon: '📷',
-            title: 'Bukti Foto dari Driver',
-            desc: 'Driver mengirim bukti foto penyelesaian untuk pesanan #' + String(order.id || '').substr(0, 8) + '.',
-            type: 'chat',
-            orderId: order.id
+    function postProofMessage() {
+        return Promise.resolve().then(function () {
+            return backendPost({
+                action: 'sendMessage',
+                orderId: order.id,
+                senderId: senderId,
+                recipientId: userId,
+                conversationKey: conversationKey,
+                senderName: senderName,
+                text: '📷 Bukti penyelesaian pesanan dari driver.',
+                photo: proofPhoto
+            });
+        }).then(function (res) {
+            return !!(res && res.success);
+        }).catch(function () {
+            return false;
         });
     }
+
+    return postProofMessage().then(function (ok) {
+        if (ok) return true;
+        return new Promise(function (resolve) {
+            setTimeout(resolve, 450);
+        }).then(function () {
+            return postProofMessage();
+        });
+    }).then(function (ok) {
+        if (ok && typeof addNotifItem === 'function') {
+            addNotifItem({
+                userId: userId,
+                icon: '📷',
+                title: 'Bukti Foto dari Driver',
+                desc: 'Driver mengirim bukti foto penyelesaian untuk pesanan #' + String(order.id || '').substr(0, 8) + '.',
+                type: 'chat',
+                orderId: order.id
+            });
+        }
+        return !!ok;
+    });
 }
 
 // ══════════════════════════════════════════
