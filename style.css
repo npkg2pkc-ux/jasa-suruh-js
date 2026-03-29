@@ -5196,6 +5196,16 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
         text-transform:uppercase;
     }
 
+    #page-owner.od-web-desktop.od-admin-mode #ownerBottomNav .od-nav-section {
+        border-top-color:#FDBA74;
+        color:#B45309;
+    }
+
+    #page-owner.od-web-desktop:not(.od-admin-mode) #ownerBottomNav .od-nav-section {
+        border-top-color:#BFDBFE;
+        color:#1D4ED8;
+    }
+
     #page-owner.od-web-desktop #ownerBottomNav .nav-item span {
         margin-top:0;
     }
