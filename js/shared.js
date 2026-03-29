@@ -3301,8 +3301,8 @@ function renderOrderActions(order, isTalent, isUser) {
                 _armProgressButtonFailsafe('otpBtnArrive');
                 _verifyDriverAtLocation(order, 'store', function(isNear) {
                     if (isNear) {
-                        var sid = (session && session.id) ? String(session.id) : '';
-                        updateOrderStatus(order.id, 'arrived', { talentId: sid }).then(function (ok) {
+                        var sid = (session && session.id) ? String(session.id) : String(order.talentId || '');
+                        updateOrderStatus(order.id, 'arrived', { talentId: sid, _skipGpsGate: true }).then(function (ok) {
                             if (!ok) {
                                 btn.dataset.busy = '0';
                                 btn.dataset.busySince = '';
@@ -3412,8 +3412,8 @@ function renderOrderActions(order, isTalent, isUser) {
                 _armProgressButtonFailsafe('otpBtnArrive');
                 _verifyDriverAtLocation(order, 'user', function(isNear) {
                     if (isNear) {
-                        var sid = (session && session.id) ? String(session.id) : '';
-                        updateOrderStatus(order.id, 'arrived', { talentId: sid }).then(function (ok) {
+                        var sid = (session && session.id) ? String(session.id) : String(order.talentId || '');
+                        updateOrderStatus(order.id, 'arrived', { talentId: sid, _skipGpsGate: true }).then(function (ok) {
                             if (!ok) {
                                 btn.dataset.busy = '0';
                                 btn.dataset.busySince = '';
@@ -3813,6 +3813,18 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
         btn.disabled = true;
         btn.style.opacity = '0.72';
         btn.title = 'Koordinat tujuan belum valid. Hubungi admin.';
+        return;
+    }
+
+    // Arrive action should stay tappable so live GPS verification in tap handler can run.
+    if (buttonId === 'otpBtnArrive' && nextStatus === 'arrived') {
+        btn.disabled = false;
+        btn.style.opacity = '';
+        if (isFinite(Number(knownCheck.distKm)) && isFinite(Number(knownCheck.radiusKm))) {
+            btn.title = 'Jarak saat ini ±' + _formatDistanceMeters(knownCheck.distKm) + '. Maks ' + _formatDistanceMeters(knownCheck.radiusKm) + ' untuk lanjut progres.';
+        } else {
+            btn.title = 'Ketuk untuk verifikasi GPS langsung.';
+        }
         return;
     }
 
