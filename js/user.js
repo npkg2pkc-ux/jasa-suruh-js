@@ -271,6 +271,51 @@ function _openMarketingLink(url) {
     window.open(href, '_blank', 'noopener,noreferrer');
 }
 
+function _openMarketingDetail(item) {
+    if (!item) return;
+    var modal = document.getElementById('infoPromoDetailModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'infoPromoDetailModal';
+        modal.className = 'info-promo-modal hidden';
+        modal.innerHTML = ''
+            + '<div class="info-promo-modal-backdrop" id="infoPromoDetailBackdrop"></div>'
+            + '<div class="info-promo-modal-sheet">'
+            + '  <div class="info-promo-modal-head">'
+            + '    <h3>Detail Info & Promo</h3>'
+            + '    <button type="button" id="infoPromoDetailClose" aria-label="Tutup">&times;</button>'
+            + '  </div>'
+            + '  <div class="info-promo-modal-body" id="infoPromoDetailBody"></div>'
+            + '</div>';
+        document.body.appendChild(modal);
+
+        var closeBtn = document.getElementById('infoPromoDetailClose');
+        if (closeBtn) closeBtn.addEventListener('click', function () { modal.classList.add('hidden'); });
+        var backdrop = document.getElementById('infoPromoDetailBackdrop');
+        if (backdrop) backdrop.addEventListener('click', function () { modal.classList.add('hidden'); });
+    }
+
+    var body = document.getElementById('infoPromoDetailBody');
+    if (!body) return;
+
+    var media = item.imageUrl
+        ? '<div class="news-media" style="width:100%;height:220px;border-radius:16px;"><img src="' + escapeHtml(item.imageUrl) + '" alt=""></div>'
+        : '<div class="news-media placeholder-img" style="width:100%;height:220px;border-radius:16px;"><span style="font-size:64px;">' + escapeHtml(item.emoji || '✨') + '</span></div>';
+
+    body.innerHTML = ''
+        + '<article class="news-card" style="display:block;cursor:default;">'
+        + media
+        + '<div class="news-info" style="margin-top:12px;">'
+        + '  <div class="news-tag">' + escapeHtml(item.badge || 'INFO') + '</div>'
+        + '  <h4 style="font-size:20px;line-height:1.3;">' + escapeHtml(item.title || '') + '</h4>'
+        + '  <p style="margin-top:8px;-webkit-line-clamp:unset;line-clamp:unset;display:block;">' + escapeHtml(item.description || '') + '</p>'
+        + '  <span class="news-date" style="margin-top:10px;">' + escapeHtml(item.dateText || '') + '</span>'
+        + '</div>'
+        + '</article>';
+
+    modal.classList.remove('hidden');
+}
+
 function _renderInfoPromoSeeAllModal(data) {
     var modal = document.getElementById('infoPromoModal');
     if (!modal) {
@@ -323,8 +368,8 @@ function _renderInfoPromoSeeAllModal(data) {
 
     body.querySelectorAll('.info-promo-modal-item').forEach(function (el) {
         el.addEventListener('click', function () {
-            var link = this.getAttribute('data-link') || '';
-            if (link) _openMarketingLink(link);
+            var idx = Array.prototype.indexOf.call(body.querySelectorAll('.info-promo-modal-item'), this);
+            if (idx >= 0 && list[idx]) _openMarketingDetail(list[idx]);
         });
     });
 
@@ -360,8 +405,8 @@ function renderHomeMarketingContent(data) {
 
         promoTrack.querySelectorAll('.marketing-promo-card').forEach(function (card) {
             card.addEventListener('click', function () {
-                var link = this.getAttribute('data-link') || '';
-                if (link) _openMarketingLink(link);
+                var idx = Array.prototype.indexOf.call(promoTrack.querySelectorAll('.marketing-promo-card'), this);
+                if (idx >= 0 && promos[idx]) _openMarketingDetail(promos[idx]);
             });
         });
     }
@@ -387,8 +432,8 @@ function renderHomeMarketingContent(data) {
 
         newsList.querySelectorAll('.news-card-modern').forEach(function (card) {
             card.addEventListener('click', function () {
-                var link = this.getAttribute('data-link') || '';
-                if (link) _openMarketingLink(link);
+                var idx = Array.prototype.indexOf.call(newsList.querySelectorAll('.news-card-modern'), this);
+                if (idx >= 0 && news[idx]) _openMarketingDetail(news[idx]);
             });
         });
     }

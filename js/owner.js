@@ -21,6 +21,7 @@ var OwnerDashboard = (function () {
         home: { title: 'Home', subtitle: 'Ringkasan performa platform' },
         activity: { title: 'Aktivitas Terbaru', subtitle: 'Update order dan user terbaru' },
         users: { title: 'Pengguna', subtitle: 'Kelola akun dan role platform' },
+        marketing: { title: 'Info & Promo', subtitle: 'Kelola konten informasi user' },
         settings: { title: 'Pengaturan', subtitle: 'Atur komisi dan parameter platform' }
     };
     var _marketingState = { promos: [], news: [] };
@@ -54,6 +55,7 @@ var OwnerDashboard = (function () {
         if (panel === 'home') return { title: 'Home', subtitle: 'Ringkasan operasional admin' };
         if (panel === 'activity') return { title: 'Order', subtitle: 'Monitoring order dari dibuat sampai verifikasi komisi' };
         if (panel === 'users') return { title: 'Pengguna', subtitle: 'Kontrol akun global: user, driver, dan seller' };
+        if (panel === 'marketing') return { title: 'Info & Promo', subtitle: 'Kelola konten informasi dashboard user' };
         if (panel === 'settings') return { title: 'Akun', subtitle: 'Profil admin, review pesanan, dan logout' };
         return cfg;
     }
@@ -130,16 +132,15 @@ var OwnerDashboard = (function () {
         if (panel === 'settings' && _isOwner()) {
             _renderOwnerSettingsProfile();
             loadOwnerCommissionSettings();
-            loadOwnerMarketingSettings();
             closeOwnerCommissionModal();
             closeOwnerDeliveryModal();
-            closeOwnerMarketingModal();
         } else if (panel === 'settings') {
             _renderOwnerSettingsProfile();
-            loadOwnerMarketingSettings();
             closeOwnerCommissionModal();
             closeOwnerDeliveryModal();
-            closeOwnerMarketingModal();
+        }
+        if (panel === 'marketing') {
+            loadOwnerMarketingSettings();
         }
     }
 
@@ -304,10 +305,6 @@ var OwnerDashboard = (function () {
                     if (typeof openAdminTransactions === 'function') openAdminTransactions();
                     return;
                 }
-                if (action === 'marketing-modal') {
-                    openOwnerMarketingModal();
-                    return;
-                }
                 if (action === 'order-review') {
                     if (typeof openAdminOrderReview === 'function') openAdminOrderReview();
                     return;
@@ -384,18 +381,6 @@ var OwnerDashboard = (function () {
                     this.value = v;
                 });
             }
-        }
-
-        var marketingClose = $('ownerMarketingClose');
-        if (marketingClose && !marketingClose._bound) {
-            marketingClose._bound = true;
-            marketingClose.addEventListener('click', closeOwnerMarketingModal);
-        }
-
-        var marketingBackdrop = $('ownerMarketingBackdrop');
-        if (marketingBackdrop && !marketingBackdrop._bound) {
-            marketingBackdrop._bound = true;
-            marketingBackdrop.addEventListener('click', closeOwnerMarketingModal);
         }
 
         var marketingAddBtn = $('ownerMarketingAddBtn');
@@ -1851,7 +1836,7 @@ var OwnerDashboard = (function () {
 
     function _previewOwnerMarketingFile(file) {
         if (!file) {
-            _previewOwnerMarketingImage(($('ownerMarketingImageUrl') && $('ownerMarketingImageUrl').value) || '');
+            _previewOwnerMarketingImage('');
             return;
         }
         _readFileAsDataUrl(file).then(function (dataUrl) {
@@ -1874,8 +1859,6 @@ var OwnerDashboard = (function () {
             var parsed = new Date(item.dateText || '');
             $('ownerMarketingDate').value = isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
         }
-        if ($('ownerMarketingLink')) $('ownerMarketingLink').value = item.linkUrl || '';
-        if ($('ownerMarketingImageUrl')) $('ownerMarketingImageUrl').value = item.imageUrl || '';
         if ($('ownerMarketingImageFile')) $('ownerMarketingImageFile').value = '';
         _previewOwnerMarketingImage(item.imageUrl || '');
     }
@@ -1918,8 +1901,7 @@ var OwnerDashboard = (function () {
             title: title,
             description: description,
             dateText: dateText,
-            linkUrl: String(($('ownerMarketingLink') && $('ownerMarketingLink').value) || '').trim(),
-            imageUrl: String(($('ownerMarketingImageUrl') && $('ownerMarketingImageUrl').value) || '').trim(),
+            imageUrl: '',
             emoji: type === 'promo' ? '✨' : '📰'
         };
     }
@@ -1991,18 +1973,27 @@ var OwnerDashboard = (function () {
 
         var fileInput = $('ownerMarketingImageFile');
         var file = fileInput && fileInput.files ? fileInput.files[0] : null;
+        var listKey = payload.type === 'promo' ? 'promos' : 'news';
+        var list = (_marketingState[listKey] || []).slice();
+        var existingIdx = list.findIndex(function (it) { return String(it.id) === String(payload.id); });
+        var existingItem = existingIdx >= 0 ? list[existingIdx] : null;
+
+        if (!file && !existingItem) {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = original || '💾 Simpan Info & Promo';
+            }
+            if (typeof showToast === 'function') showToast('Foto wajib diisi untuk konten baru', 'error');
+            return;
+        }
 
         Promise.resolve(file ? _readFileAsDataUrl(file) : '')
             .then(function (dataUrl) {
-                return _uploadOwnerMarketingAsset(file, dataUrl || payload.imageUrl || '');
+                return _uploadOwnerMarketingAsset(file, dataUrl || (existingItem ? existingItem.imageUrl : '') || '');
             })
             .then(function (uploadedUrl) {
-                if (uploadedUrl) payload.imageUrl = uploadedUrl;
-
-                var listKey = payload.type === 'promo' ? 'promos' : 'news';
-                var list = (_marketingState[listKey] || []).slice();
-                var idx = list.findIndex(function (it) { return String(it.id) === String(payload.id); });
-                if (idx >= 0) list[idx] = payload;
+                payload.imageUrl = uploadedUrl || (existingItem ? existingItem.imageUrl : '');
+                if (existingIdx >= 0) list[existingIdx] = payload;
                 else list.unshift(payload);
 
                 _marketingState[listKey] = list;
@@ -2024,25 +2015,6 @@ var OwnerDashboard = (function () {
                     btn.textContent = original || '💾 Simpan Info & Promo';
                 }
             });
-    }
-
-    function openOwnerMarketingModal() {
-        var modal = $('ownerMarketingModal');
-        if (!modal) return;
-        loadOwnerMarketingSettings();
-        modal.classList.remove('hidden');
-        requestAnimationFrame(function () {
-            modal.classList.add('is-open');
-        });
-    }
-
-    function closeOwnerMarketingModal() {
-        var modal = $('ownerMarketingModal');
-        if (!modal) return;
-        modal.classList.remove('is-open');
-        setTimeout(function () {
-            modal.classList.add('hidden');
-        }, 180);
     }
 
     function loadOwnerMarketingSettings() {
