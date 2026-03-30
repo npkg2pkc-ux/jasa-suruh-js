@@ -6732,7 +6732,7 @@ window.addEventListener('beforeinstallprompt', function (e) {
 
 function registerSW() {
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js?v=26').then(function (reg) {
+        navigator.serviceWorker.register('sw.js?v=27').then(function (reg) {
             // Check for updates on load
             reg.addEventListener('updatefound', function () {
                 var newWorker = reg.installing;
@@ -6872,6 +6872,73 @@ function _showUpdatePopup(waitingWorker) {
 }
 window._showUpdatePopup = _showUpdatePopup;
 
+function _waitForBackendReady(maxWaitMs) {
+    var timeoutMs = Math.max(0, Number(maxWaitMs) || 0);
+    if (isBackendConnected()) return Promise.resolve(true);
+    if (timeoutMs <= 0) return Promise.resolve(false);
+
+    return new Promise(function (resolve) {
+        var startedAt = Date.now();
+        var timer = setInterval(function () {
+            if (isBackendConnected()) {
+                clearInterval(timer);
+                resolve(true);
+                return;
+            }
+            if (Date.now() - startedAt >= timeoutMs) {
+                clearInterval(timer);
+                resolve(false);
+            }
+        }, 150);
+    });
+}
+
+function _resolveBootSession(session) {
+    if (!session || !session.id || !session.role) {
+        return Promise.resolve({ valid: false, reason: 'no-session' });
+    }
+
+    return _waitForBackendReady(6000).then(function (ready) {
+        if (!ready) {
+            return { valid: false, reason: 'backend-unavailable' };
+        }
+
+        return FB.get('getAll')
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (!res || !res.success || !Array.isArray(res.data)) {
+                    return { valid: false, reason: 'backend-invalid-response' };
+                }
+
+                saveUsers(res.data);
+
+                var liveUser = res.data.find(function (u) {
+                    return String(u.id || '') === String(session.id || '');
+                }) || null;
+
+                var isActive = false;
+                if (liveUser) {
+                    if (typeof _isUserAccountActiveForSession === 'function') {
+                        isActive = _isUserAccountActiveForSession(liveUser);
+                    } else {
+                        isActive = true;
+                    }
+                }
+
+                if (!liveUser || !isActive) {
+                    return { valid: false, reason: 'session-not-valid' };
+                }
+
+                var merged = Object.assign({}, session, liveUser);
+                setSession(merged);
+                return { valid: true, user: merged };
+            })
+            .catch(function () {
+                return { valid: false, reason: 'backend-error' };
+            });
+    });
+}
+
 function handleSplash() {
     var splash = document.getElementById('splash');
     var app = document.getElementById('app');
@@ -6882,26 +6949,36 @@ function handleSplash() {
             app.classList.remove('hidden');
 
             var urlPage = pageFromPath(window.location.pathname);
-
             var session = getSession();
-            if (session && session.id && session.role) {
-                showPage(session.role);
-                updateRoleUI(session);
-                if (typeof ensureAndroidBackToHomeGuard === 'function') {
-                    ensureAndroidBackToHomeGuard(true);
+
+            _resolveBootSession(session).then(function (boot) {
+                if (boot && boot.valid && boot.user) {
+                    showPage(boot.user.role);
+                    updateRoleUI(boot.user);
+                    if (typeof ensureAndroidBackToHomeGuard === 'function') {
+                        ensureAndroidBackToHomeGuard(true);
+                    }
+                    return;
                 }
-                return;
-            }
 
-            // Invalid or missing session — clear and show login
-            if (session) clearSession();
+                if (session) {
+                    clearSession();
+                    if (boot && boot.reason === 'session-not-valid' && typeof showToast === 'function') {
+                        showToast('Sesi berakhir karena akun tidak valid atau sudah dihapus.', 'error');
+                    }
+                }
 
-            if (urlPage === 'register') {
-                showPage('register');
-            } else {
+                if (urlPage === 'register') {
+                    showPage('register');
+                } else {
+                    showPage('login');
+                    if (typeof LoginPage !== 'undefined') LoginPage.reset();
+                }
+            }).catch(function () {
+                if (session) clearSession();
                 showPage('login');
                 if (typeof LoginPage !== 'undefined') LoginPage.reset();
-            }
+            });
         } catch (err) {
             // Emergency fallback: always show something
             console.error('handleSplash error:', err);
