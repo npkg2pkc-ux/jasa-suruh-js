@@ -45,6 +45,35 @@ async function getOrderById(orderId) {
     return parseMaybeJson((orderRows[0] && orderRows[0].data) || {});
 }
 
+async function getTransactionById(txId) {
+    var txRes = await supaFetch('transactions?id=eq.' + encodeURIComponent(txId) + '&select=id,user_id,amount,data,created_at&limit=1');
+    var txRows = await txRes.json();
+    if (!Array.isArray(txRows) || txRows.length === 0) return null;
+    return txRows[0] || null;
+}
+
+async function findLatestPaymentTransaction(orderId) {
+    var oid = String(orderId || '').trim();
+    if (!oid) return null;
+
+    var txRes = await supaFetch('transactions?type=eq.payment&select=id,user_id,amount,data,created_at&order=created_at.desc&limit=300');
+    var txRows = await txRes.json();
+    if (!Array.isArray(txRows)) return null;
+
+    for (var i = 0; i < txRows.length; i++) {
+        var row = txRows[i] || {};
+        var data = parseMaybeJson(row.data || {});
+        var dataOrderId = String((data && data.orderId) || '').trim();
+        if (dataOrderId === oid) return { row: row, data: data };
+
+        if (String(row.id || '').indexOf('pay_' + oid + '_') === 0) {
+            return { row: row, data: data };
+        }
+    }
+
+    return null;
+}
+
 async function patchOrder(orderId, order) {
     return supaFetch('orders?id=eq.' + encodeURIComponent(orderId), {
         method: 'PATCH',
@@ -492,6 +521,132 @@ async function handleCompleteOrderCOD(body, res) {
     return res.status(200).json({ success: true, platformCut: platformCut, commission: commission, fee: fee });
 }
 
+async function handleRefundOrderPayment(body, res) {
+    var orderId = String(body.orderId || '').trim();
+    var actorId = String(body.actorId || '').trim();
+    var customDescription = String(body.description || '').trim();
+
+    if (!orderId) return fail(res, 400, 'OrderId wajib diisi');
+
+    var order = await getOrderById(orderId);
+    var userId = '';
+    var paidAmount = 0;
+    var reason = '';
+    var source = '';
+
+    if (order) {
+        if (String(order.paymentMethod || 'jspay').toLowerCase() === 'cod') {
+            return fail(res, 400, 'Order COD tidak memiliki refund saldo');
+        }
+        if (String(order.status || '').toLowerCase() !== 'cancelled') {
+            return fail(res, 400, 'Refund hanya boleh untuk order dibatalkan');
+        }
+        if (order.refundDone) {
+            return res.status(200).json({ success: true, alreadyRefunded: true, amount: Number(order.refundedAmount || order.paidAmount) || 0 });
+        }
+
+        userId = String(order.userId || '').trim();
+        paidAmount = Math.max(0, Number(order.paidAmount) || 0);
+        if (paidAmount <= 0) return fail(res, 400, 'Tidak ada saldo yang perlu direfund');
+
+        source = 'order_cancel';
+        reason = customDescription || ('Refund pembatalan ' + (order.serviceType || 'Pesanan'));
+    } else {
+        var paymentTxFound = await findLatestPaymentTransaction(orderId);
+        if (!paymentTxFound || !paymentTxFound.row) {
+            return fail(res, 404, 'Order/riwayat pembayaran tidak ditemukan');
+        }
+
+        userId = String((paymentTxFound.data && paymentTxFound.data.userId) || paymentTxFound.row.user_id || '').trim();
+        paidAmount = Math.abs(Number(paymentTxFound.row.amount) || 0);
+        if (!userId || paidAmount <= 0) {
+            return fail(res, 400, 'Data pembayaran tidak valid untuk refund');
+        }
+
+        source = 'order_create_failed';
+        reason = customDescription || 'Refund - gagal membuat pesanan';
+    }
+
+    var now = Date.now();
+    var txId = 'refund_' + orderId + '_' + userId;
+    var existingRefund = await getTransactionById(txId);
+    if (existingRefund) {
+        return res.status(200).json({
+            success: true,
+            alreadyRefunded: true,
+            orderId: orderId,
+            userId: userId,
+            amount: Math.abs(Number(existingRefund.amount) || 0)
+        });
+    }
+
+    var idempotencyKey = 'refund:' + source + ':' + orderId + ':' + userId + ':' + paidAmount;
+    var mutation = await applyMutation({
+        p_user_id: userId,
+        p_direction: 'credit',
+        p_amount: paidAmount,
+        p_ref_type: 'order_refund',
+        p_ref_id: orderId,
+        p_reason: reason,
+        p_actor_type: 'system',
+        p_actor_id: actorId || 'wallet_pay_api',
+        p_idempotency_key: idempotencyKey,
+        p_metadata: {
+            orderId: orderId,
+            userId: userId,
+            source: source,
+            reason: reason
+        }
+    });
+
+    if (!mutation.success) {
+        return fail(res, 400, 'Refund gagal diproses');
+    }
+
+    var m = mutation.data;
+    await upsertTransaction({
+        id: txId,
+        user_id: userId,
+        type: 'refund',
+        amount: paidAmount,
+        created_at: now,
+        data: {
+            id: txId,
+            userId: userId,
+            type: 'refund',
+            amount: paidAmount,
+            orderId: orderId,
+            balanceBefore: Number(m.balance_before) || 0,
+            balanceAfter: Number(m.balance_after) || 0,
+            description: reason,
+            createdAt: now,
+            idempotencyKey: idempotencyKey,
+            ledgerId: m.ledger_id,
+            source: source
+        }
+    });
+
+    if (order) {
+        var merged = Object.assign({}, order, {
+            refundDone: true,
+            refundedAt: now,
+            refundedAmount: paidAmount
+        });
+        var patch = await patchOrder(orderId, merged);
+        if (!patch.ok) return fail(res, 500, 'Refund berhasil, tetapi update order gagal');
+    }
+
+    return res.status(200).json({
+        success: true,
+        orderId: orderId,
+        userId: userId,
+        amount: paidAmount,
+        transactionId: txId,
+        ledgerId: m.ledger_id,
+        balance: Number(m.balance_after) || 0
+    });
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -506,6 +661,7 @@ module.exports = async (req, res) => {
         var op = String(body.operation || 'pay').toLowerCase();
         if (op === 'completeorder') return handleCompleteOrder(body, res);
         if (op === 'completeordercod') return handleCompleteOrderCOD(body, res);
+        if (op === 'refundorderpayment') return handleRefundOrderPayment(body, res);
         return handlePay(body, res);
     } catch (err) {
         console.error('wallet/pay error:', err);

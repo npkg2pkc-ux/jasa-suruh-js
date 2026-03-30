@@ -2,6 +2,7 @@
 -- Jalankan 1x per hari di Supabase SQL Editor.
 -- Hasil utama ada di kolom check_* (OK/NOT_OK).
 -- no_ledger_all_time_rows_info hanya info legacy (boleh > 0).
+-- topup_pending_without_ledger_rows_info bersifat informasional (invoice belum dibayar/expired).
 
 with params as (
   select 1774636847000::bigint as cutover_ms
@@ -44,6 +45,10 @@ no_ledger_post_cutover_check as (
   from transactions t
   cross join params p
   where t.type in ('payment', 'earning', 'commission', 'refund', 'withdraw', 'topup')
+    and (
+      t.type <> 'topup'
+      or lower(coalesce(t.data->>'status', '')) in ('paid', 'completed', 'success')
+    )
     and (t.data->>'ledgerId') is null
     and t.created_at >= p.cutover_ms
 ),
@@ -57,7 +62,20 @@ no_ledger_all_time_info as (
   select count(*)::bigint as cnt
   from transactions t
   where t.type in ('payment', 'earning', 'commission', 'refund', 'withdraw', 'topup')
+    and (
+      t.type <> 'topup'
+      or lower(coalesce(t.data->>'status', '')) in ('paid', 'completed', 'success')
+    )
     and (t.data->>'ledgerId') is null
+),
+topup_pending_without_ledger_info as (
+  select count(*)::bigint as cnt
+  from transactions t
+  cross join params p
+  where t.type = 'topup'
+    and (t.data->>'ledgerId') is null
+    and t.created_at >= p.cutover_ms
+    and lower(coalesce(t.data->>'status', '')) not in ('paid', 'completed', 'success')
 )
 select
   g.total_wallet_balance,
@@ -68,6 +86,7 @@ select
   p.cnt as no_ledger_post_cutover_rows,
   o.cnt as orphan_ledger_rows,
   a.cnt as no_ledger_all_time_rows_info,
+  tp.cnt as topup_pending_without_ledger_rows_info,
   case when (g.total_wallet_balance - g.total_ledger_balance) = 0 then 'OK' else 'NOT_OK' end as check_global_delta,
   case when m.cnt = 0 then 'OK' else 'NOT_OK' end as check_mismatch_user,
   case when d.cnt = 0 then 'OK' else 'NOT_OK' end as check_duplicate_idempotency,
@@ -78,4 +97,5 @@ cross join mismatch_check m
 cross join duplicate_idempotency_check d
 cross join no_ledger_post_cutover_check p
 cross join orphan_ledger_check o
-cross join no_ledger_all_time_info a;
+cross join no_ledger_all_time_info a
+cross join topup_pending_without_ledger_info tp;

@@ -1595,40 +1595,25 @@
         var orderId = body.orderId || '';
         if (!orderId) return Promise.resolve(fail('OrderId wajib diisi'));
 
-        return getOrderDataById(orderId)
-            .then(function (order) {
-                if (!order) return fail('Order tidak ditemukan');
-                if (String(order.paymentMethod || 'jspay').toLowerCase() === 'cod') {
-                    return fail('Order COD tidak memiliki refund saldo');
+        return fetch('/api/wallet/pay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                operation: 'refundOrderPayment',
+                orderId: orderId,
+                actorId: body.actorId || body.userId || '',
+                description: body.description || ''
+            })
+        })
+            .then(function (res) { return res.json().catch(function () { return {}; }); })
+            .then(function (apiRes) {
+                if (!apiRes || apiRes.success === false) {
+                    return fail((apiRes && apiRes.message) || 'Refund gagal diproses');
                 }
-                if (order.status !== 'cancelled') {
-                    return fail('Refund hanya boleh untuk order dibatalkan');
-                }
-                if (order.refundDone) {
-                    return ok({ alreadyRefunded: true, amount: Number(order.paidAmount) || 0 });
-                }
-
-                var paidAmount = Math.max(0, Number(order.paidAmount) || 0);
-                if (paidAmount <= 0) {
-                    return fail('Tidak ada saldo yang perlu direfund');
-                }
-
-                return doWalletCredit({
-                    userId: order.userId,
-                    amount: paidAmount,
-                    orderId: orderId,
-                    type: 'refund',
-                    description: 'Refund pembatalan ' + (order.serviceType || 'Pesanan')
-                }).then(function (creditRes) {
-                    if (!creditRes || !creditRes.success) return creditRes || fail('Refund gagal diproses');
-                    return markOrderWalletFlag(orderId, {
-                        refundDone: true,
-                        refundedAt: Date.now(),
-                        refundedAmount: paidAmount
-                    }).then(function () {
-                        return ok({ refunded: true, amount: paidAmount });
-                    });
-                });
+                return ok(apiRes);
+            })
+            .catch(function () {
+                return fail('Refund gagal diproses');
             });
     }
 
@@ -2021,8 +2006,8 @@
             case 'createProduct': return doCreateProduct(body);
             case 'updateProduct': return doUpdateProduct(body);
             case 'deleteProduct': return doDeleteProduct(body);
-            case 'topUp': return doTopUp(body);
-            case 'withdraw': return doWithdraw(body);
+            case 'topUp': return Promise.resolve(fail('Aksi top up langsung dinonaktifkan. Gunakan endpoint /api/xendit/create-invoice'));
+            case 'withdraw': return Promise.resolve(fail('Aksi withdraw langsung dinonaktifkan. Gunakan endpoint /api/xendit/withdraw'));
             case 'walletPay': return doWalletPay(body);
             case 'walletCredit': return Promise.resolve(fail('Aksi walletCredit langsung dinonaktifkan'));
             case 'refundOrderPayment': return doRefundOrderPayment(body);
