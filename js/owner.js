@@ -2175,11 +2175,40 @@ var OwnerDashboard = (function () {
     }
 
     function _setDriverRecruitPreview(kind, src) {
-        var wrapId = kind === 'ktp' ? 'driverRecruitKtpPreviewWrap' : 'driverRecruitPhotoPreviewWrap';
-        var imgId = kind === 'ktp' ? 'driverRecruitKtpPreview' : 'driverRecruitPhotoPreview';
+        var isKtp = kind === 'ktp';
+        var wrapId = isKtp ? 'driverRecruitKtpPreviewWrap' : 'driverRecruitPhotoPreviewWrap';
+        var imgId = isKtp ? 'driverRecruitKtpPreview' : 'driverRecruitPhotoPreview';
         var wrap = $(wrapId);
         var img = $(imgId);
+        var ownerPage = $('page-owner');
+        var isAdminMode = !!(ownerPage && ownerPage.classList && ownerPage.classList.contains('od-admin-mode'));
         if (!wrap || !img) return;
+
+        // Force orientation + fit inline to avoid stale cache or selector conflicts.
+        wrap.classList.remove('od-driver-photo-preview-portrait', 'od-driver-photo-preview-landscape');
+        wrap.classList.add(isKtp ? 'od-driver-photo-preview-landscape' : 'od-driver-photo-preview-portrait');
+        wrap.dataset.previewLabel = isKtp ? 'Landscape Fit' : 'Portrait Fit';
+
+        wrap.style.display = 'flex';
+        wrap.style.alignItems = 'center';
+        wrap.style.justifyContent = 'center';
+        wrap.style.overflow = 'hidden';
+        wrap.style.position = 'relative';
+        wrap.style.padding = '10px';
+        wrap.style.borderRadius = '16px';
+        wrap.style.aspectRatio = isKtp ? '16 / 10' : '3 / 4';
+        wrap.style.minHeight = isKtp ? (isAdminMode ? '180px' : '170px') : (isAdminMode ? '260px' : '250px');
+        wrap.style.width = isKtp ? '100%' : (isAdminMode ? 'min(100%, 320px)' : 'min(100%, 280px)');
+        wrap.style.marginLeft = isKtp ? '0' : 'auto';
+        wrap.style.marginRight = isKtp ? '0' : 'auto';
+
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'contain';
+        img.style.objectPosition = 'center';
+        img.style.borderRadius = '12px';
+        img.style.background = '#FFFFFF';
+        img.style.setProperty('image-orientation', 'from-image');
 
         var val = String(src || '').trim();
         if (!val) {
