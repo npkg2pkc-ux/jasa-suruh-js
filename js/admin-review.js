@@ -19,12 +19,17 @@ function _isAwaitingAdminReview(order) {
     return true;
 }
 
+var _aorpRealtimeUnsub = null;
+var _aorpRealtimePollTimer = null;
+var _aorpRealtimeReloadTimer = null;
+
 // ── Open the review panel ──
 function openAdminOrderReview() {
     var page = document.getElementById('adminOrderReviewPage');
     if (!page) { page = _buildAdminOrderReviewPage(); document.body.appendChild(page); }
     page.classList.remove('hidden');
     _loadPendingReviewOrders(page);
+    _startAdminReviewRealtime(page);
 }
 window.openAdminOrderReview = openAdminOrderReview;
 
@@ -52,9 +57,69 @@ function _buildAdminOrderReviewPage() {
     ].join('');
     page.querySelector('#aorpBtnBack').addEventListener('click', function () {
         page.classList.add('hidden');
+        _stopAdminReviewRealtime();
     });
     return page;
 }
+
+function _isAdminReviewPageOpen(page) {
+    var target = page || document.getElementById('adminOrderReviewPage');
+    return !!(target && !target.classList.contains('hidden'));
+}
+
+function _stopAdminReviewRealtime() {
+    if (_aorpRealtimeUnsub) {
+        try { _aorpRealtimeUnsub(); } catch (e) {}
+        _aorpRealtimeUnsub = null;
+    }
+    if (_aorpRealtimePollTimer) {
+        clearInterval(_aorpRealtimePollTimer);
+        _aorpRealtimePollTimer = null;
+    }
+    if (_aorpRealtimeReloadTimer) {
+        clearTimeout(_aorpRealtimeReloadTimer);
+        _aorpRealtimeReloadTimer = null;
+    }
+}
+
+function _scheduleAdminReviewReload(page, force) {
+    if (!_isAdminReviewPageOpen(page)) return;
+    if (_aorpRealtimeReloadTimer && !force) return;
+    if (_aorpRealtimeReloadTimer) {
+        clearTimeout(_aorpRealtimeReloadTimer);
+        _aorpRealtimeReloadTimer = null;
+    }
+
+    _aorpRealtimeReloadTimer = setTimeout(function () {
+        _aorpRealtimeReloadTimer = null;
+        if (_isAdminReviewPageOpen(page)) _loadPendingReviewOrders(page);
+    }, force ? 50 : 320);
+}
+
+function _startAdminReviewRealtime(page) {
+    _stopAdminReviewRealtime();
+    if (!_isAdminReviewPageOpen(page)) return;
+    if (typeof FB === 'undefined' || !FB.isReady()) return;
+
+    if (typeof FB.onAllOrders === 'function') {
+        _aorpRealtimeUnsub = FB.onAllOrders(function (res) {
+            if (!res || !res.success) return;
+            _scheduleAdminReviewReload(page);
+        });
+        return;
+    }
+
+    _aorpRealtimePollTimer = setInterval(function () {
+        _scheduleAdminReviewReload(page);
+    }, 7000);
+}
+
+function refreshAdminOrderReviewPage(force) {
+    var page = document.getElementById('adminOrderReviewPage');
+    if (!_isAdminReviewPageOpen(page)) return;
+    _scheduleAdminReviewReload(page, !!force);
+}
+window.refreshAdminOrderReviewPage = refreshAdminOrderReviewPage;
 
 function _loadPendingReviewOrders(page) {
     var listEl = page ? page.querySelector('#aorpList') : null;

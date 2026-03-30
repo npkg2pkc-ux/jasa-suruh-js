@@ -26,6 +26,8 @@ var OwnerDashboard = (function () {
         settings: { title: 'Setting', subtitle: 'Profil akun dan logout' }
     };
     var _marketingState = { promos: [], news: [] };
+    var _ordersRealtimeUnsub = null;
+    var _ordersRealtimeApplyTimer = null;
 
     function $(id) { return document.getElementById(id); }
     function $$(sel) { return document.querySelectorAll(sel); }
@@ -603,6 +605,7 @@ var OwnerDashboard = (function () {
         renderOwnerStats();
         renderOwnerUsers();
         _loadOrdersAndRevenue();
+        _setupOrdersRealtimeListener();
         if (_isOwner()) loadOwnerCommissionSettings();
         if (typeof initNotifications === 'function') initNotifications();
         _openOwnerPanel('home');
@@ -708,6 +711,58 @@ var OwnerDashboard = (function () {
         el.textContent = value;
     }
 
+    function _applyOrdersSnapshot(orders) {
+        var list = Array.isArray(orders) ? orders : [];
+        _ordersCache = list;
+        _setKPIValue('ownerTotalOrders', list.length);
+        _updateRevenueKPI(list);
+        _renderAdminReviewFocus(list);
+        _renderAdminFlow(list);
+        _renderAdminQuickMonitor(list);
+        _renderAdminReportSummary(list);
+        _renderAdminWorkPriority(list);
+        _renderChart(list, 7);
+        _renderActivity(list);
+        // Re-render user cards so order-derived stats stay fresh while realtime events arrive.
+        renderOwnerUsers();
+    }
+
+    function _scheduleRealtimeOrdersApply(orders) {
+        if (_ordersRealtimeApplyTimer) {
+            clearTimeout(_ordersRealtimeApplyTimer);
+            _ordersRealtimeApplyTimer = null;
+        }
+
+        var snapshot = Array.isArray(orders) ? orders.slice() : [];
+        _ordersRealtimeApplyTimer = setTimeout(function () {
+            _ordersRealtimeApplyTimer = null;
+            _applyOrdersSnapshot(snapshot);
+        }, 220);
+    }
+
+    function _teardownOrdersRealtimeListener() {
+        if (_ordersRealtimeUnsub) {
+            try { _ordersRealtimeUnsub(); } catch (e) {}
+            _ordersRealtimeUnsub = null;
+        }
+        if (_ordersRealtimeApplyTimer) {
+            clearTimeout(_ordersRealtimeApplyTimer);
+            _ordersRealtimeApplyTimer = null;
+        }
+    }
+
+    function _setupOrdersRealtimeListener() {
+        _teardownOrdersRealtimeListener();
+        if (!_isOwner() && !_isAdmin()) return;
+        if (typeof isBackendConnected !== 'function' || !isBackendConnected()) return;
+        if (typeof FB === 'undefined' || typeof FB.onAllOrders !== 'function') return;
+
+        _ordersRealtimeUnsub = FB.onAllOrders(function (res) {
+            if (!res || !res.success || !Array.isArray(res.data)) return;
+            _scheduleRealtimeOrdersApply(res.data);
+        });
+    }
+
     // ─── Orders + Revenue ───
     function _loadOrdersAndRevenue() {
         if (typeof isBackendConnected !== 'function' || !isBackendConnected()) return;
@@ -716,18 +771,7 @@ var OwnerDashboard = (function () {
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (!res.success || !Array.isArray(res.data)) return;
-                _ordersCache = res.data;
-                _setKPIValue('ownerTotalOrders', res.data.length);
-                _updateRevenueKPI(res.data);
-                _renderAdminReviewFocus(res.data);
-                _renderAdminFlow(res.data);
-                _renderAdminQuickMonitor(res.data);
-                _renderAdminReportSummary(res.data);
-                _renderAdminWorkPriority(res.data);
-                _renderChart(res.data, 7);
-                _renderActivity(res.data);
-                // Re-render user cards so order-derived stats are visible on first load.
-                renderOwnerUsers();
+                _applyOrdersSnapshot(res.data);
             }).catch(function () {});
     }
 

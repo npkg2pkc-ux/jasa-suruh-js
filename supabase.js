@@ -35,6 +35,7 @@
                 return Promise.resolve({ json: function () { return Promise.resolve(fail(message)); } });
             },
             post: function () { return Promise.resolve(fail(message)); },
+            onAllOrders: function () { return function () {}; },
             onOrdersForUser: function () { return function () {}; },
             onOrder: function () { return function () {}; },
             onMessages: function () { return function () {}; },
@@ -2026,6 +2027,29 @@
 
     // ── Realtime Listeners (Supabase Realtime) ──
 
+    function onAllOrders(callback) {
+        function loadAll() {
+            sb.from('orders').select('data')
+                .then(function (res) {
+                    if (!res.error && res.data) {
+                        callback({ success: true, data: rowsToArr(res.data) });
+                    }
+                });
+        }
+
+        loadAll();
+
+        var channel = sb.channel('orders-all-' + generateId())
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'orders'
+            }, function () { loadAll(); })
+            .subscribe();
+
+        return function () { sb.removeChannel(channel); };
+    }
+
     function onOrdersForUser(userId, callback) {
         var state = { byUserId: [], byTalentId: [] };
 
@@ -2193,6 +2217,7 @@
             });
         },
 
+        onAllOrders: onAllOrders,
         onOrdersForUser: onOrdersForUser,
         onOrder: onOrder,
         onMessages: onMessages,
