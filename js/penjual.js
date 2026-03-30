@@ -11,6 +11,34 @@ var _penjualProductsModalEventsSetup = false;
 var _penjualProductFeeEventsSetup = false;
 var _penjualSettingsCache = null;
 var PENJUAL_SEEN_PENDING_KEY = 'js_penjual_seen_pending_orders';
+var PENJUAL_MIN_ONLINE_BALANCE = 10000;
+
+function enforcePenjualStoreBalancePolicy(currentBalance, opts) {
+    var session = getSession();
+    var role = String((session && session.role) || '').toLowerCase();
+    if (role !== 'penjual' && role !== 'seller') return false;
+
+    var balance = Number(currentBalance);
+    if (!isFinite(balance)) {
+        balance = (typeof getWalletBalance === 'function') ? (Number(getWalletBalance()) || 0) : 0;
+    }
+    if (balance >= PENJUAL_MIN_ONLINE_BALANCE) return false;
+    if (!_penjualStore || !_penjualStore.id || !_penjualStore.isOpen) return false;
+
+    _penjualStore.isOpen = false;
+
+    var toggle = document.getElementById('penjualStoreToggle');
+    var statusLbl = document.getElementById('penjualStoreStatus');
+    if (toggle) toggle.checked = false;
+    if (statusLbl) statusLbl.textContent = 'Offline';
+
+    backendPost({ action: 'updateStore', storeId: _penjualStore.id, fields: { isOpen: false } });
+    if (!(opts && opts.silent)) {
+        showToast('Saldo di bawah Rp 10.000. Toko otomatis Offline.', 'error');
+    }
+    return true;
+}
+window.enforcePenjualStoreBalancePolicy = enforcePenjualStoreBalancePolicy;
 
 function normalizeProductCategory(category) {
     var c = String(category || '').toLowerCase();
@@ -231,6 +259,8 @@ function populatePenjualStoreForm(store) {
     if (toggle) toggle.checked = store.isOpen;
     if (statusLbl) statusLbl.textContent = store.isOpen ? 'Online' : 'Offline';
 
+    enforcePenjualStoreBalancePolicy((typeof getWalletBalance === 'function') ? getWalletBalance() : 0, { silent: true });
+
     // Populate store photo
     var photoImg = document.getElementById('storePhotoImg');
     var photoPreview = document.getElementById('storePhotoPreview');
@@ -335,11 +365,11 @@ function handlePenjualStoreToggle() {
     var isOpen = toggle.checked;
     if (isOpen) {
         var balance = typeof getWalletBalance === 'function' ? getWalletBalance() : 0;
-        if (balance < 50000) {
+        if (balance < PENJUAL_MIN_ONLINE_BALANCE) {
             toggle.checked = false;
-            showToast('Saldo minimal Rp 50.000 untuk buka toko!', 'error');
+            showToast('Saldo minimal Rp 10.000 untuk buka toko!', 'error');
             setTimeout(function () {
-                if (confirm('Saldo Anda ' + formatRupiah(balance) + '. Minimal Rp 50.000 untuk bisa buka toko dan menerima pesanan.\n\nTop Up sekarang?')) {
+                if (confirm('Saldo Anda ' + formatRupiah(balance) + '. Minimal Rp 10.000 untuk bisa buka toko dan menerima pesanan.\n\nTop Up sekarang?')) {
                     openTopUpModal();
                 }
             }, 300);

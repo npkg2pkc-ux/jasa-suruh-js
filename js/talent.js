@@ -4,6 +4,56 @@
    Orders Polling, Notifications
    ======================================== */
 
+var TALENT_MIN_ONLINE_BALANCE = 10000;
+
+function _setTalentOnlineUiState(isOnline) {
+    var toggle = document.getElementById('talentOnlineToggle');
+    var label = document.getElementById('talentStatusLabel');
+    if (toggle) toggle.checked = !!isOnline;
+    if (label) {
+        label.textContent = isOnline ? 'Online' : 'Offline';
+        label.classList.toggle('online', !!isOnline);
+    }
+}
+
+function _isTalentOnline(session) {
+    if (!session || session.role !== 'talent') return false;
+    if (typeof session.isOnline === 'boolean') return !!session.isOnline;
+    var users = getUsers();
+    var me = users.find(function (u) { return String(u.id) === String(session.id); });
+    return !!(me && me.isOnline);
+}
+
+function enforceTalentOnlineBalancePolicy(currentBalance, opts) {
+    var session = getSession();
+    if (!session || session.role !== 'talent') return false;
+
+    var balance = Number(currentBalance);
+    if (!isFinite(balance)) {
+        balance = (typeof getWalletBalance === 'function') ? (Number(getWalletBalance()) || 0) : 0;
+    }
+    if (balance >= TALENT_MIN_ONLINE_BALANCE) return false;
+    if (!_isTalentOnline(session)) return false;
+
+    session.isOnline = false;
+    setSession(session);
+
+    var users = getUsers();
+    var idx = users.findIndex(function (u) { return String(u.id) === String(session.id); });
+    if (idx >= 0) {
+        users[idx].isOnline = false;
+        saveUsers(users);
+    }
+
+    _setTalentOnlineUiState(false);
+    if (!(opts && opts.silent)) {
+        showToast('Saldo di bawah Rp 10.000. Status driver otomatis Offline.', 'error');
+    }
+    backendPost({ action: 'setOnlineStatus', userId: session.id, isOnline: false });
+    return true;
+}
+window.enforceTalentOnlineBalancePolicy = enforceTalentOnlineBalancePolicy;
+
 // ══════════════════════════════════════════
 // ═══ TALENT: SETUP SKILLS MODAL ═══
 // ══════════════════════════════════════════
@@ -767,6 +817,7 @@ function setupTalentToggle() {
 
     // Initial restore (important when app is reopened).
     restoreOnlineState();
+    enforceTalentOnlineBalancePolicy((typeof getWalletBalance === 'function') ? getWalletBalance() : 0, { silent: true });
 
     function hasValidLocation(session) {
         if (!session) return false;
@@ -795,11 +846,11 @@ function setupTalentToggle() {
         var session = getSession();
         if (this.checked) {
             var balance = typeof getWalletBalance === 'function' ? getWalletBalance() : 0;
-            if (balance < 50000) {
+            if (balance < TALENT_MIN_ONLINE_BALANCE) {
                 this.checked = false;
-                showToast('Saldo minimal Rp 50.000 untuk bisa Online!', 'error');
+                showToast('Saldo minimal Rp 10.000 untuk bisa Online!', 'error');
                 setTimeout(function () {
-                    if (confirm('Saldo Anda ' + formatRupiah(balance) + '. Minimal Rp 50.000 untuk bisa menerima orderan.\n\nTop Up sekarang?')) {
+                    if (confirm('Saldo Anda ' + formatRupiah(balance) + '. Minimal Rp 10.000 untuk bisa menerima orderan.\n\nTop Up sekarang?')) {
                         openTopUpModal();
                     }
                 }, 300);
@@ -890,6 +941,8 @@ function syncTalentOnlineToggleFromSession() {
     toggle.checked = !!isOnline;
     label.textContent = isOnline ? 'Online' : 'Offline';
     label.classList.toggle('online', !!isOnline);
+
+    enforceTalentOnlineBalancePolicy((typeof getWalletBalance === 'function') ? getWalletBalance() : 0, { silent: true });
 }
 
 // ══════════════════════════════════════════

@@ -300,6 +300,13 @@ function updateWalletDisplay(balance) {
     var ow = document.getElementById('ownerWalletBalance');
     if (ow) ow.textContent = formatted;
 
+    if (typeof window.enforceTalentOnlineBalancePolicy === 'function') {
+        window.enforceTalentOnlineBalancePolicy(Number(balance) || 0);
+    }
+    if (typeof window.enforcePenjualStoreBalancePolicy === 'function') {
+        window.enforcePenjualStoreBalancePolicy(Number(balance) || 0);
+    }
+
     if (typeof window.syncOwnerFinancePreview === 'function') {
         window.syncOwnerFinancePreview();
     }
