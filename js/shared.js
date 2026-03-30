@@ -2481,7 +2481,7 @@ function renderOrderInfo(order, isTalent) {
         return p;
     }
 
-    function buildDriverCardHtml(u, title, subtitle, isHighlight, chatBtnId, ratingStr, displayName, displayPhoto) {
+    function buildDriverCardHtml(u, title, subtitle, isHighlight, chatBtnId, ratingStr, displayName, displayPhoto, extraMetaHtml) {
         if (!u) return '';
         var name = displayName || u.name || 'Kontak';
         var photo = displayPhoto || getUserPhoto(u, isHighlight);
@@ -2497,6 +2497,7 @@ function renderOrderInfo(order, isTalent) {
             + '<span>' + escapeHtml(subtitle) + '</span>'
             + (ratingStr ? '<span class="sf-driver-rating" id="otpDriverRating-' + order.id + '">' + ratingStr + '</span>' : '')
             + '</div>'
+            + (extraMetaHtml || '')
             + '</div>'
             + '<div class="sf-driver-actions">'
             + (chatBtnId ? '<button class="sf-driver-btn chat" id="' + chatBtnId + '"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' : '')
@@ -2549,7 +2550,26 @@ function renderOrderInfo(order, isTalent) {
     if (!isTalent && other && order.talentId) {
         var vehicleLabel = isAntar ? 'Motor' : (order.serviceType || 'Driver');
         var canChatDriver = session && session.id !== order.talentId;
-        driverHtml = buildDriverCardHtml(other, 'Driver', vehicleLabel, true, canChatDriver ? 'otpDriverChatBtn' : '', '⭐ 0.0 (0)');
+        var orderStatus = String(order.status || '').toLowerCase();
+        var showVehicleInfo = ['accepted', 'on_the_way', 'arrived', 'in_progress'].indexOf(orderStatus) >= 0;
+        var driverVehicleMetaHtml = '';
+
+        if (showVehicleInfo) {
+            var vehicleType = String(other.jenis_motor || other.vehicleType || '').trim();
+            var vehicleYear = String(other.tahun_kendaraan || other.vehicleYear || '').trim();
+            var plateNo = String(other.plat_nomor_kendaraan || other.plateNo || '').trim();
+
+            var leftParts = [];
+            if (vehicleType) leftParts.push(vehicleType);
+            if (vehicleYear) leftParts.push(vehicleYear);
+
+            var leftLabel = leftParts.length ? leftParts.join(' • ') : '-';
+            var plateLabel = plateNo || '-';
+
+            driverVehicleMetaHtml = '<div class="sf-driver-submeta">🏍️ ' + escapeHtml(leftLabel) + ' • 🚘 ' + escapeHtml(plateLabel) + '</div>';
+        }
+
+        driverHtml = buildDriverCardHtml(other, 'Driver', vehicleLabel, true, canChatDriver ? 'otpDriverChatBtn' : '', '⭐ 0.0 (0)', '', '', driverVehicleMetaHtml);
     }
 
     var sellerHtml = '';
