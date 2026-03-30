@@ -7,8 +7,6 @@
     'use strict';
 
     // ── Constants ──
-    const OWNER_USERNAME = '3123159';
-    const OWNER_PASSWORD = '3123159';
     const STORAGE_USERS = 'js_users';
     const STORAGE_SESSION = 'js_session';
 
@@ -98,25 +96,8 @@
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
-    // ── Initialize owner in user DB ──
+    // ── Initialize local DB sync ──
     function initDB() {
-        let users = getUsers();
-        const ownerExists = users.some(u => u.username === OWNER_USERNAME && u.role === 'owner');
-        if (!ownerExists) {
-            const ownerData = {
-                id: generateId(),
-                name: 'Owner',
-                phone: '-',
-                username: OWNER_USERNAME,
-                password: OWNER_PASSWORD,
-                role: 'owner',
-                createdAt: Date.now()
-            };
-            users.push(ownerData);
-            saveUsers(users);
-            // Sync owner ke backend Firebase
-            backendPost({ action: 'register', ...ownerData });
-        }
         // Sync dari backend ke localStorage saat init
         syncFromBackend();
         syncSkillsFromBackend();

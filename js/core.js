@@ -7,8 +7,6 @@
 // ══════════════════════════════════════════
 // ═══ CONSTANTS ═══
 // ══════════════════════════════════════════
-var OWNER_USERNAME = '3123159';
-var OWNER_PASSWORD = '3123159';
 var STORAGE_USERS = 'js_users';
 var STORAGE_SESSION = 'js_session';
 var STORAGE_SKILLS = 'js_skills';
@@ -183,24 +181,25 @@ function generateId() {
 
 function initDB() {
     clearExpiredAccountDeletionCooldowns();
-    var users = getUsers();
-    var ownerExists = users.some(function (u) { return u.username === OWNER_USERNAME && u.role === 'owner'; });
-    if (!ownerExists) {
-        var ownerData = {
-            id: generateId(),
-            name: 'Owner',
-            phone: '-',
-            username: OWNER_USERNAME,
-            password: OWNER_PASSWORD,
-            role: 'owner',
-            createdAt: Date.now()
-        };
-        users.push(ownerData);
-        saveUsers(users);
-        backendPost(Object.assign({ action: 'register' }, ownerData));
-    }
     syncFromBackend();
     syncSkillsFromBackend();
+}
+
+function _isUserAccountActiveForSession(user) {
+    if (!user) return false;
+
+    var status = String(user.status || user.accountStatus || '').toLowerCase();
+    if (status === 'deleted' || status === 'inactive' || status === 'disabled' || status === 'banned' || status === 'suspended') {
+        return false;
+    }
+
+    if (user.deleted === true || user.isDeleted === true || user.is_deleted === true) return false;
+    if (Number(user.deletedAt || user.deleted_at || 0) > 0) return false;
+
+    if (typeof user.is_active === 'boolean' && user.is_active === false) return false;
+    if (typeof user.isActive === 'boolean' && user.isActive === false) return false;
+
+    return true;
 }
 
 function syncFromBackend() {
@@ -211,6 +210,25 @@ function syncFromBackend() {
             if (res.success && Array.isArray(res.data)) {
                 saveUsers(res.data);
                 var session = getSession();
+                if (session && session.id) {
+                    var liveUser = res.data.find(function (u) {
+                        return String(u.id || '') === String(session.id || '');
+                    });
+
+                    if (!liveUser || !_isUserAccountActiveForSession(liveUser)) {
+                        clearSession();
+                        if (typeof showPage === 'function') showPage('login', false);
+                        if (ROUTES && ROUTES.login) history.replaceState({ page: 'login' }, '', ROUTES.login);
+                        if (typeof LoginPage !== 'undefined' && LoginPage.reset) LoginPage.reset();
+                        if (typeof showToast === 'function') {
+                            showToast('Sesi berakhir karena akun sudah dihapus atau tidak aktif.', 'error');
+                        }
+                        return;
+                    }
+
+                    setSession(Object.assign({}, session, liveUser));
+                }
+
                 if (session && session.role === 'owner') {
                     renderOwnerStats();
                     renderOwnerUsers();

@@ -380,11 +380,44 @@ var LoginPage = (function () {
     // ═══════════════════════════════════
     //  POST-OTP: Check user existence
     // ═══════════════════════════════════
+    function _isAccountInactive(dbUser) {
+        if (!dbUser) return true;
+
+        var meta = {};
+        if (dbUser.data) {
+            try { meta = (typeof dbUser.data === 'string') ? JSON.parse(dbUser.data) : dbUser.data; }
+            catch (e) { meta = {}; }
+        }
+
+        var status = String((dbUser.status || meta.status || meta.accountStatus || meta.userStatus || '')).toLowerCase();
+        if (status === 'deleted' || status === 'inactive' || status === 'disabled' || status === 'banned' || status === 'suspended') {
+            return true;
+        }
+
+        if (dbUser.deleted === true || meta.deleted === true || meta.isDeleted === true || meta.is_deleted === true) {
+            return true;
+        }
+
+        if (Number(dbUser.deleted_at || meta.deleted_at || meta.deletedAt || 0) > 0) {
+            return true;
+        }
+
+        if (dbUser.is_active === false || meta.is_active === false || meta.isActive === false) {
+            return true;
+        }
+
+        return false;
+    }
+
     function _checkUserExists() {
         var sb = _getSb();
         if (!sb) {
-            // Fallback: check localStorage
-            _checkUserLocal();
+            var noSbErr = $('loginOTPError');
+            if (noSbErr) {
+                noSbErr.textContent = 'Layanan login belum siap. Coba lagi.';
+                noSbErr.classList.remove('hidden');
+            }
+            if (typeof showToast === 'function') showToast('Layanan login belum siap. Coba lagi.', 'error');
             return;
         }
 
@@ -397,33 +430,41 @@ var LoginPage = (function () {
             .or('no_hp.eq.' + phone62 + ',no_hp.eq.' + phone08)
             .limit(1)
             .then(function (result) {
-                if (result.error || !result.data || result.data.length === 0) {
+                if (result.error) throw result.error;
+
+                if (!result.data || result.data.length === 0) {
                     // New user → redirect to register (prefill phone)
                     _redirectToRegister();
                     return;
                 }
 
-                // Existing user → login
-                var user = result.data[0];
+                // Existing user → login only if account is still active.
+                var user = result.data[0] || null;
+                if (!user || _isAccountInactive(user)) {
+                    _goBackToPhone();
+                    var phoneErr = $('loginPhoneError');
+                    if (phoneErr) {
+                        phoneErr.textContent = 'Akun ini sudah dihapus atau tidak aktif.';
+                        phoneErr.classList.remove('hidden');
+                    }
+                    if (typeof showToast === 'function') {
+                        showToast('Akun ini sudah dihapus atau tidak aktif.', 'error');
+                    }
+                    return;
+                }
+
                 _loginExistingUser(user);
             })
             .catch(function () {
-                _checkUserLocal();
+                var serverErr = $('loginOTPError');
+                if (serverErr) {
+                    serverErr.textContent = 'Gagal memeriksa akun di server. Coba lagi.';
+                    serverErr.classList.remove('hidden');
+                }
+                if (typeof showToast === 'function') {
+                    showToast('Gagal memeriksa akun di server. Coba lagi.', 'error');
+                }
             });
-    }
-
-    function _checkUserLocal() {
-        var users = typeof getUsers === 'function' ? getUsers() : [];
-        var found = users.find(function (u) {
-            var uPhone = (u.phone || u.no_hp || '').replace(/\D/g, '');
-            return uPhone === _phone || uPhone === '0' + _phoneRaw;
-        });
-
-        if (found) {
-            _loginWithSession(found);
-        } else {
-            _redirectToRegister();
-        }
     }
 
     function _loginExistingUser(dbUser) {
