@@ -127,7 +127,13 @@
                         tahun_kendaraan: d.tahun_kendaraan || d.vehicleYear || '',
                         plat_nomor_kendaraan: d.plat_nomor_kendaraan || d.plateNo || '',
                         ktp_photo_url: d.ktp_photo_url || '',
-                        driver_photo_url: d.driver_photo_url || d.foto_url || row.foto_url || ''
+                        driver_photo_url: d.driver_photo_url || d.foto_url || row.foto_url || '',
+                        tanggal_lahir: d.tanggal_lahir || d.birthDate || '',
+                        usia: (function () {
+                            var n = Number(d.usia || d.age || 0);
+                            return isFinite(n) ? n : 0;
+                        })(),
+                        agama: d.agama || d.religion || ''
                     };
                 });
                 return ok(normalized);
@@ -543,6 +549,11 @@
                         data: userData
                     };
 
+                    var tanggalLahir = String(userData.tanggal_lahir || userData.birthDate || '').trim();
+                    var usiaNum = Number((userData.usia !== undefined && userData.usia !== null) ? userData.usia : userData.age);
+                    if (!isFinite(usiaNum) || usiaNum < 0) usiaNum = null;
+                    var agamaText = String(userData.agama || userData.religion || '').trim();
+
                     // Simpan field talent ke kolom relasional juga (jika kolom tersedia).
                     var fullUpsertData = Object.assign({}, upsertData, {
                         address: userData.address || userData.alamat_lengkap || '',
@@ -556,7 +567,10 @@
                         tahun_kendaraan: userData.tahun_kendaraan || userData.vehicleYear || '',
                         plat_nomor_kendaraan: userData.plat_nomor_kendaraan || userData.plateNo || '',
                         ktp_photo_url: userData.ktp_photo_url || '',
-                        driver_photo_url: userData.driver_photo_url || userData.foto_url || ''
+                        driver_photo_url: userData.driver_photo_url || userData.foto_url || '',
+                        tanggal_lahir: tanggalLahir || null,
+                        usia: usiaNum,
+                        agama: agamaText || ''
                     });
 
                     // Try upsert with full talent columns; fallback to base payload if schema belum punya kolom tambahan.

@@ -414,6 +414,18 @@ var OwnerDashboard = (function () {
                     this.value = v;
                 });
             }
+
+            var birthDateInput = $('driverRecruitBirthDate');
+            if (birthDateInput && !birthDateInput._bound) {
+                birthDateInput._bound = true;
+                birthDateInput.addEventListener('input', _syncDriverRecruitAge);
+                birthDateInput.addEventListener('change', _syncDriverRecruitAge);
+                var today = new Date();
+                var maxDate = today.getFullYear()
+                    + '-' + String(today.getMonth() + 1).padStart(2, '0')
+                    + '-' + String(today.getDate()).padStart(2, '0');
+                birthDateInput.setAttribute('max', maxDate);
+            }
         }
 
         var marketingAddBtn = $('ownerMarketingAddBtn');
@@ -2235,6 +2247,7 @@ var OwnerDashboard = (function () {
         if (form) form.reset();
         _setDriverRecruitPreview('driver', '');
         _setDriverRecruitPreview('ktp', '');
+        _syncDriverRecruitAge();
     }
 
     function _uploadDriverAsset(path, file, fallbackDataUrl) {
@@ -2265,6 +2278,39 @@ var OwnerDashboard = (function () {
         if (v.startsWith('0')) return '62' + v.slice(1);
         if (!v.startsWith('62')) return '62' + v;
         return v;
+    }
+
+    function _calculateAgeFromBirthDate(yyyyMmDd) {
+        var raw = String(yyyyMmDd || '').trim();
+        var m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!m) return null;
+
+        var y = Number(m[1]);
+        var mon = Number(m[2]);
+        var d = Number(m[3]);
+        if (!isFinite(y) || !isFinite(mon) || !isFinite(d)) return null;
+
+        var dob = new Date(y, mon - 1, d);
+        if (dob.getFullYear() !== y || dob.getMonth() !== mon - 1 || dob.getDate() !== d) return null;
+
+        var now = new Date();
+        if (dob > now) return null;
+
+        var age = now.getFullYear() - y;
+        var monthDiff = now.getMonth() - (mon - 1);
+        var dayDiff = now.getDate() - d;
+        if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) age -= 1;
+        if (age < 0 || age > 120) return null;
+        return age;
+    }
+
+    function _syncDriverRecruitAge() {
+        var birthInput = $('driverRecruitBirthDate');
+        var ageInput = $('driverRecruitAge');
+        if (!birthInput || !ageInput) return;
+
+        var age = _calculateAgeFromBirthDate(birthInput.value);
+        ageInput.value = (age === null) ? '' : String(age);
     }
 
     function _defaultDriverSkills() {
@@ -2305,6 +2351,9 @@ var OwnerDashboard = (function () {
         var phoneNormalized = _normalizePhone(phoneRaw);
         var nama = String(($('driverRecruitName') && $('driverRecruitName').value) || '').trim();
         var jenisKelamin = String(($('driverRecruitGender') && $('driverRecruitGender').value) || '').trim();
+        var tanggalLahir = String(($('driverRecruitBirthDate') && $('driverRecruitBirthDate').value) || '').trim();
+        var usia = _calculateAgeFromBirthDate(tanggalLahir);
+        var agama = String(($('driverRecruitReligion') && $('driverRecruitReligion').value) || '').trim();
         var alamatLengkap = String(($('driverRecruitAddress') && $('driverRecruitAddress').value) || '').trim();
         var jenisMotor = String(($('driverRecruitMotorType') && $('driverRecruitMotorType').value) || '').trim();
         var tahunKendaraan = String(($('driverRecruitVehicleYear') && $('driverRecruitVehicleYear').value) || '').trim();
@@ -2320,6 +2369,10 @@ var OwnerDashboard = (function () {
         }
         if (!/^08\d{8,12}$/.test(phoneRaw)) {
             if (typeof showToast === 'function') showToast('No HP driver tidak valid (format 08xxxxxxxxxx)', 'error');
+            return;
+        }
+        if (!tanggalLahir || usia === null || !agama) {
+            if (typeof showToast === 'function') showToast('Tanggal lahir, usia, dan agama wajib diisi valid', 'error');
             return;
         }
         if (!nama || !jenisKelamin || !alamatLengkap || !jenisMotor || !tahunKendaraan || !platNomor) {
@@ -2387,10 +2440,16 @@ var OwnerDashboard = (function () {
                 ktp_photo_url: asset.ktpPhotoUrl,
                 no_ktp: noKtp,
                 jenis_kelamin: jenisKelamin,
+                tanggal_lahir: tanggalLahir,
+                usia: usia,
+                agama: agama,
                 alamat_lengkap: alamatLengkap,
                 jenis_motor: jenisMotor,
                 tahun_kendaraan: yearNum > 0 ? yearNum : tahunKendaraan,
                 plat_nomor_kendaraan: platNomor,
+                birthDate: tanggalLahir,
+                age: usia,
+                religion: agama,
                 vehicleType: jenisMotor,
                 vehicleYear: yearNum > 0 ? yearNum : tahunKendaraan,
                 plateNo: platNomor,

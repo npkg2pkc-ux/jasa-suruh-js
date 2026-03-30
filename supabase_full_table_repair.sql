@@ -41,6 +41,9 @@ create table if not exists users (
     plat_nomor_kendaraan text,
     ktp_photo_url text,
     driver_photo_url text,
+    tanggal_lahir date,
+    usia integer,
+    agama text,
     username text,
     created_at timestamptz default now(),
     data jsonb not null default '{}'
@@ -56,6 +59,9 @@ alter table users add column if not exists tahun_kendaraan text;
 alter table users add column if not exists plat_nomor_kendaraan text;
 alter table users add column if not exists ktp_photo_url text;
 alter table users add column if not exists driver_photo_url text;
+alter table users add column if not exists tanggal_lahir date;
+alter table users add column if not exists usia integer;
+alter table users add column if not exists agama text;
 
 create table if not exists otp_codes (
     id uuid primary key default gen_random_uuid(),
@@ -352,6 +358,17 @@ with upd as (
             'plat_nomor_kendaraan', coalesce(nullif(u.plat_nomor_kendaraan, ''), coalesce(u.data->>'plat_nomor_kendaraan', ''), coalesce(u.data->>'plateNo', '')),
             'ktp_photo_url', coalesce(nullif(u.ktp_photo_url, ''), coalesce(u.data->>'ktp_photo_url', '')),
             'driver_photo_url', coalesce(nullif(u.driver_photo_url, ''), nullif(u.foto_url, ''), coalesce(u.data->>'driver_photo_url', ''), coalesce(u.data->>'foto_url', '')),
+            'tanggal_lahir', coalesce(
+                nullif(u.data->>'tanggal_lahir', ''),
+                nullif(u.data->>'birthDate', ''),
+                case when u.tanggal_lahir is not null then to_char(u.tanggal_lahir, 'YYYY-MM-DD') else '' end
+            ),
+            'usia', coalesce(
+                case when coalesce(u.data->>'usia', '') ~ '^\\d+$' then (u.data->>'usia')::int else null end,
+                case when coalesce(u.data->>'age', '') ~ '^\\d+$' then (u.data->>'age')::int else null end,
+                u.usia
+            ),
+            'agama', coalesce(nullif(u.agama, ''), nullif(u.data->>'agama', ''), coalesce(u.data->>'religion', '')),
             'vehicleType', coalesce(nullif(u.jenis_motor, ''), coalesce(u.data->>'vehicleType', ''), coalesce(u.data->>'jenis_motor', '')),
             'vehicleYear', coalesce(nullif(u.tahun_kendaraan, ''), coalesce(u.data->>'vehicleYear', ''), coalesce(u.data->>'tahun_kendaraan', '')),
             'plateNo', coalesce(nullif(u.plat_nomor_kendaraan, ''), coalesce(u.data->>'plateNo', ''), coalesce(u.data->>'plat_nomor_kendaraan', ''))
@@ -379,6 +396,17 @@ with upd as (
             'plat_nomor_kendaraan', coalesce(nullif(u.plat_nomor_kendaraan, ''), coalesce(u.data->>'plat_nomor_kendaraan', ''), coalesce(u.data->>'plateNo', '')),
             'ktp_photo_url', coalesce(nullif(u.ktp_photo_url, ''), coalesce(u.data->>'ktp_photo_url', '')),
             'driver_photo_url', coalesce(nullif(u.driver_photo_url, ''), nullif(u.foto_url, ''), coalesce(u.data->>'driver_photo_url', ''), coalesce(u.data->>'foto_url', '')),
+            'tanggal_lahir', coalesce(
+                nullif(u.data->>'tanggal_lahir', ''),
+                nullif(u.data->>'birthDate', ''),
+                case when u.tanggal_lahir is not null then to_char(u.tanggal_lahir, 'YYYY-MM-DD') else '' end
+            ),
+            'usia', coalesce(
+                case when coalesce(u.data->>'usia', '') ~ '^\\d+$' then (u.data->>'usia')::int else null end,
+                case when coalesce(u.data->>'age', '') ~ '^\\d+$' then (u.data->>'age')::int else null end,
+                u.usia
+            ),
+            'agama', coalesce(nullif(u.agama, ''), nullif(u.data->>'agama', ''), coalesce(u.data->>'religion', '')),
             'vehicleType', coalesce(nullif(u.jenis_motor, ''), coalesce(u.data->>'vehicleType', ''), coalesce(u.data->>'jenis_motor', '')),
             'vehicleYear', coalesce(nullif(u.tahun_kendaraan, ''), coalesce(u.data->>'vehicleYear', ''), coalesce(u.data->>'tahun_kendaraan', '')),
             'plateNo', coalesce(nullif(u.plat_nomor_kendaraan, ''), coalesce(u.data->>'plateNo', ''), coalesce(u.data->>'plat_nomor_kendaraan', ''))
@@ -406,6 +434,17 @@ with upd as (
         plat_nomor_kendaraan = coalesce(nullif(u.data->>'plat_nomor_kendaraan', ''), nullif(u.data->>'plateNo', ''), u.plat_nomor_kendaraan),
         ktp_photo_url = coalesce(nullif(u.data->>'ktp_photo_url', ''), u.ktp_photo_url),
         driver_photo_url = coalesce(nullif(u.data->>'driver_photo_url', ''), nullif(u.data->>'foto_url', ''), u.driver_photo_url),
+                tanggal_lahir = coalesce(
+                        case when coalesce(u.data->>'tanggal_lahir', '') ~ '^\\d{4}-\\d{2}-\\d{2}$' then (u.data->>'tanggal_lahir')::date else null end,
+                        case when coalesce(u.data->>'birthDate', '') ~ '^\\d{4}-\\d{2}-\\d{2}$' then (u.data->>'birthDate')::date else null end,
+                        u.tanggal_lahir
+                ),
+                usia = coalesce(
+                        case when coalesce(u.data->>'usia', '') ~ '^\\d+$' then (u.data->>'usia')::int else null end,
+                        case when coalesce(u.data->>'age', '') ~ '^\\d+$' then (u.data->>'age')::int else null end,
+                        u.usia
+                ),
+                agama = coalesce(nullif(u.data->>'agama', ''), nullif(u.data->>'religion', ''), u.agama),
         foto_url = coalesce(nullif(u.foto_url, ''), nullif(u.data->>'driver_photo_url', ''), nullif(u.data->>'foto_url', ''))
     where lower(coalesce(u.role, '')) = 'talent'
       and (
@@ -417,6 +456,9 @@ with upd as (
         or coalesce(u.plat_nomor_kendaraan, '') = ''
         or coalesce(u.ktp_photo_url, '') = ''
         or coalesce(u.driver_photo_url, '') = ''
+                or u.tanggal_lahir is null
+                or u.usia is null
+                or coalesce(u.agama, '') = ''
       )
     returning 1
 )
@@ -431,7 +473,8 @@ with upd as (
                 alamat_lengkap = coalesce(nullif(u.alamat_lengkap, ''), coalesce(nullif(u.address, ''), '-')),
                 jenis_motor = coalesce(nullif(u.jenis_motor, ''), '-'),
                 tahun_kendaraan = coalesce(nullif(u.tahun_kendaraan, ''), '-'),
-                plat_nomor_kendaraan = coalesce(nullif(u.plat_nomor_kendaraan, ''), '-')
+                plat_nomor_kendaraan = coalesce(nullif(u.plat_nomor_kendaraan, ''), '-'),
+                agama = coalesce(nullif(u.agama, ''), '-')
         where lower(coalesce(u.role, '')) = 'talent'
             and (
                 coalesce(u.no_ktp, '') = ''
@@ -440,6 +483,7 @@ with upd as (
                 or coalesce(u.jenis_motor, '') = ''
                 or coalesce(u.tahun_kendaraan, '') = ''
                 or coalesce(u.plat_nomor_kendaraan, '') = ''
+                or coalesce(u.agama, '') = ''
             )
         returning 1
 )
