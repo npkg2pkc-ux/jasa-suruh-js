@@ -2185,9 +2185,9 @@ var OwnerDashboard = (function () {
         if (!wrap || !img) return;
 
         // Force orientation + fit inline to avoid stale cache or selector conflicts.
-        wrap.classList.remove('od-driver-photo-preview-portrait', 'od-driver-photo-preview-landscape');
-        wrap.classList.add(isKtp ? 'od-driver-photo-preview-landscape' : 'od-driver-photo-preview-portrait');
-        wrap.dataset.previewLabel = isKtp ? 'Landscape Fit' : 'Portrait Fit';
+        wrap.classList.remove('od-driver-photo-preview-portrait', 'od-driver-photo-preview-landscape', 'has-image');
+        wrap.classList.add('od-driver-photo-preview-landscape', 'od-driver-upload-frame');
+        wrap.dataset.previewLabel = 'Landscape Fit';
 
         wrap.style.display = 'flex';
         wrap.style.alignItems = 'center';
@@ -2196,11 +2196,11 @@ var OwnerDashboard = (function () {
         wrap.style.position = 'relative';
         wrap.style.padding = '10px';
         wrap.style.borderRadius = '16px';
-        wrap.style.aspectRatio = isKtp ? '16 / 10' : '3 / 4';
-        wrap.style.minHeight = isKtp ? (isAdminMode ? '120px' : '170px') : (isAdminMode ? '190px' : '250px');
-        wrap.style.width = isKtp ? '100%' : (isAdminMode ? 'min(100%, 150px)' : 'min(100%, 280px)');
-        wrap.style.marginLeft = isKtp ? '0' : 'auto';
-        wrap.style.marginRight = isKtp ? '0' : 'auto';
+        wrap.style.aspectRatio = '16 / 10';
+        wrap.style.minHeight = isAdminMode ? '132px' : '170px';
+        wrap.style.width = '100%';
+        wrap.style.marginLeft = '0';
+        wrap.style.marginRight = '0';
 
         img.style.width = '100%';
         img.style.height = '100%';
@@ -2213,11 +2213,11 @@ var OwnerDashboard = (function () {
         var val = String(src || '').trim();
         if (!val) {
             img.src = '';
-            wrap.classList.add('hidden');
+            wrap.classList.remove('has-image');
             return;
         }
         img.src = val;
-        wrap.classList.remove('hidden');
+        wrap.classList.add('has-image');
     }
 
     function _previewDriverRecruitFile(kind, file) {

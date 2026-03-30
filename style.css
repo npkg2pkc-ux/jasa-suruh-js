@@ -4073,35 +4073,55 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     min-height:44px;
 }
 
-.od-driver-doc-body .od-input-group input[type="file"] {
+.od-driver-upload-frame {
+    min-height:132px;
+    aspect-ratio:16 / 10;
+}
+
+.od-driver-upload-input {
+    position:absolute;
+    inset:0;
     width:100%;
-    color:transparent;
-    font-size:0;
-    line-height:0;
+    height:100%;
+    opacity:0;
+    cursor:pointer;
+    z-index:4;
 }
 
-.od-driver-doc-body .od-input-group input[type="file"]::file-selector-button {
-    font-size:12px;
-    font-weight:700;
-    border:1px solid #CBD5E1;
-    border-radius:10px;
-    background:linear-gradient(180deg,#FFFFFF 0%, #F8FAFC 100%);
-    color:#0F172A;
-    padding:7px 10px;
-    margin-right:6px;
-    cursor:pointer;
+.od-driver-upload-overlay {
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:10px;
+    display:flex;
+    justify-content:center;
+    pointer-events:none;
+    z-index:3;
 }
 
-.od-driver-doc-body .od-input-group input[type="file"]::-webkit-file-upload-button {
+.od-driver-upload-btn {
+    border-radius:999px;
+    border:1px solid rgba(148,163,184,.45);
+    background:rgba(255,255,255,.94);
+    color:#0F172A;
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:.02em;
+    padding:6px 12px;
+    box-shadow:0 6px 14px rgba(15,23,42,.14);
+}
+
+.od-driver-upload-empty {
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#94A3B8;
     font-size:12px;
     font-weight:700;
-    border:1px solid #CBD5E1;
-    border-radius:10px;
-    background:linear-gradient(180deg,#FFFFFF 0%, #F8FAFC 100%);
-    color:#0F172A;
-    padding:7px 10px;
-    margin-right:6px;
-    cursor:pointer;
+    pointer-events:none;
+    z-index:1;
 }
 
 .od-driver-photo-preview {
@@ -4132,6 +4152,17 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     display:block;
     border-radius:12px;
     background:#FFFFFF;
+    opacity:0;
+    transition:opacity .18s ease;
+}
+
+.od-driver-photo-preview.has-image img {
+    opacity:1;
+}
+
+.od-driver-photo-preview.has-image .od-driver-upload-empty {
+    opacity:0;
+    visibility:hidden;
 }
 
 .od-driver-photo-preview::before {
@@ -4151,21 +4182,9 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     box-shadow:0 2px 8px rgba(15,23,42,.08);
 }
 
-.od-driver-photo-preview-portrait {
-    aspect-ratio:3 / 4;
-    min-height:250px;
-    width:min(100%, 280px);
-    margin-left:auto;
-    margin-right:auto;
-}
-
-.od-driver-photo-preview-portrait img {
-    max-width:100%;
-}
-
 .od-driver-photo-preview-landscape {
     aspect-ratio:16 / 10;
-    min-height:170px;
+    min-height:132px;
 }
 
 .od-driver-photo-preview-landscape img {
@@ -4177,22 +4196,10 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     object-position:center !important;
 }
 
-#page-owner.od-admin-mode #driverRecruitPhotoPreviewWrap {
-    width:min(100%, 150px) !important;
-    min-height:190px !important;
-    aspect-ratio:3 / 4 !important;
-    margin-left:auto !important;
-    margin-right:auto !important;
-    margin-top:6px;
-    border:1px solid #FDBA74;
-    background:
-        radial-gradient(120% 120% at 0% 0%, rgba(251,146,60,.2) 0%, rgba(251,146,60,0) 40%),
-        linear-gradient(160deg, #FFF7ED 0%, #FFFFFF 56%, #F8FAFC 100%);
-}
-
+#page-owner.od-admin-mode #driverRecruitPhotoPreviewWrap,
 #page-owner.od-admin-mode #driverRecruitKtpPreviewWrap {
     width:100% !important;
-    min-height:120px !important;
+    min-height:132px !important;
     aspect-ratio:16 / 10 !important;
     margin-top:6px;
     border:1px solid #FDBA74;
@@ -4243,8 +4250,7 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
         grid-template-columns:1fr;
     }
 
-    .od-driver-photo-preview-portrait { min-height:220px; }
-    .od-driver-photo-preview-landscape { min-height:150px; }
+    .od-driver-photo-preview-landscape { min-height:124px; }
 
     .od-driver-doc-body {
         gap:8px 10px;

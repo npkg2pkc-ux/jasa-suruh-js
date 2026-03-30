@@ -20,7 +20,7 @@
     <link rel="apple-touch-icon" sizes="144x144" href="icons/icon-144.png">
     <link rel="apple-touch-icon" sizes="128x128" href="icons/icon-128.png">
     <link rel="apple-touch-icon" sizes="72x72" href="icons/icon-72.png">
-    <link rel="stylesheet" href="style.css?v=20260330-4">
+    <link rel="stylesheet" href="style.css?v=20260330-5">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -926,16 +926,20 @@
                                             <div class="od-driver-card-body od-driver-doc-body">
                                                 <div class="od-form-row">
                                                     <label>Foto Driver</label>
-                                                    <div class="od-input-group"><input type="file" id="driverRecruitPhoto" accept="image/*" required></div>
-                                                    <div class="od-driver-photo-preview od-driver-photo-preview-portrait hidden" id="driverRecruitPhotoPreviewWrap" data-preview-label="Portrait Fit">
+                                                    <div class="od-driver-photo-preview od-driver-photo-preview-landscape od-driver-upload-frame" id="driverRecruitPhotoPreviewWrap" data-preview-label="Landscape Fit">
                                                         <img id="driverRecruitPhotoPreview" src="" alt="Preview foto driver">
+                                                        <div class="od-driver-upload-empty">Belum ada foto driver</div>
+                                                        <div class="od-driver-upload-overlay"><span class="od-driver-upload-btn">Telusuri Foto</span></div>
+                                                        <input class="od-driver-upload-input" type="file" id="driverRecruitPhoto" accept="image/*" required>
                                                     </div>
                                                 </div>
                                                 <div class="od-form-row">
                                                     <label>Foto KTP</label>
-                                                    <div class="od-input-group"><input type="file" id="driverRecruitKtpPhoto" accept="image/*" required></div>
-                                                    <div class="od-driver-photo-preview od-driver-photo-preview-landscape hidden" id="driverRecruitKtpPreviewWrap" data-preview-label="Landscape Fit">
+                                                    <div class="od-driver-photo-preview od-driver-photo-preview-landscape od-driver-upload-frame" id="driverRecruitKtpPreviewWrap" data-preview-label="Landscape Fit">
                                                         <img id="driverRecruitKtpPreview" src="" alt="Preview foto KTP driver">
+                                                        <div class="od-driver-upload-empty">Belum ada foto KTP</div>
+                                                        <div class="od-driver-upload-overlay"><span class="od-driver-upload-btn">Telusuri KTP</span></div>
+                                                        <input class="od-driver-upload-input" type="file" id="driverRecruitKtpPhoto" accept="image/*" required>
                                                     </div>
                                                 </div>
                                                 <div class="od-form-row">
@@ -2174,7 +2178,7 @@
     <script src="js/talent.js?v=20260330-2"></script>
     <script src="js/penjual.js?v=20260330-2"></script>
     <script src="js/cs.js?v=20260330-2"></script>
-    <script src="js/owner.js?v=20260330-4"></script>
+    <script src="js/owner.js?v=20260330-5"></script>
     <script src="js/staff-app.js?v=20260330-2"></script>
     <script src="js/login.js?v=20260330-2"></script>
     <script src="js/account.js?v=20260330-2"></script>
