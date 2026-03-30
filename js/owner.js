@@ -2197,8 +2197,8 @@ var OwnerDashboard = (function () {
         wrap.style.padding = '10px';
         wrap.style.borderRadius = '16px';
         wrap.style.aspectRatio = isKtp ? '16 / 10' : '3 / 4';
-        wrap.style.minHeight = isKtp ? (isAdminMode ? '180px' : '170px') : (isAdminMode ? '260px' : '250px');
-        wrap.style.width = isKtp ? '100%' : (isAdminMode ? 'min(100%, 320px)' : 'min(100%, 280px)');
+        wrap.style.minHeight = isKtp ? (isAdminMode ? '120px' : '170px') : (isAdminMode ? '190px' : '250px');
+        wrap.style.width = isKtp ? '100%' : (isAdminMode ? 'min(100%, 150px)' : 'min(100%, 280px)');
         wrap.style.marginLeft = isKtp ? '0' : 'auto';
         wrap.style.marginRight = isKtp ? '0' : 'auto';
 
