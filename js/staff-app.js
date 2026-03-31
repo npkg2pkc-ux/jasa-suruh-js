@@ -479,6 +479,7 @@ var StaffManagement = (function () {
                     ${preview && html`<button type="button" className="sf-upload-remove" onClick=${function () {
                         onChange(field + '_preview', null);
                         onChange(field + '_file', null);
+                        onChange(field + '_url', null);
                         if (ref.current) ref.current.value = '';
                     }}>✕</button>`}
                 </div>

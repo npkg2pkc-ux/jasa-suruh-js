@@ -1881,6 +1881,54 @@
     // ═══ STAFF MANAGEMENT ═══
     // ══════════════════════════════════
 
+    var STAFF_FILES_BUCKET = 'staff-files';
+
+    function extractStaffFilePath(value) {
+        if (!value) return null;
+        var raw = String(value).trim();
+        if (!raw) return null;
+
+        var noQuery = raw.split('?')[0];
+        if (!noQuery) return null;
+
+        if (noQuery.indexOf('avatars/') === 0 || noQuery.indexOf('ktp/') === 0) {
+            return decodeURIComponent(noQuery);
+        }
+
+        var markers = [
+            '/storage/v1/object/public/' + STAFF_FILES_BUCKET + '/',
+            '/storage/v1/object/sign/' + STAFF_FILES_BUCKET + '/',
+            '/object/public/' + STAFF_FILES_BUCKET + '/',
+            '/object/sign/' + STAFF_FILES_BUCKET + '/'
+        ];
+
+        for (var i = 0; i < markers.length; i++) {
+            var marker = markers[i];
+            var idx = noQuery.indexOf(marker);
+            if (idx !== -1) {
+                return decodeURIComponent(noQuery.slice(idx + marker.length));
+            }
+        }
+
+        return null;
+    }
+
+    function removeStaffFiles(paths) {
+        var uniquePaths = [];
+        (paths || []).forEach(function (p) {
+            if (!p) return;
+            if (uniquePaths.indexOf(p) === -1) uniquePaths.push(p);
+        });
+
+        if (uniquePaths.length === 0) return Promise.resolve();
+
+        return sb.storage.from(STAFF_FILES_BUCKET).remove(uniquePaths)
+            .then(function (res) {
+                if (res && res.error) throw new Error(res.error.message || 'Gagal hapus file staff');
+                return null;
+            });
+    }
+
     function getAllStaff() {
         return sb.from('staff').select('*').order('created_at', { ascending: false })
             .then(function (res) {
@@ -1934,28 +1982,77 @@
             else if (ph && !ph.startsWith('62')) ph = '62' + ph;
             data.no_hp = ph;
         }
+
+        if (Object.prototype.hasOwnProperty.call(data, 'foto_url') && data.foto_url === '') data.foto_url = null;
+        if (Object.prototype.hasOwnProperty.call(data, 'ktp_url') && data.ktp_url === '') data.ktp_url = null;
+
         data.updated_at = new Date().toISOString();
-        return sb.from('staff').update(data).eq('id', id)
-            .then(function (res) {
-                throwIfError(res);
-                return ok(data);
+
+        return sb.from('staff').select('foto_url, ktp_url').eq('id', id).limit(1)
+            .then(function (currentRes) {
+                throwIfError(currentRes);
+                var current = ((currentRes.data || [])[0]) || {};
+                var cleanupPaths = [];
+
+                if (Object.prototype.hasOwnProperty.call(data, 'foto_url')) {
+                    var oldFotoPath = extractStaffFilePath(current.foto_url);
+                    var newFotoPath = extractStaffFilePath(data.foto_url);
+                    if (!data.foto_url && oldFotoPath) cleanupPaths.push(oldFotoPath);
+                    else if (oldFotoPath && newFotoPath && oldFotoPath !== newFotoPath) cleanupPaths.push(oldFotoPath);
+                }
+
+                if (Object.prototype.hasOwnProperty.call(data, 'ktp_url')) {
+                    var oldKtpPath = extractStaffFilePath(current.ktp_url);
+                    var newKtpPath = extractStaffFilePath(data.ktp_url);
+                    if (!data.ktp_url && oldKtpPath) cleanupPaths.push(oldKtpPath);
+                    else if (oldKtpPath && newKtpPath && oldKtpPath !== newKtpPath) cleanupPaths.push(oldKtpPath);
+                }
+
+                return removeStaffFiles(cleanupPaths)
+                    .then(function () {
+                        return sb.from('staff').update(data).eq('id', id);
+                    })
+                    .then(function (updateRes) {
+                        throwIfError(updateRes);
+                        return ok(data);
+                    });
             });
     }
 
     function doDeleteStaff(body) {
-        return sb.from('staff').delete().eq('id', body.id)
-            .then(function (res) {
-                throwIfError(res);
-                return ok(null);
+        return sb.from('staff').select('foto_url, ktp_url').eq('id', body.id).limit(1)
+            .then(function (existingRes) {
+                throwIfError(existingRes);
+                var existing = ((existingRes.data || [])[0]) || {};
+                var cleanupPaths = [
+                    extractStaffFilePath(existing.foto_url),
+                    extractStaffFilePath(existing.ktp_url)
+                ];
+
+                return removeStaffFiles(cleanupPaths)
+                    .then(function () {
+                        return sb.from('staff').delete().eq('id', body.id);
+                    })
+                    .then(function (deleteRes) {
+                        throwIfError(deleteRes);
+                        return ok(null);
+                    });
             });
     }
 
     function uploadStaffFile(path, file) {
-        return sb.storage.from('staff-files').upload(path, file, { upsert: true })
+        var safePath = String(path || '').replace(/^\/+/, '');
+        if (!safePath) return Promise.resolve(fail('Path upload staff tidak valid'));
+
+        return sb.storage.from(STAFF_FILES_BUCKET).upload(safePath, file, { upsert: true, cacheControl: '0' })
             .then(function (res) {
                 if (res.error) throw res.error;
-                var publicUrl = sb.storage.from('staff-files').getPublicUrl(path);
-                return ok(publicUrl.data.publicUrl);
+                var publicUrl = sb.storage.from(STAFF_FILES_BUCKET).getPublicUrl(safePath);
+                var baseUrl = (publicUrl && publicUrl.data && publicUrl.data.publicUrl) || '';
+                var versionedUrl = baseUrl
+                    ? (baseUrl + (baseUrl.indexOf('?') === -1 ? '?v=' : '&v=') + Date.now())
+                    : baseUrl;
+                return ok(versionedUrl);
             });
     }
 
