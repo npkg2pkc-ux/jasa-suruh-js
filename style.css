@@ -168,6 +168,12 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
     justify-content:center;
     overflow:hidden;
 }
+.auth-captcha-widget > div {
+    margin:0 auto;
+}
+.auth-captcha-widget iframe {
+    max-width:100%;
+}
 .auth-captcha-message {
     margin:8px 0 0;
     font-size:12px;

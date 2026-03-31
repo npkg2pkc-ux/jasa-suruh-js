@@ -84,6 +84,10 @@ var LoginPage = (function () {
     function _sendOTP() {
         if (!_validatePhone()) return;
 
+        if (window.CaptchaService && typeof window.CaptchaService.render === 'function') {
+            window.CaptchaService.render('login');
+        }
+
         var captchaToken = '';
         if (window.CaptchaService && typeof window.CaptchaService.requireToken === 'function') {
             captchaToken = window.CaptchaService.requireToken('login');
@@ -131,8 +135,14 @@ var LoginPage = (function () {
             btn.disabled = false;
             text.textContent = 'Lanjutkan';
             spinner.classList.add('hidden');
-            error.textContent = err && err.message ? err.message : 'Koneksi gagal. Coba lagi.';
+            var errMsg = err && err.message ? String(err.message) : 'Koneksi gagal. Coba lagi.';
+            error.textContent = errMsg;
             error.classList.remove('hidden');
+
+            if (/captcha/i.test(errMsg) && window.CaptchaService) {
+                if (typeof window.CaptchaService.reset === 'function') window.CaptchaService.reset('login');
+                if (typeof window.CaptchaService.render === 'function') window.CaptchaService.render('login');
+            }
 
             if (err && err.code === 'ACCOUNT_COOLDOWN') {
                 var info = err.cooldownInfo || {};
@@ -684,6 +694,10 @@ var LoginPage = (function () {
             _checkAndRenderCooldown(lastPhone);
         }
         _restorePendingOTP();
+
+        if (window.CaptchaService && typeof window.CaptchaService.render === 'function') {
+            window.CaptchaService.render('login');
+        }
     }
 
     return {

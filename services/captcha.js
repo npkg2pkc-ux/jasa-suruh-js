@@ -15,9 +15,18 @@ var CaptchaService = (function () {
     var _widgetIds = {};
     var _tokens = {};
     var _renderRetryCount = {};
+    var _watchdogTimers = {};
+    var _scriptBinded = false;
+    var _MAX_RETRY = 120; // 120 * 500ms = 60s
 
     function _getContextConfig(context) {
         return CONTEXTS[context] || null;
+    }
+
+    function _getContainer(context) {
+        var cfg = _getContextConfig(context);
+        if (!cfg) return null;
+        return document.getElementById(cfg.containerId);
     }
 
     function _getSiteKey() {
@@ -40,6 +49,60 @@ var CaptchaService = (function () {
         return '';
     }
 
+    function _bindScriptLifecycle(scriptEl) {
+        if (!scriptEl || scriptEl._jsCaptchaBound) return;
+        scriptEl._jsCaptchaBound = true;
+        scriptEl.addEventListener('load', function () {
+            _scriptBinded = true;
+        });
+        scriptEl.addEventListener('error', function () {
+            _scriptBinded = true;
+        });
+    }
+
+    function _ensureTurnstileScript() {
+        if (window.turnstile && typeof window.turnstile.render === 'function') return;
+
+        var selector = 'script[src*="challenges.cloudflare.com/turnstile/v0/api.js"]';
+        var existing = document.querySelector(selector);
+        if (existing) {
+            _bindScriptLifecycle(existing);
+            return;
+        }
+
+        var script = document.createElement('script');
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        script.async = true;
+        script.defer = true;
+        script.setAttribute('data-js-turnstile', '1');
+        _bindScriptLifecycle(script);
+        document.head.appendChild(script);
+    }
+
+    function _hasRenderedIframe(container) {
+        if (!container) return false;
+        return !!container.querySelector('iframe');
+    }
+
+    function _scheduleWidgetWatchdog(context) {
+        if (_watchdogTimers[context]) {
+            clearTimeout(_watchdogTimers[context]);
+            _watchdogTimers[context] = null;
+        }
+
+        _watchdogTimers[context] = setTimeout(function () {
+            _watchdogTimers[context] = null;
+            var container = _getContainer(context);
+            if (!container) return;
+            if (_tokens[context]) return;
+
+            if (!_hasRenderedIframe(container)) {
+                _widgetIds[context] = undefined;
+                _renderWidget(context, true);
+            }
+        }, 1600);
+    }
+
     function _setMessage(context, message) {
         var cfg = _getContextConfig(context);
         if (!cfg) return;
@@ -55,13 +118,25 @@ var CaptchaService = (function () {
         }
     }
 
-    function _renderWidget(context) {
+    function _renderWidget(context, force) {
         var cfg = _getContextConfig(context);
         if (!cfg) return;
-        if (_widgetIds[context] !== undefined) return;
 
         var container = document.getElementById(cfg.containerId);
         if (!container) return;
+
+        if (force && _widgetIds[context] !== undefined && window.turnstile && typeof window.turnstile.remove === 'function') {
+            try { window.turnstile.remove(_widgetIds[context]); } catch (e) {}
+            _widgetIds[context] = undefined;
+        }
+
+        if (_widgetIds[context] !== undefined && _hasRenderedIframe(container)) {
+            return;
+        }
+
+        if (_widgetIds[context] !== undefined && !_hasRenderedIframe(container)) {
+            _widgetIds[context] = undefined;
+        }
 
         var siteKey = _getSiteKey();
         if (!siteKey) {
@@ -69,41 +144,64 @@ var CaptchaService = (function () {
             return;
         }
 
+        _ensureTurnstileScript();
+
         if (!window.turnstile || typeof window.turnstile.render !== 'function') {
             var retry = (_renderRetryCount[context] || 0) + 1;
             _renderRetryCount[context] = retry;
-            if (retry <= 30) {
-                setTimeout(function () { _renderWidget(context); }, 300);
+            _setMessage(context, 'Memuat CAPTCHA keamanan...');
+            if (retry <= _MAX_RETRY) {
+                setTimeout(function () { _renderWidget(context); }, 500);
                 return;
             }
             _setMessage(context, 'Captcha gagal dimuat. Refresh halaman lalu coba lagi.');
             return;
         }
 
+        _renderRetryCount[context] = 0;
         _setMessage(context, '');
-        _widgetIds[context] = window.turnstile.render(container, {
-            sitekey: siteKey,
-            theme: 'light',
-            action: 'otp_send',
-            callback: function (token) {
-                _tokens[context] = String(token || '');
-                _setMessage(context, '');
-            },
-            'expired-callback': function () {
-                _tokens[context] = '';
-            },
-            'error-callback': function () {
-                _tokens[context] = '';
-                _setMessage(context, 'Captcha error. Ulangi verifikasi keamanan.');
+        try {
+            _widgetIds[context] = window.turnstile.render(container, {
+                sitekey: siteKey,
+                theme: 'light',
+                action: 'otp_send',
+                retry: 'auto',
+                'refresh-expired': 'auto',
+                callback: function (token) {
+                    _tokens[context] = String(token || '').trim();
+                    _setMessage(context, '');
+                },
+                'expired-callback': function () {
+                    _tokens[context] = '';
+                },
+                'error-callback': function () {
+                    _tokens[context] = '';
+                    _setMessage(context, 'Captcha error. Mengulang captcha...');
+                    _widgetIds[context] = undefined;
+                    setTimeout(function () { _renderWidget(context, true); }, 700);
+                }
+            });
+            _scheduleWidgetWatchdog(context);
+        } catch (e) {
+            _tokens[context] = '';
+            _widgetIds[context] = undefined;
+            var nextRetry = (_renderRetryCount[context] || 0) + 1;
+            _renderRetryCount[context] = nextRetry;
+            if (nextRetry <= _MAX_RETRY) {
+                _setMessage(context, 'Captcha sedang dipersiapkan...');
+                setTimeout(function () { _renderWidget(context, true); }, 700);
+                return;
             }
-        });
+            _setMessage(context, 'Captcha gagal dimuat. Refresh halaman lalu coba lagi.');
+        }
     }
 
     function render(context) {
-        _renderWidget(context);
+        _renderWidget(context, false);
     }
 
     function requireToken(context) {
+        _renderWidget(context, false);
         var token = String(_tokens[context] || '').trim();
         if (!token) {
             _setMessage(context, 'Selesaikan CAPTCHA keamanan terlebih dahulu.');
@@ -122,6 +220,7 @@ var CaptchaService = (function () {
         } catch (e) {
             // ignore reset error
         }
+        _setMessage(context, '');
     }
 
     return {

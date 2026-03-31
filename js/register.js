@@ -236,6 +236,10 @@ var RegisterPage = (function () {
                 return;
             }
 
+            if (window.CaptchaService && typeof window.CaptchaService.render === 'function') {
+                window.CaptchaService.render('register-send');
+            }
+
             var captchaToken = '';
             if (window.CaptchaService && typeof window.CaptchaService.requireToken === 'function') {
                 captchaToken = window.CaptchaService.requireToken('register-send');
@@ -278,6 +282,10 @@ var RegisterPage = (function () {
                     var msg = err.message || 'Gagal mengirim OTP';
                     if (msg.includes('rate limit')) msg = 'Terlalu banyak percobaan. Tunggu beberapa menit.';
                     if (errorEl) errorEl.textContent = msg;
+                    if (/captcha/i.test(String(msg || '')) && window.CaptchaService) {
+                        if (typeof window.CaptchaService.reset === 'function') window.CaptchaService.reset('register-send');
+                        if (typeof window.CaptchaService.render === 'function') window.CaptchaService.render('register-send');
+                    }
                     if (err && err.code === 'ACCOUNT_COOLDOWN') {
                         var info = err.cooldownInfo || {};
                         _showCooldownNotice(Number(info.blockedUntil || 0), msg);
@@ -396,6 +404,10 @@ var RegisterPage = (function () {
             var errorEl = document.getElementById('regOTPError');
             if (errorEl) errorEl.textContent = '';
 
+            if (window.CaptchaService && typeof window.CaptchaService.render === 'function') {
+                window.CaptchaService.render('register-resend');
+            }
+
             var captchaToken = '';
             if (window.CaptchaService && typeof window.CaptchaService.requireToken === 'function') {
                 captchaToken = window.CaptchaService.requireToken('register-resend');
@@ -421,7 +433,12 @@ var RegisterPage = (function () {
                     }
                 })
                 .catch(function (err) {
-                    if (errorEl) errorEl.textContent = err.message || 'Gagal mengirim ulang OTP';
+                    var msg = err.message || 'Gagal mengirim ulang OTP';
+                    if (errorEl) errorEl.textContent = msg;
+                    if (/captcha/i.test(String(msg || '')) && window.CaptchaService) {
+                        if (typeof window.CaptchaService.reset === 'function') window.CaptchaService.reset('register-resend');
+                        if (typeof window.CaptchaService.render === 'function') window.CaptchaService.render('register-resend');
+                    }
                     if (window.CaptchaService && typeof window.CaptchaService.reset === 'function') {
                         window.CaptchaService.reset('register-resend');
                     }
