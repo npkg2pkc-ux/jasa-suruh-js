@@ -3717,6 +3717,7 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     display:flex;
     gap:14px;
     align-items:center;
+    padding-right:40px;
 }
 .od-user-detail-avatar {
     width:64px;
@@ -3780,6 +3781,7 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     align-items:center;
     justify-content:center;
     line-height:1;
+    z-index:3;
 }
 .od-user-detail-body { padding:16px 18px 20px; }
 .od-user-detail-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:12px; }

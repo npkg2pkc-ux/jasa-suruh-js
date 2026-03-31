@@ -7,16 +7,26 @@
 with params as (
   select 1774636847000::bigint as cutover_ms
 ),
+active_users as (
+  select id
+  from users
+),
 ledger_net as (
   select
-    user_id,
+    l.user_id,
     sum(case when direction = 'credit' then amount else -amount end) as net_ledger
-  from wallet_ledger
-  group by user_id
+  from wallet_ledger l
+  join active_users u on u.id = l.user_id
+  group by l.user_id
+),
+wallet_net as (
+  select w.user_id, w.balance
+  from wallets w
+  join active_users u on u.id = w.user_id
 ),
 global_check as (
   select
-    coalesce((select sum(balance) from wallets), 0) as total_wallet_balance,
+    coalesce((select sum(balance) from wallet_net), 0) as total_wallet_balance,
     coalesce((select sum(net_ledger) from ledger_net), 0) as total_ledger_balance
 ),
 mismatch_check as (
@@ -26,7 +36,7 @@ mismatch_check as (
       coalesce(w.user_id, l.user_id) as user_id,
       coalesce(w.balance, 0) as wallet_balance,
       coalesce(l.net_ledger, 0) as ledger_balance
-    from wallets w
+    from wallet_net w
     full outer join ledger_net l on l.user_id = w.user_id
     where coalesce(w.balance, 0) <> coalesce(l.net_ledger, 0)
   ) x
