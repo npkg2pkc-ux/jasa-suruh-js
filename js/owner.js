@@ -21,6 +21,8 @@ var OwnerDashboard = (function () {
         home: { title: 'Home', subtitle: 'Ringkasan performa platform' },
         activity: { title: 'Aktivitas Terbaru', subtitle: 'Update order dan user terbaru' },
         users: { title: 'Pengguna', subtitle: 'Kelola akun dan role platform' },
+        'order-review': { title: 'Review Order Driver', subtitle: 'Verifikasi order selesai sebelum komisi dicairkan' },
+        transactions: { title: 'Riwayat Transaksi', subtitle: 'Pantau semua transaksi dalam satu panel' },
         staff: { title: 'Kelola Staff', subtitle: 'Kelola akun admin dan CS tanpa keluar dashboard' },
         marketing: { title: 'Info & Promo', subtitle: 'Kelola konten informasi user' },
         'driver-recruit': { title: 'Rekrutment Driver', subtitle: 'Form lengkap pendaftaran driver baru' },
@@ -61,6 +63,8 @@ var OwnerDashboard = (function () {
         if (panel === 'home') return { title: 'Home', subtitle: 'Ringkasan operasional admin' };
         if (panel === 'activity') return { title: 'Order', subtitle: 'Monitoring order dari dibuat sampai verifikasi komisi' };
         if (panel === 'users') return { title: 'Pengguna', subtitle: 'Kontrol akun global: user, driver, dan seller' };
+        if (panel === 'order-review') return { title: 'Review Order Driver', subtitle: 'Verifikasi order selesai sebelum komisi dicairkan' };
+        if (panel === 'transactions') return { title: 'Riwayat Transaksi', subtitle: 'Pantau semua transaksi tanpa keluar dashboard' };
         if (panel === 'staff') return { title: 'Kelola Staff', subtitle: 'Kelola admin dan customer service dalam panel yang sama' };
         if (panel === 'marketing') return { title: 'Info & Promo', subtitle: 'Kelola konten informasi dashboard user' };
         if (panel === 'driver-recruit') return { title: 'Rekrutment Driver', subtitle: 'Lengkapi data driver dalam satu halaman' };
@@ -77,17 +81,25 @@ var OwnerDashboard = (function () {
         });
     }
 
+    function _openOrderReviewPanel() {
+        _openOwnerPanel('order-review');
+    }
+
+    function _openTransactionsPanel() {
+        _openOwnerPanel('transactions');
+    }
+
     function _runOwnerMenuAction(action) {
         if (action === 'staff-list') {
             _openStaffPanel('list');
             return;
         }
         if (action === 'transactions') {
-            if (typeof openAdminTransactions === 'function') openAdminTransactions();
+            _openTransactionsPanel();
             return;
         }
         if (action === 'order-review') {
-            if (typeof openAdminOrderReview === 'function') openAdminOrderReview();
+            _openOrderReviewPanel();
             return;
         }
         if (action === 'driver-recruit') {
@@ -101,6 +113,12 @@ var OwnerDashboard = (function () {
         });
         $$('#ownerBottomNav [data-owner-action="staff-list"]').forEach(function (btn) {
             btn.classList.toggle('active', panel === 'staff');
+        });
+        $$('#ownerBottomNav [data-owner-action="order-review"]').forEach(function (btn) {
+            btn.classList.toggle('active', panel === 'order-review');
+        });
+        $$('#ownerBottomNav [data-owner-action="transactions"]').forEach(function (btn) {
+            btn.classList.toggle('active', panel === 'transactions');
         });
     }
 
@@ -116,6 +134,7 @@ var OwnerDashboard = (function () {
         var cfg = _getPanelConfig(panel);
         var modal = $('ownerPanelModal');
         if (!modal) return;
+        var prevPanel = _activeOwnerPanel;
 
         _setActiveOwnerNav(panel);
         _syncOwnerHeaderVisibility(panel);
@@ -156,6 +175,10 @@ var OwnerDashboard = (function () {
 
         _activeOwnerPanel = panel;
 
+        if (prevPanel === 'order-review' && panel !== 'order-review') {
+            if (typeof closeAdminOrderReview === 'function') closeAdminOrderReview();
+        }
+
         if (panel === 'home') {
             if (_isOwner()) {
                 var chartDays = parseInt(($('ownerChartRange') && $('ownerChartRange').value) || '7', 10);
@@ -165,6 +188,22 @@ var OwnerDashboard = (function () {
                 _renderAdminFlow(_ordersCache);
                 _renderAdminReportSummary(_ordersCache);
                 _renderAdminWorkPriority(_ordersCache);
+            }
+        }
+        if (panel === 'order-review') {
+            if (typeof openAdminOrderReview === 'function') {
+                openAdminOrderReview({
+                    containerId: 'ownerOrderReviewHost',
+                    onClose: function () { _openOwnerPanel('home'); }
+                });
+            }
+        }
+        if (panel === 'transactions') {
+            if (typeof openAdminTransactions === 'function') {
+                openAdminTransactions({
+                    containerId: 'ownerTransactionsHost',
+                    onClose: function () { _openOwnerPanel('home'); }
+                });
             }
         }
         if (panel === 'settings' && _isOwner()) {
@@ -250,7 +289,7 @@ var OwnerDashboard = (function () {
                 if (!_isAdmin()) return;
                 var target = this.dataset.adminTarget || 'orders';
                 if (target === 'review') {
-                    if (typeof openAdminOrderReview === 'function') openAdminOrderReview();
+                    _openOrderReviewPanel();
                     return;
                 }
                 if (target === 'problem-orders') {
@@ -262,7 +301,7 @@ var OwnerDashboard = (function () {
                     return;
                 }
                 if (target === 'reports') {
-                    if (typeof openAdminTransactions === 'function') openAdminTransactions();
+                    _openTransactionsPanel();
                     return;
                 }
                 _openOwnerPanel('activity');
@@ -281,8 +320,8 @@ var OwnerDashboard = (function () {
                 var action = this.dataset.action;
                 if (action === 'add-staff') { _openStaffPanel('add'); }
                 else if (action === 'staff-list') { _openStaffPanel('list'); }
-                else if (action === 'view-report') { if (typeof openAdminTransactions === 'function') openAdminTransactions(); }
-                else if (action === 'order-review') { if (typeof openAdminOrderReview === 'function') openAdminOrderReview(); }
+                else if (action === 'view-report') { _openTransactionsPanel(); }
+                else if (action === 'order-review') { _openOrderReviewPanel(); }
                 else if (action === 'activity-latest') { _openOwnerPanel('activity'); }
                 else if (action === 'manage-users') { _openOwnerPanel('users'); }
                 else if (action === 'settings') openOwnerSettings();
@@ -292,12 +331,12 @@ var OwnerDashboard = (function () {
         // Transactions button
         var txBtn = $('ownerBtnTransactions');
         if (txBtn) txBtn.addEventListener('click', function () {
-            if (typeof openAdminTransactions === 'function') openAdminTransactions();
+            _openTransactionsPanel();
         });
 
         var reviewBtn = $('ownerBtnOpenReviewQueue');
         if (reviewBtn) reviewBtn.addEventListener('click', function () {
-            if (typeof openAdminOrderReview === 'function') openAdminOrderReview();
+            _openOrderReviewPanel();
         });
 
         var activityFilters = $('ownerActivityFilters');
@@ -3255,36 +3294,76 @@ function loadAdminProblemOrders(page) {
 // ══════════════════════════════════════════
 // ═══ ADMIN TRANSACTIONS PAGE ═══
 // ══════════════════════════════════════════
-function openAdminTransactions() {
-    var page = document.getElementById('adminTransPage');
-    if (!page) return;
-    page.classList.remove('hidden');
+function openAdminTransactions(options) {
+    var opts = options && typeof options === 'object' ? options : {};
+    var list = null;
 
-    document.getElementById('atpList').innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">⏳</div><p>Memuat transaksi...</p></div>';
+    if (opts.containerId) {
+        var host = document.getElementById(opts.containerId);
+        if (!host) return;
+
+        host.innerHTML = [
+            '<div class="od-inline-module-head">',
+                '<div>',
+                    '<h4>Riwayat Transaksi</h4>',
+                    '<p>Pantau semua transaksi tanpa keluar panel dashboard.</p>',
+                '</div>',
+                '<div class="od-inline-module-actions">',
+                    '<button type="button" class="od-inline-module-btn" data-atp-refresh>Refresh</button>',
+                    (typeof opts.onClose === 'function' ? '<button type="button" class="od-inline-module-btn" data-atp-close>Kembali</button>' : ''),
+                '</div>',
+            '</div>',
+            '<div class="stp-list od-inline-module-list" data-atp-list></div>'
+        ].join('');
+
+        list = host.querySelector('[data-atp-list]');
+
+        var refreshBtn = host.querySelector('[data-atp-refresh]');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', function () {
+                openAdminTransactions(opts);
+            });
+        }
+
+        var closeBtn = host.querySelector('[data-atp-close]');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function () {
+                if (typeof opts.onClose === 'function') opts.onClose();
+            });
+        }
+    } else {
+        var page = document.getElementById('adminTransPage');
+        if (!page) return;
+        page.classList.remove('hidden');
+        list = document.getElementById('atpList');
+
+        if (!page._eventsSetup) {
+            page._eventsSetup = true;
+            document.getElementById('atpBtnBack').addEventListener('click', function () {
+                page.classList.add('hidden');
+            });
+        }
+    }
+
+    if (!list) return;
+    list.innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">⏳</div><p>Memuat transaksi...</p></div>';
 
     FB.get('getAllOrders')
         .then(function (r) { return r.json(); })
         .then(function (res) {
             if (res.success && res.data) {
-                renderAdminTransactions(res.data);
+                renderAdminTransactions(res.data, list);
             } else {
-                document.getElementById('atpList').innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">📭</div><p>Belum ada transaksi</p></div>';
+                list.innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">📭</div><p>Belum ada transaksi</p></div>';
             }
         })
         .catch(function () {
-            document.getElementById('atpList').innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">❌</div><p>Gagal memuat</p></div>';
+            list.innerHTML = '<div class="stp-empty"><div class="stp-empty-icon">❌</div><p>Gagal memuat</p></div>';
         });
-
-    if (!page._eventsSetup) {
-        page._eventsSetup = true;
-        document.getElementById('atpBtnBack').addEventListener('click', function () {
-            page.classList.add('hidden');
-        });
-    }
 }
 
-function renderAdminTransactions(orders) {
-    var list = document.getElementById('atpList');
+function renderAdminTransactions(orders, targetList) {
+    var list = targetList || document.getElementById('atpList');
     if (!list) return;
     var users = getUsers();
 

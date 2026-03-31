@@ -5970,6 +5970,71 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     margin:0;
 }
 
+.od-inline-panel-surface {
+    padding:14px;
+}
+
+.od-inline-module-host {
+    min-height:620px;
+    border-radius:20px;
+    border:1px solid #E5E7EB;
+    background:#FFFFFF;
+    box-shadow:0 12px 30px rgba(15,23,42,.08), inset 0 0 0 1px rgba(255,255,255,.68);
+    overflow:hidden;
+}
+
+.od-inline-module-head {
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+    padding:14px 14px 12px;
+    border-bottom:1px solid #E5E7EB;
+    background:linear-gradient(180deg,#FFFFFF 0%, #FFF7ED 100%);
+}
+
+.od-inline-module-head h4 {
+    margin:0;
+    font-size:16px;
+    font-weight:800;
+    color:#111827;
+}
+
+.od-inline-module-head p {
+    margin:4px 0 0;
+    font-size:12px;
+    color:#6B7280;
+}
+
+.od-inline-module-actions {
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.od-inline-module-btn {
+    border:1px solid #E2E8F0;
+    background:#FFFFFF;
+    color:#334155;
+    border-radius:10px;
+    padding:8px 10px;
+    font-size:12px;
+    font-weight:700;
+    font-family:var(--font);
+    cursor:pointer;
+}
+
+.od-inline-module-btn:active {
+    transform:scale(.96);
+}
+
+.od-inline-module-list {
+    padding:12px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
 #page-owner .od-staff-panel-view {
     padding:0 0 calc(90px + env(safe-area-inset-bottom, 0px));
 }
@@ -6716,6 +6781,35 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 }
 
 @media (max-width:640px) {
+    .od-inline-panel-surface {
+        padding:10px;
+    }
+
+    .od-inline-module-host {
+        min-height:540px;
+        border-radius:16px;
+    }
+
+    .od-inline-module-head {
+        padding:12px;
+        gap:8px;
+    }
+
+    .od-inline-module-head h4 {
+        font-size:15px;
+    }
+
+    .od-inline-module-actions {
+        gap:6px;
+        flex-wrap:wrap;
+        justify-content:flex-end;
+    }
+
+    .od-inline-module-btn {
+        font-size:11px;
+        padding:7px 9px;
+    }
+
     #ownerStaffPanelHost {
         min-height:540px;
         border-radius:16px;

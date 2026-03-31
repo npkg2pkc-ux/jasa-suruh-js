@@ -22,21 +22,42 @@ function _isAwaitingAdminReview(order) {
 var _aorpRealtimeUnsub = null;
 var _aorpRealtimePollTimer = null;
 var _aorpRealtimeReloadTimer = null;
+var _aorpCurrentPage = null;
 
 // ── Open the review panel ──
-function openAdminOrderReview() {
-    var page = document.getElementById('adminOrderReviewPage');
-    if (!page) { page = _buildAdminOrderReviewPage(); document.body.appendChild(page); }
-    page.classList.remove('hidden');
+function openAdminOrderReview(options) {
+    var opts = options && typeof options === 'object' ? options : {};
+    var page = null;
+
+    if (opts.containerId) {
+        var host = document.getElementById(opts.containerId);
+        if (!host) return;
+        page = _buildAdminOrderReviewEmbedded(host, opts);
+    } else {
+        page = document.getElementById('adminOrderReviewPage');
+        if (!page) { page = _buildAdminOrderReviewPage(); document.body.appendChild(page); }
+        page.classList.remove('hidden');
+    }
+
+    _aorpCurrentPage = page;
     _loadPendingReviewOrders(page);
     _startAdminReviewRealtime(page);
 }
 window.openAdminOrderReview = openAdminOrderReview;
 
+function closeAdminOrderReview() {
+    var page = document.getElementById('adminOrderReviewPage');
+    if (page) page.classList.add('hidden');
+    _aorpCurrentPage = null;
+    _stopAdminReviewRealtime();
+}
+window.closeAdminOrderReview = closeAdminOrderReview;
+
 function _buildAdminOrderReviewPage() {
     var page = document.createElement('div');
     page.id = 'adminOrderReviewPage';
     page.className = 'stp-page hidden';
+    page.dataset.aorpMode = 'fullscreen';
     page.style.cssText = [
         'position:fixed;top:0;left:0;right:0;bottom:0;z-index:1200;',
         'background:#FFF7ED;overflow-y:auto;font-family:var(--font,sans-serif);'
@@ -55,16 +76,63 @@ function _buildAdminOrderReviewPage() {
             '<div style="text-align:center;padding:40px;color:#9CA3AF;">Memuat...</div>',
         '</div>'
     ].join('');
-    page.querySelector('#aorpBtnBack').addEventListener('click', function () {
-        page.classList.add('hidden');
-        _stopAdminReviewRealtime();
-    });
+    page.querySelector('#aorpBtnBack').addEventListener('click', closeAdminOrderReview);
+    return page;
+}
+
+function _buildAdminOrderReviewEmbedded(host, opts) {
+    var page = document.createElement('div');
+    page.dataset.aorpMode = 'embedded';
+    page.innerHTML = [
+        '<div class="od-inline-module-head">',
+            '<div>',
+                '<h4>Review Order Driver</h4>',
+                '<p>Verifikasi order selesai sebelum komisi dicairkan.</p>',
+            '</div>',
+            '<div class="od-inline-module-actions">',
+                '<button type="button" class="od-inline-module-btn" data-aorp-refresh>Refresh</button>',
+                (typeof opts.onClose === 'function' ? '<button type="button" class="od-inline-module-btn" data-aorp-back>Kembali</button>' : ''),
+            '</div>',
+        '</div>',
+        '<div class="od-inline-module-list" data-aorp-list>',
+            '<div style="text-align:center;padding:40px;color:#9CA3AF;">Memuat...</div>',
+        '</div>'
+    ].join('');
+    host.innerHTML = '';
+    host.appendChild(page);
+
+    var refreshBtn = page.querySelector('[data-aorp-refresh]');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function () {
+            _loadPendingReviewOrders(page);
+        });
+    }
+
+    var backBtn = page.querySelector('[data-aorp-back]');
+    if (backBtn) {
+        backBtn.addEventListener('click', function () {
+            _stopAdminReviewRealtime();
+            if (typeof opts.onClose === 'function') opts.onClose();
+        });
+    }
+
     return page;
 }
 
 function _isAdminReviewPageOpen(page) {
-    var target = page || document.getElementById('adminOrderReviewPage');
-    return !!(target && !target.classList.contains('hidden'));
+    var target = page || _aorpCurrentPage || document.getElementById('adminOrderReviewPage');
+    if (!target) return false;
+
+    if (target.dataset && target.dataset.aorpMode === 'embedded') {
+        if (!document.body.contains(target)) return false;
+        var panelView = target.closest('.od-panel-view');
+        if (panelView) {
+            return panelView.classList.contains('od-panel-view-active') && !panelView.classList.contains('hidden');
+        }
+        return true;
+    }
+
+    return !target.classList.contains('hidden');
 }
 
 function _stopAdminReviewRealtime() {
@@ -115,14 +183,14 @@ function _startAdminReviewRealtime(page) {
 }
 
 function refreshAdminOrderReviewPage(force) {
-    var page = document.getElementById('adminOrderReviewPage');
+    var page = _aorpCurrentPage || document.getElementById('adminOrderReviewPage');
     if (!_isAdminReviewPageOpen(page)) return;
     _scheduleAdminReviewReload(page, !!force);
 }
 window.refreshAdminOrderReviewPage = refreshAdminOrderReviewPage;
 
 function _loadPendingReviewOrders(page) {
-    var listEl = page ? page.querySelector('#aorpList') : null;
+    var listEl = page ? (page.querySelector('[data-aorp-list]') || page.querySelector('#aorpList')) : null;
     if (!listEl) return;
     listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#9CA3AF;">Memuat pesanan...</div>';
 
