@@ -2018,7 +2018,8 @@ var _otpAutoFollowPausedUntil = 0;
 var _otpEtaMin = 0;
 var _otpDriverTrailPoints = [];
 var _otpDriverTrailLayers = [];
-var DRIVER_MARKER_HEADING_OFFSET_DEG = -42;
+// markdriver.png now uses north/up as its base facing direction.
+var DRIVER_MARKER_HEADING_OFFSET_DEG = 0;
 var DRIVER_MARKER_HEADING_MIN_MOVE_KM = 0.003;
 var DRIVER_JUMP_REJECT_KM = 0.35;
 var DRIVER_JUMP_REJECT_SPEED_KMH = 120;
