@@ -21,6 +21,7 @@ var OwnerDashboard = (function () {
         home: { title: 'Home', subtitle: 'Ringkasan performa platform' },
         activity: { title: 'Aktivitas Terbaru', subtitle: 'Update order dan user terbaru' },
         users: { title: 'Pengguna', subtitle: 'Kelola akun dan role platform' },
+        staff: { title: 'Kelola Staff', subtitle: 'Kelola akun admin dan CS tanpa keluar dashboard' },
         marketing: { title: 'Info & Promo', subtitle: 'Kelola konten informasi user' },
         'driver-recruit': { title: 'Rekrutment Driver', subtitle: 'Form lengkap pendaftaran driver baru' },
         settings: { title: 'Setting', subtitle: 'Profil akun dan logout' }
@@ -60,15 +61,25 @@ var OwnerDashboard = (function () {
         if (panel === 'home') return { title: 'Home', subtitle: 'Ringkasan operasional admin' };
         if (panel === 'activity') return { title: 'Order', subtitle: 'Monitoring order dari dibuat sampai verifikasi komisi' };
         if (panel === 'users') return { title: 'Pengguna', subtitle: 'Kontrol akun global: user, driver, dan seller' };
+        if (panel === 'staff') return { title: 'Kelola Staff', subtitle: 'Kelola admin dan customer service dalam panel yang sama' };
         if (panel === 'marketing') return { title: 'Info & Promo', subtitle: 'Kelola konten informasi dashboard user' };
         if (panel === 'driver-recruit') return { title: 'Rekrutment Driver', subtitle: 'Lengkapi data driver dalam satu halaman' };
         if (panel === 'settings') return { title: 'Setting', subtitle: 'Profil admin dan logout' };
         return cfg;
     }
 
+    function _openStaffPanel(initialView, role) {
+        _openOwnerPanel('staff');
+        if (typeof openStaffManagement !== 'function') return;
+        openStaffManagement(initialView || 'list', role || '', {
+            containerId: 'ownerStaffPanelHost',
+            onClose: function () { _openOwnerPanel('home'); }
+        });
+    }
+
     function _runOwnerMenuAction(action) {
         if (action === 'staff-list') {
-            if (typeof openStaffManagement === 'function') openStaffManagement('list');
+            _openStaffPanel('list');
             return;
         }
         if (action === 'transactions') {
@@ -87,6 +98,9 @@ var OwnerDashboard = (function () {
     function _setActiveOwnerNav(panel) {
         $$('#ownerBottomNav [data-owner-panel]').forEach(function (btn) {
             btn.classList.toggle('active', btn.dataset.ownerPanel === panel);
+        });
+        $$('#ownerBottomNav [data-owner-action="staff-list"]').forEach(function (btn) {
+            btn.classList.toggle('active', panel === 'staff');
         });
     }
 
@@ -265,8 +279,8 @@ var OwnerDashboard = (function () {
         $$('.od-quick-btn').forEach(function (qbtn) {
             qbtn.addEventListener('click', function () {
                 var action = this.dataset.action;
-                if (action === 'add-staff') { if (typeof openStaffManagement === 'function') openStaffManagement('add'); }
-                else if (action === 'staff-list') { if (typeof openStaffManagement === 'function') openStaffManagement('list'); }
+                if (action === 'add-staff') { _openStaffPanel('add'); }
+                else if (action === 'staff-list') { _openStaffPanel('list'); }
                 else if (action === 'view-report') { if (typeof openAdminTransactions === 'function') openAdminTransactions(); }
                 else if (action === 'order-review') { if (typeof openAdminOrderReview === 'function') openAdminOrderReview(); }
                 else if (action === 'activity-latest') { _openOwnerPanel('activity'); }

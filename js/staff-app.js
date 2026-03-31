@@ -17,9 +17,14 @@ var StaffManagement = (function () {
     var useMemo = React.useMemo;
 
     var _root = null;
+    var _rootContainer = null;
     var _initialView = null;
     var _initialRole = null;
     var _initialEditId = null;
+    var _mountOptions = {
+        containerId: null,
+        onClose: null
+    };
 
     // ─── Config ───
     var MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -837,11 +842,11 @@ var StaffManagement = (function () {
     }
 
     // ═══════════════════════════════════
-    // ═══ STAFF DETAIL ═══
+    // ═══ STAFF DETAIL MODAL ═══
     // ═══════════════════════════════════
 
-    function StaffDetail(props) {
-        var staffId = props.staffId, onBack = props.onBack, onEdit = props.onEdit, onDeleted = props.onDeleted;
+    function StaffDetailModal(props) {
+        var staffId = props.staffId, onClose = props.onClose, onEdit = props.onEdit, onDeleted = props.onDeleted;
         var _s = useState(null), staff = _s[0], setStaff = _s[1];
         var _l = useState(true), loading = _l[0], setLoading = _l[1];
         var _t = useState(null), toast = _t[0], setToast = _t[1];
@@ -854,13 +859,25 @@ var StaffManagement = (function () {
             }).catch(function () { setLoading(false); });
         }, [staffId]);
 
+        useEffect(function () {
+            function onKeyDown(e) {
+                if (e.key === 'Escape' && typeof onClose === 'function') onClose();
+            }
+            document.addEventListener('keydown', onKeyDown);
+            return function () { document.removeEventListener('keydown', onKeyDown); };
+        }, [onClose]);
+
         function handleDelete() {
+            if (!staff) return;
             if (!confirm('Hapus staff ' + (staff.nama || '') + '? Data tidak bisa dikembalikan.')) return;
             setDeleting(true);
             StaffService.remove(staffId).then(function (res) {
                 if (res && res.success) {
                     setToast({ message: 'Staff dihapus', type: 'success' });
-                    setTimeout(function () { onDeleted && onDeleted(); }, 1000);
+                    setTimeout(function () {
+                        if (onDeleted) onDeleted(staffId);
+                        if (onClose) onClose();
+                    }, 750);
                 } else {
                     setToast({ message: 'Gagal menghapus', type: 'error' });
                     setDeleting(false);
@@ -872,90 +889,106 @@ var StaffManagement = (function () {
         }
 
         function handleToggleActive() {
+            if (!staff) return;
             var newStatus = !staff.is_active;
             StaffService.update({ id: staffId, is_active: newStatus }).then(function (res) {
                 if (res && res.success) {
                     setStaff(Object.assign({}, staff, { is_active: newStatus }));
                     setToast({ message: newStatus ? 'Staff diaktifkan' : 'Staff dinonaktifkan', type: 'success' });
+                } else {
+                    setToast({ message: 'Gagal mengubah status staff', type: 'error' });
                 }
+            }).catch(function () {
+                setToast({ message: 'Gagal mengubah status staff', type: 'error' });
             });
         }
 
-        if (loading) return html`<div className="sf-detail-page"><${HeaderBar} title="Detail Staff" onBack=${onBack} /><${Spinner} text="Memuat..." /></div>`;
-        if (!staff) return html`<div className="sf-detail-page"><${HeaderBar} title="Detail Staff" onBack=${onBack} /><${EmptyState} icon="❌" title="Staff tidak ditemukan" /></div>`;
+        var detailContent = null;
+        if (loading) {
+            detailContent = html`<${Spinner} text="Memuat detail staff..." />`;
+        } else if (!staff) {
+            detailContent = html`<${EmptyState} icon="❌" title="Staff tidak ditemukan" subtitle="Data staff tidak tersedia" />`;
+        } else {
+            var roleColor = staff.role === 'admin' ? '#EF4444' : '#8B5CF6';
+            var roleLabel = staff.role === 'admin' ? 'Admin' : 'Customer Service';
+            var initial = (staff.nama || 'S').charAt(0).toUpperCase();
 
-        var roleColor = staff.role === 'admin' ? '#EF4444' : '#8B5CF6';
-        var roleLabel = staff.role === 'admin' ? 'Admin' : 'Customer Service';
-        var initial = (staff.nama || 'S').charAt(0).toUpperCase();
-
-        return html`<div className="sf-detail-page">
-            <${HeaderBar} title="Detail Staff" onBack=${onBack} />
-
-            <!-- Profile Header -->
-            <div className="sf-profile-header">
-                <div className="sf-profile-avatar" style=${{ background: staff.foto_url ? 'transparent' : roleColor }}>
-                    ${staff.foto_url
-                        ? html`<img src=${staff.foto_url} alt=${staff.nama} />`
-                        : html`<span>${initial}</span>`}
-                </div>
-                <h2 className="sf-profile-name">${escHtml(staff.nama)}</h2>
-                <span className="sf-profile-role" style=${{ color: roleColor, background: roleColor + '15' }}>${roleLabel}</span>
-                <div className="sf-profile-status">
-                    <span className="sf-status-dot" style=${{ background: staff.is_active !== false ? '#22C55E' : '#9CA3AF' }}></span>
-                    <span>${staff.is_active !== false ? 'Aktif' : 'Nonaktif'}</span>
-                </div>
-            </div>
-
-            <!-- Info Sections -->
-            <div className="sf-detail-sections">
-                <div className="sf-detail-card">
-                    <h4>📱 Kontak</h4>
-                    <div className="sf-detail-row"><span>No HP</span><strong>${formatPhone(staff.no_hp)}</strong></div>
-                    <div className="sf-detail-row"><span>Email</span><strong>${staff.email || '-'}</strong></div>
-                </div>
-
-                <div className="sf-detail-card">
-                    <h4>📝 Personal</h4>
-                    <div className="sf-detail-row"><span>Jenis Kelamin</span><strong>${staff.jenis_kelamin || '-'}</strong></div>
-                    <div className="sf-detail-row"><span>Tanggal Lahir</span><strong>${formatDate(staff.tanggal_lahir)}</strong></div>
-                    <div className="sf-detail-row"><span>Alamat</span><strong>${staff.alamat || '-'}</strong></div>
-                    <div className="sf-detail-row"><span>Kota</span><strong>${staff.kota || '-'}</strong></div>
-                </div>
-
-                <div className="sf-detail-card">
-                    <h4>💼 Profesional</h4>
-                    <div className="sf-detail-row"><span>Pendidikan</span><strong>${staff.pendidikan || '-'}</strong></div>
-                    ${staff.pengalaman && html`<div className="sf-detail-row sf-detail-block"><span>Pengalaman</span><p>${staff.pengalaman}</p></div>`}
-                    ${staff.keahlian && html`<div className="sf-detail-row sf-detail-block"><span>Keahlian</span><p>${staff.keahlian}</p></div>`}
-                    ${staff.catatan && html`<div className="sf-detail-row sf-detail-block"><span>Catatan</span><p>${staff.catatan}</p></div>`}
-                </div>
-
-                ${staff.ktp_url && html`<div className="sf-detail-card">
-                    <h4>🪪 Dokumen KTP</h4>
-                    <div className="sf-detail-ktp">
-                        <img src=${staff.ktp_url} alt="KTP" />
+            detailContent = html`<div className="sf-detail-modal-content">
+                <div className="sf-profile-header">
+                    <div className="sf-profile-avatar" style=${{ background: staff.foto_url ? 'transparent' : roleColor }}>
+                        ${staff.foto_url
+                            ? html`<img src=${staff.foto_url} alt=${staff.nama} />`
+                            : html`<span>${initial}</span>`}
                     </div>
-                </div>`}
-
-                <div className="sf-detail-card sf-detail-meta">
-                    <div className="sf-detail-row"><span>Bergabung</span><strong>${formatDatetime(staff.created_at)}</strong></div>
-                    <div className="sf-detail-row"><span>ID</span><strong className="sf-meta-id">${staff.id}</strong></div>
+                    <h2 className="sf-profile-name">${escHtml(staff.nama)}</h2>
+                    <span className="sf-profile-role" style=${{ color: roleColor, background: roleColor + '15' }}>${roleLabel}</span>
+                    <div className="sf-profile-status">
+                        <span className="sf-status-dot" style=${{ background: staff.is_active !== false ? '#22C55E' : '#9CA3AF' }}></span>
+                        <span>${staff.is_active !== false ? 'Aktif' : 'Nonaktif'}</span>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Actions -->
-            <div className="sf-detail-actions">
-                <button className="sf-btn sf-btn-outline" onClick=${handleToggleActive}>
-                    ${staff.is_active !== false ? '⏸️ Nonaktifkan' : '▶️ Aktifkan'}
-                </button>
-                <button className="sf-btn sf-btn-primary" onClick=${function () { onEdit(staff); }}>
-                    ✏️ Edit Data
-                </button>
-                <button className="sf-btn sf-btn-danger" onClick=${handleDelete} disabled=${deleting}>
-                    ${deleting ? 'Menghapus...' : '🗑️ Hapus'}
-                </button>
-            </div>
+                <div className="sf-detail-sections">
+                    <div className="sf-detail-card">
+                        <h4>📱 Kontak</h4>
+                        <div className="sf-detail-row"><span>No HP</span><strong>${formatPhone(staff.no_hp)}</strong></div>
+                        <div className="sf-detail-row"><span>Email</span><strong>${staff.email || '-'}</strong></div>
+                    </div>
 
+                    <div className="sf-detail-card">
+                        <h4>📝 Personal</h4>
+                        <div className="sf-detail-row"><span>Jenis Kelamin</span><strong>${staff.jenis_kelamin || '-'}</strong></div>
+                        <div className="sf-detail-row"><span>Tanggal Lahir</span><strong>${formatDate(staff.tanggal_lahir)}</strong></div>
+                        <div className="sf-detail-row"><span>Alamat</span><strong>${staff.alamat || '-'}</strong></div>
+                        <div className="sf-detail-row"><span>Kota</span><strong>${staff.kota || '-'}</strong></div>
+                    </div>
+
+                    <div className="sf-detail-card">
+                        <h4>💼 Profesional</h4>
+                        <div className="sf-detail-row"><span>Pendidikan</span><strong>${staff.pendidikan || '-'}</strong></div>
+                        ${staff.pengalaman && html`<div className="sf-detail-row sf-detail-block"><span>Pengalaman</span><p>${staff.pengalaman}</p></div>`}
+                        ${staff.keahlian && html`<div className="sf-detail-row sf-detail-block"><span>Keahlian</span><p>${staff.keahlian}</p></div>`}
+                        ${staff.catatan && html`<div className="sf-detail-row sf-detail-block"><span>Catatan</span><p>${staff.catatan}</p></div>`}
+                    </div>
+
+                    ${staff.ktp_url && html`<div className="sf-detail-card">
+                        <h4>🪪 Dokumen KTP</h4>
+                        <div className="sf-detail-ktp">
+                            <img src=${staff.ktp_url} alt="KTP" />
+                        </div>
+                    </div>`}
+
+                    <div className="sf-detail-card sf-detail-meta">
+                        <div className="sf-detail-row"><span>Bergabung</span><strong>${formatDatetime(staff.created_at)}</strong></div>
+                        <div className="sf-detail-row"><span>ID</span><strong className="sf-meta-id">${staff.id}</strong></div>
+                    </div>
+                </div>
+
+                <div className="sf-detail-actions">
+                    <button className="sf-btn sf-btn-outline" onClick=${handleToggleActive}>
+                        ${staff.is_active !== false ? '⏸️ Nonaktifkan' : '▶️ Aktifkan'}
+                    </button>
+                    <button className="sf-btn sf-btn-primary" onClick=${function () { if (onEdit) onEdit(staff); }}>
+                        ✏️ Edit Data
+                    </button>
+                    <button className="sf-btn sf-btn-danger" onClick=${handleDelete} disabled=${deleting}>
+                        ${deleting ? 'Menghapus...' : '🗑️ Hapus'}
+                    </button>
+                </div>
+            </div>`;
+        }
+
+        return html`<div className="sf-detail-modal-backdrop" onClick=${function () { if (onClose) onClose(); }}>
+            <div className="sf-detail-modal-card" role="dialog" aria-modal="true" aria-label="Detail Staff" onClick=${function (e) { e.stopPropagation(); }}>
+                <div className="sf-detail-modal-head">
+                    <div>
+                        <p className="sf-detail-modal-kicker">Detail Staff</p>
+                        <h3>${staff ? escHtml(staff.nama) : 'Memuat detail'}</h3>
+                    </div>
+                    <button type="button" className="sf-detail-modal-close" onClick=${function () { if (onClose) onClose(); }}>&times;</button>
+                </div>
+                ${detailContent}
+            </div>
             ${toast && html`<${Toast} message=${toast.message} type=${toast.type} onClose=${function () { setToast(null); }} />`}
         </div>`;
     }
@@ -1099,6 +1132,7 @@ var StaffManagement = (function () {
         var _r = useState(_initialRole || ''), presetRole = _r[0], setPresetRole = _r[1];
         var _d = useState(null), selectedStaff = _d[0], setSelectedStaff = _d[1];
         var _e = useState(null), editStaff = _e[0], setEditStaff = _e[1];
+        var _k = useState(0), listRefreshKey = _k[0], setListRefreshKey = _k[1];
 
         // Reset initial params after first render
         useEffect(function () {
@@ -1107,38 +1141,84 @@ var StaffManagement = (function () {
             _initialEditId = null;
         }, []);
 
-        function goList() { setView('list'); setSelectedStaff(null); setEditStaff(null); }
-        function goAdd(role) { setPresetRole(role || ''); setView('add'); }
-        function goDetail(staff) { setSelectedStaff(staff); setView('detail'); }
-        function goEdit(staff) { setEditStaff(staff); setView('edit'); }
+        function refreshList() {
+            setListRefreshKey(function (prev) { return prev + 1; });
+        }
+
+        function goList(refreshAfterOpen) {
+            setView('list');
+            setSelectedStaff(null);
+            setEditStaff(null);
+            if (refreshAfterOpen) refreshList();
+        }
+
+        function goAdd(role) {
+            setPresetRole(role || '');
+            setSelectedStaff(null);
+            setEditStaff(null);
+            setView('add');
+        }
+
+        function openDetail(staff) {
+            setSelectedStaff(staff || null);
+        }
+
+        function closeDetail() {
+            setSelectedStaff(null);
+        }
+
+        function goEdit(staff) {
+            setSelectedStaff(null);
+            setEditStaff(staff);
+            setView('edit');
+        }
 
         function handleClose() {
+            if (_mountOptions && typeof _mountOptions.onClose === 'function') {
+                _mountOptions.onClose();
+                return;
+            }
             var page = document.getElementById('staffManagementPage');
             if (page) page.classList.add('hidden');
         }
 
         if (view === 'add') {
-            return html`<${AddStaffWizard} presetRole=${presetRole} onBack=${goList} onSuccess=${goList} />`;
-        }
-        if (view === 'detail' && selectedStaff) {
-            return html`<${StaffDetail} staffId=${selectedStaff.id} onBack=${goList}
-                onEdit=${goEdit} onDeleted=${goList} />`;
+            return html`<${AddStaffWizard} presetRole=${presetRole} onBack=${function () { goList(false); }} onSuccess=${function () { goList(true); }} />`;
         }
         if (view === 'edit' && editStaff) {
-            return html`<${EditStaff} staff=${editStaff} onBack=${function () { goDetail(editStaff); }} onSuccess=${goList} />`;
+            return html`<${EditStaff} staff=${editStaff} onBack=${function () { goList(false); }} onSuccess=${function () { goList(true); }} />`;
         }
-        return html`<${StaffList} onAdd=${function () { goAdd(); }} onDetail=${goDetail} onBack=${handleClose} />`;
+
+        return html`<div className="sf-list-stack">
+            <${StaffList} key=${'staff-list-' + listRefreshKey} onAdd=${function () { goAdd(); }} onDetail=${openDetail} onBack=${handleClose} />
+            ${selectedStaff && selectedStaff.id && html`<${StaffDetailModal}
+                staffId=${selectedStaff.id}
+                onClose=${closeDetail}
+                onEdit=${goEdit}
+                onDeleted=${function () { closeDetail(); refreshList(); }}
+            />`}
+        </div>`;
     }
 
     // ═══════════════════════════════════
     // ═══ MOUNT / PUBLIC API ═══
     // ═══════════════════════════════════
 
-    function mount(container, initialView, initialRole) {
+    function mount(container, initialView, initialRole, options) {
+        if (!container) return;
         _initialView = initialView || 'list';
         _initialRole = initialRole || '';
+        _mountOptions = Object.assign({ containerId: null, onClose: null }, options || {});
+
+        if (_root && _rootContainer && _rootContainer !== container) {
+            _root.unmount();
+            _root = null;
+            _rootContainer = null;
+        }
+
         if (!_root) {
             _root = ReactDOM.createRoot(container);
+            _rootContainer = container;
         }
         _root.render(html`<${StaffApp} key=${Date.now()} />`);
     }
@@ -1147,6 +1227,7 @@ var StaffManagement = (function () {
         if (_root) {
             _root.unmount();
             _root = null;
+            _rootContainer = null;
         }
     }
 
@@ -1154,11 +1235,20 @@ var StaffManagement = (function () {
 })();
 
 // ─── Global Bridge Functions ───
-function openStaffManagement(view, role) {
-    var page = document.getElementById('staffManagementPage');
-    var container = document.getElementById('staffAppRoot');
-    if (!page || !container) return;
-    page.classList.remove('hidden');
-    StaffManagement.mount(container, view || 'list', role || '');
+function openStaffManagement(view, role, options) {
+    var opts = options && typeof options === 'object' ? options : {};
+    var requestedContainer = opts.containerId ? document.getElementById(opts.containerId) : null;
+    var legacyPage = document.getElementById('staffManagementPage');
+    var legacyContainer = document.getElementById('staffAppRoot');
+    var panelContainer = document.getElementById('ownerStaffPanelHost');
+    var container = requestedContainer || legacyContainer || panelContainer;
+
+    if (!container) return;
+
+    if (container === legacyContainer && legacyPage) {
+        legacyPage.classList.remove('hidden');
+    }
+
+    StaffManagement.mount(container, view || 'list', role || '', opts);
 }
 window.openStaffManagement = openStaffManagement;
