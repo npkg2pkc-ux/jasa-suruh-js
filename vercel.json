@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "env": {
+    "TURNSTILE_SECRET_KEY": "0x4AAAAAACyjEWxhMC8pDGv6b-Tuh-qPnjY"
+  },
   "builds": [
     { "src": "api/**/*.js", "use": "@vercel/node" },
     { "src": "**/*", "use": "@vercel/static" }
