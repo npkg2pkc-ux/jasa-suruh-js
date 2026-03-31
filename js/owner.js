@@ -28,6 +28,8 @@ var OwnerDashboard = (function () {
     var _marketingState = { promos: [], news: [] };
     var _ordersRealtimeUnsub = null;
     var _ordersRealtimeApplyTimer = null;
+    var _ownerUserDetailOverlay = null;
+    var _ownerUserDetailKeyBound = false;
 
     function $(id) { return document.getElementById(id); }
     function $$(sel) { return document.querySelectorAll(sel); }
@@ -1526,6 +1528,158 @@ var OwnerDashboard = (function () {
         return map[role] || '#9CA3AF';
     }
 
+    function _ownerEscape(v) {
+        if (typeof escapeHtml === 'function') return escapeHtml(String(v));
+        return String(v);
+    }
+
+    function _ownerFormatDate(ts) {
+        if (!ts) return '-';
+        var d = new Date(Number(ts));
+        if (isNaN(d.getTime())) return '-';
+        return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function _ownerFormatDateTime(ts) {
+        if (!ts) return '-';
+        var d = new Date(Number(ts));
+        if (isNaN(d.getTime())) return '-';
+        return d.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function _ensureOwnerUserDetailOverlay() {
+        if (_ownerUserDetailOverlay) return _ownerUserDetailOverlay;
+        var overlay = document.createElement('div');
+        overlay.id = 'odUserDetailOverlay';
+        overlay.className = 'od-user-detail-overlay hidden';
+        overlay.innerHTML = ''
+            + '<div class="od-user-detail-card" role="dialog" aria-modal="true">'
+            + '<div class="od-user-detail-head">'
+            + '<div>'
+            + '<div class="od-user-detail-title"></div>'
+            + '<div class="od-user-detail-sub"></div>'
+            + '</div>'
+            + '<button type="button" class="od-user-detail-close" aria-label="Tutup">&times;</button>'
+            + '</div>'
+            + '<div class="od-user-detail-body">'
+            + '<div class="od-user-detail-tags"></div>'
+            + '<div class="od-user-detail-grid"></div>'
+            + '</div>'
+            + '</div>';
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) _closeOwnerUserDetailOverlay();
+        });
+
+        var closeBtn = overlay.querySelector('.od-user-detail-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', _closeOwnerUserDetailOverlay);
+        }
+
+        if (!_ownerUserDetailKeyBound) {
+            _ownerUserDetailKeyBound = true;
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && _ownerUserDetailOverlay && !_ownerUserDetailOverlay.classList.contains('hidden')) {
+                    _closeOwnerUserDetailOverlay();
+                }
+            });
+        }
+
+        _ownerUserDetailOverlay = overlay;
+        return overlay;
+    }
+
+    function _closeOwnerUserDetailOverlay() {
+        if (!_ownerUserDetailOverlay) return;
+        _ownerUserDetailOverlay.classList.add('hidden');
+    }
+
+    function _openOwnerUserDetailOverlay(user) {
+        if (!user) return;
+        var overlay = _ensureOwnerUserDetailOverlay();
+        var titleEl = overlay.querySelector('.od-user-detail-title');
+        var subEl = overlay.querySelector('.od-user-detail-sub');
+        var tagsEl = overlay.querySelector('.od-user-detail-tags');
+        var gridEl = overlay.querySelector('.od-user-detail-grid');
+
+        var roleLabels = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS', admin: 'Admin' };
+        var roleChipClass = { user: 'is-user', talent: 'is-talent', penjual: 'is-penjual', cs: 'is-cs', admin: 'is-admin' };
+
+        var displayName = user.name || user.nama || 'Tanpa Nama';
+        var displayUsername = user.username || user.no_hp || user.phone || '-';
+        var roleText = roleLabels[user.role] || String(user.role || 'User');
+        var isActive = user.is_active !== false;
+        var statusText = isActive ? 'Aktif' : 'Suspended';
+
+        if (titleEl) titleEl.textContent = displayName;
+        if (subEl) subEl.textContent = '@' + String(displayUsername);
+
+        if (tagsEl) {
+            tagsEl.innerHTML = ''
+                + '<span class="od-user-role-chip ' + (roleChipClass[user.role] || '') + '">' + _ownerEscape(roleText) + '</span>'
+                + '<span class="od-user-status-chip ' + (isActive ? 'is-active' : 'is-suspended') + '">' + statusText + '</span>';
+        }
+
+        var ordersRef = Array.isArray(_ordersCache) ? _ordersCache : [];
+        var userOrders = ordersRef.filter(function (o) {
+            return String(o.userId || '') === String(user.id)
+                || String(o.talentId || '') === String(user.id)
+                || String(o.sellerId || '') === String(user.id);
+        });
+        var completedOrders = userOrders.filter(function (o) { return o.status === 'completed' || o.status === 'rated'; }).length;
+        var lastOrderTs = userOrders.reduce(function (mx, o) {
+            var ts = Number(o.updatedAt || o.completedAt || o.createdAt || 0);
+            return ts > mx ? ts : mx;
+        }, 0);
+
+        var rows = [];
+        function addRow(label, value) {
+            var safeValue = (value === 0 || value === false) ? String(value) : (value ? String(value) : '-');
+            rows.push('<div class="od-user-detail-row">'
+                + '<div class="od-user-detail-label">' + _ownerEscape(label) + '</div>'
+                + '<div class="od-user-detail-value">' + _ownerEscape(safeValue) + '</div>'
+                + '</div>');
+        }
+
+        addRow('ID', user.id || '-');
+        addRow('Role', roleText);
+        addRow('Status', statusText);
+        addRow('Nama', displayName);
+        addRow('Username', displayUsername);
+        addRow('No HP', user.phone || user.no_hp || '-');
+        addRow('Email', user.email || user.mail || '-');
+        addRow('Alamat', user.address || user.alamat || '-');
+
+        var lat = Number(user.lat || user.latitude);
+        var lng = Number(user.lng || user.longitude);
+        var coords = (isFinite(lat) && isFinite(lng)) ? (lat.toFixed(6) + ', ' + lng.toFixed(6)) : '-';
+        addRow('Koordinat', coords);
+        addRow('Gabung', _ownerFormatDate(user.createdAt || 0));
+        addRow('Aktivitas Akhir', lastOrderTs ? _ownerFormatDate(lastOrderTs) : '-');
+        addRow('Total Order', userOrders.length);
+        addRow('Order Selesai', completedOrders);
+
+        if (String(user.role || '') === 'talent') {
+            var assigned = userOrders.filter(function (o) { return String(o.talentId || '') === String(user.id); });
+            var assignedCompleted = assigned.filter(function (o) { return o.status === 'completed' || o.status === 'rated'; }).length;
+            var failed = assigned.filter(function (o) { return o.status === 'cancelled' || o.status === 'rejected'; }).length;
+            var completionRate = assigned.length > 0 ? Math.round((assignedCompleted / assigned.length) * 100) : 0;
+            addRow('Ditangani', assigned.length);
+            addRow('Completion', completionRate + '%');
+            addRow('Kasus Gagal', failed);
+        }
+
+        if (!isActive) {
+            addRow('Suspend At', _ownerFormatDateTime(user.suspendedAt || 0));
+            addRow('Suspend By', user.suspendedByName || '-');
+        }
+
+        if (gridEl) gridEl.innerHTML = rows.join('');
+
+        overlay.classList.remove('hidden');
+    }
+
     // ─── User List ───
     function renderOwnerUsers() {
         var container = $('ownerUserList');
@@ -1637,6 +1791,11 @@ var OwnerDashboard = (function () {
             });
         }
 
+        var userById = {};
+        users.forEach(function (u) {
+            userById[String(u.id)] = u;
+        });
+
         container.innerHTML = users.map(function (u) {
             var displayName = u.name || u.nama || 'Tanpa Nama';
             var displayUsername = u.username || u.no_hp || u.phone || '-';
@@ -1692,7 +1851,7 @@ var OwnerDashboard = (function () {
                     + '<span><strong>' + completedOrders + '</strong> Selesai</span>'
                     + '<span><strong>' + escapeHtml(lastOrderTs ? fmtDate(lastOrderTs) : '-') + '</strong> Aktivitas Akhir</span>');
 
-            return '<article class="od-user-item od-user-card">'
+            return '<article class="od-user-item od-user-card" data-uid="' + escapeHtml(String(u.id || '')) + '" role="button" tabindex="0">'
                 + '<div class="od-user-main">'
                 + '<div class="od-user-avatar" style="background:' + (roleColors[u.role] || '#999') + '">' + avatarContent + '</div>'
                 + '<div class="od-user-info">'
@@ -1713,8 +1872,25 @@ var OwnerDashboard = (function () {
                 + '</article>';
         }).join('');
 
+        container.querySelectorAll('.od-user-card').forEach(function (card) {
+            card.addEventListener('click', function (e) {
+                if (e.target && (e.target.closest('.od-user-action') || e.target.closest('.od-user-delete'))) return;
+                var uid = this.dataset.uid || '';
+                var user = userById[String(uid)];
+                if (!user) return;
+                _openOwnerUserDetailOverlay(user);
+            });
+            card.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.click();
+                }
+            });
+        });
+
         container.querySelectorAll('.od-user-delete').forEach(function (btn) {
-            btn.addEventListener('click', function () {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
                 var uid = this.dataset.uid;
                 if (!confirm('Hapus pengguna ini?')) return;
                 var list = typeof getUsers === 'function' ? getUsers() : [];
@@ -1728,7 +1904,8 @@ var OwnerDashboard = (function () {
         });
 
         container.querySelectorAll('.od-user-action').forEach(function (btn) {
-            btn.addEventListener('click', function () {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
                 var uid = this.dataset.uid;
                 var nextActive = this.dataset.nextActive === '1';
                 var list = typeof getUsers === 'function' ? getUsers() : [];
