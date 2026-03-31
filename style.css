@@ -6386,18 +6386,116 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .sf-chip-active { background:var(--orange); color:#fff; border-color:var(--orange); }
 
 /* ─── Upload ─── */
-.sf-upload-card { background:#fff; border-radius:14px; padding:16px; margin-bottom:14px; border:1.5px solid var(--gray-200); }
-.sf-upload-label { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+.sf-doc-grid { display:grid; grid-template-columns:1fr; gap:12px; }
+.sf-doc-grid-compact { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+
+.sf-upload-card { background:#fff; border-radius:14px; padding:14px; margin-bottom:14px; border:1.5px solid var(--gray-200); }
+.sf-upload-card-compact { margin-bottom:0; padding:12px; box-shadow:0 6px 16px rgba(15,23,42,.05); }
+
+.sf-upload-label { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
 .sf-upload-label span:first-child { font-size:24px; }
 .sf-upload-label h4 { font-size:14px; font-weight:700; color:var(--black); margin:0; }
 .sf-upload-label p { font-size:11px; color:var(--gray-400); margin:1px 0 0; }
 .sf-file-input { display:none; }
-.sf-upload-btn { width:100%; padding:28px 16px; border:2px dashed var(--gray-200); border-radius:12px; background:var(--gray-50); cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:8px; transition:all .2s; color:var(--gray-400); font-family:var(--font); font-size:13px; }
-.sf-upload-btn:active { border-color:var(--orange); background:#FFF7ED; }
-.sf-upload-btn svg { color:var(--gray-300); }
-.sf-upload-preview { position:relative; border-radius:12px; overflow:hidden; max-height:200px; }
-.sf-upload-preview img { width:100%; height:auto; max-height:200px; object-fit:cover; border-radius:12px; }
-.sf-upload-remove { position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; border:none; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+
+.sf-upload-preview {
+    position:relative;
+    border-radius:12px;
+    overflow:hidden;
+    border:1px solid #E2E8F0;
+    background:
+        radial-gradient(122% 120% at 0% 0%, rgba(251,146,60,.13) 0%, rgba(251,146,60,0) 42%),
+        radial-gradient(128% 120% at 100% 100%, rgba(14,165,233,.11) 0%, rgba(14,165,233,0) 48%),
+        linear-gradient(155deg, #FFF7ED 0%, #FFFFFF 52%, #F8FAFC 100%);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.76);
+}
+
+.sf-upload-preview-frame {
+    min-height:168px;
+    aspect-ratio:16 / 10;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:10px;
+}
+
+.sf-upload-preview-compact {
+    min-height:124px;
+    aspect-ratio:16 / 9;
+    padding:8px;
+}
+
+.sf-upload-preview img {
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    object-position:center;
+    display:block;
+    border-radius:10px;
+    background:#FFFFFF;
+}
+
+.sf-upload-empty {
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#94A3B8;
+    font-size:12px;
+    font-weight:700;
+    text-align:center;
+    padding:12px;
+    pointer-events:none;
+}
+
+.sf-upload-overlay {
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:8px;
+    display:flex;
+    justify-content:center;
+    pointer-events:none;
+    z-index:2;
+}
+
+.sf-upload-inline-btn {
+    border-radius:999px;
+    border:1px solid rgba(148,163,184,.45);
+    background:rgba(255,255,255,.94);
+    color:#0F172A;
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:.02em;
+    padding:6px 12px;
+    box-shadow:0 6px 14px rgba(15,23,42,.14);
+    pointer-events:auto;
+    cursor:pointer;
+    font-family:var(--font);
+}
+
+.sf-upload-inline-btn:active {
+    transform:scale(.97);
+}
+
+.sf-upload-remove {
+    position:absolute;
+    top:8px;
+    right:8px;
+    width:28px;
+    height:28px;
+    border-radius:50%;
+    background:rgba(15,23,42,.72);
+    color:#fff;
+    border:none;
+    font-size:14px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:3;
+}
 
 /* ─── Review Step ─── */
 .sf-review-card { background:#fff; border-radius:14px; padding:16px; margin-bottom:12px; box-shadow:0 1px 6px rgba(0,0,0,.03); }
@@ -6456,9 +6554,17 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 
 /* ─── Edit Tabs ─── */
 .sf-edit-page { min-height:100vh; background:var(--gray-50); display:flex; flex-direction:column; }
-.sf-edit-tabs { display:flex; gap:4px; padding:8px 12px; background:#fff; border-bottom:1px solid var(--gray-100); overflow-x:auto; }
-.sf-edit-tab { background:var(--gray-50); border:none; padding:8px 14px; border-radius:8px; font-family:var(--font); font-size:12px; font-weight:600; color:var(--gray-500); cursor:pointer; white-space:nowrap; transition:all .2s; }
-.sf-edit-tab-active { background:var(--orange); color:#fff; }
+.sf-edit-body-unified { padding-top:10px; padding-bottom:96px; }
+.sf-edit-intro {
+    margin:0 16px 14px;
+    padding:14px 16px;
+    border-radius:14px;
+    border:1px solid #FDE68A;
+    background:linear-gradient(120deg,#FFFBEB 0%, #FFFFFF 62%, #FFF7ED 100%);
+}
+.sf-edit-intro h3 { margin:0; font-size:15px; font-weight:800; color:#7C2D12; }
+.sf-edit-intro p { margin:4px 0 0; font-size:12px; color:#6B7280; line-height:1.45; }
+.sf-edit-page-unified .sf-step-content { padding-bottom:8px; }
 
 /* ─── Toast ─── */
 .sf-toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:8px; padding:12px 20px; border-radius:12px; font-family:var(--font); font-size:13px; font-weight:600; color:#fff; z-index:9999; animation:sfToastIn .3s ease; box-shadow:0 8px 24px rgba(0,0,0,.15); cursor:pointer; white-space:nowrap; }

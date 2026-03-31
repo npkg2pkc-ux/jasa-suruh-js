@@ -416,6 +416,7 @@ var StaffManagement = (function () {
 
     function StepDocuments(props) {
         var data = props.data, onChange = props.onChange, errors = props.errors || {};
+        var compactLayout = !!props.compactLayout;
         var fotoRef = useRef(null);
         var ktpRef = useRef(null);
         var _s = useState(null), uploadProgress = _s[0], setUploadProgress = _s[1];
@@ -450,11 +451,11 @@ var StaffManagement = (function () {
 
         function renderUploader(field, label, icon, ref) {
             var preview = data[field + '_preview'];
-            var fileBlob = data[field + '_file'];
             var error = data[field + '_error'] || errors[field];
             var isUploading = uploadProgress === field;
+            var emptyLabel = field === 'foto' ? 'Belum ada foto profil' : 'Belum ada foto KTP';
 
-            return html`<div className="sf-upload-card">
+            return html`<div className="sf-upload-card ${compactLayout ? 'sf-upload-card-compact' : ''}">
                 <div className="sf-upload-label">
                     <span>${icon}</span>
                     <div>
@@ -464,23 +465,23 @@ var StaffManagement = (function () {
                 </div>
                 <input type="file" ref=${ref} accept="image/*" className="sf-file-input"
                     onChange=${function () { handleFileSelect(field, ref); }} />
-                ${preview ? html`
-                    <div className="sf-upload-preview">
-                        <img src=${preview} alt=${label} />
-                        <button type="button" className="sf-upload-remove" onClick=${function () {
-                            onChange(field + '_preview', null);
-                            onChange(field + '_file', null);
-                            if (ref.current) ref.current.value = '';
-                        }}>✕</button>
+                <div className="sf-upload-preview sf-upload-preview-frame ${compactLayout ? 'sf-upload-preview-compact' : ''} ${preview ? 'has-image' : ''}">
+                    ${preview
+                        ? html`<img src=${preview} alt=${label} />`
+                        : html`<div className="sf-upload-empty">${emptyLabel}</div>`}
+
+                    <div className="sf-upload-overlay">
+                        <button type="button" className="sf-upload-inline-btn" onClick=${function () { ref.current && ref.current.click(); }}>
+                            ${isUploading ? 'Memproses...' : (preview ? 'Ganti Foto' : 'Tambah Foto')}
+                        </button>
                     </div>
-                ` : html`
-                    <button type="button" className="sf-upload-btn" onClick=${function () { ref.current && ref.current.click(); }}>
-                        ${isUploading ? html`<${Spinner} />` : html`
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                            <span>Pilih Foto</span>
-                        `}
-                    </button>
-                `}
+
+                    ${preview && html`<button type="button" className="sf-upload-remove" onClick=${function () {
+                        onChange(field + '_preview', null);
+                        onChange(field + '_file', null);
+                        if (ref.current) ref.current.value = '';
+                    }}>✕</button>`}
+                </div>
                 ${error && html`<span className="sf-error">${error}</span>`}
             </div>`;
         }
@@ -493,8 +494,11 @@ var StaffManagement = (function () {
                     <p>Upload foto profil dan identitas</p>
                 </div>
             </div>
-            ${renderUploader('foto', 'Foto Profil', '📸', fotoRef)}
-            ${renderUploader('ktp', 'Foto KTP / Identitas', '🪪', ktpRef)}
+
+            <div className="sf-doc-grid ${compactLayout ? 'sf-doc-grid-compact' : ''}">
+                ${renderUploader('foto', 'Foto Profil', '📸', fotoRef)}
+                ${renderUploader('ktp', 'Foto KTP / Identitas', '🪪', ktpRef)}
+            </div>
         </div>`;
     }
 
@@ -966,7 +970,6 @@ var StaffManagement = (function () {
             foto_preview: staff.foto_url || null,
             ktp_preview: staff.ktp_url || null
         })), formData = _f[0], setFormData = _f[1];
-        var _s = useState(1), step = _s[0], setStep = _s[1];
         var _e = useState({}), errors = _e[0], setErrors = _e[1];
         var _l = useState(false), loading = _l[0], setLoading = _l[1];
         var _t = useState(null), toast = _t[0], setToast = _t[1];
@@ -984,20 +987,18 @@ var StaffManagement = (function () {
             });
         }
 
-        function validateStep(num) {
+        function validateForm() {
             var errs = {};
-            if (num === 1) {
-                if (!formData.nama || formData.nama.trim().length < 2) errs.nama = 'Nama wajib diisi';
-                if (!formData.no_hp) errs.no_hp = 'Nomor HP wajib diisi';
-                else if (!validatePhone('08' + formData.no_hp)) errs.no_hp = 'Format tidak valid';
-                if (!formData.role) errs.role = 'Pilih role';
-            }
+            if (!formData.nama || formData.nama.trim().length < 2) errs.nama = 'Nama wajib diisi';
+            if (!formData.no_hp) errs.no_hp = 'Nomor HP wajib diisi';
+            else if (!validatePhone('08' + formData.no_hp)) errs.no_hp = 'Format tidak valid';
+            if (!formData.role) errs.role = 'Pilih role';
             setErrors(errs);
             return Object.keys(errs).length === 0;
         }
 
         function handleSave() {
-            if (!validateStep(1)) { setStep(1); return; }
+            if (!validateForm()) return;
             if (loading) return;
             setLoading(true);
 
@@ -1036,9 +1037,13 @@ var StaffManagement = (function () {
                     pengalaman: (formData.pengalaman || '').trim() || null,
                     keahlian: (formData.keahlian || '').trim() || null,
                     catatan: (formData.catatan || '').trim() || null
+                }).then(function (res) {
+                    return { res: res, urls: urls };
                 });
-            }).then(function (res) {
+            }).then(function (result) {
                 setLoading(false);
+                var res = result.res;
+                var urls = result.urls;
                 if (res && res.success) {
                     // Sync users table too (phone, foto, nama, role)
                     registerStaffInUsers({
@@ -1046,7 +1051,7 @@ var StaffManagement = (function () {
                         nama: formData.nama.trim(),
                         no_hp: fullPhone,
                         email: (formData.email || '').trim(),
-                        foto_url: formData.foto_url || '',
+                        foto_url: urls.fotoUrl || '',
                         role: formData.role
                     });
                     setToast({ message: 'Data berhasil diupdate! ✅', type: 'success' });
@@ -1060,28 +1065,21 @@ var StaffManagement = (function () {
             });
         }
 
-        var tabs = [
-            { num: 1, label: '📋 Dasar' },
-            { num: 2, label: '📝 Personal' },
-            { num: 3, label: '💼 Profesional' },
-            { num: 4, label: '📄 Dokumen' }
-        ];
-
-        var stepContent = null;
-        if (step === 1) stepContent = html`<${StepBasic} data=${formData} onChange=${onChange} errors=${errors} />`;
-        else if (step === 2) stepContent = html`<${StepPersonal} data=${formData} onChange=${onChange} />`;
-        else if (step === 3) stepContent = html`<${StepProfessional} data=${formData} onChange=${onChange} />`;
-        else if (step === 4) stepContent = html`<${StepDocuments} data=${formData} onChange=${onChange} errors=${errors} />`;
-
-        return html`<div className="sf-edit-page">
+        return html`<div className="sf-edit-page sf-edit-page-unified">
             <${HeaderBar} title="Edit Staff" onBack=${onBack} />
-            <div className="sf-edit-tabs">
-                ${tabs.map(function (t) {
-                    return html`<button key=${t.num} className="sf-edit-tab ${step === t.num ? 'sf-edit-tab-active' : ''}"
-                        onClick=${function () { setStep(t.num); }}>${t.label}</button>`;
-                })}
+
+            <div className="sf-wizard-body sf-edit-body-unified">
+                <div className="sf-edit-intro">
+                    <h3>Edit Data Staff</h3>
+                    <p>Semua data tersedia dalam satu form agar proses update lebih cepat.</p>
+                </div>
+
+                <${StepBasic} data=${formData} onChange=${onChange} errors=${errors} />
+                <${StepPersonal} data=${formData} onChange=${onChange} />
+                <${StepProfessional} data=${formData} onChange=${onChange} />
+                <${StepDocuments} data=${formData} onChange=${onChange} errors=${errors} compactLayout=${true} />
             </div>
-            <div className="sf-wizard-body">${stepContent}</div>
+
             <div className="sf-wizard-footer">
                 <button className="sf-btn sf-btn-primary sf-btn-full" onClick=${handleSave} disabled=${loading}>
                     ${loading ? 'Menyimpan...' : '💾 Simpan Perubahan'}
