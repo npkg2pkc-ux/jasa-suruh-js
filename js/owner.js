@@ -1547,6 +1547,54 @@ var OwnerDashboard = (function () {
         return d.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
 
+    function _ownerResolveAvatarUrl(raw) {
+        var src = String(raw || '').trim();
+        if (!src || src === '-') return '';
+        if (src.indexOf('http://') === 0 || src.indexOf('https://') === 0 || src.indexOf('data:') === 0 || src.indexOf('blob:') === 0) {
+            return src;
+        }
+        try {
+            if (window.FB && window.FB._sb && window.FB._sb.storage) {
+                var res = window.FB._sb.storage.from('avatars').getPublicUrl(src);
+                if (res && res.data && res.data.publicUrl) return res.data.publicUrl;
+            }
+        } catch (e) {}
+        return src;
+    }
+
+    function _ownerResolveUserAvatar(u) {
+        if (!u) return '';
+        var candidates = [u.foto_url, u.photo, u.avatar, u.avatarUrl];
+
+        if (typeof getProfilePhoto === 'function' && u.id) {
+            candidates.push(getProfilePhoto(u.id));
+        }
+
+        if (String(u.role || '').toLowerCase() === 'talent' && typeof getUserSkills === 'function') {
+            var skills = getUserSkills(u.id) || [];
+            for (var i = 0; i < skills.length; i++) {
+                var sk = skills[i] || {};
+                candidates.push(sk.selfieThumb, sk.photo, sk.image);
+            }
+        }
+
+        for (var c = 0; c < candidates.length; c++) {
+            var url = _ownerResolveAvatarUrl(candidates[c]);
+            if (url) return url;
+        }
+        return '';
+    }
+
+    function _ownerInitials(name) {
+        var cleaned = String(name || '').trim();
+        if (!cleaned) return '?';
+        var parts = cleaned.split(/\s+/).filter(Boolean);
+        var first = parts[0] ? parts[0].charAt(0) : cleaned.charAt(0);
+        var second = parts.length > 1 ? parts[1].charAt(0) : cleaned.charAt(1);
+        var initials = (first + (second || '')).toUpperCase();
+        return initials || '?';
+    }
+
     function _ensureOwnerUserDetailOverlay() {
         if (_ownerUserDetailOverlay) return _ownerUserDetailOverlay;
         var overlay = document.createElement('div');
@@ -1554,15 +1602,22 @@ var OwnerDashboard = (function () {
         overlay.className = 'od-user-detail-overlay hidden';
         overlay.innerHTML = ''
             + '<div class="od-user-detail-card" role="dialog" aria-modal="true">'
-            + '<div class="od-user-detail-head">'
-            + '<div>'
+            + '<div class="od-user-detail-hero">'
+            + '<button type="button" class="od-user-detail-close" aria-label="Tutup">&times;</button>'
+            + '<div class="od-user-detail-hero-content">'
+            + '<div class="od-user-detail-avatar">'
+            + '<span class="od-user-detail-avatar-fallback"></span>'
+            + '<img class="od-user-detail-avatar-img" alt="">'
+            + '</div>'
+            + '<div class="od-user-detail-hero-text">'
             + '<div class="od-user-detail-title"></div>'
             + '<div class="od-user-detail-sub"></div>'
+            + '<div class="od-user-detail-tags"></div>'
             + '</div>'
-            + '<button type="button" class="od-user-detail-close" aria-label="Tutup">&times;</button>'
+            + '</div>'
             + '</div>'
             + '<div class="od-user-detail-body">'
-            + '<div class="od-user-detail-tags"></div>'
+            + '<div class="od-user-detail-stats"></div>'
             + '<div class="od-user-detail-grid"></div>'
             + '</div>'
             + '</div>';
@@ -1601,6 +1656,9 @@ var OwnerDashboard = (function () {
         var titleEl = overlay.querySelector('.od-user-detail-title');
         var subEl = overlay.querySelector('.od-user-detail-sub');
         var tagsEl = overlay.querySelector('.od-user-detail-tags');
+        var avatarImg = overlay.querySelector('.od-user-detail-avatar-img');
+        var avatarFallback = overlay.querySelector('.od-user-detail-avatar-fallback');
+        var statsEl = overlay.querySelector('.od-user-detail-stats');
         var gridEl = overlay.querySelector('.od-user-detail-grid');
 
         var roleLabels = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS', admin: 'Admin' };
@@ -1614,6 +1672,29 @@ var OwnerDashboard = (function () {
 
         if (titleEl) titleEl.textContent = displayName;
         if (subEl) subEl.textContent = '@' + String(displayUsername);
+
+        var initials = _ownerInitials(displayName);
+        if (avatarFallback) {
+            avatarFallback.textContent = initials;
+        }
+
+        var avatarUrl = _ownerResolveUserAvatar(user);
+        if (avatarImg) {
+            avatarImg.onerror = function () {
+                avatarImg.style.display = 'none';
+                if (avatarFallback) avatarFallback.style.display = 'flex';
+            };
+            if (avatarUrl) {
+                avatarImg.src = avatarUrl;
+                avatarImg.style.display = 'block';
+                if (avatarFallback) avatarFallback.style.display = 'none';
+            } else {
+                avatarImg.removeAttribute('src');
+                avatarImg.style.display = 'none';
+                if (avatarFallback) avatarFallback.style.display = 'flex';
+            }
+            avatarImg.alt = displayName;
+        }
 
         if (tagsEl) {
             tagsEl.innerHTML = ''
@@ -1632,6 +1713,15 @@ var OwnerDashboard = (function () {
             var ts = Number(o.updatedAt || o.completedAt || o.createdAt || 0);
             return ts > mx ? ts : mx;
         }, 0);
+
+        if (statsEl) {
+            var lastActivityText = lastOrderTs ? _ownerFormatDate(lastOrderTs) : '-';
+            var statsHtml = ''
+                + '<div class="od-user-detail-stat"><strong>' + _ownerEscape(userOrders.length) + '</strong><span>Total Order</span></div>'
+                + '<div class="od-user-detail-stat"><strong>' + _ownerEscape(completedOrders) + '</strong><span>Order Selesai</span></div>'
+                + '<div class="od-user-detail-stat"><strong>' + _ownerEscape(lastActivityText) + '</strong><span>Aktivitas Akhir</span></div>';
+            statsEl.innerHTML = statsHtml;
+        }
 
         var rows = [];
         function addRow(label, value) {
@@ -1740,44 +1830,6 @@ var OwnerDashboard = (function () {
             return new Date(Number(ts)).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
         }
 
-        function _resolveAvatarUrl(raw) {
-            var src = String(raw || '').trim();
-            if (!src || src === '-') return '';
-            if (src.indexOf('http://') === 0 || src.indexOf('https://') === 0 || src.indexOf('data:') === 0 || src.indexOf('blob:') === 0) {
-                return src;
-            }
-            try {
-                if (window.FB && window.FB._sb && window.FB._sb.storage) {
-                    var res = window.FB._sb.storage.from('avatars').getPublicUrl(src);
-                    if (res && res.data && res.data.publicUrl) return res.data.publicUrl;
-                }
-            } catch (e) {}
-            return src;
-        }
-
-        function resolveUserAvatar(u) {
-            if (!u) return '';
-            var candidates = [u.foto_url, u.photo, u.avatar, u.avatarUrl];
-
-            if (typeof getProfilePhoto === 'function' && u.id) {
-                candidates.push(getProfilePhoto(u.id));
-            }
-
-            if (String(u.role || '').toLowerCase() === 'talent' && typeof getUserSkills === 'function') {
-                var skills = getUserSkills(u.id) || [];
-                for (var i = 0; i < skills.length; i++) {
-                    var sk = skills[i] || {};
-                    candidates.push(sk.selfieThumb, sk.photo, sk.image);
-                }
-            }
-
-            for (var c = 0; c < candidates.length; c++) {
-                var url = _resolveAvatarUrl(candidates[c]);
-                if (url) return url;
-            }
-            return '';
-        }
-
         users = users.slice().sort(function (a, b) {
             return Number(b.createdAt || 0) - Number(a.createdAt || 0);
         });
@@ -1832,7 +1884,7 @@ var OwnerDashboard = (function () {
                     + '</button>';
             }
 
-            var avatarUrl = resolveUserAvatar(u);
+            var avatarUrl = _ownerResolveUserAvatar(u);
             var avatarContent = avatarUrl
                 ? '<span class="od-user-avatar-fallback" style="display:none">' + initial + '</span>'
                     + '<img src="' + escapeHtml(avatarUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%" alt="" onerror="this.style.display=\'none\';if(this.previousElementSibling){this.previousElementSibling.style.display=\'flex\';}">'
