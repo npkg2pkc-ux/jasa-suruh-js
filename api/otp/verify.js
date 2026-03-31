@@ -5,10 +5,14 @@ const SUPABASE_URL = process.env.SUPABASE_URL || 'https://aqptkuoazqharfzxvgem.s
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || '';
 
 function formatPhone(phone) {
-    let cleaned = phone.replace(/\D/g, '');
+    let cleaned = String(phone || '').replace(/\D/g, '');
     if (cleaned.startsWith('0')) cleaned = '62' + cleaned.slice(1);
-    if (!cleaned.startsWith('62')) cleaned = '62' + cleaned;
+    else if (cleaned.startsWith('8')) cleaned = '62' + cleaned;
     return cleaned;
+}
+
+function isValidIndonesianMobile(phone) {
+    return /^628\d{8,12}$/.test(String(phone || ''));
 }
 
 module.exports = async (req, res) => {
@@ -25,6 +29,10 @@ module.exports = async (req, res) => {
     }
 
     const formatted = formatPhone(phone);
+
+    if (!isValidIndonesianMobile(formatted)) {
+        return res.status(400).json({ success: false, message: 'Hanya nomor Indonesia (+62 8...) yang diizinkan' });
+    }
 
     if (!/^[0-9]{6}$/.test(code)) {
         return res.status(400).json({ success: false, message: 'Format kode OTP tidak valid' });

@@ -40,6 +40,14 @@ var RegisterPage = (function () {
         return state;
     }
 
+    function toRawIndonesianMobile(value) {
+        var v = String(value || '').replace(/\D/g, '');
+        if (v.startsWith('62')) v = v.slice(2);
+        if (v.startsWith('0')) v = v.slice(1);
+        if (v.length > 13) v = v.slice(0, 13);
+        return v;
+    }
+
     var _cooldownTimer = null;
     var _cooldownUntil = 0;
 
@@ -125,9 +133,15 @@ var RegisterPage = (function () {
         // Focus first input on new step
         setTimeout(function () {
             if (to === 2) {
+                if (window.CaptchaService && typeof window.CaptchaService.render === 'function') {
+                    window.CaptchaService.render('register-send');
+                }
                 var phoneInput = document.getElementById('regPhoneInput');
                 if (phoneInput) phoneInput.focus();
             } else if (to === 3) {
+                if (window.CaptchaService && typeof window.CaptchaService.render === 'function') {
+                    window.CaptchaService.render('register-resend');
+                }
                 // Show phone number on OTP step
                 var phoneDisplay = document.getElementById('regOTPPhoneDisplay');
                 if (phoneDisplay) phoneDisplay.textContent = '0' + state.phone.replace(/^0+/, '');
@@ -190,13 +204,12 @@ var RegisterPage = (function () {
 
             if (input) {
                 input.addEventListener('input', function () {
-                    var val = this.value.replace(/\D/g, '');
-                    if (val.length > 13) val = val.slice(0, 13);
-                    this.value = val;
-                    state.phone = val;
+                    var raw = toRawIndonesianMobile(this.value);
+                    this.value = raw;
+                    state.phone = raw;
                     if (errorEl) errorEl.textContent = '';
 
-                    var isValid = /^08[0-9]{8,12}$/.test(val);
+                    var isValid = /^8\d{8,12}$/.test(raw);
                     if (sendBtn) sendBtn.disabled = !isValid || state.loading;
                 });
             }
@@ -218,8 +231,17 @@ var RegisterPage = (function () {
             var errorEl = document.getElementById('regPhoneError');
             var sendBtn = document.getElementById('regSendOTPBtn');
 
-            if (!/^08[0-9]{8,12}$/.test(state.phone)) {
+            if (!/^8\d{8,12}$/.test(state.phone)) {
                 if (errorEl) errorEl.textContent = 'Nomor HP tidak valid';
+                return;
+            }
+
+            var captchaToken = '';
+            if (window.CaptchaService && typeof window.CaptchaService.requireToken === 'function') {
+                captchaToken = window.CaptchaService.requireToken('register-send');
+            }
+            if (!captchaToken) {
+                if (errorEl) errorEl.textContent = 'Selesaikan CAPTCHA keamanan terlebih dahulu';
                 return;
             }
 
@@ -234,7 +256,7 @@ var RegisterPage = (function () {
 
             state.formattedPhone = AuthService.formatPhone(state.phone);
 
-            AuthService.sendOTP(state.phone)
+            AuthService.sendOTP(state.phone, captchaToken)
                 .then(function (result) {
                     state.loading = false;
                     if (sendBtn) {
@@ -243,6 +265,9 @@ var RegisterPage = (function () {
                     }
                     goToStep(3);
                     StepOTP.startTimer();
+                    if (window.CaptchaService && typeof window.CaptchaService.reset === 'function') {
+                        window.CaptchaService.reset('register-send');
+                    }
                 })
                 .catch(function (err) {
                     state.loading = false;
@@ -256,6 +281,9 @@ var RegisterPage = (function () {
                     if (err && err.code === 'ACCOUNT_COOLDOWN') {
                         var info = err.cooldownInfo || {};
                         _showCooldownNotice(Number(info.blockedUntil || 0), msg);
+                    }
+                    if (window.CaptchaService && typeof window.CaptchaService.reset === 'function') {
+                        window.CaptchaService.reset('register-send');
                     }
                 });
         }
@@ -367,6 +395,16 @@ var RegisterPage = (function () {
         resendOTP: function () {
             var errorEl = document.getElementById('regOTPError');
             if (errorEl) errorEl.textContent = '';
+
+            var captchaToken = '';
+            if (window.CaptchaService && typeof window.CaptchaService.requireToken === 'function') {
+                captchaToken = window.CaptchaService.requireToken('register-resend');
+            }
+            if (!captchaToken) {
+                if (errorEl) errorEl.textContent = 'Selesaikan CAPTCHA keamanan sebelum kirim ulang OTP';
+                return;
+            }
+
             // Clear inputs
             for (var i = 0; i < 6; i++) {
                 state.otp[i] = '';
@@ -374,13 +412,19 @@ var RegisterPage = (function () {
                 if (el) el.value = '';
             }
 
-            AuthService.sendOTP(state.phone)
+            AuthService.sendOTP(state.phone, captchaToken)
                 .then(function () {
                     StepOTP.startTimer();
                     showToast('OTP dikirim ulang', 'success');
+                    if (window.CaptchaService && typeof window.CaptchaService.reset === 'function') {
+                        window.CaptchaService.reset('register-resend');
+                    }
                 })
                 .catch(function (err) {
                     if (errorEl) errorEl.textContent = err.message || 'Gagal mengirim ulang OTP';
+                    if (window.CaptchaService && typeof window.CaptchaService.reset === 'function') {
+                        window.CaptchaService.reset('register-resend');
+                    }
                 });
         },
 
@@ -644,6 +688,10 @@ var RegisterPage = (function () {
 
     function reset() {
         _hideCooldownNotice();
+        if (window.CaptchaService && typeof window.CaptchaService.reset === 'function') {
+            window.CaptchaService.reset('register-send');
+            window.CaptchaService.reset('register-resend');
+        }
         StepOTP.clearTimer();
         state.step = 1;
         state.role = 'user';

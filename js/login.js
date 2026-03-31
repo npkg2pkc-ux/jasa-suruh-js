@@ -35,6 +35,9 @@ var LoginPage = (function () {
         _setupPhoneStep();
         _setupOTPStep();
         _setupLegalLinks();
+        if (window.CaptchaService && typeof window.CaptchaService.render === 'function') {
+            window.CaptchaService.render('login');
+        }
 
         // Restore last phone
         var lastPhone = localStorage.getItem(LAST_PHONE_KEY);
@@ -73,13 +76,26 @@ var LoginPage = (function () {
     }
 
     function _validatePhone() {
-        var valid = _phoneRaw.length >= 9 && _phoneRaw.length <= 13;
+        var valid = /^8\d{8,12}$/.test(_phoneRaw);
         $('loginBtnSendOTP').disabled = !valid;
         return valid;
     }
 
     function _sendOTP() {
         if (!_validatePhone()) return;
+
+        var captchaToken = '';
+        if (window.CaptchaService && typeof window.CaptchaService.requireToken === 'function') {
+            captchaToken = window.CaptchaService.requireToken('login');
+        }
+        if (!captchaToken) {
+            var capErr = $('loginPhoneError');
+            if (capErr) {
+                capErr.textContent = 'Selesaikan CAPTCHA keamanan terlebih dahulu.';
+                capErr.classList.remove('hidden');
+            }
+            return;
+        }
 
         _phone = '62' + _phoneRaw;
         var displayPhone = '0' + _phoneRaw;
@@ -98,7 +114,7 @@ var LoginPage = (function () {
         localStorage.setItem(LAST_PHONE_KEY, _phoneRaw);
         _hideCooldownNotice();
 
-        AuthService.sendOTP(_phoneRaw)
+        AuthService.sendOTP(_phoneRaw, captchaToken)
         .then(function (result) {
             btn.disabled = false;
             text.textContent = 'Lanjutkan';
@@ -107,6 +123,9 @@ var LoginPage = (function () {
             // Show OTP step
             _savePendingOTP();
             _showOTPStep(displayPhone);
+            if (window.CaptchaService && typeof window.CaptchaService.reset === 'function') {
+                window.CaptchaService.reset('login');
+            }
         })
         .catch(function (err) {
             btn.disabled = false;
@@ -118,6 +137,9 @@ var LoginPage = (function () {
             if (err && err.code === 'ACCOUNT_COOLDOWN') {
                 var info = err.cooldownInfo || {};
                 _showCooldownNotice(Number(info.blockedUntil || 0), err.message || 'Nomor ini sedang cooldown.');
+            }
+            if (window.CaptchaService && typeof window.CaptchaService.reset === 'function') {
+                window.CaptchaService.reset('login');
             }
         });
     }

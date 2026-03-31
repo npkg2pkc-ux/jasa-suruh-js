@@ -13,10 +13,15 @@ var AuthService = (function () {
 
     // Format phone: 08xx → 628xx (tanpa +)
     function formatPhone(phone) {
-        var cleaned = phone.replace(/\D/g, '');
+        var cleaned = String(phone || '').replace(/\D/g, '');
         if (cleaned.startsWith('0')) cleaned = '62' + cleaned.slice(1);
-        if (!cleaned.startsWith('62')) cleaned = '62' + cleaned;
+        else if (cleaned.startsWith('8')) cleaned = '62' + cleaned;
         return cleaned;
+    }
+
+    function isValidIndonesianMobilePhone(phone) {
+        var formatted = formatPhone(phone || '');
+        return /^628\d{8,12}$/.test(formatted);
     }
 
     // Format display: 628xx → 08xx
@@ -63,6 +68,9 @@ var AuthService = (function () {
 
     function checkDeletionCooldown(phone) {
         var formatted = formatPhone(phone || '');
+        if (!isValidIndonesianMobilePhone(formatted)) {
+            return Promise.resolve({ blocked: false, remainingMs: 0, blockedUntil: 0 });
+        }
 
         if (typeof window.FB !== 'undefined' && window.FB.isReady && window.FB.isReady()) {
             return window.FB.get('getAccountDeletionCooldown', { phone: formatted })
@@ -87,8 +95,18 @@ var AuthService = (function () {
     }
 
     // Send OTP via WhatsApp API
-    function sendOTP(phone) {
+    function sendOTP(phone, captchaToken) {
         var formatted = formatPhone(phone);
+        var captcha = String(captchaToken || '').trim();
+
+        if (!isValidIndonesianMobilePhone(formatted)) {
+            return Promise.reject(new Error('Hanya nomor Indonesia (+62 8...) yang diizinkan'));
+        }
+
+        if (!captcha) {
+            return Promise.reject(new Error('Selesaikan CAPTCHA keamanan terlebih dahulu'));
+        }
+
         return checkDeletionCooldown(formatted)
             .then(function (cooldown) {
                 if (cooldown && cooldown.blocked) {
@@ -98,7 +116,7 @@ var AuthService = (function () {
                 return fetch('/api/otp/send', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone: formatted })
+                    body: JSON.stringify({ phone: formatted, captchaToken: captcha })
                 });
             })
             .then(parseApiJson)
@@ -111,6 +129,9 @@ var AuthService = (function () {
     // Verify OTP via API
     function verifyOTP(phone, otp) {
         var formatted = formatPhone(phone);
+        if (!isValidIndonesianMobilePhone(formatted)) {
+            return Promise.reject(new Error('Nomor HP tidak valid'));
+        }
         return fetch('/api/otp/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -134,6 +155,9 @@ var AuthService = (function () {
 
         var userId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
         var normalizedPhone = formatPhone(profileData.no_hp || profileData.phone || '');
+        if (!isValidIndonesianMobilePhone(normalizedPhone)) {
+            return Promise.reject(new Error('Nomor HP harus Indonesia (+62 8...)'));
+        }
         var userData = {
             id: userId,
             role: profileData.role,
@@ -197,6 +221,7 @@ var AuthService = (function () {
         checkDeletionCooldown: checkDeletionCooldown,
         formatCooldownMessage: formatCooldownMessage,
         createCooldownError: createCooldownError,
+        isValidIndonesianMobilePhone: isValidIndonesianMobilePhone,
         sendOTP: sendOTP,
         verifyOTP: verifyOTP,
         createProfile: createProfile,

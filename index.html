@@ -8,6 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Jasa Suruh">
     <meta name="description" content="Jasa Suruh - Layanan serba bisa untuk kebutuhan Anda">
+    <meta name="turnstile-site-key" content="">
     <meta name="mobile-web-app-capable" content="yes">
     <title>Jasa Suruh (JS)</title>
     <link rel="manifest" href="manifest.json">
@@ -20,7 +21,7 @@
     <link rel="apple-touch-icon" sizes="144x144" href="icons/icon-144.png">
     <link rel="apple-touch-icon" sizes="128x128" href="icons/icon-128.png">
     <link rel="apple-touch-icon" sizes="72x72" href="icons/icon-72.png">
-    <link rel="stylesheet" href="style.css?v=20260331-6">
+    <link rel="stylesheet" href="style.css?v=20260331-7">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30,6 +31,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Chart.js for dashboard -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Cloudflare Turnstile CAPTCHA -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
     <!-- React + htm (for Staff Management module) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -70,6 +73,11 @@
                             <input type="tel" id="loginPhoneInput" class="login-phone-input" placeholder="08xxxxxxxxxx / 8xxxxxxxxxx" autocomplete="tel" inputmode="numeric">
                         </div>
                         <p class="login-phone-hint">Bisa pakai format <strong>08</strong> atau <strong>8</strong>.</p>
+                        <div class="auth-captcha-wrap">
+                            <p class="auth-captcha-label">Verifikasi keamanan</p>
+                            <div id="loginCaptchaWidget" class="auth-captcha-widget"></div>
+                            <p id="loginCaptchaMessage" class="auth-captcha-message hidden"></p>
+                        </div>
                         <p class="login-error hidden" id="loginPhoneError"></p>
                         <button type="button" class="login-btn" id="loginBtnSendOTP" disabled>
                             <span id="loginBtnSendText">Lanjutkan</span>
@@ -192,6 +200,11 @@
                                 </div>
                             </div>
                             <p class="reg-phone-hint">Contoh: 081234567890</p>
+                            <div class="auth-captcha-wrap">
+                                <p class="auth-captcha-label">Verifikasi keamanan</p>
+                                <div id="regCaptchaSendWidget" class="auth-captcha-widget"></div>
+                                <p id="regCaptchaSendMessage" class="auth-captcha-message hidden"></p>
+                            </div>
                             <p class="reg-error" id="regPhoneError"></p>
                             <button type="button" class="btn-primary" id="regSendOTPBtn" disabled>Kirim OTP</button>
                         </div>
@@ -212,6 +225,11 @@
                                 <input type="tel" id="otpDigit5" class="reg-otp-digit" maxlength="1" inputmode="numeric">
                             </div>
                             <p class="reg-error" id="regOTPError"></p>
+                            <div class="auth-captcha-wrap auth-captcha-wrap-otp">
+                                <p class="auth-captcha-label">Captcha untuk kirim ulang OTP</p>
+                                <div id="regCaptchaResendWidget" class="auth-captcha-widget"></div>
+                                <p id="regCaptchaResendMessage" class="auth-captcha-message hidden"></p>
+                            </div>
                             <div class="reg-otp-footer">
                                 <span id="regOTPTimer" class="reg-otp-timer"></span>
                                 <button type="button" class="reg-resend-btn" id="regResendOTP">Kirim Ulang OTP</button>
@@ -2192,8 +2210,9 @@
         </div>
     </div>
 
-    <script src="supabase.js?v=20260330-3"></script>
-    <script src="services/auth.js?v=20260330-2"></script>
+    <script src="supabase.js?v=20260331-1"></script>
+    <script src="services/auth.js?v=20260331-1"></script>
+    <script src="services/captcha.js?v=20260331-1"></script>
     <script src="js/core.js?v=20260330-2"></script>
     <script src="js/shared.js?v=20260330-4"></script>
     <script src="js/admin-review.js?v=20260330-3"></script>
@@ -2203,9 +2222,9 @@
     <script src="js/cs.js?v=20260330-2"></script>
     <script src="js/owner.js?v=20260330-7"></script>
     <script src="js/staff-app.js?v=20260330-2"></script>
-    <script src="js/login.js?v=20260330-2"></script>
+    <script src="js/login.js?v=20260331-1"></script>
     <script src="js/account.js?v=20260330-2"></script>
-    <script src="js/register.js?v=20260330-2"></script>
+    <script src="js/register.js?v=20260331-1"></script>
     <script src="js/app.js?v=20260330-2"></script>
 </body>
 </html>

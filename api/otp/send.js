@@ -4,12 +4,64 @@
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://aqptkuoazqharfzxvgem.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || '';
 const FONNTE_TOKEN = process.env.FONNTE_TOKEN || '';
+const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY || '';
 
 function formatPhone(phone) {
-    let cleaned = phone.replace(/\D/g, '');
+    let cleaned = String(phone || '').replace(/\D/g, '');
     if (cleaned.startsWith('0')) cleaned = '62' + cleaned.slice(1);
-    if (!cleaned.startsWith('62')) cleaned = '62' + cleaned;
+    else if (cleaned.startsWith('8')) cleaned = '62' + cleaned;
     return cleaned;
+}
+
+function isValidIndonesianMobile(phone) {
+    // +62 then 8xxxxxxxx (raw length after 62 is 9-13 digits)
+    return /^628\d{8,12}$/.test(String(phone || ''));
+}
+
+function getClientIp(req) {
+    const xf = req.headers['x-forwarded-for'];
+    if (Array.isArray(xf) && xf.length) return String(xf[0]).split(',')[0].trim();
+    if (typeof xf === 'string' && xf) return xf.split(',')[0].trim();
+    const xr = req.headers['x-real-ip'];
+    if (typeof xr === 'string' && xr) return xr.trim();
+    return '';
+}
+
+async function verifyCaptcha(captchaToken, clientIp) {
+    if (!TURNSTILE_SECRET_KEY) {
+        return { ok: false, code: 500, message: 'Captcha server belum dikonfigurasi' };
+    }
+
+    if (!captchaToken || typeof captchaToken !== 'string') {
+        return { ok: false, code: 400, message: 'Captcha wajib diisi' };
+    }
+
+    try {
+        const params = new URLSearchParams();
+        params.set('secret', TURNSTILE_SECRET_KEY);
+        params.set('response', captchaToken);
+        if (clientIp) params.set('remoteip', clientIp);
+
+        const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        });
+
+        if (!verifyRes.ok) {
+            return { ok: false, code: 400, message: 'Verifikasi captcha gagal' };
+        }
+
+        const verifyData = await verifyRes.json();
+        if (!verifyData.success) {
+            return { ok: false, code: 400, message: 'Captcha tidak valid' };
+        }
+
+        return { ok: true };
+    } catch (e) {
+        console.error('Captcha verify error:', e);
+        return { ok: false, code: 500, message: 'Gagal verifikasi captcha' };
+    }
 }
 
 function generateOTP() {
@@ -30,16 +82,21 @@ module.exports = async (req, res) => {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ success: false, message: 'Method not allowed' });
 
-    const { phone } = req.body || {};
+    const { phone, captchaToken } = req.body || {};
     if (!phone) {
         return res.status(400).json({ success: false, message: 'Nomor HP wajib diisi' });
     }
 
     const formatted = formatPhone(phone);
 
-    // Validate Indonesian phone number
-    if (!/^62[0-9]{9,13}$/.test(formatted)) {
-        return res.status(400).json({ success: false, message: 'Format nomor HP tidak valid' });
+    // Strict Indonesian phone number: +62 then 8...
+    if (!isValidIndonesianMobile(formatted)) {
+        return res.status(400).json({ success: false, message: 'Hanya nomor Indonesia (+62 8...) yang diizinkan' });
+    }
+
+    const captchaRes = await verifyCaptcha(captchaToken, getClientIp(req));
+    if (!captchaRes.ok) {
+        return res.status(captchaRes.code).json({ success: false, message: captchaRes.message });
     }
 
     // Rate limit: max 1 OTP per phone per 60 seconds

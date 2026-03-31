@@ -19,6 +19,10 @@
         return cleaned;
     }
 
+    function isValidIndonesianMobilePhone(phone) {
+        return /^628\d{8,12}$/.test(String(phone || ''));
+    }
+
     function formatCooldownMessage(remainingMs) {
         var total = Math.max(0, Math.ceil((remainingMs || 0) / 1000));
         var hours = Math.floor(total / 3600);
@@ -526,6 +530,11 @@
             if (phone.startsWith('08')) phone = '62' + phone.slice(1);
             else if (phone.startsWith('8')) phone = '62' + phone;
             else if (phone && !phone.startsWith('62')) phone = '62' + phone;
+
+            if (!isValidIndonesianMobilePhone(phone)) {
+                return fail('Hanya nomor Indonesia (+62 8...) yang diizinkan');
+            }
+
             userData.no_hp = phone;
             userData.phone = phone;
             if (!userData.username) {
