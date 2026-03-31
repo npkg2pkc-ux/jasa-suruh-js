@@ -6734,3 +6734,180 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
         --step-size: 20px;
     }
 }
+
+/* ========================================
+   PREMIUM ORANGE THEME REFRESH (2026-03-31)
+   Softer contrast, warmer surfaces, reduced eye strain
+   ======================================== */
+:root {
+    --orange: #D67931;
+    --orange-light: #E7A067;
+    --orange-dark: #9F5423;
+    --orange-subtle: #FDF4EA;
+    --orange-soft: #F8E8D8;
+    --cream: #FCF8F2;
+    --cream-deep: #F3ECE2;
+    --black: #201913;
+    --gray-900: #2F261F;
+    --gray-700: #54473C;
+    --gray-600: #6D6054;
+    --gray-400: #A0968D;
+    --gray-300: #CFC5BC;
+    --gray-200: #E7DFD6;
+    --gray-100: #F5F0EA;
+    --gray-50: #FBF8F4;
+    --hero-orange-start: #C66E2F;
+    --hero-orange-mid: #DD9158;
+    --hero-orange-end: #F2C39A;
+    --shadow: 0 6px 16px rgba(30,22,17,.08);
+    --shadow-md: 0 10px 28px rgba(30,22,17,.14);
+    --shadow-orange: 0 14px 34px rgba(198,110,47,.14);
+}
+
+body {
+    background: linear-gradient(180deg, var(--cream) 0%, var(--cream-deep) 52%, #EEE4D8 100%);
+}
+
+body::before {
+    background: radial-gradient(circle, rgba(198,110,47,.18) 0%, rgba(198,110,47,0) 68%);
+}
+
+body::after {
+    background: radial-gradient(circle, rgba(231,160,103,.14) 0%, rgba(231,160,103,0) 70%);
+}
+
+.app {
+    background: linear-gradient(180deg, #FFFDFB 0%, #F9F2E9 100%);
+    box-shadow: 0 0 0 1px rgba(198,110,47,.08);
+}
+
+.header,
+.stp-header,
+.jap-header,
+#jsAntarPage.jap-first-open .jap-header,
+.sf-header {
+    background: linear-gradient(135deg, var(--hero-orange-mid), var(--hero-orange-start));
+    box-shadow: 0 10px 22px rgba(147,82,37,.24);
+}
+
+.bottom-nav {
+    background: linear-gradient(180deg, #FFFDFB 0%, #F8EFE4 100%);
+    border-top: 1px solid rgba(198,110,47,.14);
+    box-shadow: 0 -10px 20px rgba(56,41,31,.08);
+}
+
+.wallet-card,
+.sf-btn-primary {
+    background: linear-gradient(135deg, var(--hero-orange-start), var(--hero-orange-mid));
+}
+
+.wallet-card-owner {
+    background: linear-gradient(135deg, #A95B24, #D17E3D);
+}
+
+.stp-page,
+#jsAntarPage {
+    background: linear-gradient(180deg, #FCF7F0 0%, #F4EBDD 100%);
+}
+
+.stp-search {
+    background: linear-gradient(180deg, #F6EBDD 0%, #FCF6ED 100%);
+}
+
+.stp-search-bar,
+.jap-map-top-card,
+.otp-map-top-card {
+    border-color: #EAD9C6;
+    box-shadow: 0 8px 22px rgba(56,41,31,.12);
+}
+
+.gradient-1,
+.marketing-theme-1 {
+    background: linear-gradient(145deg, #C66E2F 0%, #DD9158 55%, #F2C39A 100%);
+}
+
+#page-owner {
+    background: linear-gradient(180deg, #FCF8F2 0%, #F6EEE3 52%, #EEE2D3 100%);
+}
+
+#page-owner .od-header {
+    border-bottom: 1px solid #EAD9C6;
+    box-shadow: 0 10px 18px rgba(56,41,31,.1);
+}
+
+#page-owner .od-header-bg {
+    background:
+        radial-gradient(circle at 88% -16%, rgba(214,121,49,.2) 0%, rgba(214,121,49,0) 48%),
+        linear-gradient(180deg, #FFFDF8 0%, #F9EFE3 100%);
+}
+
+#page-owner .od-greeting-hi {
+    color: #3B281C;
+}
+
+#page-owner .od-greeting-sub {
+    color: #7C6758;
+}
+
+#page-owner .od-notif-btn {
+    background: #FFF5EA;
+    color: #A85822;
+    border: 1px solid #F0D1B3;
+}
+
+#page-owner .od-pill {
+    background: #FFF5EA;
+    color: #6D6054;
+    border: 1px solid #F0D1B3;
+}
+
+#page-owner .od-pill.active {
+    background: var(--orange);
+    color: #fff;
+    border-color: var(--orange);
+}
+
+#page-owner .od-panel-shell,
+#page-owner .od-panel-view section,
+#page-owner .od-panel-view .od-settings-card,
+#page-owner .od-panel-view .od-chart-section,
+#page-owner .od-panel-view .od-activity-section,
+#page-owner .od-panel-view .od-users-section,
+#page-owner .od-panel-view .od-wallet-card,
+#page-owner .od-panel-view .od-quick-section {
+    border-color: #EAD9C6;
+    background: #FFFDF9;
+}
+
+#page-owner .od-wallet-bg {
+    background:
+        radial-gradient(circle at 88% -10%, rgba(214,121,49,.16) 0%, rgba(214,121,49,0) 44%),
+        linear-gradient(135deg, #FFFFFF 0%, #FFF5EA 62%, #F4E7D9 100%);
+}
+
+#page-owner .od-wallet-label {
+    color: #A85822;
+}
+
+#page-owner .od-wallet-metric,
+#page-owner .od-kpi-label {
+    color: #7C6758;
+}
+
+#page-owner .od-wallet-metric-gap {
+    border-color: #EAD9C6;
+    background: #FFF7EF;
+}
+
+#page-owner .od-wbtn-history {
+    background: #FDEBDA;
+    color: #A85822;
+}
+
+#page-owner.od-admin-mode .od-header {
+    box-shadow: 0 12px 24px rgba(166,88,34,.24) !important;
+}
+
+#page-owner.od-admin-mode .od-header-bg {
+    background: linear-gradient(135deg, #C66E2F 0%, #DD9158 48%, #F2C39A 100%) !important;
+}
