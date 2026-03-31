@@ -421,6 +421,25 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .dot { width:6px; height:6px; background:var(--gray-300); border-radius:50%; transition:var(--tr); }
 .dot.active { width:20px; background:var(--orange); border-radius:3px; }
 
+/* Keep user promo slider clean: no gray strip below rounded card. */
+#page-user .promo-slider {
+    border-radius:22px;
+}
+
+#page-user .promo-card {
+    padding-bottom:34px;
+}
+
+#page-user .promo-dots {
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:10px;
+    margin-top:0;
+    z-index:2;
+    pointer-events:none;
+}
+
 /* ========== SECTIONS ========== */
 .section-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
 .section-header h2 { font-size:18px; font-weight:700; }
