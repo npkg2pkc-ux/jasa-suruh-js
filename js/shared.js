@@ -886,6 +886,71 @@ function clearChatBadge() {
 window.clearChatBadge = clearChatBadge;
 
 // ══════════════════════════════════════════
+// ═══ NOTIFICATION BLOCKED HELP MODAL ═══
+// ══════════════════════════════════════════
+function showNotificationBlockedHelp() {
+    var existing = document.getElementById('notifBlockedHelpModal');
+    if (existing) { existing.remove(); return; }
+
+    var isAndroid = /android/i.test(navigator.userAgent);
+    var isChrome = /chrome|chromium/i.test(navigator.userAgent) && !/edg/i.test(navigator.userAgent);
+    var isFirefox = /firefox/i.test(navigator.userAgent);
+    var isSamsung = /samsungbrowser/i.test(navigator.userAgent);
+
+    var steps = '';
+    if (isAndroid && (isChrome || isSamsung)) {
+        steps = '<ol class="notif-help-steps">'
+            + '<li>Ketuk ikon <strong>🔒 gembok / info</strong> di sebelah kiri alamat URL di browser</li>'
+            + '<li>Pilih <strong>"Izin"</strong> atau <strong>"Permissions"</strong></li>'
+            + '<li>Cari <strong>"Notifikasi"</strong> dan ubah menjadi <strong>"Izinkan"</strong></li>'
+            + '<li>Muat ulang halaman ini</li>'
+            + '</ol>'
+            + '<p class="notif-help-alt">Atau: <strong>Pengaturan Browser → Pengaturan Situs → Notifikasi</strong> → cari alamat website ini → pilih "Izinkan"</p>';
+    } else if (isFirefox) {
+        steps = '<ol class="notif-help-steps">'
+            + '<li>Ketuk ikon <strong>🔒 kunci</strong> di sebelah kiri alamat URL</li>'
+            + '<li>Ketuk <strong>"Edit Izin Situs"</strong></li>'
+            + '<li>Ubah <strong>Notifikasi</strong> menjadi <strong>"Izinkan"</strong></li>'
+            + '<li>Muat ulang halaman</li>'
+            + '</ol>';
+    } else {
+        steps = '<ol class="notif-help-steps">'
+            + '<li>Ketuk ikon <strong>🔒 / ℹ️</strong> di sebelah kiri alamat website</li>'
+            + '<li>Cari <strong>Izin Notifikasi</strong> dan ubah ke <strong>"Izinkan"</strong></li>'
+            + '<li>Muat ulang halaman ini</li>'
+            + '</ol>'
+            + '<p class="notif-help-alt">Atau buka <strong>Pengaturan Perangkat → Aplikasi → Browser → Notifikasi</strong> → aktifkan</p>';
+    }
+
+    var overlay = document.createElement('div');
+    overlay.id = 'notifBlockedHelpModal';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.55);display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .18s ease';
+    overlay.innerHTML = '<div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:24px 20px 32px;box-shadow:0 -4px 32px rgba(0,0,0,0.18);animation:slideUp .22s ease">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+        + '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:1.5rem">🔔</span><h3 style="margin:0;font-size:1.05rem;color:#1a1a1a">Aktifkan Notifikasi</h3></div>'
+        + '<button id="notifBlockedClose" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#888;line-height:1">&times;</button>'
+        + '</div>'
+        + '<div style="background:#FFF3CD;border:1px solid #FFCA28;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:0.88rem;color:#7A5800">'
+        + '⚠️ Izin notifikasi diblokir di browser. Ikuti langkah berikut untuk mengaktifkan kembali:'
+        + '</div>'
+        + steps
+        + '<div style="display:flex;gap:10px;margin-top:18px">'
+        + '<button id="notifBlockedReload" style="flex:1;padding:12px;background:linear-gradient(135deg,#FF6B00,#FF8C00);color:#fff;border:none;border-radius:12px;font-size:0.95rem;font-weight:600;cursor:pointer">🔄 Muat Ulang</button>'
+        + '<button id="notifBlockedClose2" style="flex:1;padding:12px;background:#f0f0f0;color:#444;border:none;border-radius:12px;font-size:0.95rem;cursor:pointer">Tutup</button>'
+        + '</div>'
+        + '</div>';
+
+    document.body.appendChild(overlay);
+
+    function closeModal() { overlay.remove(); }
+    overlay.querySelector('#notifBlockedClose').addEventListener('click', closeModal);
+    overlay.querySelector('#notifBlockedClose2').addEventListener('click', closeModal);
+    overlay.querySelector('#notifBlockedReload').addEventListener('click', function () { location.reload(); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
+}
+window.showNotificationBlockedHelp = showNotificationBlockedHelp;
+
+// ══════════════════════════════════════════
 // ═══ NOTIFICATION POPUP (DB-backed) ═══
 // ══════════════════════════════════════════
 var _notifItems = [];
@@ -1004,6 +1069,10 @@ function _bindRolePushMiniActions() {
         btn.addEventListener('click', function () {
             var s = getSession();
             if (!s || s.role !== role) return;
+            if ('Notification' in window && Notification.permission === 'denied') {
+                showNotificationBlockedHelp();
+                return;
+            }
             _refreshRolePushMiniStatus(true).then(function (ok) {
                 if (ok) showToast('Push notifikasi sudah aktif.', 'success');
             });

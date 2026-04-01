@@ -907,7 +907,11 @@ function setupTalentToggle() {
             }
 
             if (Notification.permission === 'denied') {
-                showToast('Izin notifikasi diblokir. Aktifkan lagi dari pengaturan browser.', 'error');
+                if (typeof showNotificationBlockedHelp === 'function') {
+                    showNotificationBlockedHelp();
+                } else {
+                    showToast('Izin notifikasi diblokir. Aktifkan lagi dari pengaturan browser.', 'error');
+                }
                 return;
             }
 

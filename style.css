@@ -7438,3 +7438,10 @@ body::after {
 #page-owner.od-admin-mode .od-header-bg {
     background: linear-gradient(135deg, #E65100 0%, #FF7A18 52%, #FF9A3C 100%) !important;
 }
+
+/* -- Notification Blocked Help Modal -- */
+.notif-help-steps { margin: 0 0 4px 0; padding-left: 20px; }
+.notif-help-steps li { margin-bottom: 8px; font-size: 0.9rem; color: #333; line-height: 1.45; }
+.notif-help-steps li strong { color: #1a1a1a; }
+.notif-help-alt { font-size: 0.82rem; color: #666; margin-top: 10px; background: #f5f5f5; border-radius: 8px; padding: 8px 12px; line-height: 1.4; }
+.notif-help-alt strong { color: #444; }
