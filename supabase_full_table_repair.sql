@@ -31,37 +31,10 @@ create table if not exists users (
     no_hp text,
     email text,
     foto_url text,
-    is_active boolean default true,
-    address text,
-    no_ktp text,
-    jenis_kelamin text,
-    alamat_lengkap text,
-    jenis_motor text,
-    tahun_kendaraan text,
-    plat_nomor_kendaraan text,
-    ktp_photo_url text,
-    driver_photo_url text,
-    tanggal_lahir date,
-    usia integer,
-    agama text,
     username text,
     created_at timestamptz default now(),
     data jsonb not null default '{}'
 );
-
-alter table users add column if not exists is_active boolean default true;
-alter table users add column if not exists address text;
-alter table users add column if not exists no_ktp text;
-alter table users add column if not exists jenis_kelamin text;
-alter table users add column if not exists alamat_lengkap text;
-alter table users add column if not exists jenis_motor text;
-alter table users add column if not exists tahun_kendaraan text;
-alter table users add column if not exists plat_nomor_kendaraan text;
-alter table users add column if not exists ktp_photo_url text;
-alter table users add column if not exists driver_photo_url text;
-alter table users add column if not exists tanggal_lahir date;
-alter table users add column if not exists usia integer;
-alter table users add column if not exists agama text;
 
 create table if not exists otp_codes (
     id uuid primary key default gen_random_uuid(),
@@ -333,7 +306,7 @@ with cfg as (
 insert into _repair_log(step, affected_rows, note)
 select 'marketing_backfill', count(*), 'Backfill marketing_contents dari settings.config' from ins;
 
--- 2) users.data normalize minimal
+-- 2) users.data normalize minimal (semua data talent disimpan di JSONB data)
 with upd as (
     update users u
     set data = coalesce(u.data, '{}'::jsonb)
@@ -343,152 +316,16 @@ with upd as (
             'name', coalesce(u.nama, ''),
             'phone', coalesce(u.no_hp, ''),
             'email', coalesce(u.email, ''),
-            'foto_url', coalesce(u.foto_url, ''),
-            'is_active', case
-                when lower(coalesce(u.data->>'is_active', '')) in ('true', '1', 'yes') then true
-                when lower(coalesce(u.data->>'is_active', '')) in ('false', '0', 'no') then false
-                else coalesce(u.is_active, true)
-            end,
-            'address', coalesce(nullif(u.address, ''), nullif(u.alamat_lengkap, ''), coalesce(u.data->>'address', '')),
-            'no_ktp', coalesce(nullif(u.no_ktp, ''), coalesce(u.data->>'no_ktp', '')),
-            'jenis_kelamin', coalesce(nullif(u.jenis_kelamin, ''), coalesce(u.data->>'jenis_kelamin', '')),
-            'alamat_lengkap', coalesce(nullif(u.alamat_lengkap, ''), nullif(u.address, ''), coalesce(u.data->>'alamat_lengkap', ''), coalesce(u.data->>'address', '')),
-            'jenis_motor', coalesce(nullif(u.jenis_motor, ''), coalesce(u.data->>'jenis_motor', ''), coalesce(u.data->>'vehicleType', '')),
-            'tahun_kendaraan', coalesce(nullif(u.tahun_kendaraan, ''), coalesce(u.data->>'tahun_kendaraan', ''), coalesce(u.data->>'vehicleYear', '')),
-            'plat_nomor_kendaraan', coalesce(nullif(u.plat_nomor_kendaraan, ''), coalesce(u.data->>'plat_nomor_kendaraan', ''), coalesce(u.data->>'plateNo', '')),
-            'ktp_photo_url', coalesce(nullif(u.ktp_photo_url, ''), coalesce(u.data->>'ktp_photo_url', '')),
-            'driver_photo_url', coalesce(nullif(u.driver_photo_url, ''), nullif(u.foto_url, ''), coalesce(u.data->>'driver_photo_url', ''), coalesce(u.data->>'foto_url', '')),
-            'tanggal_lahir', coalesce(
-                nullif(u.data->>'tanggal_lahir', ''),
-                nullif(u.data->>'birthDate', ''),
-                case when u.tanggal_lahir is not null then to_char(u.tanggal_lahir, 'YYYY-MM-DD') else '' end
-            ),
-            'usia', coalesce(
-                case when coalesce(u.data->>'usia', '') ~ '^\\d+$' then (u.data->>'usia')::int else null end,
-                case when coalesce(u.data->>'age', '') ~ '^\\d+$' then (u.data->>'age')::int else null end,
-                u.usia
-            ),
-            'agama', coalesce(nullif(u.agama, ''), nullif(u.data->>'agama', ''), coalesce(u.data->>'religion', '')),
-            'vehicleType', coalesce(nullif(u.jenis_motor, ''), coalesce(u.data->>'vehicleType', ''), coalesce(u.data->>'jenis_motor', '')),
-            'vehicleYear', coalesce(nullif(u.tahun_kendaraan, ''), coalesce(u.data->>'vehicleYear', ''), coalesce(u.data->>'tahun_kendaraan', '')),
-            'plateNo', coalesce(nullif(u.plat_nomor_kendaraan, ''), coalesce(u.data->>'plateNo', ''), coalesce(u.data->>'plat_nomor_kendaraan', ''))
+            'foto_url', coalesce(u.foto_url, '')
         )
-    where coalesce(u.data, '{}'::jsonb) is distinct from (
-        coalesce(u.data, '{}'::jsonb)
-        || jsonb_build_object(
-            'id', u.id,
-            'role', coalesce(u.role, 'user'),
-            'name', coalesce(u.nama, ''),
-            'phone', coalesce(u.no_hp, ''),
-            'email', coalesce(u.email, ''),
-            'foto_url', coalesce(u.foto_url, ''),
-            'is_active', case
-                when lower(coalesce(u.data->>'is_active', '')) in ('true', '1', 'yes') then true
-                when lower(coalesce(u.data->>'is_active', '')) in ('false', '0', 'no') then false
-                else coalesce(u.is_active, true)
-            end,
-            'address', coalesce(nullif(u.address, ''), nullif(u.alamat_lengkap, ''), coalesce(u.data->>'address', '')),
-            'no_ktp', coalesce(nullif(u.no_ktp, ''), coalesce(u.data->>'no_ktp', '')),
-            'jenis_kelamin', coalesce(nullif(u.jenis_kelamin, ''), coalesce(u.data->>'jenis_kelamin', '')),
-            'alamat_lengkap', coalesce(nullif(u.alamat_lengkap, ''), nullif(u.address, ''), coalesce(u.data->>'alamat_lengkap', ''), coalesce(u.data->>'address', '')),
-            'jenis_motor', coalesce(nullif(u.jenis_motor, ''), coalesce(u.data->>'jenis_motor', ''), coalesce(u.data->>'vehicleType', '')),
-            'tahun_kendaraan', coalesce(nullif(u.tahun_kendaraan, ''), coalesce(u.data->>'tahun_kendaraan', ''), coalesce(u.data->>'vehicleYear', '')),
-            'plat_nomor_kendaraan', coalesce(nullif(u.plat_nomor_kendaraan, ''), coalesce(u.data->>'plat_nomor_kendaraan', ''), coalesce(u.data->>'plateNo', '')),
-            'ktp_photo_url', coalesce(nullif(u.ktp_photo_url, ''), coalesce(u.data->>'ktp_photo_url', '')),
-            'driver_photo_url', coalesce(nullif(u.driver_photo_url, ''), nullif(u.foto_url, ''), coalesce(u.data->>'driver_photo_url', ''), coalesce(u.data->>'foto_url', '')),
-            'tanggal_lahir', coalesce(
-                nullif(u.data->>'tanggal_lahir', ''),
-                nullif(u.data->>'birthDate', ''),
-                case when u.tanggal_lahir is not null then to_char(u.tanggal_lahir, 'YYYY-MM-DD') else '' end
-            ),
-            'usia', coalesce(
-                case when coalesce(u.data->>'usia', '') ~ '^\\d+$' then (u.data->>'usia')::int else null end,
-                case when coalesce(u.data->>'age', '') ~ '^\\d+$' then (u.data->>'age')::int else null end,
-                u.usia
-            ),
-            'agama', coalesce(nullif(u.agama, ''), nullif(u.data->>'agama', ''), coalesce(u.data->>'religion', '')),
-            'vehicleType', coalesce(nullif(u.jenis_motor, ''), coalesce(u.data->>'vehicleType', ''), coalesce(u.data->>'jenis_motor', '')),
-            'vehicleYear', coalesce(nullif(u.tahun_kendaraan, ''), coalesce(u.data->>'vehicleYear', ''), coalesce(u.data->>'tahun_kendaraan', '')),
-            'plateNo', coalesce(nullif(u.plat_nomor_kendaraan, ''), coalesce(u.data->>'plateNo', ''), coalesce(u.data->>'plat_nomor_kendaraan', ''))
-        )
-    )
+    where coalesce(u.data->>'id', '') is distinct from u.id
+       or coalesce(u.data->>'role', '') is distinct from coalesce(u.role, 'user')
+       or coalesce(u.data->>'name', '') is distinct from coalesce(u.nama, '')
+       or coalesce(u.data->>'phone', '') is distinct from coalesce(u.no_hp, '')
     returning 1
 )
 insert into _repair_log(step, affected_rows, note)
-select 'users_data_normalize', count(*), 'Sinkron data JSON user' from upd;
-
--- 2b) Sinkron kolom user untuk field driver agar query berbasis kolom tetap konsisten.
-with upd as (
-    update users u
-    set is_active = case
-            when lower(coalesce(u.data->>'is_active', '')) in ('true', '1', 'yes') then true
-            when lower(coalesce(u.data->>'is_active', '')) in ('false', '0', 'no') then false
-            else coalesce(u.is_active, true)
-        end,
-        address = coalesce(nullif(u.data->>'address', ''), nullif(u.data->>'alamat_lengkap', ''), u.address),
-        no_ktp = coalesce(nullif(u.data->>'no_ktp', ''), u.no_ktp),
-        jenis_kelamin = coalesce(nullif(u.data->>'jenis_kelamin', ''), u.jenis_kelamin),
-        alamat_lengkap = coalesce(nullif(u.data->>'alamat_lengkap', ''), nullif(u.data->>'address', ''), u.alamat_lengkap),
-        jenis_motor = coalesce(nullif(u.data->>'jenis_motor', ''), nullif(u.data->>'vehicleType', ''), u.jenis_motor),
-        tahun_kendaraan = coalesce(nullif(u.data->>'tahun_kendaraan', ''), nullif(u.data->>'vehicleYear', ''), u.tahun_kendaraan),
-        plat_nomor_kendaraan = coalesce(nullif(u.data->>'plat_nomor_kendaraan', ''), nullif(u.data->>'plateNo', ''), u.plat_nomor_kendaraan),
-        ktp_photo_url = coalesce(nullif(u.data->>'ktp_photo_url', ''), u.ktp_photo_url),
-        driver_photo_url = coalesce(nullif(u.data->>'driver_photo_url', ''), nullif(u.data->>'foto_url', ''), u.driver_photo_url),
-                tanggal_lahir = coalesce(
-                        case when coalesce(u.data->>'tanggal_lahir', '') ~ '^\\d{4}-\\d{2}-\\d{2}$' then (u.data->>'tanggal_lahir')::date else null end,
-                        case when coalesce(u.data->>'birthDate', '') ~ '^\\d{4}-\\d{2}-\\d{2}$' then (u.data->>'birthDate')::date else null end,
-                        u.tanggal_lahir
-                ),
-                usia = coalesce(
-                        case when coalesce(u.data->>'usia', '') ~ '^\\d+$' then (u.data->>'usia')::int else null end,
-                        case when coalesce(u.data->>'age', '') ~ '^\\d+$' then (u.data->>'age')::int else null end,
-                        u.usia
-                ),
-                agama = coalesce(nullif(u.data->>'agama', ''), nullif(u.data->>'religion', ''), u.agama),
-        foto_url = coalesce(nullif(u.foto_url, ''), nullif(u.data->>'driver_photo_url', ''), nullif(u.data->>'foto_url', ''))
-    where lower(coalesce(u.role, '')) = 'talent'
-      and (
-        coalesce(u.no_ktp, '') = ''
-        or coalesce(u.jenis_kelamin, '') = ''
-        or coalesce(u.alamat_lengkap, '') = ''
-        or coalesce(u.jenis_motor, '') = ''
-        or coalesce(u.tahun_kendaraan, '') = ''
-        or coalesce(u.plat_nomor_kendaraan, '') = ''
-        or coalesce(u.ktp_photo_url, '') = ''
-        or coalesce(u.driver_photo_url, '') = ''
-                or u.tanggal_lahir is null
-                or u.usia is null
-                or coalesce(u.agama, '') = ''
-      )
-    returning 1
-)
-insert into _repair_log(step, affected_rows, note)
-select 'users_driver_columns_sync', count(*), 'Sinkron kolom driver dari data JSON' from upd;
-
--- 2c) Pastikan field teks wajib driver tidak kosong (fallback '-') agar data lama tidak bikin alur nyangkut.
-with upd as (
-        update users u
-        set no_ktp = coalesce(nullif(u.no_ktp, ''), '-'),
-                jenis_kelamin = coalesce(nullif(u.jenis_kelamin, ''), '-'),
-                alamat_lengkap = coalesce(nullif(u.alamat_lengkap, ''), coalesce(nullif(u.address, ''), '-')),
-                jenis_motor = coalesce(nullif(u.jenis_motor, ''), '-'),
-                tahun_kendaraan = coalesce(nullif(u.tahun_kendaraan, ''), '-'),
-                plat_nomor_kendaraan = coalesce(nullif(u.plat_nomor_kendaraan, ''), '-'),
-                agama = coalesce(nullif(u.agama, ''), '-')
-        where lower(coalesce(u.role, '')) = 'talent'
-            and (
-                coalesce(u.no_ktp, '') = ''
-                or coalesce(u.jenis_kelamin, '') = ''
-                or coalesce(u.alamat_lengkap, '') = ''
-                or coalesce(u.jenis_motor, '') = ''
-                or coalesce(u.tahun_kendaraan, '') = ''
-                or coalesce(u.plat_nomor_kendaraan, '') = ''
-                or coalesce(u.agama, '') = ''
-            )
-        returning 1
-)
-insert into _repair_log(step, affected_rows, note)
-select 'users_driver_text_fill', count(*), 'Isi field teks driver kosong dengan fallback' from upd;
+select 'users_data_normalize', count(*), 'Sinkron data JSON user (kolom inti saja)' from upd;
 
 -- 3) skills seed untuk semua user yang belum punya row
 with ins as (
@@ -692,46 +529,17 @@ select
     (select count(*) from wallet_ledger) as wallet_ledger_count,
     (select count(*) from wallet_idempotency) as wallet_idempotency_count;
 
--- ringkasan kelengkapan data driver (talent)
+-- ringkasan kelengkapan data driver (talent) - data dibaca dari JSONB
 select
     count(*) as total_driver,
-    sum(case when coalesce(no_ktp, '') = '' then 1 else 0 end) as kosong_no_ktp,
-    sum(case when coalesce(jenis_kelamin, '') = '' then 1 else 0 end) as kosong_jenis_kelamin,
-    sum(case when coalesce(alamat_lengkap, '') = '' then 1 else 0 end) as kosong_alamat_lengkap,
-    sum(case when coalesce(jenis_motor, '') = '' then 1 else 0 end) as kosong_jenis_motor,
-    sum(case when coalesce(tahun_kendaraan, '') = '' then 1 else 0 end) as kosong_tahun_kendaraan,
-    sum(case when coalesce(plat_nomor_kendaraan, '') = '' then 1 else 0 end) as kosong_plat_nomor,
-    sum(case when coalesce(ktp_photo_url, '') = '' then 1 else 0 end) as kosong_ktp_photo,
-    sum(case when coalesce(driver_photo_url, '') = '' then 1 else 0 end) as kosong_driver_photo
+    sum(case when coalesce(data->>'no_ktp', '') = '' then 1 else 0 end) as kosong_no_ktp,
+    sum(case when coalesce(data->>'jenis_kelamin', '') = '' then 1 else 0 end) as kosong_jenis_kelamin,
+    sum(case when coalesce(data->>'alamat_lengkap', data->>'address', '') = '' then 1 else 0 end) as kosong_alamat,
+    sum(case when coalesce(data->>'jenis_motor', data->>'vehicleType', '') = '' then 1 else 0 end) as kosong_jenis_motor,
+    sum(case when coalesce(data->>'ktp_photo_url', '') = '' then 1 else 0 end) as kosong_ktp_photo,
+    sum(case when coalesce(data->>'driver_photo_url', data->>'foto_url', '') = '' then 1 else 0 end) as kosong_driver_photo
 from users
 where lower(coalesce(role, '')) = 'talent';
-
--- daftar driver yang field intinya masih kosong
-select
-    id,
-    coalesce(nama, '') as nama,
-    coalesce(no_hp, '') as no_hp,
-    coalesce(no_ktp, '') as no_ktp,
-    coalesce(jenis_kelamin, '') as jenis_kelamin,
-    coalesce(alamat_lengkap, '') as alamat_lengkap,
-    coalesce(jenis_motor, '') as jenis_motor,
-    coalesce(tahun_kendaraan, '') as tahun_kendaraan,
-    coalesce(plat_nomor_kendaraan, '') as plat_nomor_kendaraan,
-    coalesce(ktp_photo_url, '') as ktp_photo_url,
-    coalesce(driver_photo_url, '') as driver_photo_url
-from users
-where lower(coalesce(role, '')) = 'talent'
-  and (
-      coalesce(no_ktp, '') = ''
-      or coalesce(jenis_kelamin, '') = ''
-      or coalesce(alamat_lengkap, '') = ''
-      or coalesce(jenis_motor, '') = ''
-      or coalesce(tahun_kendaraan, '') = ''
-      or coalesce(plat_nomor_kendaraan, '') = ''
-      or coalesce(ktp_photo_url, '') = ''
-      or coalesce(driver_photo_url, '') = ''
-  )
-order by nama, id;
 
 -- cek orphan sisa (harus 0 kalau bersih)
 select
