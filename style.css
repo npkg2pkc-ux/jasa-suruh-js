@@ -6793,6 +6793,8 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     border-radius: 20px !important;
     box-shadow: 0 25px 60px rgba(0,0,0,.28), 0 8px 20px rgba(0,0,0,.08) !important;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .sf-dm-modal-header {
@@ -6844,6 +6846,15 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     background: #F3F4F6;
     color: #374151;
     border-color: #D1D5DB;
+}
+
+/* Scrollable content area */
+.sf-detail-v2 {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 
 /* Hero Section */
