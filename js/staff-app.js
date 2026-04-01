@@ -903,6 +903,8 @@ var StaffManagement = (function () {
             });
         }
 
+        var _ktpLb = useState(false), ktpLightbox = _ktpLb[0], setKtpLightbox = _ktpLb[1];
+
         var detailContent = null;
         if (loading) {
             detailContent = html`<${Spinner} text="Memuat detail staff..." />`;
@@ -910,85 +912,170 @@ var StaffManagement = (function () {
             detailContent = html`<${EmptyState} icon="❌" title="Staff tidak ditemukan" subtitle="Data staff tidak tersedia" />`;
         } else {
             var roleColor = staff.role === 'admin' ? '#EF4444' : '#8B5CF6';
-            var roleLabel = staff.role === 'admin' ? 'Admin' : 'Customer Service';
+            var roleLabel = staff.role === 'admin' ? '🔐 Admin' : '🎧 Customer Service';
+            var roleIcon = staff.role === 'admin' ? '🔐' : '🎧';
             var initial = (staff.nama || 'S').charAt(0).toUpperCase();
 
-            detailContent = html`<div className="sf-detail-modal-content">
-                <div className="sf-profile-header">
-                    <div className="sf-profile-avatar" style=${{ background: staff.foto_url ? 'transparent' : roleColor }}>
-                        ${staff.foto_url
-                            ? html`<img src=${staff.foto_url} alt=${staff.nama} />`
-                            : html`<span>${initial}</span>`}
-                    </div>
-                    <h2 className="sf-profile-name">${escHtml(staff.nama)}</h2>
-                    <span className="sf-profile-role" style=${{ color: roleColor, background: roleColor + '15' }}>${roleLabel}</span>
-                    <div className="sf-profile-status">
-                        <span className="sf-status-dot" style=${{ background: staff.is_active !== false ? '#22C55E' : '#9CA3AF' }}></span>
-                        <span>${staff.is_active !== false ? 'Aktif' : 'Nonaktif'}</span>
+            detailContent = html`<div className="sf-detail-modal-content sf-detail-v2">
+                <!-- Hero Header -->
+                <div className="sf-dm-hero">
+                    <div className="sf-dm-hero-bg"></div>
+                    <div className="sf-dm-hero-body">
+                        <div className="sf-dm-avatar-ring" style=${{ '--ring-color': roleColor }}>
+                            <div className="sf-dm-avatar" style=${{ background: staff.foto_url ? '#fff' : roleColor }}>
+                                ${staff.foto_url
+                                    ? html`<img src=${staff.foto_url} alt=${staff.nama} />`
+                                    : html`<span>${initial}</span>`}
+                            </div>
+                            <span className="sf-dm-status-indicator" style=${{ background: staff.is_active !== false ? '#22C55E' : '#9CA3AF' }}></span>
+                        </div>
+                        <div className="sf-dm-hero-info">
+                            <h2 className="sf-dm-name">${escHtml(staff.nama)}</h2>
+                            <div className="sf-dm-badges">
+                                <span className="sf-dm-role-badge" style=${{ color: roleColor, background: roleColor + '12', borderColor: roleColor + '30' }}>${roleLabel}</span>
+                                <span className="sf-dm-active-badge" style=${{ background: staff.is_active !== false ? '#F0FDF4' : '#F9FAFB', color: staff.is_active !== false ? '#16A34A' : '#6B7280', borderColor: staff.is_active !== false ? '#BBF7D0' : '#E5E7EB' }}>
+                                    ${staff.is_active !== false ? '● Aktif' : '○ Nonaktif'}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div className="sf-detail-sections">
-                    <div className="sf-detail-card">
-                        <h4>📱 Kontak</h4>
-                        <div className="sf-detail-row"><span>No HP</span><strong>${formatPhone(staff.no_hp)}</strong></div>
-                        <div className="sf-detail-row"><span>Email</span><strong>${staff.email || '-'}</strong></div>
+                <div className="sf-dm-body">
+                    <!-- Contact Card -->
+                    <div className="sf-dm-section">
+                        <div className="sf-dm-section-header">
+                            <span className="sf-dm-section-icon">📱</span>
+                            <h4>Kontak</h4>
+                        </div>
+                        <div className="sf-dm-grid">
+                            <div className="sf-dm-field">
+                                <span className="sf-dm-field-label">No HP</span>
+                                <span className="sf-dm-field-value">${formatPhone(staff.no_hp)}</span>
+                            </div>
+                            <div className="sf-dm-field">
+                                <span className="sf-dm-field-label">Email</span>
+                                <span className="sf-dm-field-value">${staff.email || '-'}</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="sf-detail-card">
-                        <h4>📝 Personal</h4>
-                        <div className="sf-detail-row"><span>Jenis Kelamin</span><strong>${staff.jenis_kelamin || '-'}</strong></div>
-                        <div className="sf-detail-row"><span>Tanggal Lahir</span><strong>${formatDate(staff.tanggal_lahir)}</strong></div>
-                        <div className="sf-detail-row"><span>Alamat</span><strong>${staff.alamat || '-'}</strong></div>
-                        <div className="sf-detail-row"><span>Kota</span><strong>${staff.kota || '-'}</strong></div>
+                    <!-- Personal Card -->
+                    <div className="sf-dm-section">
+                        <div className="sf-dm-section-header">
+                            <span className="sf-dm-section-icon">📝</span>
+                            <h4>Data Personal</h4>
+                        </div>
+                        <div className="sf-dm-grid">
+                            <div className="sf-dm-field">
+                                <span className="sf-dm-field-label">Jenis Kelamin</span>
+                                <span className="sf-dm-field-value">${staff.jenis_kelamin || '-'}</span>
+                            </div>
+                            <div className="sf-dm-field">
+                                <span className="sf-dm-field-label">Tanggal Lahir</span>
+                                <span className="sf-dm-field-value">${formatDate(staff.tanggal_lahir)}</span>
+                            </div>
+                            <div className="sf-dm-field sf-dm-field-full">
+                                <span className="sf-dm-field-label">Alamat</span>
+                                <span className="sf-dm-field-value">${staff.alamat || '-'}</span>
+                            </div>
+                            <div className="sf-dm-field">
+                                <span className="sf-dm-field-label">Kota</span>
+                                <span className="sf-dm-field-value">${staff.kota || '-'}</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="sf-detail-card">
-                        <h4>💼 Profesional</h4>
-                        <div className="sf-detail-row"><span>Pendidikan</span><strong>${staff.pendidikan || '-'}</strong></div>
-                        ${staff.pengalaman && html`<div className="sf-detail-row sf-detail-block"><span>Pengalaman</span><p>${staff.pengalaman}</p></div>`}
-                        ${staff.keahlian && html`<div className="sf-detail-row sf-detail-block"><span>Keahlian</span><p>${staff.keahlian}</p></div>`}
-                        ${staff.catatan && html`<div className="sf-detail-row sf-detail-block"><span>Catatan</span><p>${staff.catatan}</p></div>`}
+                    <!-- Professional Card -->
+                    <div className="sf-dm-section">
+                        <div className="sf-dm-section-header">
+                            <span className="sf-dm-section-icon">💼</span>
+                            <h4>Profesional</h4>
+                        </div>
+                        <div className="sf-dm-grid">
+                            <div className="sf-dm-field">
+                                <span className="sf-dm-field-label">Pendidikan</span>
+                                <span className="sf-dm-field-value">${staff.pendidikan || '-'}</span>
+                            </div>
+                        </div>
+                        ${staff.pengalaman && html`<div className="sf-dm-text-block">
+                            <span className="sf-dm-field-label">Pengalaman</span>
+                            <p>${staff.pengalaman}</p>
+                        </div>`}
+                        ${staff.keahlian && html`<div className="sf-dm-text-block">
+                            <span className="sf-dm-field-label">Keahlian</span>
+                            <p>${staff.keahlian}</p>
+                        </div>`}
+                        ${staff.catatan && html`<div className="sf-dm-text-block">
+                            <span className="sf-dm-field-label">Catatan</span>
+                            <p>${staff.catatan}</p>
+                        </div>`}
                     </div>
 
-                    ${staff.ktp_url && html`<div className="sf-detail-card">
-                        <h4>🪪 Dokumen KTP</h4>
-                        <div className="sf-detail-ktp">
-                            <img src=${staff.ktp_url} alt="KTP" />
+                    <!-- KTP Document - Compact Thumbnail -->
+                    ${staff.ktp_url && html`<div className="sf-dm-section">
+                        <div className="sf-dm-section-header">
+                            <span className="sf-dm-section-icon">🪪</span>
+                            <h4>Dokumen KTP</h4>
+                        </div>
+                        <div className="sf-dm-ktp-row" onClick=${function () { setKtpLightbox(true); }}>
+                            <div className="sf-dm-ktp-thumb">
+                                <img src=${staff.ktp_url} alt="KTP" />
+                            </div>
+                            <div className="sf-dm-ktp-info">
+                                <span className="sf-dm-ktp-name">Foto Identitas</span>
+                                <span className="sf-dm-ktp-hint">Klik untuk memperbesar</span>
+                            </div>
+                            <svg className="sf-dm-ktp-expand" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         </div>
                     </div>`}
 
-                    <div className="sf-detail-card sf-detail-meta">
-                        <div className="sf-detail-row"><span>Bergabung</span><strong>${formatDatetime(staff.created_at)}</strong></div>
-                        <div className="sf-detail-row"><span>ID</span><strong className="sf-meta-id">${staff.id}</strong></div>
+                    <!-- Meta Info -->
+                    <div className="sf-dm-section sf-dm-section-meta">
+                        <div className="sf-dm-meta-row">
+                            <span>Bergabung</span>
+                            <span>${formatDatetime(staff.created_at)}</span>
+                        </div>
+                        <div className="sf-dm-meta-row">
+                            <span>Staff ID</span>
+                            <span className="sf-dm-meta-id">${staff.id}</span>
+                        </div>
                     </div>
                 </div>
 
-                <div className="sf-detail-actions">
-                    <button className="sf-btn sf-btn-outline" onClick=${handleToggleActive}>
-                        ${staff.is_active !== false ? '⏸️ Nonaktifkan' : '▶️ Aktifkan'}
+                <!-- Actions -->
+                <div className="sf-dm-actions">
+                    <button className="sf-dm-action-btn sf-dm-btn-toggle" onClick=${handleToggleActive}>
+                        <span>${staff.is_active !== false ? '⏸️' : '▶️'}</span>
+                        ${staff.is_active !== false ? 'Nonaktifkan' : 'Aktifkan'}
                     </button>
-                    <button className="sf-btn sf-btn-primary" onClick=${function () { if (onEdit) onEdit(staff); }}>
-                        ✏️ Edit Data
+                    <button className="sf-dm-action-btn sf-dm-btn-edit" onClick=${function () { if (onEdit) onEdit(staff); }}>
+                        <span>✏️</span> Edit Data
                     </button>
-                    <button className="sf-btn sf-btn-danger" onClick=${handleDelete} disabled=${deleting}>
-                        ${deleting ? 'Menghapus...' : '🗑️ Hapus'}
+                    <button className="sf-dm-action-btn sf-dm-btn-delete" onClick=${handleDelete} disabled=${deleting}>
+                        <span>🗑️</span> ${deleting ? 'Menghapus...' : 'Hapus'}
                     </button>
                 </div>
             </div>`;
         }
 
         return html`<div className="sf-detail-modal-backdrop" onClick=${function () { if (onClose) onClose(); }}>
-            <div className="sf-detail-modal-card" role="dialog" aria-modal="true" aria-label="Detail Staff" onClick=${function (e) { e.stopPropagation(); }}>
-                <div className="sf-detail-modal-head">
-                    <div>
-                        <p className="sf-detail-modal-kicker">Detail Staff</p>
-                        <h3>${staff ? escHtml(staff.nama) : 'Memuat detail'}</h3>
+            <div className="sf-detail-modal-card sf-dm-card-v2" role="dialog" aria-modal="true" aria-label="Detail Staff" onClick=${function (e) { e.stopPropagation(); }}>
+                <div className="sf-dm-modal-header">
+                    <div className="sf-dm-header-left">
+                        <div className="sf-dm-header-dot"></div>
+                        <span className="sf-dm-header-title">Detail Staff</span>
                     </div>
-                    <button type="button" className="sf-detail-modal-close" onClick=${function () { if (onClose) onClose(); }}>&times;</button>
+                    <button type="button" className="sf-dm-close-btn" onClick=${function () { if (onClose) onClose(); }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                    </button>
                 </div>
                 ${detailContent}
             </div>
+            ${ktpLightbox && staff && staff.ktp_url && html`<div className="sf-dm-lightbox" onClick=${function () { setKtpLightbox(false); }}>
+                <button className="sf-dm-lightbox-close" onClick=${function () { setKtpLightbox(false); }}>✕</button>
+                <img src=${staff.ktp_url} alt="KTP" onClick=${function (e) { e.stopPropagation(); }} />
+            </div>`}
             ${toast && html`<${Toast} message=${toast.message} type=${toast.type} onClose=${function () { setToast(null); }} />`}
         </div>`;
     }
