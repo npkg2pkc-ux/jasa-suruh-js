@@ -7642,6 +7642,18 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 .sf-od-item { display: flex; gap: 12px; }
 .sf-od-item-img { width: 48px; height: 48px; border-radius: 6px; background: #F5F5F5; overflow: hidden; flex-shrink: 0; border: 1px solid #EEEEEE; }
 .sf-od-item-img img { width: 100%; height: 100%; object-fit: cover; }
+.sf-od-item-img-antar {
+    width: 64px;
+    height: 64px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+}
+.sf-od-antar-icon {
+    width: 100%;
+    height: 100%;
+    object-fit: contain !important;
+}
 .sf-od-item-info { flex: 1; display: flex; flex-direction: column; justify-content: center; }
 .sf-od-qty-name { display: flex; align-items: flex-start; gap: 8px; }
 .sf-od-qty { font-size: 14px; font-weight: 500; color: #555; }

@@ -2773,13 +2773,14 @@ function renderOrderInfo(order, isTalent) {
         var fallbackName = order.serviceType || 'Pesanan Layanan';
         var fallbackPhoto = (!isAntar && order.proofPhoto) ? String(order.proofPhoto) : '';
         var fallbackIcon = isAntar ? '🏍️' : '📦';
+        var fallbackImageClass = isAntar ? 'sf-od-item-img sf-od-item-img-antar' : 'sf-od-item-img';
         var fallbackImageHtml = isAntar
-            ? '<img src="jsantaricon.png" alt="JS Antar" style="object-fit:contain;background:#F8FAFC;padding:6px;"/>'
+            ? '<img src="jsantaricon.png" alt="JS Antar" class="sf-od-antar-icon"/>'
             : (fallbackPhoto
                 ? '<img src="' + escapeHtml(fallbackPhoto) + '" alt="' + escapeHtml(fallbackName) + '"/>'
                 : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#F8FAFC;color:#94A3B8;font-size:22px;">' + fallbackIcon + '</div>');
         orderItemsHtml = '<div class="sf-od-item">'
-            + '<div class="sf-od-item-img">' + fallbackImageHtml + '</div>'
+            + '<div class="' + fallbackImageClass + '">' + fallbackImageHtml + '</div>'
             + '<div class="sf-od-item-info">'
             + '<div class="sf-od-qty-name"><span class="sf-od-name">' + escapeHtml(fallbackName) + '</span></div>'
             + '</div>'
