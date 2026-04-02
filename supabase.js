@@ -1754,7 +1754,7 @@
                 skillMap[row.user_id] = (row.data && row.data.skills) || [];
             });
 
-            var activeStatuses = { pending: true, accepted: true, on_the_way: true, arrived: true, in_progress: true };
+            var activeStatuses = { searching: true, pending: true, accepted: true, on_the_way: true, arrived: true, in_progress: true };
             var busyTalentMap = {};
             (ordersRes.data || []).forEach(function (row) {
                 var d = row.data || {};
@@ -1810,10 +1810,12 @@
                 talents.push({ id: u.id, name: u.name, lat: tLat, lng: tLng, distance: dist });
             });
 
-            // Sort by distance
+            // Sort by distance and return only the nearest driver
+            // Only the closest available driver should receive the order
             talents.sort(function (a, b) { return a.distance - b.distance; });
 
-            return ok(talents);
+            // Return at most 1 — the nearest available driver
+            return ok(talents.length > 0 ? [talents[0]] : []);
         });
     }
 

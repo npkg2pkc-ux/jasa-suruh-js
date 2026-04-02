@@ -4148,7 +4148,7 @@ function ensureDriverSingleOrder(driverId, currentOrderId) {
             var active = res.data.filter(function (o) {
                 if (String(o.id) === String(currentOrderId)) return false;
                 if (String(o.talentId) !== String(driverId)) return false;
-                return ['pending', 'accepted', 'on_the_way', 'arrived', 'in_progress'].indexOf(o.status) >= 0;
+                return ['searching', 'pending', 'accepted', 'on_the_way', 'arrived', 'in_progress'].indexOf(o.status) >= 0;
             });
             return active.length > 0;
         })
@@ -5120,7 +5120,9 @@ function startOrderPolling(orderId) {
                 }
 
                 // If order went back to 'searching' (talent rejected), re-search from user side
-                if (isUser && order.status === 'searching' && typeof searchNearbyDriver === 'function') {
+                var _sess = getSession();
+                var _isUserNow = _sess && String(_sess.id) === String(order.userId);
+                if (_isUserNow && order.status === 'searching' && typeof searchNearbyDriver === 'function') {
                     searchNearbyDriver(_currentOrder);
                 }
             }
@@ -5176,6 +5178,13 @@ function pollOrderUpdate(orderId) {
                                 else if (order.status === 'rejected') showToast('Pesanan ditolak. Kembali ke beranda.', 'error');
                                 else showToast('Pesanan selesai. Kembali ke beranda.', 'success');
                             }, 900);
+                        }
+
+                        // If order went back to 'searching' (talent rejected), re-search from user side
+                        var _ps = getSession();
+                        var _isUserPoll = _ps && String(_ps.id) === String(order.userId);
+                        if (_isUserPoll && order.status === 'searching' && typeof searchNearbyDriver === 'function') {
+                            searchNearbyDriver(_currentOrder);
                         }
                     }
 
