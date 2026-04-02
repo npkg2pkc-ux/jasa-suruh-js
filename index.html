@@ -1505,27 +1505,92 @@
     <div id="ratingPage" class="stp-page hidden">
         <header class="stp-header">
             <button class="stp-back" id="ratingBtnBack"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-            <div class="stp-header-info"><h2>Beri Rating</h2></div>
+            <div class="stp-header-info"><h2 id="ratingHeaderTitle">Nilai Driver</h2></div>
         </header>
         <div class="rating-content">
-            <div class="rating-emoji" id="ratingEmoji">⭐</div>
-            <h3 id="ratingTalentName">Talent</h3>
-            <p id="ratingServiceDesc" class="rating-desc"></p>
-            <div class="rating-stars" id="ratingStars">
-                <span class="star" data-val="1">★</span><span class="star" data-val="2">★</span><span class="star" data-val="3">★</span><span class="star" data-val="4">★</span><span class="star" data-val="5">★</span>
-            </div>
-            <p class="rating-label" id="ratingLabel">Ketuk bintang untuk menilai</p>
-            <textarea id="ratingReview" class="rating-review" rows="3" placeholder="Tulis ulasan (opsional)..."></textarea>
-
-            <div id="ratingSellerSection" class="rating-seller hidden">
-                <h4>Rating Penjual: <span id="ratingSellerName">Penjual</span></h4>
-                <div class="rating-stars" id="ratingSellerStars">
-                    <span class="star" data-val="1">★</span><span class="star" data-val="2">★</span><span class="star" data-val="3">★</span><span class="star" data-val="4">★</span><span class="star" data-val="5">★</span>
+            <section class="rating-form-card" id="ratingDriverForm">
+                <div class="rating-profile">
+                    <div class="rating-avatar" id="ratingTalentAvatar">D</div>
+                    <div class="rating-profile-info">
+                        <h3 id="ratingTalentName">Driver</h3>
+                        <p id="ratingServiceDesc">Layanan</p>
+                    </div>
                 </div>
-                <textarea id="ratingSellerReview" class="rating-review" rows="2" placeholder="Ulasan untuk penjual (opsional)..."></textarea>
-            </div>
 
-            <button class="btn-primary" id="ratingSubmitBtn">Kirim Rating</button>
+                <h4 class="rating-block-title" id="ratingDriverSectionTitle">Nilai Driver</h4>
+                <div class="rating-stars-row">
+                    <div class="rating-stars" id="ratingStars">
+                        <span class="star" data-val="1">★</span><span class="star" data-val="2">★</span><span class="star" data-val="3">★</span><span class="star" data-val="4">★</span><span class="star" data-val="5">★</span>
+                    </div>
+                    <span class="rating-stars-status" id="ratingLabel">Pilih bintang</span>
+                </div>
+
+                <div class="rating-tip-block" id="ratingTipBlock">
+                    <p class="rating-tip-title" id="ratingTipTitle">Puas dengan layanan Driver? Beri tip sekarang</p>
+                    <div class="rating-tip-grid" id="ratingTipGrid"></div>
+                    <p class="rating-tip-note">100% tip akan diberikan ke Driver</p>
+                </div>
+
+                <div class="rating-appreciation">
+                    <p class="rating-field-label">Sampaikan apresiasimu!</p>
+                    <div class="rating-tag-list" id="ratingDriverTags"></div>
+                </div>
+
+                <label class="rating-field-label" for="ratingReview">Tulis ulasanmu</label>
+                <textarea id="ratingReview" class="rating-review" rows="3" placeholder="Berikan penjelasan mengenai pelayanan yang diberikan."></textarea>
+                <div class="rating-char-count" id="ratingReviewCount">0 karakter</div>
+                <p class="rating-anon-note" id="ratingAnonNote">Ulasan kamu bersifat anonim bagi Driver.</p>
+            </section>
+
+            <section id="ratingSellerSection" class="rating-form-card rating-seller hidden">
+                <div class="rating-profile">
+                    <img id="ratingSellerPhoto" class="rating-avatar rating-avatar-photo hidden" alt="Foto toko">
+                    <div class="rating-avatar" id="ratingSellerAvatar">T</div>
+                    <div class="rating-profile-info">
+                        <h3 id="ratingSellerName">Toko</h3>
+                        <p id="ratingSellerServiceDesc">Beri penilaian toko atau resto</p>
+                    </div>
+                </div>
+
+                <h4 class="rating-block-title" id="ratingSellerSectionTitle">Beri Resto Penilaian</h4>
+                <div class="rating-stars-row">
+                    <div class="rating-stars" id="ratingSellerStars">
+                        <span class="star" data-val="1">★</span><span class="star" data-val="2">★</span><span class="star" data-val="3">★</span><span class="star" data-val="4">★</span><span class="star" data-val="5">★</span>
+                    </div>
+                    <span class="rating-stars-status" id="ratingSellerLabel">Pilih bintang</span>
+                </div>
+
+                <div class="rating-appreciation">
+                    <p class="rating-field-label">Sampaikan apresiasimu!</p>
+                    <div class="rating-tag-list" id="ratingSellerTags"></div>
+                </div>
+
+                <div class="rating-photo-field">
+                    <p class="rating-field-label">Tambahkan foto</p>
+                    <input type="file" id="ratingSellerPhotoInput" accept="image/*" style="display:none">
+                    <button type="button" class="rating-photo-btn" id="ratingSellerPhotoBtn">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 7h4l2-2h4l2 2h4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.4" stroke="currentColor" stroke-width="1.8"/></svg>
+                        <span>Foto</span>
+                    </button>
+                    <div class="rating-photo-preview hidden" id="ratingSellerPhotoPreviewWrap">
+                        <img id="ratingSellerPhotoPreview" alt="Foto ulasan toko">
+                        <button type="button" class="rating-photo-remove" id="ratingSellerPhotoRemove">Hapus foto</button>
+                    </div>
+                </div>
+
+                <label class="rating-field-label" for="ratingSellerReview">Tulis ulasanmu</label>
+                <textarea id="ratingSellerReview" class="rating-review" rows="3" placeholder="Bagikan penilaianmu dan bantu pengguna lain membuat pilihan yang lebih baik."></textarea>
+                <div class="rating-char-count" id="ratingSellerReviewCount">0 karakter</div>
+
+                <div class="rating-item-feedback" id="ratingSellerItemsWrap">
+                    <p class="rating-field-label">Bagaimana pesananmu?</p>
+                    <div class="rating-item-list" id="ratingSellerItems"></div>
+                </div>
+            </section>
+
+            <div class="rating-submit-wrap">
+                <button class="btn-primary" id="ratingSubmitBtn">Kirim</button>
+            </div>
         </div>
     </div>
 

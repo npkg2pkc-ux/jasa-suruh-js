@@ -5753,127 +5753,557 @@ function _sendDriverProofToUserChat(order, proofPhoto) {
 // ══════════════════════════════════════════
 // ═══ RATING PAGE ═══
 // ══════════════════════════════════════════
+var _ratingSellerValue = 0;
+var _ratingDriverTags = [];
+var _ratingSellerTags = [];
+var _ratingDriverTip = 0;
+var _ratingDriverTipCustom = false;
+var _ratingSellerPhotoData = '';
+var _ratingSellerItems = [];
+var _ratingSellerItemVotes = {};
+var _ratingSubmitting = false;
+
+function _resolveRatingPhotoUrl(raw) {
+    var src = String(raw || '').trim();
+    if (!src) return '';
+    if (src.indexOf('http://') === 0 || src.indexOf('https://') === 0 || src.indexOf('data:') === 0 || src.indexOf('blob:') === 0) return src;
+    try {
+        if (window.FB && window.FB._sb && window.FB._sb.storage) {
+            var pub = window.FB._sb.storage.from('avatars').getPublicUrl(src);
+            if (pub && pub.data && pub.data.publicUrl) return pub.data.publicUrl;
+        }
+    } catch (e) {}
+    return src;
+}
+
+function _setRatingAvatar(boxId, photo, name) {
+    var box = document.getElementById(boxId);
+    if (!box) return;
+    var label = String(name || 'U').trim();
+    var initial = label ? label.charAt(0).toUpperCase() : 'U';
+    var src = _resolveRatingPhotoUrl(photo);
+    if (src) {
+        box.innerHTML = '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(label || 'Foto') + '">';
+    } else {
+        box.textContent = initial;
+    }
+}
+
+function _setRatingSellerAvatar(photo, name) {
+    var img = document.getElementById('ratingSellerPhoto');
+    var fallback = document.getElementById('ratingSellerAvatar');
+    if (!img || !fallback) return;
+    var label = String(name || 'Toko').trim();
+    var initial = label ? label.charAt(0).toUpperCase() : 'T';
+    var src = _resolveRatingPhotoUrl(photo);
+
+    if (src) {
+        img.src = src;
+        img.classList.remove('hidden');
+        fallback.classList.add('hidden');
+    } else {
+        img.classList.add('hidden');
+        img.removeAttribute('src');
+        fallback.classList.remove('hidden');
+        fallback.textContent = initial;
+    }
+}
+
+function _getRatingLabel(value) {
+    var labels = ['', 'Kurang', 'Cukup', 'Bagus', 'Mantap', 'Sempurna'];
+    return labels[value] || 'Pilih bintang';
+}
+
+function _getRatingPerformerLabel(order) {
+    var role = String((order && order.performerRole) || '').toLowerCase();
+    var serviceType = String((order && order.serviceType) || '').toLowerCase();
+    var skillType = String((order && order.skillType) || '').toLowerCase();
+
+    if (role === 'talent') return 'Talent';
+    if (serviceType.indexOf('talent') >= 0) return 'Talent';
+    if (skillType.indexOf('talent') >= 0 || skillType === 'js_other') return 'Talent';
+    return 'Driver';
+}
+
+function _syncRatingStars(containerId, value, labelId) {
+    document.querySelectorAll('#' + containerId + ' .star').forEach(function (s) {
+        var starVal = parseInt(s.dataset.val, 10);
+        s.classList.toggle('active', starVal <= value);
+    });
+    var label = document.getElementById(labelId);
+    if (label) label.textContent = _getRatingLabel(value);
+}
+
+function _formatTipText(amount) {
+    var n = Number(amount) || 0;
+    if (n <= 0) return '';
+    return Math.round(n / 1000) + 'rb';
+}
+
+function _renderRatingTipButtons() {
+    var host = document.getElementById('ratingTipGrid');
+    if (!host) return;
+    var options = [2000, 5000, 10000, 15000, 20000, 30000, 50000, 'other'];
+
+    host.innerHTML = options.map(function (opt) {
+        var isOther = opt === 'other';
+        var active = false;
+        var label = '';
+        if (isOther) {
+            active = _ratingDriverTipCustom && _ratingDriverTip > 0;
+            label = active ? _formatTipText(_ratingDriverTip) : 'Lainnya';
+        } else {
+            var amount = Number(opt) || 0;
+            active = !_ratingDriverTipCustom && _ratingDriverTip === amount;
+            label = _formatTipText(amount);
+        }
+
+        return '<button type="button" class="rating-tip-btn' + (active ? ' active' : '') + '" data-tip="' + String(opt) + '">' + escapeHtml(label) + '</button>';
+    }).join('');
+
+    host.querySelectorAll('.rating-tip-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var raw = String(this.getAttribute('data-tip') || '');
+            if (raw === 'other') {
+                var ask = window.prompt('Masukkan nominal tip (rupiah)', _ratingDriverTip > 0 ? String(_ratingDriverTip) : '10000');
+                if (ask === null) return;
+                var parsed = Number(String(ask).replace(/[^0-9]/g, ''));
+                if (!isFinite(parsed) || parsed < 1000) {
+                    showToast('Nominal tip minimal 1.000', 'error');
+                    return;
+                }
+                _ratingDriverTip = parsed;
+                _ratingDriverTipCustom = true;
+                _renderRatingTipButtons();
+                return;
+            }
+
+            var amount = Number(raw) || 0;
+            if (!_ratingDriverTipCustom && _ratingDriverTip === amount) {
+                _ratingDriverTip = 0;
+                _ratingDriverTipCustom = false;
+            } else {
+                _ratingDriverTip = amount;
+                _ratingDriverTipCustom = false;
+            }
+            _renderRatingTipButtons();
+        });
+    });
+}
+
+function _renderRatingTags(containerId, options, kind) {
+    var host = document.getElementById(containerId);
+    if (!host) return;
+    var selected = kind === 'seller' ? _ratingSellerTags : _ratingDriverTags;
+
+    host.innerHTML = options.map(function (text) {
+        var active = selected.indexOf(text) >= 0;
+        return '<button type="button" class="rating-tag-btn' + (active ? ' active' : '') + '" data-val="' + escapeHtml(text) + '">' + escapeHtml(text) + '</button>';
+    }).join('');
+
+    host.querySelectorAll('.rating-tag-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var val = String(this.getAttribute('data-val') || '').trim();
+            if (!val) return;
+            var idx = selected.indexOf(val);
+            if (idx >= 0) selected.splice(idx, 1);
+            else selected.push(val);
+            _renderRatingTags(containerId, options, kind);
+        });
+    });
+}
+
+function _updateRatingCharCount(inputId, counterId) {
+    var input = document.getElementById(inputId);
+    var counter = document.getElementById(counterId);
+    if (!input || !counter) return;
+    counter.textContent = String((input.value || '').length) + ' karakter';
+}
+
+function _normalizeRatingItems(rawItems) {
+    var items = rawItems;
+    if (typeof items === 'string') {
+        try { items = JSON.parse(items); } catch (e) { items = []; }
+    }
+    if (!Array.isArray(items)) return [];
+
+    return items.filter(function (it) {
+        return it && typeof it === 'object';
+    }).map(function (item, idx) {
+        var qty = Number(item.qty || item.quantity || 1);
+        if (!isFinite(qty) || qty < 1) qty = 1;
+        var likes = Number(item.likes || item.like || item.likeCount || item.totalLikes || 0);
+        if (!isFinite(likes) || likes < 0) likes = 0;
+        return {
+            id: String(item.productId || item.id || item.itemId || ('item_' + idx)),
+            name: String(item.name || item.productName || 'Produk').trim(),
+            qty: qty,
+            likes: likes,
+            photo: String(item.photo || item.image || item.photoUrl || item.imageUrl || '').trim()
+        };
+    });
+}
+
+function _renderRatingSellerItems() {
+    var wrap = document.getElementById('ratingSellerItemsWrap');
+    var list = document.getElementById('ratingSellerItems');
+    if (!wrap || !list) return;
+
+    if (!_ratingSellerItems || _ratingSellerItems.length === 0) {
+        wrap.classList.add('hidden');
+        list.innerHTML = '';
+        return;
+    }
+
+    wrap.classList.remove('hidden');
+    list.innerHTML = _ratingSellerItems.map(function (item) {
+        var photoSrc = _resolveRatingPhotoUrl(item.photo);
+        var vote = _ratingSellerItemVotes[item.id] || '';
+        var photoHtml = photoSrc
+            ? '<img src="' + escapeHtml(photoSrc) + '" alt="' + escapeHtml(item.name) + '">'
+            : '<div class="rating-item-photo-fallback">+</div>';
+
+        return '<div class="rating-item-row">'
+            + '<div class="rating-item-photo">' + photoHtml + '</div>'
+            + '<div class="rating-item-info">'
+            + '<div class="rating-item-name">' + escapeHtml(item.name || 'Produk') + '</div>'
+            + '<div class="rating-item-meta">' + String(Number(item.likes) || 0) + ' Likes</div>'
+            + '</div>'
+            + '<div class="rating-item-votes">'
+            + '<button type="button" class="rating-item-vote-btn up' + (vote === 'up' ? ' active up' : '') + '" data-item-id="' + escapeHtml(item.id) + '" data-vote="up" title="Suka">'
+            + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 9V5a3 3 0 0 0-3-3l-1 7H5a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h5l1 7a3 3 0 0 0 3-3v-4h4.4a2 2 0 0 0 1.9-1.4l1.2-4a2 2 0 0 0-1.9-2.6H14z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+            + '</button>'
+            + '<button type="button" class="rating-item-vote-btn down' + (vote === 'down' ? ' active down' : '') + '" data-item-id="' + escapeHtml(item.id) + '" data-vote="down" title="Tidak suka">'
+            + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M10 15v4a3 3 0 0 0 3 3l1-7h5a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-5l-1-7a3 3 0 0 0-3 3v4H5.6a2 2 0 0 0-1.9 1.4l-1.2 4A2 2 0 0 0 4.4 15H10z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+            + '</button>'
+            + '</div>'
+            + '</div>';
+    }).join('');
+
+    list.querySelectorAll('.rating-item-vote-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var itemId = String(this.getAttribute('data-item-id') || '');
+            var vote = String(this.getAttribute('data-vote') || '');
+            if (!itemId || (vote !== 'up' && vote !== 'down')) return;
+            if (_ratingSellerItemVotes[itemId] === vote) {
+                delete _ratingSellerItemVotes[itemId];
+            } else {
+                _ratingSellerItemVotes[itemId] = vote;
+            }
+            _renderRatingSellerItems();
+        });
+    });
+}
+
+function _getSellerRatingTags(order) {
+    var skillType = String((order && order.skillType) || '').toLowerCase();
+    if (skillType === 'js_food' || skillType === 'food') return ['Rasa enak', 'Kemasan bagus', 'Harga sesuai'];
+    if (skillType === 'js_shop' || skillType === 'shop') return ['Produk sesuai', 'Kemasan aman', 'Harga sesuai'];
+    if (skillType === 'js_medicine' || skillType === 'medicine') return ['Obat lengkap', 'Respon cepat', 'Harga sesuai'];
+    return ['Pelayanan ramah', 'Produk sesuai', 'Harga sesuai'];
+}
+
+function _getSellerSectionTitle(order) {
+    var skillType = String((order && order.skillType) || '').toLowerCase();
+    if (skillType === 'js_food' || skillType === 'food') return 'Beri Resto Penilaian';
+    if (skillType === 'js_medicine' || skillType === 'medicine') return 'Beri Apotek Penilaian';
+    return 'Beri Toko Penilaian';
+}
+
+function _syncSellerPhotoPreview() {
+    var wrap = document.getElementById('ratingSellerPhotoPreviewWrap');
+    var img = document.getElementById('ratingSellerPhotoPreview');
+    if (!wrap || !img) return;
+
+    if (_ratingSellerPhotoData) {
+        img.src = _ratingSellerPhotoData;
+        wrap.classList.remove('hidden');
+    } else {
+        img.removeAttribute('src');
+        wrap.classList.add('hidden');
+    }
+}
+
+function _setupRatingPageEvents(page) {
+    if (!page || page._eventsSetup) return;
+    page._eventsSetup = true;
+
+    var backBtn = document.getElementById('ratingBtnBack');
+    if (backBtn) {
+        backBtn.addEventListener('click', function () {
+            page.classList.add('hidden');
+        });
+    }
+
+    document.querySelectorAll('#ratingStars .star').forEach(function (star) {
+        star.addEventListener('click', function () {
+            _ratingValue = parseInt(this.dataset.val, 10) || 0;
+            _syncRatingStars('ratingStars', _ratingValue, 'ratingLabel');
+        });
+    });
+
+    document.querySelectorAll('#ratingSellerStars .star').forEach(function (star) {
+        star.addEventListener('click', function () {
+            _ratingSellerValue = parseInt(this.dataset.val, 10) || 0;
+            _syncRatingStars('ratingSellerStars', _ratingSellerValue, 'ratingSellerLabel');
+        });
+    });
+
+    var reviewInput = document.getElementById('ratingReview');
+    if (reviewInput) {
+        reviewInput.addEventListener('input', function () {
+            _updateRatingCharCount('ratingReview', 'ratingReviewCount');
+        });
+    }
+
+    var sellerReviewInput = document.getElementById('ratingSellerReview');
+    if (sellerReviewInput) {
+        sellerReviewInput.addEventListener('input', function () {
+            _updateRatingCharCount('ratingSellerReview', 'ratingSellerReviewCount');
+        });
+    }
+
+    var photoBtn = document.getElementById('ratingSellerPhotoBtn');
+    var photoInput = document.getElementById('ratingSellerPhotoInput');
+    var photoRemove = document.getElementById('ratingSellerPhotoRemove');
+
+    if (photoBtn && photoInput) {
+        photoBtn.addEventListener('click', function () {
+            photoInput.click();
+        });
+    }
+
+    if (photoInput) {
+        photoInput.addEventListener('change', function (evt) {
+            var file = evt && evt.target && evt.target.files && evt.target.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                _ratingSellerPhotoData = String((e && e.target && e.target.result) || '');
+                _syncSellerPhotoPreview();
+            };
+            reader.onerror = function () {
+                showToast('Gagal membaca foto', 'error');
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    if (photoRemove && photoInput) {
+        photoRemove.addEventListener('click', function () {
+            _ratingSellerPhotoData = '';
+            photoInput.value = '';
+            _syncSellerPhotoPreview();
+        });
+    }
+
+    var submitBtn = document.getElementById('ratingSubmitBtn');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', function () { submitRating(); });
+    }
+}
+
 function openRatingPage(order) {
     _ratingOrder = order;
     _ratingValue = 0;
+    _ratingSellerValue = 0;
+    _ratingDriverTags = [];
+    _ratingSellerTags = [];
+    _ratingDriverTip = 0;
+    _ratingDriverTipCustom = false;
+    _ratingSellerPhotoData = '';
+    _ratingSellerItems = [];
+    _ratingSellerItemVotes = {};
+    _ratingSubmitting = false;
+
     var page = document.getElementById('ratingPage');
     if (!page) return;
+    _setupRatingPageEvents(page);
 
     var users = getUsers();
-    var talent = users.find(function (u) { return u.id === order.talentId; });
-    document.getElementById('ratingTalentName').textContent = talent ? talent.name : 'Talent';
-    document.getElementById('ratingServiceDesc').textContent = order.serviceType || '';
-    document.getElementById('ratingEmoji').textContent = '⭐';
-    document.getElementById('ratingLabel').textContent = 'Ketuk bintang untuk menilai';
-    document.getElementById('ratingReview').value = '';
-    var sellerWrap = document.getElementById('ratingSellerSection');
-    var sellerNameEl = document.getElementById('ratingSellerName');
-    var sellerReviewEl = document.getElementById('ratingSellerReview');
-    _ratingSellerValue = 0;
+    var talent = users.find(function (u) { return String(u.id) === String(order.talentId || ''); }) || null;
+    var seller = users.find(function (u) { return String(u.id) === String(order.sellerId || ''); }) || null;
+    var isProductOrder = isProductServiceOrder(order);
 
+    var sellerStore = null;
+    if (typeof _slpAllStores !== 'undefined' && Array.isArray(_slpAllStores) && _slpAllStores.length > 0) {
+        sellerStore = _slpAllStores.find(function (s) {
+            return String(s.id) === String(order.storeId || '') || String(s.userId) === String(order.sellerId || '');
+        }) || null;
+    }
+
+    var performerLabel = _getRatingPerformerLabel(order);
+    var talentName = (talent && talent.name) || performerLabel;
+    var talentPhoto = (talent && (talent.photo || talent.foto_url)) || (talent ? getProfilePhoto(talent.id) : '');
+    var sellerName = String(order.storeName || (sellerStore && sellerStore.name) || (seller && seller.name) || 'Toko').trim();
+    var sellerPhoto = String(order.storePhoto || (sellerStore && sellerStore.photo) || (seller && (seller.photo || seller.foto_url)) || '').trim();
+
+    var headerTitle = document.getElementById('ratingHeaderTitle');
+    if (headerTitle) headerTitle.textContent = isProductOrder ? ('Nilai ' + performerLabel + ' dan Toko') : ('Nilai ' + performerLabel);
+
+    var driverSectionTitle = document.getElementById('ratingDriverSectionTitle');
+    if (driverSectionTitle) driverSectionTitle.textContent = 'Nilai ' + performerLabel;
+
+    var tipTitle = document.getElementById('ratingTipTitle');
+    if (tipTitle) tipTitle.textContent = 'Puas dengan layanan ' + performerLabel + '? Beri tip sekarang';
+
+    var anonNote = document.getElementById('ratingAnonNote');
+    if (anonNote) anonNote.textContent = 'Ulasan kamu bersifat anonim bagi ' + performerLabel + '.';
+
+    var talentNameEl = document.getElementById('ratingTalentName');
+    if (talentNameEl) talentNameEl.textContent = talentName;
+
+    var serviceDesc = document.getElementById('ratingServiceDesc');
+    if (serviceDesc) serviceDesc.textContent = order.serviceType || 'Layanan';
+
+    _setRatingAvatar('ratingTalentAvatar', talentPhoto, talentName);
+    _syncRatingStars('ratingStars', _ratingValue, 'ratingLabel');
+
+    var reviewEl = document.getElementById('ratingReview');
+    if (reviewEl) reviewEl.value = '';
+    _updateRatingCharCount('ratingReview', 'ratingReviewCount');
+
+    _renderRatingTipButtons();
+    _renderRatingTags('ratingDriverTags', ['Pelayanan baik', 'Tepat waktu', 'Bersih', 'Hati-hati', 'Pekerja Keras', 'Ramah'], 'driver');
+
+    var sellerWrap = document.getElementById('ratingSellerSection');
     if (sellerWrap) {
-        if (order.sellerId) {
-            var seller = users.find(function (u) { return u.id === order.sellerId; });
-            var sellerStore = null;
-            if (typeof _slpAllStores !== 'undefined' && Array.isArray(_slpAllStores) && _slpAllStores.length > 0) {
-                sellerStore = _slpAllStores.find(function (s) {
-                    return String(s.id) === String(order.storeId || '') || String(s.userId) === String(order.sellerId || '');
-                }) || null;
-            }
-            var sellerDisplayName = order.storeName || (sellerStore && sellerStore.name) || (seller && seller.name) || 'Toko';
+        if (isProductOrder) {
             sellerWrap.classList.remove('hidden');
-            if (sellerNameEl) sellerNameEl.textContent = sellerDisplayName;
+
+            var sellerTitle = document.getElementById('ratingSellerSectionTitle');
+            if (sellerTitle) sellerTitle.textContent = _getSellerSectionTitle(order);
+
+            var sellerNameEl = document.getElementById('ratingSellerName');
+            if (sellerNameEl) sellerNameEl.textContent = sellerName;
+
+            var sellerServiceDesc = document.getElementById('ratingSellerServiceDesc');
+            if (sellerServiceDesc) sellerServiceDesc.textContent = order.serviceType || 'Penilaian toko atau resto';
+
+            _setRatingSellerAvatar(sellerPhoto, sellerName);
+            _syncRatingStars('ratingSellerStars', _ratingSellerValue, 'ratingSellerLabel');
+
+            var sellerReviewEl = document.getElementById('ratingSellerReview');
             if (sellerReviewEl) sellerReviewEl.value = '';
-            document.querySelectorAll('#ratingSellerStars .star').forEach(function (s) { s.classList.remove('active'); });
+            _updateRatingCharCount('ratingSellerReview', 'ratingSellerReviewCount');
+
+            var sellerPhotoInput = document.getElementById('ratingSellerPhotoInput');
+            if (sellerPhotoInput) sellerPhotoInput.value = '';
+            _syncSellerPhotoPreview();
+
+            _renderRatingTags('ratingSellerTags', _getSellerRatingTags(order), 'seller');
+            _ratingSellerItems = _normalizeRatingItems(order.items);
+            _renderRatingSellerItems();
         } else {
             sellerWrap.classList.add('hidden');
         }
     }
 
-    document.querySelectorAll('#ratingStars .star').forEach(function (s) { s.classList.remove('active'); });
+    var submitBtn = document.getElementById('ratingSubmitBtn');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Kirim';
+    }
 
     page.classList.remove('hidden');
     page.scrollTop = 0;
     var ratingContent = page.querySelector('.rating-content');
     if (ratingContent) ratingContent.scrollTop = 0;
-
-    if (!page._eventsSetup) {
-        page._eventsSetup = true;
-        document.getElementById('ratingBtnBack').addEventListener('click', function () {
-            page.classList.add('hidden');
-        });
-        document.querySelectorAll('#ratingStars .star').forEach(function (star) {
-            star.addEventListener('click', function () {
-                _ratingValue = parseInt(this.dataset.val, 10);
-                var emojis = ['', '😞', '😐', '🙂', '😊', '🤩'];
-                var labels = ['', 'Sangat Buruk', 'Kurang Baik', 'Cukup Baik', 'Baik', 'Sangat Baik!'];
-                document.getElementById('ratingEmoji').textContent = emojis[_ratingValue] || '⭐';
-                document.getElementById('ratingLabel').textContent = labels[_ratingValue] || '';
-                document.querySelectorAll('#ratingStars .star').forEach(function (s) {
-                    s.classList.toggle('active', parseInt(s.dataset.val, 10) <= _ratingValue);
-                });
-            });
-        });
-        document.querySelectorAll('#ratingSellerStars .star').forEach(function (star) {
-            star.addEventListener('click', function () {
-                _ratingSellerValue = parseInt(this.dataset.val, 10);
-                document.querySelectorAll('#ratingSellerStars .star').forEach(function (s) {
-                    s.classList.toggle('active', parseInt(s.dataset.val, 10) <= _ratingSellerValue);
-                });
-            });
-        });
-        document.getElementById('ratingSubmitBtn').addEventListener('click', function () { submitRating(); });
-    }
 }
 
-var _ratingSellerValue = 0;
-
 function submitRating() {
-    if (!_ratingOrder || _ratingValue < 1) { showToast('Pilih rating terlebih dahulu', 'error'); return; }
+    if (_ratingSubmitting) return;
+    if (!_ratingOrder || _ratingValue < 1) {
+        showToast('Pilih rating driver terlebih dahulu', 'error');
+        return;
+    }
+
     var review = (document.getElementById('ratingReview').value || '').trim();
+    var isProductOrder = isProductServiceOrder(_ratingOrder);
 
     var sellerRating = null;
     var sellerReview = '';
-    var isProductOrder = !!_ratingOrder.sellerId;
+    var sellerTags = [];
+    var sellerPhoto = '';
+    var sellerItemFeedback = [];
+
     if (isProductOrder) {
         sellerRating = Number(_ratingSellerValue) || 0;
         if (!sellerRating || sellerRating < 1 || sellerRating > 5) {
-            showToast('Silakan beri rating untuk penjual', 'error');
+            showToast('Silakan beri rating untuk toko atau resto', 'error');
             return;
         }
+
         sellerReview = (document.getElementById('ratingSellerReview').value || '').trim();
+        sellerTags = _ratingSellerTags.slice(0);
+        sellerPhoto = _ratingSellerPhotoData || '';
+        sellerItemFeedback = _ratingSellerItems.map(function (item) {
+            return {
+                itemId: item.id,
+                name: item.name,
+                vote: _ratingSellerItemVotes[item.id] || '',
+                qty: item.qty
+            };
+        }).filter(function (item) {
+            return item.vote === 'up' || item.vote === 'down';
+        });
     }
 
-    backendPost({
+    var payload = {
         action: 'rateOrder',
         orderId: _ratingOrder.id,
         rating: _ratingValue,
         review: review,
         ratedAt: Date.now(),
         sellerRating: sellerRating,
-        sellerReview: sellerReview
-    }).then(function (res) {
+        sellerReview: sellerReview,
+        driverTags: _ratingDriverTags.slice(0),
+        driverTip: Number(_ratingDriverTip) || 0,
+        sellerTags: sellerTags,
+        sellerPhotoReview: sellerPhoto,
+        sellerItemFeedback: sellerItemFeedback
+    };
+
+    var submitBtn = document.getElementById('ratingSubmitBtn');
+    _ratingSubmitting = true;
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Mengirim...';
+    }
+
+    backendPost(payload).then(function (res) {
         if (res && res.success) {
-            showToast('Rating berhasil dikirim! Terima kasih 🎉', 'success');
+            showToast('Rating berhasil dikirim. Terima kasih.', 'success');
             document.getElementById('ratingPage').classList.add('hidden');
             try { localStorage.removeItem('js_rating_prompt_seen_' + _ratingOrder.id); } catch (e) {}
 
-            // Keep local objects in sync so CTA rating does not reappear.
             _ratingOrder.status = 'rated';
             _ratingOrder.rating = _ratingValue;
             _ratingOrder.review = review;
-            _ratingOrder.ratedAt = Date.now();
+            _ratingOrder.ratedAt = Number(payload.ratedAt || Date.now());
+            _ratingOrder.driverTags = payload.driverTags;
+            _ratingOrder.driverTip = payload.driverTip;
             if (sellerRating) _ratingOrder.sellerRating = sellerRating;
             if (sellerReview) _ratingOrder.sellerReview = sellerReview;
+            if (sellerTags.length > 0) _ratingOrder.sellerTags = sellerTags;
+            if (sellerPhoto) _ratingOrder.sellerPhotoReview = sellerPhoto;
+            if (sellerItemFeedback.length > 0) _ratingOrder.sellerItemFeedback = sellerItemFeedback;
 
             if (_ratingOrder.talentId) delete _talentRatingsCache[_ratingOrder.talentId];
+
             if (_currentOrder && String(_currentOrder.id) === String(_ratingOrder.id)) {
                 _currentOrder.status = 'rated';
                 _currentOrder.rating = _ratingValue;
                 _currentOrder.review = review;
-                _currentOrder.ratedAt = Date.now();
+                _currentOrder.ratedAt = _ratingOrder.ratedAt;
+                _currentOrder.driverTags = payload.driverTags;
+                _currentOrder.driverTip = payload.driverTip;
                 if (sellerRating) _currentOrder.sellerRating = sellerRating;
                 if (sellerReview) _currentOrder.sellerReview = sellerReview;
+                if (sellerTags.length > 0) _currentOrder.sellerTags = sellerTags;
+                if (sellerPhoto) _currentOrder.sellerPhotoReview = sellerPhoto;
+                if (sellerItemFeedback.length > 0) _currentOrder.sellerItemFeedback = sellerItemFeedback;
+
                 var session = getSession();
                 renderTrackingProgress(_currentOrder);
                 renderOrderActions(_currentOrder, session && session.id === _currentOrder.talentId, session && session.id === _currentOrder.userId);
@@ -5889,11 +6319,20 @@ function submitRating() {
                     orderId: _ratingOrder.id
                 });
             }
+
             var olp = document.getElementById('ordersListPage');
             if (olp && !olp.classList.contains('hidden')) openOrdersList();
             refreshUnratedRatingReminder({ ignoreSnooze: true });
         } else {
-            showToast('Gagal mengirim rating', 'error');
+            showToast((res && res.message) ? res.message : 'Gagal mengirim rating', 'error');
+        }
+    }).catch(function () {
+        showToast('Gagal mengirim rating', 'error');
+    }).then(function () {
+        _ratingSubmitting = false;
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Kirim';
         }
     });
 }

@@ -1003,6 +1003,11 @@
                     review: body.review || '',
                     sellerRating: (body.sellerRating !== undefined && body.sellerRating !== null) ? body.sellerRating : current.sellerRating,
                     sellerReview: (body.sellerReview !== undefined && body.sellerReview !== null) ? body.sellerReview : (current.sellerReview || ''),
+                    driverTags: Array.isArray(body.driverTags) ? body.driverTags : (Array.isArray(current.driverTags) ? current.driverTags : []),
+                    driverTip: (body.driverTip !== undefined && body.driverTip !== null) ? (Number(body.driverTip) || 0) : (Number(current.driverTip) || 0),
+                    sellerTags: Array.isArray(body.sellerTags) ? body.sellerTags : (Array.isArray(current.sellerTags) ? current.sellerTags : []),
+                    sellerPhotoReview: (body.sellerPhotoReview !== undefined && body.sellerPhotoReview !== null) ? String(body.sellerPhotoReview || '') : String(current.sellerPhotoReview || ''),
+                    sellerItemFeedback: Array.isArray(body.sellerItemFeedback) ? body.sellerItemFeedback : (Array.isArray(current.sellerItemFeedback) ? current.sellerItemFeedback : []),
                     ratedAt: Number(body.ratedAt || Date.now()),
                     status: 'rated'
                 });
