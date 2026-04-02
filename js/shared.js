@@ -2771,11 +2771,13 @@ function renderOrderInfo(order, isTalent) {
         }).join('');
     } else {
         var fallbackName = order.serviceType || 'Pesanan Layanan';
-        var fallbackPhoto = order.proofPhoto ? String(order.proofPhoto) : '';
+        var fallbackPhoto = (!isAntar && order.proofPhoto) ? String(order.proofPhoto) : '';
         var fallbackIcon = isAntar ? '🏍️' : '📦';
-        var fallbackImageHtml = fallbackPhoto
-            ? '<img src="' + escapeHtml(fallbackPhoto) + '" alt="' + escapeHtml(fallbackName) + '"/>'
-            : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#F8FAFC;color:#94A3B8;font-size:22px;">' + fallbackIcon + '</div>';
+        var fallbackImageHtml = isAntar
+            ? '<img src="jsantaricon.png" alt="JS Antar" style="object-fit:contain;background:#F8FAFC;padding:6px;"/>'
+            : (fallbackPhoto
+                ? '<img src="' + escapeHtml(fallbackPhoto) + '" alt="' + escapeHtml(fallbackName) + '"/>'
+                : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#F8FAFC;color:#94A3B8;font-size:22px;">' + fallbackIcon + '</div>');
         orderItemsHtml = '<div class="sf-od-item">'
             + '<div class="sf-od-item-img">' + fallbackImageHtml + '</div>'
             + '<div class="sf-od-item-info">'
