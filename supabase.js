@@ -653,20 +653,122 @@
         });
     }
 
+    function _normalizeSkillType(skillType) {
+        return String(skillType || '').toLowerCase().trim();
+    }
+
+    function _isMerchantQueueSkillType(skillType) {
+        var t = _normalizeSkillType(skillType);
+        return t === 'js_food' || t === 'js_shop' || t === 'js_medicine'
+            || t === 'food' || t === 'shop' || t === 'medicine';
+    }
+
+    function _isMerchantQueueEligibleOrder(order) {
+        if (!order) return false;
+        if (!_isMerchantQueueSkillType(order.skillType)) return false;
+        return !!String(order.sellerId || '').trim();
+    }
+
+    function _extractMerchantQueueSequence(order) {
+        if (!order) return 0;
+
+        var seq = Math.floor(Number(order.queueSequence));
+        if (isFinite(seq) && seq > 0) return seq;
+
+        var rawCode = String(order.queueCode || '').trim().toUpperCase();
+        var match = rawCode.match(/^JS(\d{1,})$/);
+        if (!match) return 0;
+
+        var parsed = parseInt(match[1], 10);
+        return isFinite(parsed) && parsed > 0 ? parsed : 0;
+    }
+
+    function _formatMerchantQueueCode(sequence) {
+        var seq = Math.floor(Number(sequence) || 0);
+        if (!isFinite(seq) || seq < 1) seq = 1;
+
+        var digits = String(seq);
+        while (digits.length < 3) digits = '0' + digits;
+        return 'JS' + digits;
+    }
+
+    function _loadOrderById(orderId) {
+        var oid = String(orderId || '').trim();
+        if (!oid) return Promise.resolve(null);
+
+        return sb.from('orders').select('data').eq('id', oid).single()
+            .then(function (res) {
+                if (res && res.error) {
+                    var errCode = String(res.error.code || '');
+                    var errMsg = String(res.error.message || '').toLowerCase();
+                    if (errCode === 'PGRST116' || errMsg.indexOf('no rows') >= 0) return null;
+                    throw new Error(res.error.message || 'Gagal membaca order');
+                }
+                return (res.data && res.data.data) || null;
+            })
+            .catch(function () { return null; });
+    }
+
+    function _ensureMerchantQueueCode(orderData) {
+        if (!_isMerchantQueueEligibleOrder(orderData)) return Promise.resolve(orderData);
+
+        var sellerId = String(orderData.sellerId || '').trim();
+        if (!sellerId) return Promise.resolve(orderData);
+
+        return _loadOrderById(orderData.id).then(function (existing) {
+            if (existing && _isMerchantQueueEligibleOrder(existing)) {
+                var existingSeq = _extractMerchantQueueSequence(existing);
+                if (existingSeq > 0) {
+                    orderData.queueSequence = existingSeq;
+                    orderData.queueCode = _formatMerchantQueueCode(existingSeq);
+                    orderData.queueSellerId = String(existing.queueSellerId || sellerId);
+                    orderData.queueAssignedAt = Number(existing.queueAssignedAt) || Number(orderData.queueAssignedAt) || Date.now();
+                    return orderData;
+                }
+            }
+
+            return sb.from('orders').select('data').filter('data->>sellerId', 'eq', sellerId)
+                .then(function (res) {
+                    throwIfError(res);
+
+                    var maxSeq = 0;
+                    (res.data || []).forEach(function (row) {
+                        var data = (row && row.data) || {};
+                        if (!_isMerchantQueueEligibleOrder(data)) return;
+
+                        var seq = _extractMerchantQueueSequence(data);
+                        if (seq > maxSeq) maxSeq = seq;
+                    });
+
+                    var nextSeq = maxSeq + 1;
+                    orderData.queueSequence = nextSeq;
+                    orderData.queueCode = _formatMerchantQueueCode(nextSeq);
+                    orderData.queueSellerId = sellerId;
+                    orderData.queueAssignedAt = Date.now();
+                    return orderData;
+                })
+                .catch(function () {
+                    return orderData;
+                });
+        });
+    }
+
     function doCreateOrder(body) {
         var orderData = Object.assign({}, body);
         delete orderData.action;
         orderData.id = orderData.id || generateId();
         orderData.status = orderData.status || 'pending';
         orderData.createdAt = orderData.createdAt || Date.now();
-        return sb.from('orders').upsert({
-            id: orderData.id,
-            user_id: orderData.userId || null,
-            talent_id: orderData.talentId || null,
-            data: orderData
-        }).then(function (res) {
-            throwIfError(res);
-            return ok(orderData);
+        return _ensureMerchantQueueCode(orderData).then(function (finalOrderData) {
+            return sb.from('orders').upsert({
+                id: finalOrderData.id,
+                user_id: finalOrderData.userId || null,
+                talent_id: finalOrderData.talentId || null,
+                data: finalOrderData
+            }).then(function (res) {
+                throwIfError(res);
+                return ok(finalOrderData);
+            });
         });
     }
 

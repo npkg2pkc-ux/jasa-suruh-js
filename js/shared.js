@@ -1676,6 +1676,39 @@ function isProductServiceOrder(order) {
     return !!(order.sellerId || order.storeId);
 }
 
+function isMerchantQueueServiceOrder(order) {
+    if (!order) return false;
+    var skillType = String(order.skillType || '').toLowerCase();
+    return skillType === 'js_food' || skillType === 'js_shop' || skillType === 'js_medicine'
+        || skillType === 'food' || skillType === 'shop' || skillType === 'medicine';
+}
+
+function formatMerchantQueueCode(sequence) {
+    var seq = Math.floor(Number(sequence) || 0);
+    if (!isFinite(seq) || seq < 1) seq = 1;
+    var digits = String(seq);
+    while (digits.length < 3) digits = '0' + digits;
+    return 'JS' + digits;
+}
+
+function getOrderQueueDisplayCode(order) {
+    if (!isMerchantQueueServiceOrder(order)) return '';
+
+    var rawCode = String(order.queueCode || '').trim().toUpperCase();
+    if (/^JS\d{1,}$/.test(rawCode)) return rawCode;
+
+    var seq = Math.floor(Number(order.queueSequence));
+    if (isFinite(seq) && seq > 0) return formatMerchantQueueCode(seq);
+
+    var digits = rawCode.replace(/[^0-9]/g, '');
+    if (!digits) return '';
+
+    var parsed = parseInt(digits, 10);
+    if (!isFinite(parsed) || parsed < 1) return '';
+    return formatMerchantQueueCode(parsed);
+}
+window.getOrderQueueDisplayCode = getOrderQueueDisplayCode;
+
 function getOrderStoreCoords(order) {
     if (!order) return null;
     var lat = Number(order.storeLat);
@@ -2782,6 +2815,11 @@ function renderOrderInfo(order, isTalent) {
     var formattedDate = pad(orderDate.getDate()) + ' ' + ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'][orderDate.getMonth()] + ' ' + orderDate.getFullYear() + ' ' + pad(orderDate.getHours()) + ':' + pad(orderDate.getMinutes());
 
     var notesText = (order.notes === null || order.notes === undefined) ? '' : String(order.notes).trim();
+    var queueCode = getOrderQueueDisplayCode(order);
+    var queueRow = '';
+    if (queueCode) {
+        queueRow = '<div class="sf-oi-row"><span class="sf-oi-label">Kode Antrian</span><div class="sf-oi-val">' + escapeHtml(queueCode) + ' <span class="sf-oi-copy" onclick="navigator.clipboard.writeText(\'' + escapeHtml(queueCode) + '\')">SALIN</span></div></div>';
+    }
     var complaintOpen = !!(order.userComplaint || order.userComplaintText || order.userComplaintAt)
         && String(order.complaintStatus || '').toLowerCase() !== 'resolved'
         && String(order.complaintStatus || '').toLowerCase() !== 'closed';
@@ -2800,6 +2838,7 @@ function renderOrderInfo(order, isTalent) {
         + '<div class="sf-oi-row"><span class="sf-oi-label">Catatan Tambahan</span><span class="sf-oi-val">' + (notesText ? escapeHtml(notesText) : 'Tidak ada') + '</span></div>'
         + complaintRow
         + '<div class="sf-oi-row"><span class="sf-oi-label">No. Pesanan</span><div class="sf-oi-val">' + escapeHtml(order.id).substring(0, 10) + '... <span class="sf-oi-copy" onclick="navigator.clipboard.writeText(\'' + escapeHtml(order.id) + '\')">SALIN</span></div></div>'
+        + queueRow
         + '<div class="sf-oi-row"><span class="sf-oi-label">Waktu Pemesanan</span><span class="sf-oi-val">' + formattedDate + '</span></div>'
         + '<div class="sf-oi-row"><span class="sf-oi-label">Pembayaran</span><span class="sf-oi-val bold">' + pmLabel + '</span></div>'
         + '</div>';

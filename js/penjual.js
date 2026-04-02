@@ -48,6 +48,27 @@ function normalizeProductCategory(category) {
     return 'shop';
 }
 
+function _getOrderQueueDisplayCode(order) {
+    if (typeof window.getOrderQueueDisplayCode === 'function') {
+        return String(window.getOrderQueueDisplayCode(order) || '');
+    }
+
+    var skillType = String((order && order.skillType) || '').toLowerCase();
+    var eligible = skillType === 'js_food' || skillType === 'js_shop' || skillType === 'js_medicine'
+        || skillType === 'food' || skillType === 'shop' || skillType === 'medicine';
+    if (!eligible) return '';
+
+    var rawCode = String((order && order.queueCode) || '').trim().toUpperCase();
+    if (/^JS\d{1,}$/.test(rawCode)) return rawCode;
+
+    var seq = Math.floor(Number(order && order.queueSequence));
+    if (!isFinite(seq) || seq < 1) return '';
+
+    var digits = String(seq);
+    while (digits.length < 3) digits = '0' + digits;
+    return 'JS' + digits;
+}
+
 function _formatCurrencyIdr(amount) {
     var n = Number(amount) || 0;
     if (typeof formatRupiah === 'function') return formatRupiah(n);
@@ -728,9 +749,11 @@ function showPenjualOrderNotification(order) {
     var user = users.find(function (u) { return u.id === order.userId; });
     var userName = user ? user.name : 'Pembeli';
     var priceText = order.totalCost ? 'Rp ' + Number(order.totalCost).toLocaleString('id-ID') : '';
+    var queueCode = _getOrderQueueDisplayCode(order);
+    var queuePrefix = queueCode ? '[' + queueCode + '] ' : '';
 
     document.getElementById('notifTitle').textContent = '🛒 Pesanan Baru!';
-    document.getElementById('notifDesc').textContent = userName + ' memesan ' + (order.serviceType || 'produk') + (priceText ? ' - ' + priceText : '');
+    document.getElementById('notifDesc').textContent = queuePrefix + userName + ' memesan ' + (order.serviceType || 'produk') + (priceText ? ' - ' + priceText : '');
 
     popup.classList.remove('hidden');
 
@@ -773,10 +796,15 @@ function renderPenjualOrders(orders, session) {
         var userName = user ? user.name : 'Pelanggan';
         var priceText = o.price ? 'Rp ' + Number(o.price).toLocaleString('id-ID') : '-';
         var statusBadge = statusLabels[o.status] || 'Baru';
+        var queueCode = _getOrderQueueDisplayCode(o);
+        var queueHtml = queueCode
+            ? '<div class="td-oc-queue">Kode antrian: <strong>' + escapeHtml(queueCode) + '</strong></div>'
+            : '';
         return '<div class="td-order-card" data-idx="' + idx + '">'
             + '<div class="td-oc-top"><div class="td-oc-service">' + escapeHtml(o.serviceType || 'Pesanan Produk') + '</div>'
             + '<span class="otp-status-badge status-' + o.status + '">' + statusBadge + '</span></div>'
             + '<div class="td-oc-user">👤 ' + escapeHtml(userName) + '</div>'
+            + queueHtml
             + '<div class="td-oc-bottom"><span class="td-oc-price">' + priceText + '</span>'
             + '<span class="td-oc-time">' + getTimeAgo(o.createdAt) + '</span></div></div>';
     }).join('');

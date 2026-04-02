@@ -2354,6 +2354,7 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 .td-order-card .td-oc-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
 .td-order-card .td-oc-service { font-size:14px; font-weight:700; color:var(--black); }
 .td-order-card .td-oc-user { font-size:13px; color:var(--gray-600); margin-bottom:4px; }
+.td-order-card .td-oc-queue { font-size:12px; color:#b45309; margin-bottom:6px; font-weight:600; }
 .td-order-card .td-oc-bottom { display:flex; justify-content:space-between; align-items:center; }
 .td-order-card .td-oc-price { font-size:14px; font-weight:700; color:var(--orange); }
 .td-order-card .td-oc-time { font-size:11px; color:var(--gray-400); }
