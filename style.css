@@ -163,12 +163,11 @@ a { color:var(--orange); text-decoration:none; font-weight:600; }
 }
 .auth-captcha-widget {
     min-height:65px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    overflow:hidden;
+    text-align:center;
+    padding:4px 0;
 }
 .auth-captcha-widget > div {
+    display:inline-block;
     margin:0 auto;
 }
 .auth-captcha-widget iframe {

@@ -85,22 +85,7 @@ var CaptchaService = (function () {
     }
 
     function _scheduleWidgetWatchdog(context) {
-        if (_watchdogTimers[context]) {
-            clearTimeout(_watchdogTimers[context]);
-            _watchdogTimers[context] = null;
-        }
-
-        _watchdogTimers[context] = setTimeout(function () {
-            _watchdogTimers[context] = null;
-            var container = _getContainer(context);
-            if (!container) return;
-            if (_tokens[context]) return;
-
-            if (!_hasRenderedIframe(container)) {
-                _widgetIds[context] = undefined;
-                _renderWidget(context, true);
-            }
-        }, 1600);
+        // Disabled: aggressive watchdog causes Turnstile widget to jump and reload on slow networks
     }
 
     function _setMessage(context, message) {
@@ -176,9 +161,15 @@ var CaptchaService = (function () {
                 },
                 'error-callback': function () {
                     _tokens[context] = '';
-                    _setMessage(context, 'Captcha error. Mengulang captcha...');
                     _widgetIds[context] = undefined;
-                    setTimeout(function () { _renderWidget(context, true); }, 700);
+                    var nextRetry = (_renderRetryCount[context] || 0) + 1;
+                    _renderRetryCount[context] = nextRetry;
+                    if (nextRetry <= 5) {
+                        _setMessage(context, 'Captcha error. Mengulang captcha...');
+                        setTimeout(function () { _renderWidget(context, true); }, 1500);
+                    } else {
+                        _setMessage(context, 'Captcha gagal dimuat. Refresh halaman lalu coba lagi.');
+                    }
                 }
             });
             _scheduleWidgetWatchdog(context);
