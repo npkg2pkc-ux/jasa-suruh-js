@@ -536,16 +536,24 @@ function getStatusLabel(status, skillType) {
     return STATUS_LABELS[status] || status;
 }
 
+var SERVICE_ICON_VERSION = '20260402-2';
+function withServiceIconVersion(fileName) {
+    if (!fileName) return '';
+    return String(fileName).indexOf('?') === -1
+        ? (String(fileName) + '?v=' + SERVICE_ICON_VERSION)
+        : String(fileName);
+}
+
 // Skill definitions (shared between talent and user)
 var SKILL_DEFS = [
-    { type: 'js_antar', name: 'JS Antar', icon: '🏍️', iconPath: 'jsantaricon.png', desc: 'Jasa antar barang & dokumen', hasForm: false },
-    { type: 'js_shop', name: 'JS Shop', icon: '🛒', iconPath: 'jsshopicon.png', desc: 'Jasa belanja kebutuhan', hasForm: false },
-    { type: 'js_food', name: 'JS Food', icon: '🍔', iconPath: 'jsfoodicon.png', desc: 'Jasa pesan & antar makanan', hasForm: false },
-    { type: 'js_delivery', name: 'JS Delivery', icon: '📦', iconPath: 'jsdeliveryicon.png', desc: 'Jasa pengiriman paket', hasForm: false },
-    { type: 'js_clean', name: 'JS Clean', icon: '🧹', iconPath: 'jscleanicon.png', desc: 'Jasa kebersihan rumah & lingkungan', hasForm: true },
-    { type: 'js_service', name: 'JS Service', icon: '🔧', iconPath: 'jsserviceicon.png', desc: 'Jasa perbaikan & servis', hasForm: true },
-    { type: 'js_medicine', name: 'JS Medicine', icon: '💊', iconPath: 'jsmedicineicon.png', desc: 'Jasa beli & antar obat', hasForm: false },
-    { type: 'js_other', name: 'JS Other', icon: '📌', iconPath: 'jsothericon.png', desc: 'Jasa lainnya', hasForm: false }
+    { type: 'js_antar', name: 'JS Antar', icon: '🏍️', iconPath: withServiceIconVersion('jsantaricon.png'), desc: 'Jasa antar barang & dokumen', hasForm: false },
+    { type: 'js_shop', name: 'JS Shop', icon: '🛒', iconPath: withServiceIconVersion('jsshopicon.png'), desc: 'Jasa belanja kebutuhan', hasForm: false },
+    { type: 'js_food', name: 'JS Food', icon: '🍔', iconPath: withServiceIconVersion('jsfoodicon.png'), desc: 'Jasa pesan & antar makanan', hasForm: false },
+    { type: 'js_delivery', name: 'JS Delivery', icon: '📦', iconPath: withServiceIconVersion('jsdeliveryicon.png'), desc: 'Jasa pengiriman paket', hasForm: false },
+    { type: 'js_clean', name: 'JS Clean', icon: '🧹', iconPath: withServiceIconVersion('jscleanicon.png'), desc: 'Jasa kebersihan rumah & lingkungan', hasForm: true },
+    { type: 'js_service', name: 'JS Service', icon: '🔧', iconPath: withServiceIconVersion('jsserviceicon.png'), desc: 'Jasa perbaikan & servis', hasForm: true },
+    { type: 'js_medicine', name: 'JS Medicine', icon: '💊', iconPath: withServiceIconVersion('jsmedicineicon.png'), desc: 'Jasa beli & antar obat', hasForm: false },
+    { type: 'js_other', name: 'JS Other', icon: '📌', iconPath: withServiceIconVersion('jsothericon.png'), desc: 'Jasa lainnya', hasForm: false }
 ];
 
 // ══════════════════════════════════════════

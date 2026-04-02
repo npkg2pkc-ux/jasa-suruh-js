@@ -2775,7 +2775,7 @@ function renderOrderInfo(order, isTalent) {
         var fallbackIcon = isAntar ? '🏍️' : '📦';
         var fallbackImageClass = isAntar ? 'sf-od-item-img sf-od-item-img-antar' : 'sf-od-item-img';
         var fallbackImageHtml = isAntar
-            ? '<img src="jsantaricon.png" alt="JS Antar" class="sf-od-antar-icon"/>'
+            ? '<img src="jsantaricon.png?v=20260402-2" alt="JS Antar" class="sf-od-antar-icon"/>'
             : (fallbackPhoto
                 ? '<img src="' + escapeHtml(fallbackPhoto) + '" alt="' + escapeHtml(fallbackName) + '"/>'
                 : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#F8FAFC;color:#94A3B8;font-size:22px;">' + fallbackIcon + '</div>');
