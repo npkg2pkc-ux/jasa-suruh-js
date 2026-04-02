@@ -11,16 +11,16 @@
     <meta name="turnstile-site-key" content="0x4AAAAAACyjERFI0IYCxXte">
     <meta name="mobile-web-app-capable" content="yes">
     <title>Jasa Suruh (JS)</title>
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.json?v=20260402-6">
     <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon.png?v=20260402-6">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=20260402-6">
     <!-- Apple Touch Icons (iOS PWA) -->
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
-    <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
-    <link rel="apple-touch-icon" sizes="144x144" href="icons/icon-144.png">
-    <link rel="apple-touch-icon" sizes="128x128" href="icons/icon-128.png">
-    <link rel="apple-touch-icon" sizes="72x72" href="icons/icon-72.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png?v=20260402-6">
+    <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png?v=20260402-6">
+    <link rel="apple-touch-icon" sizes="144x144" href="icons/icon-144.png?v=20260402-6">
+    <link rel="apple-touch-icon" sizes="128x128" href="icons/icon-128.png?v=20260402-6">
+    <link rel="apple-touch-icon" sizes="72x72" href="icons/icon-72.png?v=20260402-6">
     <link rel="stylesheet" href="style.css?v=20260402-3">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -42,7 +42,7 @@
     <!-- Splash Screen -->
     <div id="splash" class="splash">
         <div class="splash-content">
-            <div class="splash-logo"><img src="icons/jsicon.png?v=20260402-4" alt="Jasa Suruh"></div>
+            <div class="splash-logo"><img src="icons/jsicon.png?v=20260402-5" alt="Jasa Suruh"></div>
             <div class="splash-text">Jasa Suruh</div>
             <div class="splash-loader"></div>
         </div>
@@ -54,7 +54,7 @@
         <div id="page-login" class="page page-auth">
             <div class="auth-container">
                 <div class="auth-header">
-                    <div class="auth-logo"><img src="icons/jsicon.png?v=20260402-4" alt="Jasa Suruh"></div>
+                    <div class="auth-logo"><img src="icons/jsicon.png?v=20260402-5" alt="Jasa Suruh"></div>
                     <h1>Jasa Suruh</h1>
                     <p class="auth-subtitle">Masuk atau daftar dalam hitungan detik</p>
                     <div id="loginCooldownNotice" class="auth-cooldown-notice hidden"></div>
@@ -125,7 +125,7 @@
         <div id="page-register" class="page page-auth hidden">
             <div class="auth-container reg-container">
                 <div class="auth-header">
-                    <div class="auth-logo"><img src="icons/jsicon.png?v=20260402-4" alt="Jasa Suruh"></div>
+                    <div class="auth-logo"><img src="icons/jsicon.png?v=20260402-5" alt="Jasa Suruh"></div>
                     <h1>Buat Akun</h1>
                     <p>Daftar dalam beberapa langkah mudah</p>
                     <div id="regCooldownNotice" class="auth-cooldown-notice hidden"></div>
@@ -344,7 +344,7 @@
                 </section>
                 <section class="pay-section">
                     <div class="pay-card">
-                        <div class="pay-header"><div class="pay-logo"><img src="icons/jsicon.png?v=20260402-4" alt="JS" class="pay-logo-icon"><span>Pay</span></div><button class="btn-topup" onclick="openTopUpModal()">Top Up</button></div>
+                        <div class="pay-header"><div class="pay-logo"><img src="icons/jsicon.png?v=20260402-5" alt="JS" class="pay-logo-icon"><span>Pay</span></div><button class="btn-topup" onclick="openTopUpModal()">Top Up</button></div>
                         <div class="pay-balance">
                             <div class="balance-item" onclick="openTransactionHistory()" style="cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M2 10h20" stroke="currentColor" stroke-width="2"/></svg><div><span class="balance-label">Saldo</span><span class="balance-amount" id="userWalletBalance">Rp 0</span></div></div>
                             <div class="balance-divider"></div>
@@ -405,7 +405,7 @@
                 </section>
                 <section class="pay-section">
                     <div class="pay-card">
-                        <div class="pay-header"><div class="pay-logo"><img src="icons/jsicon.png?v=20260402-4" alt="JS" class="pay-logo-icon"><span>Pay</span></div><div class="pay-header-actions"><button class="btn-topup" onclick="openTopUpModal()">Top Up</button><button class="btn-topup btn-withdraw-pay" onclick="openWithdrawModal()">Tarik</button></div></div>
+                        <div class="pay-header"><div class="pay-logo"><img src="icons/jsicon.png?v=20260402-5" alt="JS" class="pay-logo-icon"><span>Pay</span></div><div class="pay-header-actions"><button class="btn-topup" onclick="openTopUpModal()">Top Up</button><button class="btn-topup btn-withdraw-pay" onclick="openWithdrawModal()">Tarik</button></div></div>
                         <div class="pay-balance">
                             <div class="balance-item" onclick="openTransactionHistory()" style="cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M2 10h20" stroke="currentColor" stroke-width="2"/></svg><div><span class="balance-label">Saldo</span><span class="balance-amount" id="talentWalletBalance">Rp 0</span></div></div>
                             <div class="balance-divider"></div>
@@ -485,7 +485,7 @@
                     <div class="od-header-top">
                         <div class="od-greeting">
                             <div class="od-greeting-brand">
-                                <img src="icons/jsicon.png?v=20260402-4" alt="Jasa Suruh" class="od-greeting-logo">
+                                <img src="icons/jsicon.png?v=20260402-5" alt="Jasa Suruh" class="od-greeting-logo">
                                 <span class="od-greeting-app">Jasa Suruh</span>
                             </div>
                             <span class="od-greeting-hi" id="ownerGreeting">Halo, Admin 👋</span>
@@ -512,7 +512,7 @@
 
             <nav class="bottom-nav" id="ownerBottomNav">
                 <div class="od-nav-brand" aria-hidden="true">
-                    <img src="icons/jsicon.png?v=20260402-4" alt="Jasa Suruh" class="od-nav-brand-logo">
+                    <img src="icons/jsicon.png?v=20260402-5" alt="Jasa Suruh" class="od-nav-brand-logo">
                     <div class="od-nav-brand-copy">
                         <strong>Jasa Suruh</strong>
                         <span>Control Center</span>
@@ -1316,7 +1316,7 @@
                 </section>
                 <section class="pay-section">
                     <div class="pay-card">
-                        <div class="pay-header"><div class="pay-logo"><img src="icons/jsicon.png?v=20260402-4" alt="JS" class="pay-logo-icon"><span>Pay</span></div><div class="pay-header-actions"><button class="btn-topup" onclick="openTopUpModal()">Top Up</button><button class="btn-topup btn-withdraw-pay" onclick="openWithdrawModal()">Tarik</button></div></div>
+                        <div class="pay-header"><div class="pay-logo"><img src="icons/jsicon.png?v=20260402-5" alt="JS" class="pay-logo-icon"><span>Pay</span></div><div class="pay-header-actions"><button class="btn-topup" onclick="openTopUpModal()">Top Up</button><button class="btn-topup btn-withdraw-pay" onclick="openWithdrawModal()">Tarik</button></div></div>
                         <div class="pay-balance">
                             <div class="balance-item" onclick="openTransactionHistory()" style="cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M2 10h20" stroke="currentColor" stroke-width="2"/></svg><div><span class="balance-label">Saldo</span><span class="balance-amount" id="penjualWalletBalance">Rp 0</span></div></div>
                             <div class="balance-divider"></div>
@@ -1966,7 +1966,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
             <div class="jap-header-info">
-                <h2><span class="feature-title-with-icon"><img src="favicon.png" alt="" class="feature-title-icon">Antar</span></h2>
+                <h2><span class="feature-title-with-icon"><img src="favicon.png?v=20260402-6" alt="" class="feature-title-icon">Antar</span></h2>
                 <span class="stp-subtitle">Ojek Online</span>
             </div>
         </div>
@@ -2097,7 +2097,7 @@
 
             <!-- CTA Button -->
             <button class="btn-primary" id="japBtnOrder" style="margin-top:12px;" disabled>
-                <span class="cta-service-icon"><img src="favicon.png" alt=""></span><span>Temukan Driver</span>
+                <span class="cta-service-icon"><img src="favicon.png?v=20260402-6" alt=""></span><span>Temukan Driver</span>
             </button>
             </div><!-- end .jap-sheet-scroll -->
         </div>
@@ -2112,7 +2112,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
             <div class="jap-header-info">
-                <h2><span class="feature-title-with-icon"><img src="favicon.png" alt="" class="feature-title-icon">Delivery</span></h2>
+                <h2><span class="feature-title-with-icon"><img src="favicon.png?v=20260402-6" alt="" class="feature-title-icon">Delivery</span></h2>
                 <span class="stp-subtitle">Kirim Barang Cepat</span>
             </div>
         </div>
@@ -2241,7 +2241,7 @@
                     </div>
                 </div>
 
-                <button class="btn-primary" id="jdpBtnOrder" style="margin-top:12px;" disabled><span class="cta-service-icon"><img src="favicon.png" alt=""></span><span>Cari Driver</span></button>
+                <button class="btn-primary" id="jdpBtnOrder" style="margin-top:12px;" disabled><span class="cta-service-icon"><img src="favicon.png?v=20260402-6" alt=""></span><span>Cari Driver</span></button>
             </div>
         </div>
     </div>
