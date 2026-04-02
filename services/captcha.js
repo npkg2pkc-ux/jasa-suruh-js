@@ -79,10 +79,7 @@ var CaptchaService = (function () {
         document.head.appendChild(script);
     }
 
-    function _hasRenderedIframe(container) {
-        if (!container) return false;
-        return !!container.querySelector('iframe');
-    }
+    // _hasRenderedIframe removed as it causes duplicate captchas
 
     function _scheduleWidgetWatchdog(context) {
         // Disabled: aggressive watchdog causes Turnstile widget to jump and reload on slow networks
@@ -115,12 +112,8 @@ var CaptchaService = (function () {
             _widgetIds[context] = undefined;
         }
 
-        if (_widgetIds[context] !== undefined && _hasRenderedIframe(container)) {
+        if (_widgetIds[context] !== undefined) {
             return;
-        }
-
-        if (_widgetIds[context] !== undefined && !_hasRenderedIframe(container)) {
-            _widgetIds[context] = undefined;
         }
 
         var siteKey = _getSiteKey();
