@@ -71,6 +71,40 @@ var _japBaseFare = 5000;
 var _japEventsSetup = false;
 var _japPickOnMapMode = false;
 var deferredPrompt = null;
+var _wakeLockSentinel = null;
+var _wakeLockEnabled = false;
+
+function acquireWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    if (_wakeLockSentinel) return;
+    _wakeLockEnabled = true;
+    navigator.wakeLock.request('screen').then(function (sentinel) {
+        _wakeLockSentinel = sentinel;
+        sentinel.addEventListener('release', function () {
+            _wakeLockSentinel = null;
+        });
+    }).catch(function () {});
+}
+
+function releaseWakeLock() {
+    _wakeLockEnabled = false;
+    if (_wakeLockSentinel) {
+        _wakeLockSentinel.release().catch(function () {});
+        _wakeLockSentinel = null;
+    }
+}
+
+document.addEventListener('visibilitychange', function () {
+    if (_wakeLockEnabled && document.visibilityState === 'visible') {
+        if (!('wakeLock' in navigator)) return;
+        navigator.wakeLock.request('screen').then(function (sentinel) {
+            _wakeLockSentinel = sentinel;
+            sentinel.addEventListener('release', function () {
+                _wakeLockSentinel = null;
+            });
+        }).catch(function () {});
+    }
+});
 
 // ══════════════════════════════════════════
 // ═══ BACKEND HELPERS ═══

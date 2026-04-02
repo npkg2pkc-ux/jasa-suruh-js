@@ -978,6 +978,14 @@ function renderTalentDashboardOrders(orders, session) {
         return o.talentId === session.id && ['accepted', 'on_the_way', 'arrived', 'in_progress'].indexOf(o.status) >= 0;
     });
 
+    if (typeof acquireWakeLock === 'function' && typeof releaseWakeLock === 'function') {
+        if (incoming.length > 0 || active.length > 0) {
+            acquireWakeLock();
+        } else {
+            releaseWakeLock();
+        }
+    }
+
     var inEl = document.getElementById('talentIncomingOrders');
     if (inEl) {
         if (incoming.length === 0) {

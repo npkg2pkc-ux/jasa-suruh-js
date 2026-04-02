@@ -5099,6 +5099,7 @@ function _isIncomingStatusAllowed(orderId, currentStatus, incomingStatus) {
 // ══════════════════════════════════════════
 function startOrderPolling(orderId) {
     stopPolling();
+    if (typeof acquireWakeLock === 'function') acquireWakeLock();
     var session = getSession();
     if (typeof FB !== 'undefined' && FB.isReady()) {
         _fbOrderUnsub = FB.onOrder(orderId, function (order) {
@@ -5147,6 +5148,7 @@ function startOrderPolling(orderId) {
 }
 
 function stopPolling() {
+    if (typeof releaseWakeLock === 'function') releaseWakeLock();
     if (_locationPollTimer) { clearInterval(_locationPollTimer); _locationPollTimer = null; }
     if (_orderFallbackPollTimer) { clearInterval(_orderFallbackPollTimer); _orderFallbackPollTimer = null; }
     if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
