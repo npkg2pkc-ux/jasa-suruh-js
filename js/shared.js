@@ -7416,7 +7416,7 @@ window.addEventListener('beforeinstallprompt', function (e) {
 
 function registerSW() {
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js?v=27').then(function (reg) {
+        navigator.serviceWorker.register('sw.js?v=28').then(function (reg) {
             // Check for updates on load
             reg.addEventListener('updatefound', function () {
                 var newWorker = reg.installing;
