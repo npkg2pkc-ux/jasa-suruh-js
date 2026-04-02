@@ -7636,6 +7636,18 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     z-index: 2;
 }
 
+.otp-gps-lock-hint {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #FED7AA;
+    background: #FFF7ED;
+    color: #B45309;
+    font-size: 12px;
+    line-height: 1.35;
+    text-align: center;
+}
+
 @media (max-width:420px) {
     .sf-progress-wrap {
         padding: 14px;

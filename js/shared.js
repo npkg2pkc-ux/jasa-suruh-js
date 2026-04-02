@@ -1617,7 +1617,7 @@ function openOrderTracking(order) {
 function shouldShowTrackingMap(order) {
     if (!order) return false;
     var session = getSession();
-    var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
+    var isProductOrder = isProductServiceOrder(order);
     var baseStatuses = ['on_the_way', 'arrived', 'in_progress', 'completed', 'rated'];
 
     if (!isProductOrder) {
@@ -1648,6 +1648,14 @@ function isValidLatLng(lat, lng) {
     if (Math.abs(nLat) > 90 || Math.abs(nLng) > 180) return false;
     if (nLat === 0 && nLng === 0) return false;
     return true;
+}
+
+function isProductServiceOrder(order) {
+    if (!order) return false;
+    var skillType = String(order.skillType || '').toLowerCase();
+    if (skillType === 'js_food' || skillType === 'js_shop' || skillType === 'js_medicine') return true;
+    if (skillType === 'food' || skillType === 'shop' || skillType === 'medicine') return true;
+    return !!(order.sellerId || order.storeId);
 }
 
 function getOrderStoreCoords(order) {
@@ -1697,7 +1705,7 @@ function getTrackingRouteEndpoints(order) {
     var userLng = lockedUser ? Number(lockedUser.lng) : Number(order.userLng);
     var driverLat = Number(order.talentLat);
     var driverLng = Number(order.talentLng);
-    var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
+    var isProductOrder = isProductServiceOrder(order);
     var isAntar = order.skillType === 'js_antar';
     var isDelivery = order.skillType === 'js_delivery';
     var storeCoords = isProductOrder ? getOrderStoreCoords(order) : null;
@@ -1801,7 +1809,7 @@ function shouldRenderDriverTrail(order) {
 }
 
 function buildTrackingProgressSteps(order) {
-    var isProductOrder = !!(order && (order.skillType === 'js_food' || order.sellerId));
+    var isProductOrder = isProductServiceOrder(order);
     var isAntar = !!(order && order.skillType === 'js_antar');
     var isDelivery = !!(order && order.skillType === 'js_delivery');
     if (isProductOrder) {
@@ -2019,7 +2027,7 @@ function renderTrackingMapRouteCard(order, animate) {
     var users = getUsers();
     var buyer = users.find(function (u) { return String(u.id) === String(order.userId); }) || null;
     var seller = users.find(function (u) { return String(u.id) === String(order.sellerId); }) || null;
-    var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
+    var isProductOrder = isProductServiceOrder(order);
     var isAntar = order.skillType === 'js_antar';
     var isDelivery = order.skillType === 'js_delivery';
     var isRideFlow = isAntar || isDelivery;
@@ -2457,7 +2465,7 @@ function updateOrderStatusBadge(status) {
     if (!badge) return;
     var isAntar = _currentOrder && _currentOrder.skillType === 'js_antar';
     var isDelivery = _currentOrder && _currentOrder.skillType === 'js_delivery';
-    var isProductOrder = _currentOrder && (_currentOrder.skillType === 'js_food' || _currentOrder.sellerId);
+    var isProductOrder = _currentOrder && isProductServiceOrder(_currentOrder);
     var TRACKING_STATUS = isAntar ? {
         searching: 'Mencari Driver...',
         pending: 'Menunggu Konfirmasi',
@@ -2822,7 +2830,7 @@ function shouldShowDriverNavButtons(order) {
 function buildDriverNavButtonsHtml(order) {
     if (!shouldShowDriverNavButtons(order)) return '';
 
-    var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
+    var isProductOrder = isProductServiceOrder(order);
     var hasUser = isValidLatLng(order.userLat, order.userLng);
     var storeCoords = getOrderStoreCoords(order);
     var hasStore = !!(storeCoords && isValidLatLng(storeCoords.lat, storeCoords.lng));
@@ -3579,7 +3587,7 @@ function renderOrderActions(order, isTalent, isUser) {
     var isAntar = order.skillType === 'js_antar';
     var isDelivery = order.skillType === 'js_delivery';
     var isRideFlow = isAntar || isDelivery;
-    var isProductOrder = order.skillType === 'js_food' || order.sellerId;
+    var isProductOrder = isProductServiceOrder(order);
     var session = getSession();
     var isSeller = session && String(session.id) === String(order.sellerId);
 
@@ -4277,11 +4285,16 @@ function _getDriverTargetCoords(order, targetType) {
 function _getDriverGpsGateTargetType(order, nextStatus) {
     if (!order || !nextStatus) return '';
     var currentStatus = String(order.status || '');
-    var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
+    var isProductOrder = isProductServiceOrder(order);
     var isRideFlow = !!(order.skillType === 'js_antar' || order.skillType === 'js_delivery');
 
     if (nextStatus === 'arrived' && currentStatus === 'on_the_way') {
         return isProductOrder ? 'store' : 'user';
+    }
+    if (nextStatus === 'in_progress' && currentStatus === 'arrived') {
+        if (isProductOrder) return 'store';
+        if (isRideFlow) return 'user';
+        return 'user';
     }
     if (nextStatus === 'completed' && currentStatus === 'in_progress') {
         if (isProductOrder) return 'buyer';
@@ -4294,6 +4307,41 @@ function _getDriverGpsGateTargetType(order, nextStatus) {
 function _formatDistanceMeters(km) {
     var meters = Math.max(0, Math.round(Number(km || 0) * 1000));
     return String(meters) + ' m';
+}
+
+function _getDriverGpsGateHintTargetLabel(targetType) {
+    if (targetType === 'store') return 'toko';
+    if (targetType === 'buyer') return 'lokasi pembeli';
+    if (targetType === 'dest') return 'titik tujuan';
+    return 'lokasi jemput';
+}
+
+function _ensureDriverGpsGateHintElement(order) {
+    var actionsEl = document.getElementById('otpActions');
+    if (!actionsEl) return null;
+    var status = String((order && order.status) || '');
+    if (['on_the_way', 'arrived', 'in_progress'].indexOf(status) < 0) return null;
+
+    var hintEl = document.getElementById('otpGpsGateHint');
+    if (hintEl) return hintEl;
+
+    hintEl = document.createElement('div');
+    hintEl.id = 'otpGpsGateHint';
+    hintEl.className = 'otp-gps-lock-hint hidden';
+    actionsEl.appendChild(hintEl);
+    return hintEl;
+}
+
+function _setDriverGpsGateHint(text) {
+    var hintEl = document.getElementById('otpGpsGateHint');
+    if (!hintEl) return;
+    if (!text) {
+        hintEl.textContent = '';
+        hintEl.classList.add('hidden');
+        return;
+    }
+    hintEl.textContent = text;
+    hintEl.classList.remove('hidden');
 }
 
 function _checkDriverGpsGateByKnownPosition(order, targetType, maxDistanceKm) {
@@ -4339,6 +4387,7 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
         btn.disabled = false;
         btn.style.opacity = '';
         btn.title = 'Lokasi sudah terverifikasi. Lanjut ambil foto bukti.';
+        _setDriverGpsGateHint('');
         return;
     }
 
@@ -4354,6 +4403,7 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
             btn.style.opacity = '0.72';
             btn.textContent = btn.dataset.baseLabel || btn.textContent;
             btn.title = 'Sedang memproses...';
+            _setDriverGpsGateHint('');
             return;
         }
     }
@@ -4371,6 +4421,7 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
         btn.disabled = false;
         btn.style.opacity = '';
         btn.title = '';
+        _setDriverGpsGateHint('');
         return;
     }
 
@@ -4378,11 +4429,14 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
         btn.disabled = true;
         btn.style.opacity = '0.72';
         btn.title = 'Koordinat tujuan belum valid. Hubungi admin.';
+        _setDriverGpsGateHint('Koordinat tujuan belum valid. Hubungi admin.');
         return;
     }
 
-    // Arrive action should stay tappable so live GPS verification in tap handler can run.
-    if (buttonId === 'otpBtnArrive' && nextStatus === 'arrived') {
+    var isProductOrder = isProductServiceOrder(order);
+
+    // For non-product flows, keep Arrive tappable so live GPS verification can run in handler.
+    if (buttonId === 'otpBtnArrive' && nextStatus === 'arrived' && !isProductOrder) {
         btn.disabled = false;
         btn.style.opacity = '';
         if (isFinite(Number(knownCheck.distKm)) && isFinite(Number(knownCheck.radiusKm))) {
@@ -4390,20 +4444,30 @@ function _applyDriverGpsGateButton(order, buttonId, nextStatus) {
         } else {
             btn.title = 'Ketuk untuk verifikasi GPS langsung.';
         }
+        _setDriverGpsGateHint('');
         return;
     }
 
-    // If driver coords belum sinkron, keep button clickable so tap can run live GPS verification.
+    // Product flow is strict-locked: wait for GPS sync before allowing progress tap.
     if (knownCheck.reason === 'driver_location_unavailable') {
+        if (isProductOrder) {
+            btn.disabled = true;
+            btn.style.opacity = '0.72';
+            btn.title = 'Menunggu sinkronisasi GPS driver agar progress bisa dilanjutkan.';
+            _setDriverGpsGateHint('GPS belum sinkron. Dekati toko dulu untuk lanjut.');
+            return;
+        }
         btn.disabled = false;
         btn.style.opacity = '';
         btn.title = 'Menunggu sinkronisasi GPS. Ketuk tombol untuk verifikasi lokasi langsung.';
+        _setDriverGpsGateHint('');
         return;
     }
 
     btn.disabled = true;
     btn.style.opacity = '0.72';
     btn.title = 'Jarak saat ini ±' + _formatDistanceMeters(knownCheck.distKm) + '. Maks ' + _formatDistanceMeters(knownCheck.radiusKm) + ' agar tombol aktif.';
+    _setDriverGpsGateHint('Dekati ' + _getDriverGpsGateHintTargetLabel(targetType) + ' dulu untuk lanjut.');
 }
 
 function _armProgressButtonFailsafe(buttonId) {
@@ -4427,7 +4491,10 @@ function _armProgressButtonFailsafe(buttonId) {
 }
 
 function _refreshDriverGpsLockedButtons(order) {
+    _ensureDriverGpsGateHintElement(order);
+    _setDriverGpsGateHint('');
     _applyDriverGpsGateButton(order, 'otpBtnArrive', 'arrived');
+    _applyDriverGpsGateButton(order, 'otpBtnStart', 'in_progress');
     _applyDriverGpsGateButton(order, 'otpBtnComplete', 'completed');
 }
 
@@ -4833,7 +4900,7 @@ function initTrackingMap(order) {
         }
     }
 
-    var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
+    var isProductOrder = isProductServiceOrder(order);
     var isAntar = order.skillType === 'js_antar';
     var destLat = isAntar ? Number(order.destLat) : null;
     var destLng = isAntar ? Number(order.destLng) : null;
@@ -5312,7 +5379,7 @@ function _checkGpsAutoProgress(orderId, driverLat, driverLng) {
     var session = getSession();
     if (!session || String(session.id) !== String(order.talentId)) return;
 
-    var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
+    var isProductOrder = isProductServiceOrder(order);
     var isAntar = order.skillType === 'js_antar';
     var isDelivery = order.skillType === 'js_delivery';
 

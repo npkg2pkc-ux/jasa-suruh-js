@@ -702,9 +702,17 @@
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
+    function _isProductServiceOrder(order) {
+        if (!order) return false;
+        var skillType = String(order.skillType || '').toLowerCase();
+        if (skillType === 'js_food' || skillType === 'js_shop' || skillType === 'js_medicine') return true;
+        if (skillType === 'food' || skillType === 'shop' || skillType === 'medicine') return true;
+        return !!(order.sellerId || order.storeId);
+    }
+
     function _resolveOrderTargetCoords(order, nextStatus) {
         if (!order) return null;
-        var isProductOrder = !!(order.skillType === 'js_food' || order.sellerId);
+        var isProductOrder = _isProductServiceOrder(order);
         var isRideFlow = (order.skillType === 'js_antar' || order.skillType === 'js_delivery');
 
         var userLat = Number(order.userLat);
@@ -716,12 +724,14 @@
 
         if (nextStatus === 'arrived') {
             if (isProductOrder && _isValidLatLng(storeLat, storeLng)) return { lat: storeLat, lng: storeLng, label: 'titik toko' };
+            if (isProductOrder) return null;
             if (_isValidLatLng(userLat, userLng)) return { lat: userLat, lng: userLng, label: 'titik jemput' };
             return null;
         }
 
         if (nextStatus === 'in_progress') {
             if (isProductOrder && _isValidLatLng(storeLat, storeLng)) return { lat: storeLat, lng: storeLng, label: 'titik toko' };
+            if (isProductOrder) return null;
             if (_isValidLatLng(userLat, userLng)) return { lat: userLat, lng: userLng, label: isRideFlow ? 'titik jemput' : 'lokasi user' };
             return null;
         }
@@ -788,7 +798,7 @@
             }
 
             var distKm = _haversineKm(driverPos.lat, driverPos.lng, target.lat, target.lng);
-            var maxKm = 0.2;
+            var maxKm = 0.08;
             if (distKm > maxKm) {
                 return 'Update progress ditolak: driver belum berada di sekitar ' + target.label + ' (jarak ' + Math.round(distKm * 1000) + ' m).';
             }
