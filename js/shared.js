@@ -561,8 +561,26 @@ function openTransactionHistory() {
                 return;
             }
             var txs = res.data;
-            var typeLabels = { topup: '💰 Top Up', payment: '🛒 Pembayaran', earning: '💵 Pendapatan', commission: '📊 Komisi', withdraw: '🏧 Penarikan' };
-            var typeColors = { topup: '#22C55E', payment: '#EF4444', earning: '#22C55E', commission: '#FF6B00', withdraw: '#EF4444' };
+            var typeLabels = {
+                topup: '💰 Top Up',
+                payment: '🛒 Pembayaran',
+                earning: '💵 Pendapatan',
+                commission: '📊 Komisi',
+                withdraw: '🏧 Penarikan',
+                refund: '↩️ Refund',
+                tip_sent: '🎁 Tip Driver',
+                tip_received: '🎁 Tip Diterima'
+            };
+            var typeColors = {
+                topup: '#22C55E',
+                payment: '#EF4444',
+                earning: '#22C55E',
+                commission: '#FF6B00',
+                withdraw: '#EF4444',
+                refund: '#22C55E',
+                tip_sent: '#EF4444',
+                tip_received: '#22C55E'
+            };
             var statusBadges = { pending: '<span class="tx-status tx-pending">Menunggu</span>', processing: '<span class="tx-status tx-processing">Diproses</span>', expired: '<span class="tx-status tx-expired">Expired</span>', refunded: '<span class="tx-status tx-refunded">Refund</span>' };
 
             list.innerHTML = txs.map(function (tx) {
@@ -6250,12 +6268,15 @@ function submitRating() {
         });
     }
 
+    var sessionForRating = getSession();
+
     var payload = {
         action: 'rateOrder',
         orderId: _ratingOrder.id,
         rating: _ratingValue,
         review: review,
         ratedAt: Date.now(),
+        actorId: sessionForRating ? sessionForRating.id : '',
         sellerRating: sellerRating,
         sellerReview: sellerReview,
         driverTags: _ratingDriverTags.slice(0),
@@ -6274,7 +6295,13 @@ function submitRating() {
 
     backendPost(payload).then(function (res) {
         if (res && res.success) {
-            showToast('Rating berhasil dikirim. Terima kasih.', 'success');
+            var resData = (res && res.data) ? res.data : {};
+            var finalTipAmount = Math.max(0, Math.round(Number(resData.tipAmount) || Number(payload.driverTip) || 0));
+            if (finalTipAmount > 0) {
+                showToast('Rating dan tip ' + formatRupiah(finalTipAmount) + ' berhasil dikirim.', 'success');
+            } else {
+                showToast('Rating berhasil dikirim. Terima kasih.', 'success');
+            }
             document.getElementById('ratingPage').classList.add('hidden');
             try { localStorage.removeItem('js_rating_prompt_seen_' + _ratingOrder.id); } catch (e) {}
 
@@ -6283,7 +6310,7 @@ function submitRating() {
             _ratingOrder.review = review;
             _ratingOrder.ratedAt = Number(payload.ratedAt || Date.now());
             _ratingOrder.driverTags = payload.driverTags;
-            _ratingOrder.driverTip = payload.driverTip;
+            _ratingOrder.driverTip = finalTipAmount;
             if (sellerRating) _ratingOrder.sellerRating = sellerRating;
             if (sellerReview) _ratingOrder.sellerReview = sellerReview;
             if (sellerTags.length > 0) _ratingOrder.sellerTags = sellerTags;
@@ -6298,7 +6325,7 @@ function submitRating() {
                 _currentOrder.review = review;
                 _currentOrder.ratedAt = _ratingOrder.ratedAt;
                 _currentOrder.driverTags = payload.driverTags;
-                _currentOrder.driverTip = payload.driverTip;
+                _currentOrder.driverTip = finalTipAmount;
                 if (sellerRating) _currentOrder.sellerRating = sellerRating;
                 if (sellerReview) _currentOrder.sellerReview = sellerReview;
                 if (sellerTags.length > 0) _currentOrder.sellerTags = sellerTags;

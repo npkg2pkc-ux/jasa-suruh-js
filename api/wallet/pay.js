@@ -248,17 +248,21 @@ async function creditAndRecord(opts) {
     });
     if (!mut.success) return mut;
     var m = mut.data;
+    var appliedAmount = Math.abs((Number(m.balance_after) || 0) - (Number(m.balance_before) || 0));
+    if (!isFinite(appliedAmount) || appliedAmount <= 0) {
+        appliedAmount = Math.abs(Number(opts.amount) || 0);
+    }
     await upsertTransaction({
         id: opts.txId,
         user_id: opts.userId,
         type: opts.txType,
-        amount: Math.abs(Number(opts.amount) || 0),
+        amount: appliedAmount,
         created_at: opts.now,
         data: {
             id: opts.txId,
             userId: opts.userId,
             type: opts.txType,
-            amount: Math.abs(Number(opts.amount) || 0),
+            amount: appliedAmount,
             orderId: opts.refId,
             balanceBefore: Number(m.balance_before) || 0,
             balanceAfter: Number(m.balance_after) || 0,
@@ -268,7 +272,7 @@ async function creditAndRecord(opts) {
             ledgerId: m.ledger_id
         }
     });
-    return { success: true, data: m };
+    return { success: true, data: m, amount: appliedAmount };
 }
 
 async function debitAndRecord(opts) {
@@ -286,17 +290,21 @@ async function debitAndRecord(opts) {
     });
     if (!mut.success) return mut;
     var m = mut.data;
+    var appliedAmount = Math.abs((Number(m.balance_after) || 0) - (Number(m.balance_before) || 0));
+    if (!isFinite(appliedAmount) || appliedAmount <= 0) {
+        appliedAmount = Math.abs(Number(opts.amount) || 0);
+    }
     await upsertTransaction({
         id: opts.txId,
         user_id: opts.userId,
         type: opts.txType,
-        amount: -Math.abs(Number(opts.amount) || 0),
+        amount: -appliedAmount,
         created_at: opts.now,
         data: {
             id: opts.txId,
             userId: opts.userId,
             type: opts.txType,
-            amount: -Math.abs(Number(opts.amount) || 0),
+            amount: -appliedAmount,
             orderId: opts.refId,
             balanceBefore: Number(m.balance_before) || 0,
             balanceAfter: Number(m.balance_after) || 0,
@@ -306,7 +314,133 @@ async function debitAndRecord(opts) {
             ledgerId: m.ledger_id
         }
     });
-    return { success: true, data: m };
+    return { success: true, data: m, amount: appliedAmount };
+}
+
+async function handleTipDriver(body, res) {
+    var userId = String(body.userId || '').trim();
+    var orderId = String(body.orderId || '').trim();
+    var driverId = String(body.driverId || body.talentId || '').trim();
+    var requestedAmount = Math.round(Math.abs(Number(body.amount) || 0));
+    var actorId = String(body.actorId || userId || '').trim();
+
+    if (!userId || !orderId || !driverId || requestedAmount <= 0) {
+        return fail(res, 400, 'userId, driverId, orderId, dan amount wajib valid');
+    }
+    if (userId === driverId) {
+        return fail(res, 400, 'Tip ditolak: user dan driver tidak boleh sama');
+    }
+
+    var order = await getOrderById(orderId);
+    if (!order) return fail(res, 404, 'Order tidak ditemukan');
+
+    if (String(order.userId || '') !== userId) {
+        return fail(res, 403, 'Tip ditolak: user order tidak cocok');
+    }
+    if (String(order.talentId || '') !== driverId) {
+        return fail(res, 403, 'Tip ditolak: driver order tidak cocok');
+    }
+
+    var status = String(order.status || '').toLowerCase();
+    if (!(status === 'completed' || status === 'rated')) {
+        return fail(res, 400, 'Tip hanya bisa diberikan setelah pesanan selesai');
+    }
+
+    var existingTipPaid = !!order.driverTipPaid;
+    var existingTipAmount = Math.max(0, Math.round(Number(order.driverTipPaidAmount || order.driverTip || 0) || 0));
+    if (existingTipPaid) {
+        if (existingTipAmount > 0 && existingTipAmount !== requestedAmount) {
+            return fail(res, 400, 'Tip untuk order ini sudah diproses dengan nominal berbeda');
+        }
+        return res.status(200).json({
+            success: true,
+            alreadyProcessed: true,
+            orderId: orderId,
+            userId: userId,
+            driverId: driverId,
+            amount: existingTipAmount || requestedAmount
+        });
+    }
+
+    var now = Date.now();
+    var oid = String(order.id || orderId);
+    var prefix = oid.slice(0, 8);
+    var txDebitId = 'tip_user_' + oid + '_' + userId;
+    var txCreditId = 'tip_driver_' + oid + '_' + driverId;
+    var debitIdempotency = 'tip:' + oid + ':debit:' + userId + ':' + driverId;
+    var creditIdempotency = 'tip:' + oid + ':credit:' + userId + ':' + driverId;
+
+    var debit = await debitAndRecord({
+        userId: userId,
+        amount: requestedAmount,
+        refType: 'order_tip',
+        refId: oid,
+        txType: 'tip_sent',
+        txId: txDebitId,
+        description: 'Tip untuk driver #' + prefix,
+        idempotencyKey: debitIdempotency,
+        actorType: 'user',
+        actorId: actorId || userId,
+        metadata: { orderId: oid, userId: userId, driverId: driverId, type: 'driver_tip_debit' },
+        now: now
+    });
+    if (!debit.success) {
+        if (isInsufficientError(debit.message)) return fail(res, 400, 'Saldo tidak cukup untuk memberi tip');
+        return fail(res, 400, 'Pemotongan saldo tip gagal diproses');
+    }
+
+    var settledTipAmount = Math.max(0, Math.round(Number(debit.amount) || requestedAmount));
+    if (!settledTipAmount) {
+        return fail(res, 400, 'Nominal tip tidak valid');
+    }
+
+    var credit = await creditAndRecord({
+        userId: driverId,
+        amount: settledTipAmount,
+        refType: 'order_tip',
+        refId: oid,
+        txType: 'tip_received',
+        txId: txCreditId,
+        description: 'Tip dari pelanggan #' + prefix,
+        idempotencyKey: creditIdempotency,
+        actorType: 'user',
+        actorId: actorId || userId,
+        metadata: { orderId: oid, userId: userId, driverId: driverId, type: 'driver_tip_credit' },
+        now: now
+    });
+    if (!credit.success) {
+        return fail(res, 500, 'Transfer tip ke driver belum selesai. Silakan coba lagi.');
+    }
+
+    var merged = Object.assign({}, order, {
+        driverTip: settledTipAmount,
+        driverTipPaid: true,
+        driverTipPaidAmount: settledTipAmount,
+        driverTipPaidAt: now,
+        driverTipFromUserId: userId,
+        driverTipToDriverId: driverId,
+        driverTipDebitTxId: txDebitId,
+        driverTipCreditTxId: txCreditId,
+        driverTipDebitLedgerId: (debit.data && debit.data.ledger_id) || '',
+        driverTipCreditLedgerId: (credit.data && credit.data.ledger_id) || ''
+    });
+    var patch = await patchOrder(oid, merged);
+    if (!patch.ok) return fail(res, 500, 'Tip berhasil ditransfer, tetapi update order gagal');
+
+    return res.status(200).json({
+        success: true,
+        orderId: oid,
+        userId: userId,
+        driverId: driverId,
+        amount: settledTipAmount,
+        paidAt: now,
+        debitTransactionId: txDebitId,
+        creditTransactionId: txCreditId,
+        debitLedgerId: (debit.data && debit.data.ledger_id) || '',
+        creditLedgerId: (credit.data && credit.data.ledger_id) || '',
+        userBalance: Number(debit.data && debit.data.balance_after) || 0,
+        driverBalance: Number(credit.data && credit.data.balance_after) || 0
+    });
 }
 
 async function handleCompleteOrder(body, res) {
@@ -662,6 +796,7 @@ module.exports = async (req, res) => {
         if (op === 'completeorder') return handleCompleteOrder(body, res);
         if (op === 'completeordercod') return handleCompleteOrderCOD(body, res);
         if (op === 'refundorderpayment') return handleRefundOrderPayment(body, res);
+        if (op === 'tipdriver') return handleTipDriver(body, res);
         return handlePay(body, res);
     } catch (err) {
         console.error('wallet/pay error:', err);

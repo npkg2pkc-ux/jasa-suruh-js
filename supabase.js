@@ -998,28 +998,104 @@
             .then(function (res) {
                 throwIfError(res);
                 var current = (res.data && res.data.data) || {};
-                var merged = Object.assign({}, current, {
-                    rating: body.rating,
-                    review: body.review || '',
-                    sellerRating: (body.sellerRating !== undefined && body.sellerRating !== null) ? body.sellerRating : current.sellerRating,
-                    sellerReview: (body.sellerReview !== undefined && body.sellerReview !== null) ? body.sellerReview : (current.sellerReview || ''),
-                    driverTags: Array.isArray(body.driverTags) ? body.driverTags : (Array.isArray(current.driverTags) ? current.driverTags : []),
-                    driverTip: (body.driverTip !== undefined && body.driverTip !== null) ? (Number(body.driverTip) || 0) : (Number(current.driverTip) || 0),
-                    sellerTags: Array.isArray(body.sellerTags) ? body.sellerTags : (Array.isArray(current.sellerTags) ? current.sellerTags : []),
-                    sellerPhotoReview: (body.sellerPhotoReview !== undefined && body.sellerPhotoReview !== null) ? String(body.sellerPhotoReview || '') : String(current.sellerPhotoReview || ''),
-                    sellerItemFeedback: Array.isArray(body.sellerItemFeedback) ? body.sellerItemFeedback : (Array.isArray(current.sellerItemFeedback) ? current.sellerItemFeedback : []),
-                    ratedAt: Number(body.ratedAt || Date.now()),
-                    status: 'rated'
+
+                var orderUserId = String(current.userId || '').trim();
+                var orderTalentId = String(current.talentId || '').trim();
+                var actorId = String(body.actorId || orderUserId || '').trim();
+                if (actorId && orderUserId && actorId !== orderUserId) {
+                    return fail('Rating ditolak: hanya user pemesan yang dapat memberi rating');
+                }
+
+                var existingTipPaid = !!current.driverTipPaid;
+                var existingTipAmount = Math.max(0, Math.round(Number(current.driverTipPaidAmount || current.driverTip || 0) || 0));
+                var requestedTip = 0;
+                if (body.driverTip !== undefined && body.driverTip !== null) {
+                    requestedTip = Math.max(0, Math.round(Number(body.driverTip) || 0));
+                } else if (existingTipAmount > 0) {
+                    requestedTip = existingTipAmount;
+                }
+                if (existingTipPaid && requestedTip <= 0) requestedTip = existingTipAmount;
+
+                var tipPromise = Promise.resolve(ok({
+                    amount: existingTipAmount,
+                    alreadyProcessed: existingTipPaid,
+                    paidAt: Number(current.driverTipPaidAt || 0)
+                }));
+
+                if (requestedTip > 0) {
+                    if (!orderUserId || !orderTalentId) {
+                        return fail('Tip driver gagal diproses: data user atau driver order tidak valid');
+                    }
+                    if (existingTipPaid) {
+                        if (existingTipAmount > 0 && requestedTip !== existingTipAmount) {
+                            return fail('Tip untuk order ini sudah diproses sebelumnya dan tidak bisa diubah');
+                        }
+                    } else {
+                        tipPromise = doWalletTipDriver({
+                            userId: orderUserId,
+                            driverId: orderTalentId,
+                            orderId: String(body.orderId || ''),
+                            amount: requestedTip,
+                            actorId: actorId || orderUserId
+                        });
+                    }
+                }
+
+                return tipPromise.then(function (tipRes) {
+                    if (!tipRes || tipRes.success === false) {
+                        return tipRes || fail('Transfer tip gagal diproses');
+                    }
+
+                    var tipData = tipRes.data || {};
+                    var settledTipAmount = requestedTip;
+                    if (requestedTip > 0 && !existingTipPaid) {
+                        var tipFromApi = Math.max(0, Math.round(Number(tipData.amount) || 0));
+                        if (tipFromApi > 0) settledTipAmount = tipFromApi;
+                    }
+                    if (existingTipPaid && settledTipAmount <= 0) settledTipAmount = existingTipAmount;
+
+                    var merged = Object.assign({}, current, {
+                        rating: body.rating,
+                        review: body.review || '',
+                        sellerRating: (body.sellerRating !== undefined && body.sellerRating !== null) ? body.sellerRating : current.sellerRating,
+                        sellerReview: (body.sellerReview !== undefined && body.sellerReview !== null) ? body.sellerReview : (current.sellerReview || ''),
+                        driverTags: Array.isArray(body.driverTags) ? body.driverTags : (Array.isArray(current.driverTags) ? current.driverTags : []),
+                        driverTip: settledTipAmount,
+                        sellerTags: Array.isArray(body.sellerTags) ? body.sellerTags : (Array.isArray(current.sellerTags) ? current.sellerTags : []),
+                        sellerPhotoReview: (body.sellerPhotoReview !== undefined && body.sellerPhotoReview !== null) ? String(body.sellerPhotoReview || '') : String(current.sellerPhotoReview || ''),
+                        sellerItemFeedback: Array.isArray(body.sellerItemFeedback) ? body.sellerItemFeedback : (Array.isArray(current.sellerItemFeedback) ? current.sellerItemFeedback : []),
+                        ratedAt: Number(body.ratedAt || Date.now()),
+                        status: 'rated'
+                    });
+
+                    if (settledTipAmount > 0) {
+                        merged.driverTipPaid = true;
+                        merged.driverTipPaidAmount = settledTipAmount;
+                        if (existingTipPaid) {
+                            merged.driverTipPaidAt = Number(current.driverTipPaidAt || Date.now());
+                        } else {
+                            merged.driverTipPaidAt = Number(tipData.paidAt || Date.now());
+                            merged.driverTipFromUserId = String(tipData.userId || orderUserId || '');
+                            merged.driverTipToDriverId = String(tipData.driverId || orderTalentId || '');
+                            merged.driverTipDebitTxId = String(tipData.debitTransactionId || '');
+                            merged.driverTipCreditTxId = String(tipData.creditTransactionId || '');
+                            merged.driverTipDebitLedgerId = String(tipData.debitLedgerId || '');
+                            merged.driverTipCreditLedgerId = String(tipData.creditLedgerId || '');
+                            merged.driverTipUserBalanceAfter = Number(tipData.userBalance || 0);
+                            merged.driverTipDriverBalanceAfter = Number(tipData.driverBalance || 0);
+                        }
+                    }
+
+                    return sb.from('orders').update({
+                        data: merged,
+                        user_id: merged.userId || null,
+                        talent_id: merged.talentId || null
+                    }).eq('id', body.orderId)
+                        .then(function (uRes) {
+                            throwIfError(uRes);
+                            return ok({ tipAmount: settledTipAmount, tipProcessed: settledTipAmount > 0, tipAlreadyProcessed: !!(existingTipPaid || tipData.alreadyProcessed) });
+                        });
                 });
-                return sb.from('orders').update({
-                    data: merged,
-                    user_id: merged.userId || null,
-                    talent_id: merged.talentId || null
-                }).eq('id', body.orderId);
-            })
-            .then(function (res) {
-                throwIfError(res);
-                return ok(null);
             });
     }
 
@@ -1504,6 +1580,51 @@
             })
             .catch(function () {
                 return fail('Pembayaran gagal diproses');
+            });
+    }
+
+    function doWalletTipDriver(body) {
+        var userId = String(body.userId || '').trim();
+        var driverId = String(body.driverId || body.talentId || '').trim();
+        var orderId = String(body.orderId || '').trim();
+        var amount = Math.round(Math.abs(Number(body.amount) || 0));
+        if (!userId || !driverId || !orderId || amount <= 0) {
+            return Promise.resolve(fail('Tip driver gagal diproses: data tidak valid'));
+        }
+
+        return fetch('/api/wallet/pay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                operation: 'tipDriver',
+                userId: userId,
+                driverId: driverId,
+                orderId: orderId,
+                amount: amount,
+                actorId: body.actorId || userId
+            })
+        })
+            .then(function (res) { return res.json().catch(function () { return {}; }); })
+            .then(function (apiRes) {
+                if (!apiRes || apiRes.success === false) {
+                    return fail((apiRes && apiRes.message) || 'Transfer tip gagal diproses');
+                }
+                return ok({
+                    amount: Number(apiRes.amount) || amount,
+                    paidAt: Number(apiRes.paidAt) || Date.now(),
+                    userId: apiRes.userId || userId,
+                    driverId: apiRes.driverId || driverId,
+                    debitTransactionId: apiRes.debitTransactionId || '',
+                    creditTransactionId: apiRes.creditTransactionId || '',
+                    debitLedgerId: apiRes.debitLedgerId || '',
+                    creditLedgerId: apiRes.creditLedgerId || '',
+                    userBalance: Number(apiRes.userBalance) || 0,
+                    driverBalance: Number(apiRes.driverBalance) || 0,
+                    alreadyProcessed: !!apiRes.alreadyProcessed
+                });
+            })
+            .catch(function () {
+                return fail('Transfer tip gagal diproses');
             });
     }
 
@@ -2090,6 +2211,7 @@
             case 'topUp': return Promise.resolve(fail('Aksi top up langsung dinonaktifkan. Gunakan endpoint /api/xendit/create-invoice'));
             case 'withdraw': return Promise.resolve(fail('Aksi withdraw langsung dinonaktifkan. Gunakan endpoint /api/xendit/withdraw'));
             case 'walletPay': return doWalletPay(body);
+            case 'walletTipDriver': return doWalletTipDriver(body);
             case 'walletCredit': return Promise.resolve(fail('Aksi walletCredit langsung dinonaktifkan'));
             case 'refundOrderPayment': return doRefundOrderPayment(body);
             case 'walletCompleteOrder': return doWalletCompleteOrder(body);
