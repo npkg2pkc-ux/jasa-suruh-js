@@ -179,6 +179,15 @@ function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+function getOrGenerateDeviceId() {
+    var deviceId = localStorage.getItem('js_device_id');
+    if (!deviceId) {
+        deviceId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        localStorage.setItem('js_device_id', deviceId);
+    }
+    return deviceId;
+}
+
 function initDB() {
     clearExpiredAccountDeletionCooldowns();
     syncFromBackend();
@@ -222,6 +231,19 @@ function syncFromBackend() {
                         if (typeof LoginPage !== 'undefined' && LoginPage.reset) LoginPage.reset();
                         if (typeof showToast === 'function') {
                             showToast('Sesi berakhir karena akun sudah dihapus atau tidak aktif.', 'error');
+                        }
+                        return;
+                    }
+
+                    var myDeviceId = typeof getOrGenerateDeviceId === 'function' ? getOrGenerateDeviceId() : '';
+                    var liveDeviceId = liveUser.deviceId || (liveUser.data && liveUser.data.deviceId) || '';
+                    if (liveDeviceId && myDeviceId && liveDeviceId !== myDeviceId) {
+                        clearSession();
+                        if (typeof showPage === 'function') showPage('login', false);
+                        if (ROUTES && ROUTES.login) history.replaceState({ page: 'login' }, '', ROUTES.login);
+                        if (typeof LoginPage !== 'undefined' && LoginPage.reset) LoginPage.reset();
+                        if (typeof showToast === 'function') {
+                            showToast('Akun anda telah login di perangkat lain. Sistem keamanan mengakhiri sesi di perangkat ini.', 'error');
                         }
                         return;
                     }

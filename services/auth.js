@@ -169,6 +169,7 @@ var AuthService = (function () {
                 name: profileData.nama,
                 phone: normalizedPhone,
                 role: profileData.role,
+                deviceId: typeof getOrGenerateDeviceId === 'function' ? getOrGenerateDeviceId() : '',
                 createdAt: Date.now()
             }
         };

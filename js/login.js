@@ -510,9 +510,14 @@ var LoginPage = (function () {
         // Normalize phone to 62xxx if stored as 08xxx
         var storedPhone = dbUser.no_hp || '';
         var normalizedPhone = _phone; // 62xxx format
-        if (storedPhone !== normalizedPhone && _getSb()) {
-            _getSb().from('users').update({ no_hp: normalizedPhone }).eq('id', dbUser.id).then(function () {});
+        
+        var myDeviceId = typeof getOrGenerateDeviceId === 'function' ? getOrGenerateDeviceId() : '';
+        parsed.deviceId = myDeviceId;
+
+        if (_getSb()) {
+            _getSb().from('users').update({ no_hp: normalizedPhone, data: parsed }).eq('id', dbUser.id).then(function () {});
         }
+
 
         // Normalize role: 'pengguna' → 'user' for consistency
         var ROLE_NORMALIZE = { pengguna: 'user', customer: 'user' };

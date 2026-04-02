@@ -138,7 +138,8 @@
                             var n = Number(d.usia || d.age || 0);
                             return isFinite(n) ? n : 0;
                         })(),
-                        agama: d.agama || d.religion || ''
+                        agama: d.agama || d.religion || '',
+                        deviceId: d.deviceId || ''
                     };
                 });
                 return ok(normalized);
