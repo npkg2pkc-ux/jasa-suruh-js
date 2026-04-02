@@ -575,7 +575,7 @@ function openTransactionHistory() {
                 topup: '#22C55E',
                 payment: '#EF4444',
                 earning: '#22C55E',
-                commission: '#FF6B00',
+                commission: '#212121',
                 withdraw: '#EF4444',
                 refund: '#22C55E',
                 tip_sent: '#EF4444',
@@ -953,7 +953,7 @@ function showNotificationBlockedHelp() {
         + '</div>'
         + steps
         + '<div style="display:flex;gap:10px;margin-top:18px">'
-        + '<button id="notifBlockedReload" style="flex:1;padding:12px;background:linear-gradient(135deg,#FF6B00,#FF8C00);color:#fff;border:none;border-radius:12px;font-size:0.95rem;font-weight:600;cursor:pointer">🔄 Muat Ulang</button>'
+        + '<button id="notifBlockedReload" style="flex:1;padding:12px;background:linear-gradient(135deg,#212121,#2F2F2F);color:#fff;border:none;border-radius:12px;font-size:0.95rem;font-weight:600;cursor:pointer">🔄 Muat Ulang</button>'
         + '<button id="notifBlockedClose2" style="flex:1;padding:12px;background:#f0f0f0;color:#444;border:none;border-radius:12px;font-size:0.95rem;cursor:pointer">Tutup</button>'
         + '</div>'
         + '</div>';
@@ -3989,7 +3989,7 @@ function renderOrderActions(order, isTalent, isUser) {
             // GPS-gated: Only show "Sampai di Toko" button, but auto-advance handles it via proximity
             var storeCoords = getOrderStoreCoords(order);
             el.innerHTML = driverNavHtml
-                + '<div class="gps-progress-hint" style="text-align:center;font-size:12px;color:#FF6B00;margin-bottom:8px;">📍 Progress akan otomatis saat Anda tiba di lokasi</div>'
+                + '<div class="gps-progress-hint" style="text-align:center;font-size:12px;color:#212121;margin-bottom:8px;">📍 Progress akan otomatis saat Anda tiba di lokasi</div>'
                 + '<button class="sf-btn-solid" style="width:100%;font-size:13px;" id="otpBtnArrive">Tandai Tiba Secara Manual</button>';
             bindActionTap(document.getElementById('otpBtnArrive'), function () {
                 var btn = this;
@@ -4067,7 +4067,7 @@ function renderOrderActions(order, isTalent, isUser) {
         } else if (order.status === 'on_the_way') {
             var arriveLabel = isAntar ? 'Sudah di Lokasi Jemput' : (isDelivery ? 'Sudah di Titik Jemput Barang' : 'Sudah Tiba');
             el.innerHTML = driverNavHtml
-                + '<div class="gps-progress-hint" style="text-align:center;font-size:12px;color:#FF6B00;margin-bottom:8px;">📍 Progress akan otomatis saat Anda tiba di lokasi</div>'
+                + '<div class="gps-progress-hint" style="text-align:center;font-size:12px;color:#212121;margin-bottom:8px;">📍 Progress akan otomatis saat Anda tiba di lokasi</div>'
                 + '<button class="sf-btn-solid" style="width:100%;font-size:13px;" id="otpBtnArrive">' + arriveLabel + ' (Manual)</button>';
             bindActionTap(document.getElementById('otpBtnArrive'), function () {
                 var btn = this;

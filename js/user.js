@@ -1458,7 +1458,7 @@ function openShopProductModal(product) {
             + '<button id="shopQtyMinus" style="width:34px;height:34px;border:1px solid #ddd;border-radius:8px;background:#fff;">-</button>'
             + '<input id="shopQtyInput" type="number" min="1" value="1" style="width:70px;text-align:center;border:1px solid #ddd;border-radius:8px;height:34px;">'
             + '<button id="shopQtyPlus" style="width:34px;height:34px;border:1px solid #ddd;border-radius:8px;background:#fff;">+</button>'
-            + '<button id="shopAddCartBtn" style="margin-left:auto;border:none;background:#FF6B00;color:#fff;padding:10px 14px;border-radius:10px;">+ Keranjang</button>'
+            + '<button id="shopAddCartBtn" style="margin-left:auto;border:none;background:#212121;color:#fff;padding:10px 14px;border-radius:10px;">+ Keranjang</button>'
             + '</div>'
             + '</div>';
         document.body.appendChild(modal);
@@ -1582,7 +1582,7 @@ function openShopCheckoutModal() {
                 + '</div>'
                 + '<div id="shopPmInfo" style="font-size:12px;color:#666;margin-top:6px;"></div>'
                 + '</div>'
-                + '<button id="shopCheckoutOrderBtn" style="margin-top:12px;width:100%;border:none;background:#FF6B00;color:#fff;padding:12px;border-radius:10px;font-weight:700;">Pesan Sekarang</button>'
+                + '<button id="shopCheckoutOrderBtn" style="margin-top:12px;width:100%;border:none;background:#212121;color:#fff;padding:12px;border-radius:10px;font-weight:700;">Pesan Sekarang</button>'
                 + '</div>';
             document.body.appendChild(modal);
             document.getElementById('shopCheckoutClose').addEventListener('click', function () { modal.style.display = 'none'; });
@@ -1614,8 +1614,8 @@ function openShopCheckoutModal() {
             btnC.style.opacity = '0.55';
             btnC.title = 'COD untuk pesanan produk sedang dinonaktifkan';
             if (_shopSelectedPayment === 'cod') _shopSelectedPayment = 'jspay';
-            btnJ.style.borderColor = _shopSelectedPayment === 'jspay' ? '#FF6B00' : '#ddd';
-            btnC.style.borderColor = _shopSelectedPayment === 'cod' ? '#FF6B00' : '#ddd';
+            btnJ.style.borderColor = _shopSelectedPayment === 'jspay' ? '#212121' : '#ddd';
+            btnC.style.borderColor = _shopSelectedPayment === 'cod' ? '#212121' : '#ddd';
             info.textContent = _shopSelectedPayment === 'jspay'
                 ? 'Saldo JsPay: ' + formatRupiah(getWalletBalance())
                 : 'COD untuk pesanan produk sedang dinonaktifkan.';

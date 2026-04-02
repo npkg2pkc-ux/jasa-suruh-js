@@ -466,7 +466,7 @@ function showToast(msg, type) {
     if (existing) existing.remove();
     var toast = document.createElement('div');
     toast.className = 'toast';
-    var bg = type === 'error' ? '#EF4444' : type === 'success' ? '#22C55E' : '#FF6B00';
+    var bg = type === 'error' ? '#EF4444' : type === 'success' ? '#22C55E' : '#212121';
     toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:' + bg + ';color:#fff;padding:12px 24px;border-radius:12px;font-family:var(--font);font-size:14px;font-weight:600;z-index:10000;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:fadeInUp .3s ease;max-width:90%;text-align:center;';
     toast.textContent = msg;
     document.body.appendChild(toast);

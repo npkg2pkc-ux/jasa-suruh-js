@@ -1234,13 +1234,13 @@ var OwnerDashboard = (function () {
                     {
                         label: 'Revenue (Rp)',
                         data: revenueData,
-                        borderColor: '#FF6B00',
-                        backgroundColor: 'rgba(255,107,0,0.08)',
+                        borderColor: '#212121',
+                        backgroundColor: 'rgba(33,33,33,0.08)',
                         borderWidth: 2.5,
                         fill: true,
                         tension: 0.4,
                         pointRadius: 3,
-                        pointBackgroundColor: '#FF6B00',
+                        pointBackgroundColor: '#212121',
                         yAxisID: 'y'
                     },
                     {
@@ -1577,7 +1577,7 @@ var OwnerDashboard = (function () {
     }
 
     function _roleColor(role) {
-        var map = { user: '#FF6B00', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6', admin: '#EF4444' };
+        var map = { user: '#212121', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6', admin: '#EF4444' };
         return map[role] || '#9CA3AF';
     }
 
@@ -1840,7 +1840,7 @@ var OwnerDashboard = (function () {
             return;
         }
 
-        var roleColors = { user: '#FF6B00', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6', admin: '#EF4444' };
+        var roleColors = { user: '#212121', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6', admin: '#EF4444' };
         var roleLabels = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS', admin: 'Admin' };
         var roleChipClass = { user: 'is-user', talent: 'is-talent', penjual: 'is-penjual', cs: 'is-cs', admin: 'is-admin' };
         var ordersRef = Array.isArray(_ordersCache) ? _ordersCache : [];
@@ -3131,9 +3131,9 @@ function loadAdminProblemOrders(page) {
                     '<div style="font-size:12px;color:#374151;margin-top:8px;">👤 Customer: ' + (typeof escapeHtml === 'function' ? escapeHtml(customer.name || customer.nama || '-') : (customer.name || customer.nama || '-')) + '</div>',
                     '<div style="font-size:12px;color:#374151;margin-top:4px;">🛵 Driver: ' + (typeof escapeHtml === 'function' ? escapeHtml(driver.name || driver.nama || '-') : (driver.name || driver.nama || '-')) + '</div>',
                     sellerRow,
-                    '<div style="margin-top:10px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:10px;">',
-                        '<div style="font-size:11px;color:#9A3412;font-weight:700;margin-bottom:4px;">Isi aduan user</div>',
-                        '<div style="font-size:13px;color:#7C2D12;line-height:1.45;">' + (typeof escapeHtml === 'function' ? escapeHtml(String(o.userComplaintText || 'Aduan tanpa detail')) : String(o.userComplaintText || 'Aduan tanpa detail')) + '</div>',
+                    '<div style="margin-top:10px;background:#F3F3F3;border:1px solid #CFCFCF;border-radius:10px;padding:10px;">',
+                        '<div style="font-size:11px;color:#212121;font-weight:700;margin-bottom:4px;">Isi aduan user</div>',
+                        '<div style="font-size:13px;color:#212121;line-height:1.45;">' + (typeof escapeHtml === 'function' ? escapeHtml(String(o.userComplaintText || 'Aduan tanpa detail')) : String(o.userComplaintText || 'Aduan tanpa detail')) + '</div>',
                     '</div>',
                     '<div style="display:flex;gap:8px;margin-top:12px;">',
                         '<button class="apo-btn-detail" data-order-id="' + String(o.id || '') + '" style="flex:1;border:1px solid #D1D5DB;border-radius:10px;padding:10px 12px;background:#fff;color:#374151;font-size:13px;font-weight:700;cursor:pointer;">Lihat Detail Order</button>',
@@ -3152,7 +3152,7 @@ function loadAdminProblemOrders(page) {
             var filterBar = [
                 '<div style="background:#fff;border:1px solid #FDE68A;border-radius:12px;padding:8px;display:flex;gap:8px;">',
                     '<button class="apo-filter-btn" data-filter="baru" style="flex:1;border:0;border-radius:10px;padding:9px 10px;font-size:12px;font-weight:700;cursor:pointer;',
-                    (currentFilter === 'baru' ? 'background:#F97316;color:#fff;' : 'background:#FFF7ED;color:#9A3412;'),
+                    (currentFilter === 'baru' ? 'background:#212121;color:#fff;' : 'background:#F3F3F3;color:#212121;'),
                     '">Baru (' + openComplaints.length + ')</button>',
                     '<button class="apo-filter-btn" data-filter="ditangani" style="flex:1;border:0;border-radius:10px;padding:9px 10px;font-size:12px;font-weight:700;cursor:pointer;',
                     (currentFilter === 'ditangani' ? 'background:#16A34A;color:#fff;' : 'background:#ECFDF5;color:#166534;'),

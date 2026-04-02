@@ -60,10 +60,10 @@ function _buildAdminOrderReviewPage() {
     page.dataset.aorpMode = 'fullscreen';
     page.style.cssText = [
         'position:fixed;top:0;left:0;right:0;bottom:0;z-index:1200;',
-        'background:#FFF7ED;overflow-y:auto;font-family:var(--font,sans-serif);'
+        'background:#F3F3F3;overflow-y:auto;font-family:var(--font,sans-serif);'
     ].join('');
     page.innerHTML = [
-        '<div style="background:#fff;border-bottom:1px solid #FED7AA;padding:16px 20px;',
+        '<div style="background:#fff;border-bottom:1px solid #CFCFCF;padding:16px 20px;',
         'display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.05);">',
             '<button id="aorpBtnBack" style="background:none;border:none;font-size:22px;cursor:pointer;',
             'padding:0 6px;color:#374151;line-height:1;">&#8592;</button>',
@@ -328,7 +328,7 @@ function _loadPendingReviewOrders(page) {
                         '<div>',
                             '<div style="font-size:13px;font-weight:700;color:#111;">#' + String(o.id || '').substr(0, 8) + '</div>',
                             '<div style="font-size:12px;color:#6B7280;">' + (o.serviceType || o.skillType || 'Pesanan') + ' &bull; ' + dateStr + ratingBadge + '</div>',
-                            '<div style="font-size:11px;color:' + (isOverdue ? '#B91C1C' : '#9A3412') + ';font-weight:700;margin-top:3px;">Menunggu keputusan: ' + pendingAgeText + (isOverdue ? ' (MELEWATI BATAS)' : '') + '</div>',
+                            '<div style="font-size:11px;color:' + (isOverdue ? '#B91C1C' : '#212121') + ';font-weight:700;margin-top:3px;">Menunggu keputusan: ' + pendingAgeText + (isOverdue ? ' (MELEWATI BATAS)' : '') + '</div>',
                         '</div>',
                         reviewBadge,
                     '</div>',
@@ -340,8 +340,8 @@ function _loadPendingReviewOrders(page) {
                     '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">' + proofStatus + '</div>',
                     proofHtml,
                     evidenceAlert,
-                    '<div style="margin-top:10px;border:1px solid #FED7AA;background:#FFF7ED;border-radius:12px;padding:10px;">',
-                        '<div style="font-size:12px;font-weight:700;color:#9A3412;margin-bottom:8px;">Checklist Verifikasi Admin</div>',
+                    '<div style="margin-top:10px;border:1px solid #CFCFCF;background:#F3F3F3;border-radius:12px;padding:10px;">',
+                        '<div style="font-size:12px;font-weight:700;color:#212121;margin-bottom:8px;">Checklist Verifikasi Admin</div>',
                         '<label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#374151;margin-bottom:8px;cursor:pointer;">',
                             '<input type="checkbox" class="aorp-verify-check" data-idx="' + idx + '" style="margin-top:2px;">',
                             '<span>' + deliveryLabel + '</span>',
@@ -353,9 +353,9 @@ function _loadPendingReviewOrders(page) {
                     '</div>',
                     '<div style="display:flex;gap:10px;margin-top:14px;">',
                         '<button class="aorp-btn-approve" data-idx="' + idx + '" disabled style="',
-                        'flex:1;background:linear-gradient(135deg,#F97316,#EA580C);color:#fff;',
+                        'flex:1;background:linear-gradient(135deg,#212121,#2F2F2F);color:#fff;',
                         'border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;',
-                        'box-shadow:0 2px 8px rgba(249,115,22,.28);opacity:.6;">',
+                        'box-shadow:0 2px 8px rgba(33,33,33,.28);opacity:.6;">',
                         'Checklist dulu',
                         '</button>',
                         '<button class="aorp-btn-chat" data-idx="' + idx + '" style="',
@@ -495,10 +495,10 @@ function _openAorpChatDetail(order) {
 
     if (order.proofPhoto) {
         bodyEl.innerHTML = [
-            '<div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:10px;">',
-                '<div style="font-size:12px;font-weight:700;color:#9A3412;margin-bottom:8px;">Bukti foto di order</div>',
+            '<div style="background:#F3F3F3;border:1px solid #CFCFCF;border-radius:12px;padding:10px;">',
+                '<div style="font-size:12px;font-weight:700;color:#212121;margin-bottom:8px;">Bukti foto di order</div>',
                 '<a href="' + order.proofPhoto + '" target="_blank" rel="noopener">',
-                    '<img src="' + order.proofPhoto + '" alt="Bukti Order" style="width:100%;max-width:220px;border-radius:10px;border:1px solid #FDBA74;">',
+                    '<img src="' + order.proofPhoto + '" alt="Bukti Order" style="width:100%;max-width:220px;border-radius:10px;border:1px solid #CFCFCF;">',
                 '</a>',
             '</div>'
         ].join('');

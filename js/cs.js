@@ -113,7 +113,7 @@ function loadCSUsers() {
         listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>Belum ada pengguna</p></div>';
         return;
     }
-    var roleColors = { user: '#FF6B00', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6' };
+    var roleColors = { user: '#212121', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6' };
     var roleLabels = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS' };
     listEl.innerHTML = users.map(function (u) {
         var displayName = u.name || u.nama || 'Tanpa Nama';

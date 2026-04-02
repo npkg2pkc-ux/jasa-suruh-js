@@ -166,7 +166,7 @@
         if (existing) existing.remove();
         const toast = document.createElement('div');
         toast.className = 'toast';
-        const bg = type === 'error' ? '#EF4444' : type === 'success' ? '#22C55E' : '#FF6B00';
+        const bg = type === 'error' ? '#EF4444' : type === 'success' ? '#22C55E' : '#212121';
         toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:' + bg + ';color:#fff;padding:12px 24px;border-radius:12px;font-family:var(--font);font-size:14px;font-weight:600;z-index:10000;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:fadeInUp .3s ease;max-width:90%;text-align:center;';
         toast.textContent = msg;
         document.body.appendChild(toast);
@@ -585,7 +585,7 @@
             return;
         }
 
-        const roleColors = { user: '#FF6B00', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6', owner: '#111111' };
+        const roleColors = { user: '#212121', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6', owner: '#111111' };
         const roleClasses = { user: 'role-user', talent: 'role-talent', penjual: 'role-penjual', cs: 'role-cs', owner: 'role-owner-tag' };
         const roleLabels = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS', owner: 'Owner' };
 
@@ -3441,7 +3441,7 @@
                 _sdpSelectedProduct = products[idx];
                 // Highlight selection
                 list.querySelectorAll('.stc').forEach(function(c) { c.style.border = ''; });
-                this.style.border = '2px solid #FF6B00';
+                this.style.border = '2px solid #212121';
                 if (footerEl) footerEl.style.display = '';
             });
         });
@@ -3603,7 +3603,7 @@
             listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>Belum ada pengguna</p></div>';
             return;
         }
-        var roleColors = { user: '#FF6B00', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6', owner: '#111111' };
+        var roleColors = { user: '#212121', talent: '#3B82F6', penjual: '#22C55E', cs: '#8B5CF6', owner: '#111111' };
         var roleLabels = { user: 'User', talent: 'Talent', penjual: 'Penjual', cs: 'CS', owner: 'Owner' };
         listEl.innerHTML = users.map(function(u) {
             var initial = (u.name || 'U').charAt(0).toUpperCase();
