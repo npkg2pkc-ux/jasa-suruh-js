@@ -2635,24 +2635,25 @@ function renderOrderInfo(order, isTalent) {
     if (!isTalent && other && order.talentId) {
         var vehicleLabel = isAntar ? 'Motor' : (order.serviceType || 'Driver');
         var canChatDriver = session && session.id !== order.talentId;
-        var orderStatus = String(order.status || '').toLowerCase();
-        var showVehicleInfo = ['accepted', 'on_the_way', 'arrived', 'in_progress'].indexOf(orderStatus) >= 0;
-        var driverVehicleMetaHtml = '';
+        var vehicleType = String(
+            other.jenis_motor
+            || other.vehicleType
+            || order.jenis_motor
+            || order.vehicleType
+            || order.talentVehicleType
+            || ''
+        ).trim();
+        var plateNo = String(
+            other.plat_nomor_kendaraan
+            || other.plateNo
+            || order.plat_nomor_kendaraan
+            || order.plateNo
+            || order.talentPlateNo
+            || ''
+        ).trim();
+        if (plateNo) plateNo = plateNo.toUpperCase();
 
-        if (showVehicleInfo) {
-            var vehicleType = String(other.jenis_motor || other.vehicleType || '').trim();
-            var vehicleYear = String(other.tahun_kendaraan || other.vehicleYear || '').trim();
-            var plateNo = String(other.plat_nomor_kendaraan || other.plateNo || '').trim();
-
-            var leftParts = [];
-            if (vehicleType) leftParts.push(vehicleType);
-            if (vehicleYear) leftParts.push(vehicleYear);
-
-            var leftLabel = leftParts.length ? leftParts.join(' • ') : '-';
-            var plateLabel = plateNo || '-';
-
-            driverVehicleMetaHtml = '<div class="sf-driver-submeta">🏍️ ' + escapeHtml(leftLabel) + ' • 🚘 ' + escapeHtml(plateLabel) + '</div>';
-        }
+        var driverVehicleMetaHtml = '<div class="sf-driver-submeta">Jenis motor: ' + escapeHtml(vehicleType || '-') + ' • Plat: ' + escapeHtml(plateNo || '-') + '</div>';
 
         driverHtml = buildDriverCardHtml(other, 'Driver', vehicleLabel, true, canChatDriver ? 'otpDriverChatBtn' : '', '⭐ 0.0 (0)', '', '', driverVehicleMetaHtml);
     }
