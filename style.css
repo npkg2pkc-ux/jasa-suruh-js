@@ -2817,7 +2817,8 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     width:20px;
     height:20px;
     border-radius:6px;
-    border:1px solid rgba(255,255,255,.5);
+    display:block;
+    object-fit:cover;
     box-shadow:0 2px 8px rgba(0,0,0,.14);
 }
 .od-greeting-app {
@@ -2928,10 +2929,11 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
 }
 
 .od-nav-brand-logo {
-    width:34px;
-    height:34px;
+    width:36px;
+    height:36px;
     border-radius:10px;
-    border:1px solid rgba(43,43,43,.32);
+    display:block;
+    object-fit:cover;
     box-shadow:0 6px 14px rgba(194,65,12,.16);
 }
 
