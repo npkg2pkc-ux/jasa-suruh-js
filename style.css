@@ -8118,5 +8118,77 @@ body::after {
 .notif-help-alt { font-size: 0.82rem; color: #666; margin-top: 10px; background: #f5f5f5; border-radius: 8px; padding: 8px 12px; line-height: 1.4; }
 .notif-help-alt strong { color: #444; }
 
+/* Admin web KPI compact override */
+#page-owner.od-web-desktop.od-admin-mode .od-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+#page-owner.od-web-desktop.od-admin-mode .od-kpi-card {
+    min-height: 86px;
+    padding: 9px 10px;
+    gap: 6px;
+    border-radius: 12px;
+}
+
+#page-owner.od-web-desktop.od-admin-mode .od-kpi-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+}
+
+#page-owner.od-web-desktop.od-admin-mode .od-kpi-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+#page-owner.od-web-desktop.od-admin-mode .od-kpi-value {
+    font-size: 30px;
+    letter-spacing: -.3px;
+}
+
+#page-owner.od-web-desktop.od-admin-mode .od-kpi-label {
+    font-size: 10px;
+    letter-spacing: .3px;
+}
+
+#page-owner.od-web-desktop.od-admin-mode .od-kpi-trend {
+    top: 8px;
+    right: 8px;
+    font-size: 9px;
+    padding: 2px 5px;
+}
+
+#page-owner.od-web-desktop.od-admin-mode .od-admin-review-focus {
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+#page-owner.od-web-desktop.od-admin-mode .od-admin-review-desc {
+    margin-bottom: 8px;
+}
+
+#page-owner.od-web-desktop.od-admin-mode .od-admin-monitor-grid {
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+#page-owner.od-web-desktop.od-admin-mode .od-admin-metric-card {
+    padding: 8px 9px;
+    border-radius: 10px;
+}
+
+#page-owner.od-web-desktop.od-admin-mode .od-admin-metric-label {
+    font-size: 10px;
+    line-height: 1.2;
+    letter-spacing: .25px;
+}
+
+#page-owner.od-web-desktop.od-admin-mode .od-admin-metric-value {
+    margin-top: 4px;
+    font-size: 24px;
+}
+
 
 
