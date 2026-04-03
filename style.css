@@ -5603,6 +5603,68 @@ input[type="checkbox"].toggle-checkbox:checked::after { left:25px; }
     }
 }
 
+/* Admin header compact density override */
+#page-owner.od-admin-mode .od-header {
+    border-radius:0 0 22px 22px !important;
+    box-shadow:0 8px 18px rgba(234,88,12,.2) !important;
+}
+
+#page-owner.od-admin-mode .od-header-content {
+    max-width:1140px;
+    margin:0 auto;
+    padding:calc(8px + env(safe-area-inset-top, 0px)) 16px 8px;
+}
+
+#page-owner.od-admin-mode .od-header-top {
+    align-items:center;
+    margin-bottom:0;
+}
+
+#page-owner.od-admin-mode .od-greeting {
+    gap:1px;
+}
+
+#page-owner.od-admin-mode .od-greeting-brand {
+    margin-bottom:0;
+}
+
+#page-owner.od-admin-mode .od-greeting-hi {
+    font-size:clamp(20px,2.4vw,24px);
+    line-height:1.12;
+    letter-spacing:-.2px;
+}
+
+#page-owner.od-admin-mode .od-greeting-sub {
+    font-size:12px;
+    line-height:1.3;
+}
+
+#page-owner.od-admin-mode .od-notif-btn {
+    width:36px;
+    height:36px;
+    border-radius:10px;
+}
+
+#page-owner.od-admin-mode .od-notif-btn svg {
+    width:16px;
+    height:16px;
+}
+
+@media (max-width:560px) {
+    #page-owner.od-admin-mode .od-header-content {
+        padding-left:12px;
+        padding-right:12px;
+    }
+
+    #page-owner.od-admin-mode .od-greeting-hi {
+        font-size:18px;
+    }
+
+    #page-owner.od-admin-mode .od-greeting-sub {
+        font-size:11px;
+    }
+}
+
 /* â”€â”€â”€ Admin Stage 3.1: Micro Interaction Tuning â”€â”€â”€ */
 #page-owner.od-admin-mode .od-kpi-card,
 #page-owner.od-admin-mode .od-user-card,
