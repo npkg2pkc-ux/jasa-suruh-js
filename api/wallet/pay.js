@@ -3,6 +3,7 @@
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://aqptkuoazqharfzxvgem.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
+const { sendPushToUser } = require('../../services/push-core');
 
 function fail(res, status, message) {
     return res.status(status).json({ success: false, message: message || 'Error' });
@@ -137,6 +138,66 @@ async function upsertTransaction(row) {
         },
         body: JSON.stringify(row)
     });
+}
+
+function formatRupiah(amount) {
+    var n = Math.max(0, Math.round(Number(amount) || 0));
+    return 'Rp ' + n.toLocaleString('id-ID');
+}
+
+async function upsertNotification(row) {
+    await supaFetch('notifications?on_conflict=id', {
+        method: 'POST',
+        headers: {
+            apikey: SUPABASE_SERVICE_KEY,
+            Authorization: 'Bearer ' + SUPABASE_SERVICE_KEY,
+            'Content-Type': 'application/json',
+            Prefer: 'resolution=merge-duplicates,return=minimal'
+        },
+        body: JSON.stringify(row)
+    });
+}
+
+async function notifyUser(userId, payload) {
+    var uid = String(userId || '').trim();
+    if (!uid) return;
+
+    var now = Number((payload && payload.createdAt) || Date.now());
+    var notifId = String((payload && payload.id) || ('notif_' + now + '_' + Math.random().toString(36).slice(2, 8)));
+    var notifType = String((payload && payload.type) || 'info');
+    var notifOrderId = String((payload && payload.orderId) || '').trim();
+    var notifExtra = (payload && payload.extra) ? payload.extra : null;
+
+    var notifData = {
+        id: notifId,
+        userId: uid,
+        icon: (payload && payload.icon) || '!',
+        title: String((payload && payload.title) || ''),
+        desc: String((payload && payload.desc) || ''),
+        type: notifType,
+        unread: true,
+        createdAt: now
+    };
+    if (notifOrderId) notifData.orderId = notifOrderId;
+    if (notifExtra) notifData.extra = notifExtra;
+
+    await upsertNotification({
+        id: notifId,
+        user_id: uid,
+        created_at: now,
+        data: notifData
+    });
+
+    if (typeof sendPushToUser === 'function') {
+        await sendPushToUser(uid, {
+            title: notifData.title || 'Jasa Suruh',
+            body: notifData.desc || 'Ada notifikasi baru',
+            type: notifType,
+            tag: notifType + '-' + (notifOrderId || now),
+            orderId: notifOrderId,
+            data: notifExtra || {}
+        }).catch(function () {});
+    }
 }
 
 async function handlePay(body, res) {
@@ -426,6 +487,25 @@ async function handleTipDriver(body, res) {
     });
     var patch = await patchOrder(oid, merged);
     if (!patch.ok) return fail(res, 500, 'Tip berhasil ditransfer, tetapi update order gagal');
+
+    try {
+        await notifyUser(driverId, {
+            id: 'notif_tip_' + oid + '_' + driverId,
+            icon: '$',
+            title: 'Tip Masuk!',
+            desc: 'Anda menerima tip ' + formatRupiah(settledTipAmount) + ' dari pelanggan untuk pesanan #' + prefix + '.',
+            type: 'tip',
+            orderId: oid,
+            extra: {
+                amount: settledTipAmount,
+                fromUserId: userId,
+                orderId: oid
+            },
+            createdAt: now
+        });
+    } catch (notifErr) {
+        console.error('wallet/pay tip notification error:', (notifErr && notifErr.message) ? notifErr.message : notifErr);
+    }
 
     return res.status(200).json({
         success: true,
