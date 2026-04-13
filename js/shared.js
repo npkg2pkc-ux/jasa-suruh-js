@@ -5222,13 +5222,39 @@ function _isIncomingStatusAllowed(orderId, currentStatus, incomingStatus) {
     return true;
 }
 
+var _trackingLocRealtimeState = {};
+
+function _applyTrackingTalentLocation(orderId, loc) {
+    if (!loc) return false;
+    var lat = Number(loc.lat);
+    var lng = Number(loc.lng);
+    if (!isValidLatLng(lat, lng)) return false;
+
+    var key = String(orderId || '');
+    var updatedAt = Number(loc.updatedAt || Date.now());
+    var prev = _trackingLocRealtimeState[key] || null;
+    if (prev) {
+        if (updatedAt > 0 && prev.updatedAt > 0 && updatedAt < prev.updatedAt) return false;
+        if (prev.updatedAt === updatedAt && prev.lat === lat && prev.lng === lng) return false;
+    }
+
+    _trackingLocRealtimeState[key] = { lat: lat, lng: lng, updatedAt: updatedAt };
+
+    if (loc && _currentOrder) {
+        _currentOrder.talentLat = lat;
+        _currentOrder.talentLng = lng;
+        _currentOrder.talentLastLocationAt = updatedAt;
+    }
+    updateTalentMarkerPosition(lat, lng);
+    return true;
+}
+
 // ══════════════════════════════════════════
-// ═══ POLLING (Order status + Location) ═══
+// ═══ REALTIME TRACKING (Order + Location) ═══
 // ══════════════════════════════════════════
 function startOrderPolling(orderId) {
     stopPolling();
     if (typeof acquireWakeLock === 'function') acquireWakeLock();
-    var session = getSession();
     if (typeof FB !== 'undefined' && FB.isReady()) {
         _fbOrderUnsub = FB.onOrder(orderId, function (order) {
             if (!order || !_currentOrder || String(_currentOrder.id) !== String(orderId)) return;
@@ -5257,21 +5283,11 @@ function startOrderPolling(orderId) {
             }
         });
         _fbLocUnsub = FB.onTalentLocation(orderId, function (loc) {
-            if (loc && loc.lat && loc.lng) {
-                updateTalentMarkerPosition(Number(loc.lat), Number(loc.lng));
-            }
-            if (loc && _currentOrder) {
-                _currentOrder.talentLat = loc.lat;
-                _currentOrder.talentLng = loc.lng;
-            }
+            _applyTrackingTalentLocation(orderId, loc);
         });
-        // Chat badge is handled by global message polling in startGlobalMessageListener
-
-        // Backup polling if realtime stream drops or device resumes from background sleep.
-        _orderFallbackPollTimer = setInterval(function () { pollOrderUpdate(orderId); }, 6000);
     } else {
+        // Fallback once when realtime client is unavailable.
         pollOrderUpdate(orderId);
-        _locationPollTimer = setInterval(function () { pollOrderUpdate(orderId); }, 8000);
     }
 }
 
@@ -5282,6 +5298,7 @@ function stopPolling() {
     if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
     if (_fbOrderUnsub) { _fbOrderUnsub(); _fbOrderUnsub = null; }
     if (_fbLocUnsub) { _fbLocUnsub(); _fbLocUnsub = null; }
+    _trackingLocRealtimeState = {};
     stopTalentLocationBroadcast();
 }
 
@@ -5331,11 +5348,45 @@ function pollOrderUpdate(orderId) {
 var GPS_ARRIVE_RADIUS = 0.08; // 80 meters for auto-arrive
 var GPS_MANUAL_ACTION_RADIUS = 0.05; // 50 meters for manual action lock/unlock
 var GPS_NEARBY_RADIUS = 0.5;  // 500 meters — send "driver nearby" notif
+var TALENT_LOCATION_MIN_DISTANCE_M = 10;
+var TALENT_LOCATION_FAST_INTERVAL_MS = 2000;
+var TALENT_LOCATION_SLOW_INTERVAL_MS = 5000;
+var TALENT_LOCATION_FAST_SPEED_MPS = 8;
 var _nearbyAlertSent = {}; // per orderId, prevent repeat alerts
 var _watchPositionId = null;
-var _talentLocationIntervalTimer = null;
+var _lastTalentLocationSentByOrder = {};
 var _gpsAutoProgressLock = {};
 var _statusPushGuardByOrder = {};
+
+function _roundLocationCoord(value) {
+    var n = Number(value);
+    if (!isFinite(n)) return n;
+    return Math.round(n * 100000) / 100000;
+}
+
+function _normalizeGeoSpeed(speed) {
+    var n = Number(speed);
+    if (!isFinite(n) || n < 0) return 0;
+    return n;
+}
+
+function _resolveLocationPushIntervalMs(speedMps) {
+    return Number(speedMps) >= TALENT_LOCATION_FAST_SPEED_MPS ? TALENT_LOCATION_FAST_INTERVAL_MS : TALENT_LOCATION_SLOW_INTERVAL_MS;
+}
+
+function _shouldSendTalentLocation(orderId, lat, lng, speedMps, nowTs) {
+    var key = String(orderId || '');
+    if (!key) return false;
+    var prev = _lastTalentLocationSentByOrder[key] || null;
+    if (!prev) return true;
+
+    var elapsedMs = nowTs - Number(prev.sentAt || 0);
+    if (elapsedMs < _resolveLocationPushIntervalMs(speedMps)) return false;
+
+    var movedM = haversineDistance(prev.lat, prev.lng, lat, lng) * 1000;
+    if (!isFinite(movedM) || movedM < TALENT_LOCATION_MIN_DISTANCE_M) return false;
+    return true;
+}
 
 function _lockAutoProgress(orderId, toStatus) {
     var k = String(orderId || '') + '::' + String(toStatus || '');
@@ -5356,33 +5407,43 @@ function _syncCurrentDriverPositionForActiveOrder(orderId, lat, lng) {
 }
 
 function startTalentLocationBroadcast(orderId) {
-    // Use watchPosition for real-time continuous GPS tracking instead of intervals
     if (_watchPositionId !== null) {
         try { navigator.geolocation.clearWatch(_watchPositionId); } catch(e) {}
         _watchPositionId = null;
     }
-    if (_talentLocationIntervalTimer) {
-        clearInterval(_talentLocationIntervalTimer);
-        _talentLocationIntervalTimer = null;
-    }
 
     function onPosition(geoPos) {
-        var lat = geoPos.coords.latitude;
-        var lng = geoPos.coords.longitude;
+        var lat = _roundLocationCoord(geoPos.coords.latitude);
+        var lng = _roundLocationCoord(geoPos.coords.longitude);
+        if (!isValidLatLng(lat, lng)) return;
+        var speedMps = _normalizeGeoSpeed(geoPos.coords.speed);
+        var heading = Number(geoPos.coords.heading);
+        if (!isFinite(heading)) heading = null;
+        else heading = Math.round(heading);
+        var nowTs = Date.now();
 
         _syncCurrentDriverPositionForActiveOrder(orderId, lat, lng);
 
-        // Update backend with new real-time position
+        // Auto-advance progress based on coordinates
+        _checkGpsAutoProgress(orderId, lat, lng);
+
+        if (!_shouldSendTalentLocation(orderId, lat, lng, speedMps, nowTs)) return;
+        _lastTalentLocationSentByOrder[String(orderId)] = {
+            lat: lat,
+            lng: lng,
+            sentAt: nowTs
+        };
+
         backendPost({
             action: 'updateTalentLocation',
             orderId: orderId,
             actorId: (getSession() && getSession().id) || '',
             lat: lat,
-            lng: lng
+            lng: lng,
+            speed: speedMps,
+            heading: heading,
+            updatedAt: nowTs
         });
-
-        // Auto-advance progress based on coordinates
-        _checkGpsAutoProgress(orderId, lat, lng);
 
         // Notify SW so it can broadcast even if app is minimised
         if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
@@ -5390,7 +5451,8 @@ function startTalentLocationBroadcast(orderId) {
                 type: 'DRIVER_LOCATION_UPDATE',
                 orderId: orderId,
                 lat: lat,
-                lng: lng
+                lng: lng,
+                updatedAt: nowTs
             });
         }
     }
@@ -5402,24 +5464,6 @@ function startTalentLocationBroadcast(orderId) {
             { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
         );
     }
-
-    // Fallback interval in case watchPosition is not reliable
-    if (!_talentLocationIntervalTimer) {
-        _talentLocationIntervalTimer = setInterval(function () {
-            if (!_currentOrder || String(_currentOrder.id) !== String(orderId)) return;
-            getCurrentPosition().then(function (pos) {
-                _syncCurrentDriverPositionForActiveOrder(orderId, pos.lat, pos.lng);
-                backendPost({
-                    action: 'updateTalentLocation',
-                    orderId: orderId,
-                    actorId: (getSession() && getSession().id) || '',
-                    lat: pos.lat,
-                    lng: pos.lng
-                });
-                _checkGpsAutoProgress(orderId, pos.lat, pos.lng);
-            }).catch(function () {});
-        }, 7000);
-    }
 }
 
 function stopTalentLocationBroadcast() {
@@ -5427,10 +5471,7 @@ function stopTalentLocationBroadcast() {
         try { navigator.geolocation.clearWatch(_watchPositionId); } catch(e) {}
         _watchPositionId = null;
     }
-    if (_talentLocationIntervalTimer) {
-        clearInterval(_talentLocationIntervalTimer);
-        _talentLocationIntervalTimer = null;
-    }
+    _lastTalentLocationSentByOrder = {};
 }
 
 // Auto advance order progress based on GPS proximity

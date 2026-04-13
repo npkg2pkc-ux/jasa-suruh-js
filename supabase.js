@@ -99,6 +99,28 @@
         if (res.error) throw new Error(res.error.message);
     }
 
+    var LOCATION_MIN_DISTANCE_M = 10;
+    var LOCATION_FAST_INTERVAL_MS = 2000;
+    var LOCATION_SLOW_INTERVAL_MS = 5000;
+    var LOCATION_FAST_SPEED_MPS = 8;
+    var LOCATION_COORD_PRECISION = 100000;
+
+    function _roundCoord(value) {
+        var n = Number(value);
+        if (!isFinite(n)) return n;
+        return Math.round(n * LOCATION_COORD_PRECISION) / LOCATION_COORD_PRECISION;
+    }
+
+    function _normalizeSpeedMps(value) {
+        var speed = Number(value);
+        if (!isFinite(speed) || speed < 0) return 0;
+        return speed;
+    }
+
+    function _locationIntervalMsBySpeed(speedMps) {
+        return Number(speedMps) >= LOCATION_FAST_SPEED_MPS ? LOCATION_FAST_INTERVAL_MS : LOCATION_SLOW_INTERVAL_MS;
+    }
+
     // ── GET Actions ──
 
     function getAll() {
@@ -1202,13 +1224,21 @@
     }
 
     function doUpdateTalentLocation(body) {
-        var lat = Number(body.lat);
-        var lng = Number(body.lng);
+        var orderId = String(body.orderId || '');
+        var lat = _roundCoord(body.lat);
+        var lng = _roundCoord(body.lng);
+        var speedMps = _normalizeSpeedMps(body.speed);
+        var nowTs = Date.now();
+        var minIntervalMs = _locationIntervalMsBySpeed(speedMps);
+
+        if (!orderId) {
+            return Promise.resolve(fail('Order tidak valid'));
+        }
         if (!_isValidLatLng(lat, lng)) {
             return Promise.resolve(fail('Koordinat driver tidak valid'));
         }
 
-        return getOrderDataById(body.orderId).then(function (order) {
+        return getOrderDataById(orderId).then(function (order) {
             if (!order) return fail('Order tidak ditemukan');
             var actorId = String(body.actorId || '');
             var talentId = String(order.talentId || '');
@@ -1216,21 +1246,34 @@
                 return fail('Update lokasi ditolak: hanya driver aktif order yang boleh update lokasi.');
             }
 
-        // Upsert to locations table (replaces Firebase RTDB)
-            return sb.from('locations').upsert({
-                order_id: body.orderId,
-                lat: lat,
-                lng: lng,
-                updated_at: Date.now()
-            }).then(function (res) {
-                throwIfError(res);
-                // Also update order document with talentLat/talentLng
-                return doUpdateOrder({
-                    orderId: body.orderId,
-                    actorId: actorId,
-                    fields: { talentLat: lat, talentLng: lng, talentLastLocationAt: Date.now() }
+            return sb.from('locations').select('lat,lng,updated_at').eq('order_id', orderId).maybeSingle()
+                .then(function (locRes) {
+                    throwIfError(locRes);
+                    var prev = locRes.data || null;
+                    if (prev && _isValidLatLng(prev.lat, prev.lng)) {
+                        var elapsedMs = nowTs - Number(prev.updated_at || 0);
+                        if (elapsedMs > 0 && elapsedMs < minIntervalMs) {
+                            return ok({ sent: false, reason: 'interval', elapsedMs: elapsedMs, minIntervalMs: minIntervalMs });
+                        }
+
+                        var movedM = _haversineKm(Number(prev.lat), Number(prev.lng), lat, lng) * 1000;
+                        if (isFinite(movedM) && movedM < LOCATION_MIN_DISTANCE_M) {
+                            return ok({ sent: false, reason: 'distance', movedM: movedM });
+                        }
+                    }
+
+                    return sb.from('locations').upsert({
+                        order_id: orderId,
+                        lat: lat,
+                        lng: lng,
+                        updated_at: nowTs
+                    });
+                })
+                .then(function (upsertRes) {
+                    if (upsertRes && upsertRes.success === true) return upsertRes;
+                    throwIfError(upsertRes);
+                    return ok({ sent: true, lat: lat, lng: lng, updatedAt: nowTs });
                 });
-            });
         });
     }
 
@@ -2332,56 +2375,95 @@
     // ── Realtime Listeners (Supabase Realtime) ──
 
     function onAllOrders(callback) {
-        function loadAll() {
-            sb.from('orders').select('data')
-                .then(function (res) {
-                    if (!res.error && res.data) {
-                        callback({ success: true, data: rowsToArr(res.data) });
-                    }
-                });
+        var byId = {};
+
+        function upsertRow(row) {
+            if (!row || !row.data || !row.data.id) return;
+            byId[String(row.data.id)] = row.data;
         }
 
-        loadAll();
+        function removeRow(row) {
+            var oldData = row && row.data;
+            var oldId = oldData && oldData.id ? String(oldData.id) : String((row && row.id) || '');
+            if (!oldId) return;
+            delete byId[oldId];
+        }
+
+        function emit() {
+            callback({
+                success: true,
+                data: Object.keys(byId).map(function (id) { return byId[id]; })
+            });
+        }
+
+        sb.from('orders').select('id,data')
+            .then(function (res) {
+                if (res.error || !res.data) return;
+                byId = {};
+                res.data.forEach(upsertRow);
+                emit();
+            });
 
         var channel = sb.channel('orders-all-' + generateId())
             .on('postgres_changes', {
                 event: '*',
                 schema: 'public',
                 table: 'orders'
-            }, function () { loadAll(); })
+            }, function (payload) {
+                if (payload.eventType === 'DELETE') {
+                    removeRow(payload.old);
+                } else if (payload.new) {
+                    upsertRow(payload.new);
+                }
+                emit();
+            })
             .subscribe();
 
         return function () { sb.removeChannel(channel); };
     }
 
     function onOrdersForUser(userId, callback) {
-        var state = { byUserId: [], byTalentId: [] };
+        var byId = {};
 
-        function merge() {
-            var seen = {};
-            var merged = [];
-            state.byUserId.concat(state.byTalentId).forEach(function (o) {
-                if (!seen[o.id]) { seen[o.id] = true; merged.push(o); }
+        function upsertOrder(order) {
+            if (!order || !order.id) return;
+            byId[String(order.id)] = order;
+        }
+
+        function removeRow(row) {
+            var oldData = row && row.data;
+            var oldId = oldData && oldData.id ? String(oldData.id) : String((row && row.id) || '');
+            if (!oldId) return;
+            delete byId[oldId];
+        }
+
+        function emit() {
+            callback({
+                success: true,
+                data: Object.keys(byId).map(function (id) { return byId[id]; })
             });
-            callback({ success: true, data: merged });
         }
 
         function loadByUserId() {
-            sb.from('orders').select('data').eq('user_id', userId)
+            sb.from('orders').select('id,data').eq('user_id', userId)
                 .then(function (res) {
                     if (!res.error && res.data) {
-                        state.byUserId = rowsToArr(res.data);
-                        merge();
+                        res.data.forEach(function (row) {
+                            upsertOrder(row && row.data);
+                        });
+                        emit();
                     }
                 });
         }
 
         function loadByTalentId() {
-            sb.from('orders').select('data').eq('talent_id', userId)
+            sb.from('orders').select('id,data').eq('talent_id', userId)
                 .then(function (res) {
                     if (!res.error && res.data) {
-                        state.byTalentId = rowsToArr(res.data);
-                        merge();
+                        res.data.forEach(function (row) {
+                            upsertOrder(row && row.data);
+                        });
+                        emit();
                     }
                 });
         }
@@ -2397,13 +2479,27 @@
                 schema: 'public',
                 table: 'orders',
                 filter: 'user_id=eq.' + userId
-            }, function () { loadByUserId(); })
+            }, function (payload) {
+                if (payload.eventType === 'DELETE') {
+                    removeRow(payload.old);
+                } else if (payload.new && payload.new.data) {
+                    upsertOrder(payload.new.data);
+                }
+                emit();
+            })
             .on('postgres_changes', {
                 event: '*',
                 schema: 'public',
                 table: 'orders',
                 filter: 'talent_id=eq.' + userId
-            }, function () { loadByTalentId(); })
+            }, function (payload) {
+                if (payload.eventType === 'DELETE') {
+                    removeRow(payload.old);
+                } else if (payload.new && payload.new.data) {
+                    upsertOrder(payload.new.data);
+                }
+                emit();
+            })
             .subscribe();
 
         return function () { sb.removeChannel(channel); };
@@ -2435,32 +2531,62 @@
     }
 
     function onMessages(orderId, callback) {
-        // Initial load
-        sb.from('messages').select('data')
+        var byId = {};
+
+        function normalizeMessage(row) {
+            if (!row || !row.data || typeof row.data !== 'object') return null;
+            var msg = Object.assign({}, row.data);
+            if (!msg.id && row.id) msg.id = String(row.id);
+            if (!msg.id) return null;
+            if (!msg.createdAt && row.created_at) msg.createdAt = Number(row.created_at) || 0;
+            return msg;
+        }
+
+        function upsertRow(row) {
+            var msg = normalizeMessage(row);
+            if (!msg) return;
+            byId[String(msg.id)] = msg;
+        }
+
+        function removeRow(row) {
+            var oldData = row && row.data;
+            var oldId = oldData && oldData.id ? String(oldData.id) : String((row && row.id) || '');
+            if (!oldId) return;
+            delete byId[oldId];
+        }
+
+        function emit() {
+            var list = Object.keys(byId).map(function (id) { return byId[id]; });
+            list.sort(function (a, b) {
+                return Number(a.createdAt || 0) - Number(b.createdAt || 0);
+            });
+            callback({ success: true, data: list });
+        }
+
+        sb.from('messages').select('id,created_at,data')
             .eq('order_id', orderId)
             .order('created_at', { ascending: true })
             .then(function (res) {
                 if (!res.error && res.data) {
-                    callback({ success: true, data: rowsToArr(res.data) });
+                    byId = {};
+                    res.data.forEach(upsertRow);
+                    emit();
                 }
             });
 
         var channel = sb.channel('messages-' + orderId)
             .on('postgres_changes', {
-                event: 'INSERT',
+                event: '*',
                 schema: 'public',
                 table: 'messages',
                 filter: 'order_id=eq.' + orderId
-            }, function () {
-                // Re-query for consistent ordering
-                sb.from('messages').select('data')
-                    .eq('order_id', orderId)
-                    .order('created_at', { ascending: true })
-                    .then(function (res) {
-                        if (!res.error && res.data) {
-                            callback({ success: true, data: rowsToArr(res.data) });
-                        }
-                    });
+            }, function (payload) {
+                if (payload.eventType === 'DELETE') {
+                    removeRow(payload.old);
+                } else if (payload.new) {
+                    upsertRow(payload.new);
+                }
+                emit();
             })
             .subscribe();
 
@@ -2468,11 +2594,26 @@
     }
 
     function onTalentLocation(orderId, callback) {
-        // Initial load
-        sb.from('locations').select('*').eq('order_id', orderId).single()
+        var state = { lat: 0, lng: 0, updatedAt: 0 };
+
+        function emitRow(row) {
+            if (!row) return;
+            var lat = Number(row.lat);
+            var lng = Number(row.lng);
+            var updatedAt = Number(row.updated_at || 0);
+            if (!_isValidLatLng(lat, lng)) return;
+            if (updatedAt > 0 && state.updatedAt > 0 && updatedAt < state.updatedAt) return;
+            if (state.updatedAt === updatedAt && state.lat === lat && state.lng === lng) return;
+            state.lat = lat;
+            state.lng = lng;
+            state.updatedAt = updatedAt || Date.now();
+            callback({ lat: state.lat, lng: state.lng, updatedAt: state.updatedAt });
+        }
+
+        sb.from('locations').select('lat,lng,updated_at').eq('order_id', orderId).maybeSingle()
             .then(function (res) {
                 if (!res.error && res.data) {
-                    callback({ lat: res.data.lat, lng: res.data.lng, updatedAt: res.data.updated_at });
+                    emitRow(res.data);
                 }
             });
 
@@ -2484,7 +2625,7 @@
                 filter: 'order_id=eq.' + orderId
             }, function (payload) {
                 if (payload.new) {
-                    callback({ lat: payload.new.lat, lng: payload.new.lng, updatedAt: payload.new.updated_at });
+                    emitRow(payload.new);
                 }
             })
             .subscribe();
@@ -2544,8 +2685,44 @@
         },
 
         onNotifications: function (userId, callback) {
+            var byId = {};
+
+            function upsertNotif(item) {
+                if (!item) return;
+                var id = String(item.id || '');
+                if (!id) return;
+                byId[id] = item;
+            }
+
+            function upsertRow(row) {
+                if (!row || !row.data || typeof row.data !== 'object') return;
+                var notif = Object.assign({}, row.data);
+                if (!notif.id && row.id) notif.id = String(row.id);
+                if (!notif.createdAt && row.created_at) notif.createdAt = Number(row.created_at) || 0;
+                upsertNotif(notif);
+            }
+
+            function removeRow(row) {
+                var oldData = row && row.data;
+                var oldId = oldData && oldData.id ? String(oldData.id) : String((row && row.id) || '');
+                if (!oldId) return;
+                delete byId[oldId];
+            }
+
+            function emit() {
+                var list = Object.keys(byId).map(function (id) { return byId[id]; });
+                list.sort(function (a, b) {
+                    return Number(b.createdAt || 0) - Number(a.createdAt || 0);
+                });
+                callback(list.slice(0, 50));
+            }
+
             getNotifications(userId).then(function (res) {
-                if (res.success) callback(res.data);
+                if (res.success) {
+                    byId = {};
+                    (res.data || []).forEach(upsertNotif);
+                    emit();
+                }
             });
             var channel = sb.channel('notifs-' + userId)
                 .on('postgres_changes', {
@@ -2553,10 +2730,13 @@
                     schema: 'public',
                     table: 'notifications',
                     filter: 'user_id=eq.' + userId
-                }, function () {
-                    getNotifications(userId).then(function (res) {
-                        if (res.success) callback(res.data);
-                    });
+                }, function (payload) {
+                    if (payload.eventType === 'DELETE') {
+                        removeRow(payload.old);
+                    } else if (payload.new) {
+                        upsertRow(payload.new);
+                    }
+                    emit();
                 })
                 .subscribe();
             return function () { sb.removeChannel(channel); };
@@ -2564,10 +2744,13 @@
 
         setTalentLocation: function (orderId, lat, lng) {
             if (!isSupabaseReady) return;
+            var nLat = _roundCoord(lat);
+            var nLng = _roundCoord(lng);
+            if (!_isValidLatLng(nLat, nLng)) return;
             sb.from('locations').upsert({
                 order_id: orderId,
-                lat: lat,
-                lng: lng,
+                lat: nLat,
+                lng: nLng,
                 updated_at: Date.now()
             }).then(function () {});
         },
