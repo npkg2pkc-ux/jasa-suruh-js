@@ -1,0 +1,51 @@
+{
+  "packageId": "com.jsid.vercel.app",
+  "host": "jsid.vercel.app",
+  "name": "Jasa Suruh",
+  "launcherName": "JS",
+  "display": "standalone",
+  "themeColor": "#212121",
+  "themeColorDark": "#000000",
+  "navigationColor": "#000000",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#000000",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#111111",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://jsid.vercel.app/icons/icon-512.png?v=20260402-7",
+  "maskableIconUrl": "https://jsid.vercel.app/icons/icon-512.png?v=20260402-7",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "C:\\Users\\Hacha\\Downloads\\App Saya\\JS\\jsid-release-key.jks",
+    "alias": "jsid"
+  },
+  "appVersionName": "1",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://jsid.vercel.app/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": true
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://jsid.vercel.app/",
+  "minSdkVersion": 21,
+  "orientation": "portrait",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": [],
+  "appVersion": "1"
+}
